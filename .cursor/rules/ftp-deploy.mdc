@@ -1,0 +1,43 @@
+---
+description: FTP 재배포 및 서버 운영 규칙 (tinpass.com / api.tinpass.com)
+globs:
+  - deploy/**
+  - backend/**
+  - frontend/**
+alwaysApply: false
+---
+
+# FTP 재배포 운영 규칙
+
+운영 서버 관리는 **Git pull이 아니라 FTP + SSH** 가 표준이다.
+
+## 흐름
+
+1. 로컬 PC에서 코드 수정·테스트
+2. FTP로 `/var/www/crypto-workflow/` 에 소스만 업로드
+3. SSH: `bash deploy/cafe24-business/ftp-apply.sh`
+
+## FTP 업로드 (모드 A)
+
+- `backend/src/`, `backend/prisma/`, `backend/package*.json`, `backend/tsconfig.json`
+- `frontend/src/`, `frontend/public/`, `frontend/package*.json`, `frontend/*.config.js`, `frontend/tsconfig.json`
+- `deploy/`
+
+## 절대 FTP로 덮어쓰지 말 것
+
+- `backend/.env`, `frontend/.env.local`
+- `uploads/`
+- `/etc/nginx/conf.d/crypto-workflow-tinpass.conf` (certbot SSL)
+- `node_modules/`, `backend/dist/`, `frontend/.next/` (모드 A)
+
+## SSH 명령
+
+```bash
+cd /var/www/crypto-workflow
+bash deploy/cafe24-business/ftp-apply.sh   # 소스 업로드 후
+pm2 status                                  # 확인
+```
+
+로컬 빌드 산출물만 올린 경우: `bash deploy/cafe24-business/ftp-apply-built.sh`
+
+상세: `docs/FTP_DEPLOY_RULES.md`

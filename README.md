@@ -127,3 +127,18 @@ npm run dev          # http://localhost:3000
 - `JWT_SECRET`, `DATABASE_URL` 환경변수 설정
 - `uploads/` → S3/MinIO 마이그레이션 가능 (`attachment.service.ts`)
 - Frontend `NEXT_PUBLIC_API_URL` → API 서버 URL
+
+### 운영 재배포 (FTP + SSH) — 표준
+
+로컬 수정 → **FTP 업로드** → **SSH 한 줄** 이 운영 규칙입니다.
+
+| 단계 | 작업 |
+|------|------|
+| FTP | `backend/src`, `frontend/src`, `deploy`, `package.json` 등 (manifest 참고) |
+| 금지 | `node_modules`, `.env`, `backend/.env`, certbot 적용된 nginx |
+| SSH | `bash deploy/cafe24-business/ftp-apply.sh` |
+
+전체 규칙: **[docs/FTP_DEPLOY_RULES.md](docs/FTP_DEPLOY_RULES.md)**  
+업로드 목록: `deploy/cafe24-business/FTP-UPLOAD-MANIFEST.txt`
+
+카페24 최초 설치: [docs/DEPLOY_CAFE24_BUSINESS.md](docs/DEPLOY_CAFE24_BUSINESS.md)

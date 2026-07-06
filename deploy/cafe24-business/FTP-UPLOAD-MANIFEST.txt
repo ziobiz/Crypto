@@ -1,0 +1,30 @@
+# FTP 업로드 대상 목록 (모드 A — 소스 배포)
+# Cafe24 FTP 루트: /var/www/crypto-workflow
+#
+# ✅ 업로드
+backend/src/
+backend/prisma/
+backend/package.json
+backend/package-lock.json
+backend/tsconfig.json
+frontend/src/
+frontend/public/
+frontend/package.json
+frontend/package-lock.json
+frontend/tsconfig.json
+frontend/next.config.js
+frontend/postcss.config.js
+frontend/tailwind.config.js
+deploy/
+
+# ❌ 업로드 금지
+node_modules/
+backend/dist/
+frontend/.next/
+.git/
+uploads/
+backend/.env
+frontend/.env.local
+
+# SSH 적용 (업로드 후)
+# bash deploy/cafe24-business/ftp-apply.sh
