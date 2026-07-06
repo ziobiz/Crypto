@@ -8,6 +8,10 @@ cd "$ROOT"
 echo "==> Backend"
 cd backend
 npm ci
+if [ ! -d node_modules/express ]; then
+  echo "ERROR: backend dependencies missing (express not found). Run: cd backend && npm ci"
+  exit 1
+fi
 npx prisma generate
 npm run build
 echo "==> DB 스키마 동기화"
