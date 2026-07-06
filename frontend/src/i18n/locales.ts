@@ -12,13 +12,13 @@ export const LOCALE_LABELS: Record<Locale, string> = {
   TH: 'ไทย',
 };
 
-/** PG 상단 언어 버튼 표기 */
+/** PG 상단 언어 버튼 — KR / JP / US / CH / TH */
 export const LOCALE_SHORT: Record<Locale, string> = {
-  KR: '한국어',
-  JP: '日本語',
-  US: 'English',
-  CH: '中文',
-  TH: 'ไทย',
+  KR: 'KR',
+  JP: 'JP',
+  US: 'US',
+  CH: 'CH',
+  TH: 'TH',
 };
 
 export const LOCALE_HTML_LANG: Record<Locale, string> = {

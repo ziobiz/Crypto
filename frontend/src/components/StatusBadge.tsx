@@ -42,7 +42,7 @@ export function StatusBadge({ status }: { status: string }) {
 
   return (
     <span
-      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[status] ?? 'bg-gray-100 text-gray-700'}`}
+      className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium leading-none ${STATUS_COLORS[status] ?? 'bg-gray-100 text-gray-700'}`}
     >
       {label}
     </span>

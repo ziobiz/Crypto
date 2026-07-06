@@ -17,16 +17,14 @@ export default function HqAccessLayout({ children }: { children: React.ReactNode
   return (
     <div className="space-y-4">
       <p className="text-sm text-gray-600">{t('hq.hub.accessDesc')}</p>
-      <nav className="flex flex-wrap gap-2">
+      <nav className="flex flex-wrap gap-2.5">
         {SUB_TABS.map((tab) => {
           const active = pathname === tab.href;
           return (
             <Link
               key={tab.href}
               href={tab.href}
-              className={`rounded-md px-3 py-1.5 text-sm ${
-                active ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+              className={`pg-subtab ${active ? 'pg-subtab-active' : 'pg-subtab-idle'}`}
             >
               {t(tab.labelKey)}
             </Link>

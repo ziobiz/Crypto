@@ -37,14 +37,21 @@ cat > frontend/.env.local <<'ENVEOF'
 NEXT_PUBLIC_API_URL=https://api.tinpass.com
 ENVEOF
 
-if [ -f /etc/letsencrypt/live/api.tinpass.com/fullchain.pem ]; then
-  echo "==> Nginx: SSL 인증서 있음 — certbot 설정 유지 (건너뜀)"
+if [ -f /etc/letsencrypt/live/api.tinpass.com/fullchain.pem ] || \
+   [ -f /etc/letsencrypt/live/tinpass.com/fullchain.pem ]; then
+  echo "==> Nginx + SSL (인증서 있음)"
+  sudo bash deploy/cafe24-business/setup-ssl-tinpass.sh 2>/dev/null || \
+    bash deploy/cafe24-business/setup-ssl-tinpass.sh
 else
-  echo "==> Nginx (HTTP only — SSL 전)"
-  cp deploy/cafe24-business/nginx/crypto-workflow-tinpass.conf /etc/nginx/conf.d/
-  rm -f /etc/nginx/conf.d/crypto-workflow.conf
-  nginx -t
-  systemctl reload nginx
+  echo "==> Nginx HTTP + SSL 발급 시도"
+  sudo bash deploy/cafe24-business/setup-ssl-tinpass.sh 2>/dev/null || {
+    echo "==> Nginx (HTTP only — SSL은 수동 실행)"
+    cp deploy/cafe24-business/nginx/crypto-workflow-tinpass.conf /etc/nginx/conf.d/
+    rm -f /etc/nginx/conf.d/crypto-workflow.conf
+    nginx -t
+    systemctl reload nginx
+    echo "    sudo bash deploy/cafe24-business/setup-ssl-tinpass.sh"
+  }
 fi
 
 echo "==> 디렉터리"

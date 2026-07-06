@@ -70,12 +70,12 @@ export default function HqGridOrderPage() {
       <p className="text-sm text-gray-600">{t('hq.gridOrder.desc')}</p>
 
       <div className="flex flex-wrap gap-3">
-        <select value={pagePath} onChange={(e) => setPagePath(e.target.value)} className="rounded-lg border px-3 py-2 text-sm">
+        <select value={pagePath} onChange={(e) => setPagePath(e.target.value)} className="pg-input">
           {Object.entries(PAGE_KEYS).map(([path, key]) => (
             <option key={path} value={path}>{t(key)}</option>
           ))}
         </select>
-        <select value={orgLevel} onChange={(e) => setOrgLevel(e.target.value)} className="rounded-lg border px-3 py-2 text-sm">
+        <select value={orgLevel} onChange={(e) => setOrgLevel(e.target.value)} className="pg-input">
           {['HEAD_OFFICE', 'MASTER', 'BRANCH', 'AGENCY', 'SALES_OFFICE'].map((o) => (
             <option key={o} value={o}>{t(orgKey(o))}</option>
           ))}

@@ -9,6 +9,11 @@ import {
 } from './exchange-rate.service';
 import { settleCommission } from './commission.service';
 import { sendTradeReceiptEmail } from './trade-email.service';
+import {
+  getHqTransactionFees,
+  resolveTransactionFees,
+  commissionPoolFromSnapshots,
+} from './transaction-fee.service';
 
 const USDT_PURCHASE_INCLUDE = {
   usdtPurchase: { include: { wallet: true } },
@@ -82,14 +87,9 @@ export async function createUsdtPurchaseTicket(
 
   const currency = input.fiatCurrency ?? 'KRW';
   const { rate, source, fetchedAt } = await fetchUsdtFiatRate(currency);
-  const gasFee = Number(wallet.gasFeeAmount);
-  const platformFee = Number(wallet.platformFeeAmount);
-  const { expected, min, max } = calculateExpectedUsdtRange(
-    input.fiatAmount,
-    rate,
-    gasFee,
-    platformFee,
-  );
+  const hqFees = await getHqTransactionFees();
+  const fees = resolveTransactionFees(wallet, hqFees);
+  const { expected, min, max } = calculateExpectedUsdtRange(input.fiatAmount, rate, fees);
 
   const ticket = await prisma.$transaction(async (tx) => {
     const created = await tx.transactionTicket.create({
@@ -108,8 +108,11 @@ export async function createUsdtPurchaseTicket(
             expectedUsdtAmount: expected,
             expectedUsdtMin: min,
             expectedUsdtMax: max,
-            gasFeeSnapshot: gasFee,
-            platformFeeSnapshot: platformFee,
+            fxFeePercentSnapshot: fees.fxFeePercent,
+            gasFeeSnapshot: fees.gasFeeUsdt,
+            transferFeeSnapshot: fees.transferFeeUsdt,
+            otherFeeSnapshot: fees.otherFeeUsdt,
+            platformFeeSnapshot: 0,
             walletId: wallet.id,
           },
         },
@@ -287,8 +290,7 @@ export async function transitionUsdtPurchaseStatus(
       const detail = await tx.usdtPurchaseDetail.findUniqueOrThrow({
         where: { ticketId },
       });
-      const commissionPool =
-        Number(detail.gasFeeSnapshot) + Number(detail.platformFeeSnapshot);
+      const commissionPool = commissionPoolFromSnapshots(detail);
       await settleCommission(tx, {
         ticketId,
         ticketType: TicketType.USDT_PURCHASE,
@@ -346,6 +348,9 @@ function serializeTicket(ticket: Prisma.TransactionTicketGetPayload<{
     depositorName: detail.depositorName,
     depositTransferredAt: detail.depositTransferredAt,
     gasFeeSnapshot: Number(detail.gasFeeSnapshot),
+    fxFeePercentSnapshot: Number(detail.fxFeePercentSnapshot),
+    transferFeeSnapshot: Number(detail.transferFeeSnapshot),
+    otherFeeSnapshot: Number(detail.otherFeeSnapshot),
     platformFeeSnapshot: Number(detail.platformFeeSnapshot),
     usdtTxId: detail.usdtTxId,
     actualUsdtAmount: detail.actualUsdtAmount

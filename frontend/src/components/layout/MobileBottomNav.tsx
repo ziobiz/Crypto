@@ -5,8 +5,8 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthProvider';
 import { useT } from '@/context/LocaleProvider';
 import { NAV_ITEMS } from './nav-config';
+import { NavIcon } from './NavIcons';
 
-/** 모바일·태블릿 — 고객 하단 탭 (PG 모바일 네비) */
 export function MobileBottomNav() {
   const { user } = useAuth();
   const pathname = usePathname();
@@ -18,12 +18,12 @@ export function MobileBottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)] lg:hidden"
+      className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden"
       aria-label={t('nav.menu')}
     >
       <ul className="grid grid-cols-4">
         {items.map((item) => {
-          const active = pathname === item.href || pathname.startsWith(item.href + '/');
+          const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
           const label = item.shortKey ? t(item.shortKey) : t(item.labelKey);
           return (
             <li key={item.href}>
@@ -33,7 +33,7 @@ export function MobileBottomNav() {
                   active ? 'text-blue-600' : 'text-gray-500'
                 }`}
               >
-                <NavDot active={active} />
+                <NavIcon id={item.icon} className="h-5 w-5" />
                 <span className="truncate">{label}</span>
               </Link>
             </li>
@@ -41,14 +41,5 @@ export function MobileBottomNav() {
         })}
       </ul>
     </nav>
-  );
-}
-
-function NavDot({ active }: { active: boolean }) {
-  return (
-    <span
-      className={`h-1.5 w-1.5 rounded-full ${active ? 'bg-blue-600' : 'bg-gray-300'}`}
-      aria-hidden
-    />
   );
 }

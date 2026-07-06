@@ -75,12 +75,27 @@ export type HqOrgColumnConfig = Record<
 >;
 
 export type HqCommissionRiskConfig = {
+  /** FX 환전 수수료 (% — gross USDT 대비) */
+  defaultFxFeePercent: number;
+  /** 가스피 (USDT) */
   defaultGasFeeUsdt: number;
-  defaultPlatformFeeUsdt: number;
+  /** 송금 수수료 (USDT) */
+  defaultTransferFeeUsdt: number;
+  /** 기타 수수료 (USDT) */
+  defaultOtherFeeUsdt: number;
   maxTicketAmountKrw: number;
   riskEnabled: boolean;
   maxDailyTicketsPerCustomer: number;
   notes?: string;
+  /** @deprecated — defaultTransferFeeUsdt 로 이전 */
+  defaultPlatformFeeUsdt?: number;
+};
+
+export type TransactionFees = {
+  fxFeePercent: number;
+  gasFeeUsdt: number;
+  transferFeeUsdt: number;
+  otherFeeUsdt: number;
 };
 
 export type HqPlatformConfig = {

@@ -8,12 +8,22 @@ import {
   type HqPlatformConfig,
   type HqPlatformPayload,
 } from '@/lib/api';
-import { getApiBaseUrl } from '@/lib/api-base';
 import { LOCALES } from '@/i18n/locales';
 import { DEFAULT_LOGIN_NOTICE_I18N } from '@/lib/login-notice';
+import { BrandAssetField, type BrandAssetKey } from '@/components/hq-policy/BrandAssetField';
 
-function assetPreview(path?: string) {
-  return path ? `${getApiBaseUrl()}${path}` : null;
+function afterAssetUpload(
+  key: BrandAssetKey,
+  next: HqPlatformPayload,
+  setData: (d: HqPlatformPayload) => void,
+  setConfig: (c: HqPlatformPayload['config']) => void,
+  setAssetBust: (n: number) => void,
+  setUploadOk: (fn: (o: Partial<Record<BrandAssetKey, boolean>>) => Partial<Record<BrandAssetKey, boolean>>) => void,
+) {
+  setData(next);
+  setConfig(next.config);
+  setAssetBust(Date.now());
+  setUploadOk((o) => ({ ...o, [key]: true }));
 }
 
 export default function HqPlatformPage() {
@@ -31,6 +41,8 @@ export default function HqPlatformPage() {
   const [uploadingFavicon, setUploadingFavicon] = useState(false);
   const [uploadingBackground, setUploadingBackground] = useState(false);
   const [savingBrand, setSavingBrand] = useState(false);
+  const [assetBust, setAssetBust] = useState(() => Date.now());
+  const [uploadOk, setUploadOk] = useState<Partial<Record<BrandAssetKey, boolean>>>({});
   const [msg, setMsg] = useState('');
   const [emailMsg, setEmailMsg] = useState('');
   const [error, setError] = useState('');
@@ -84,9 +96,7 @@ export default function HqPlatformPage() {
     setMsg('');
     try {
       const next = await hqPolicyApi.uploadPlatformAuthLogo(file);
-      setData(next);
-      setConfig(next.config);
-      setMsg(t('hq.saved'));
+      afterAssetUpload('authLogo', next, setData, setConfig, setAssetBust, setUploadOk);
     } catch (e) {
       setMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
     } finally {
@@ -115,9 +125,7 @@ export default function HqPlatformPage() {
     setMsg('');
     try {
       const next = await hqPolicyApi.uploadPlatformLogo(file);
-      setData(next);
-      setConfig(next.config);
-      setMsg(t('hq.saved'));
+      afterAssetUpload('logo', next, setData, setConfig, setAssetBust, setUploadOk);
     } catch (e) {
       setMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
     } finally {
@@ -130,9 +138,7 @@ export default function HqPlatformPage() {
     setMsg('');
     try {
       const next = await hqPolicyApi.uploadPlatformFavicon(file);
-      setData(next);
-      setConfig(next.config);
-      setMsg(t('hq.saved'));
+      afterAssetUpload('favicon', next, setData, setConfig, setAssetBust, setUploadOk);
     } catch (e) {
       setMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
     } finally {
@@ -145,9 +151,7 @@ export default function HqPlatformPage() {
     setMsg('');
     try {
       const next = await hqPolicyApi.uploadPlatformBackground(file);
-      setData(next);
-      setConfig(next.config);
-      setMsg(t('hq.saved'));
+      afterAssetUpload('background', next, setData, setConfig, setAssetBust, setUploadOk);
     } catch (e) {
       setMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
     } finally {
@@ -186,7 +190,7 @@ export default function HqPlatformPage() {
   }
 
   if (error) {
-    return <p className="text-sm text-red-600">{error} — {t('hq.backendHint')}</p>;
+    return <p className="text-sm text-red-600">{error} ??{t('hq.backendHint')}</p>;
   }
 
   if (!data || !config || !email) return <p className="text-sm text-gray-500">{t('hq.loading')}</p>;
@@ -195,7 +199,7 @@ export default function HqPlatformPage() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-lg border border-gray-200 bg-white p-6 space-y-5">
+      <section className="pg-section pg-section-pad space-y-3">
         <div>
           <h2 className="font-semibold text-gray-900">{t('hq.platform.brandCardTitle')}</h2>
           <p className="mt-1 text-sm text-gray-500">{t('hq.platform.brandCardDesc')}</p>
@@ -206,51 +210,44 @@ export default function HqPlatformPage() {
           <input
             value={config.siteName ?? ''}
             onChange={(e) => setConfig({ ...config, siteName: e.target.value })}
-            className="mt-1 w-full rounded-lg border px-3 py-2"
+            className="pg-input mt-1"
             placeholder="Crypto Workflow"
           />
         </label>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-gray-700">{t('hq.platform.authLogo')}</p>
-            {config.authLogoUrl && (
-              <img src={assetPreview(config.authLogoUrl) ?? ''} alt="" className="h-12 w-auto rounded border bg-gray-50 p-2" />
+          <BrandAssetField
+            label={t('hq.platform.authLogo')}
+            desc={t('hq.platform.authLogoDesc')}
+            url={config.authLogoUrl}
+            cacheBust={assetBust}
+            accept="image/png,image/jpeg,image/webp,image/gif"
+            uploading={uploadingAuthLogo}
+            uploadLabel={t('hq.platform.uploadAuthLogo')}
+            savingLabel={t('hq.saving')}
+            uploadedLabel={t('hq.platform.assetUploaded')}
+            showUploaded={!!uploadOk.authLogo}
+            onUpload={uploadAuthLogo}
+            preview={(src) => (
+              <img src={src} alt="" className="mx-auto block max-h-12 w-auto object-contain" />
             )}
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50">
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) uploadAuthLogo(f);
-                }}
-              />
-              {uploadingAuthLogo ? t('hq.saving') : t('hq.platform.uploadAuthLogo')}
-            </label>
-            <p className="text-xs text-gray-500">{t('hq.platform.authLogoDesc')}</p>
-          </div>
-
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-gray-700">{t('hq.platform.logoTitle')}</p>
-            {config.logoUrl && (
-              <img src={assetPreview(config.logoUrl) ?? ''} alt="" className="h-12 w-auto rounded border bg-gray-50 p-2" />
+          />
+          <BrandAssetField
+            label={t('hq.platform.logoTitle')}
+            desc={t('hq.platform.logoDesc')}
+            url={config.logoUrl}
+            cacheBust={assetBust}
+            accept="image/png,image/jpeg,image/webp,image/gif"
+            uploading={uploadingLogo}
+            uploadLabel={t('hq.platform.uploadLogo')}
+            savingLabel={t('hq.saving')}
+            uploadedLabel={t('hq.platform.assetUploaded')}
+            showUploaded={!!uploadOk.logo}
+            onUpload={uploadLogo}
+            preview={(src) => (
+              <img src={src} alt="" className="mx-auto block max-h-12 w-auto object-contain" />
             )}
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50">
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) uploadLogo(f);
-                }}
-              />
-              {uploadingLogo ? t('hq.saving') : t('hq.platform.uploadLogo')}
-            </label>
-            <p className="text-xs text-gray-500">{t('hq.platform.logoDesc')}</p>
-          </div>
+          />
         </div>
 
         <label className="block text-sm">
@@ -259,15 +256,15 @@ export default function HqPlatformPage() {
             value={config.authMainText ?? ''}
             onChange={(e) => setConfig({ ...config, authMainText: e.target.value })}
             rows={2}
-            className="mt-1 w-full rounded-lg border px-3 py-2"
+            className="pg-input mt-1"
             placeholder="Crypto Workflow"
           />
           <span className="mt-1 block text-xs text-gray-500">{t('hq.platform.authMainTextDesc')}</span>
         </label>
 
-        <div className="space-y-3 rounded-lg border border-gray-100 bg-gray-50 p-4">
+        <div className="space-y-3 rounded-lg border border-amber-100 bg-amber-50/60 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <label className="flex items-center gap-2 text-sm font-medium">
+            <label className="flex items-center gap-2 text-[11px] font-medium">
               <input
                 type="checkbox"
                 checked={config.loginNoticeEnabled !== false}
@@ -290,17 +287,18 @@ export default function HqPlatformPage() {
               ))}
             </div>
           </div>
+          <p className="text-xs text-amber-900/80">{t('hq.platform.loginNoticeDesc')}</p>
           <input
             value={config.loginNoticeI18n?.[noticeLocale]?.title ?? ''}
             onChange={(e) => updateNoticeField('title', e.target.value)}
-            className="w-full rounded-lg border px-3 py-2 text-sm"
+            className="pg-input"
             placeholder={t('hq.platform.loginNoticeTitle')}
           />
           <textarea
             value={config.loginNoticeI18n?.[noticeLocale]?.body ?? ''}
             onChange={(e) => updateNoticeField('body', e.target.value)}
             rows={4}
-            className="w-full rounded-lg border px-3 py-2 text-sm"
+            className="pg-input"
             placeholder={t('hq.platform.loginNoticeBody')}
           />
           <button type="button" onClick={loadDefaultNotice} className="text-xs text-blue-600 hover:underline">
@@ -308,46 +306,37 @@ export default function HqPlatformPage() {
           </button>
         </div>
 
-        <div className="space-y-2">
-          <p className="text-sm font-medium text-gray-700">{t('hq.platform.favicon')}</p>
-          {config.faviconUrl && (
-            <img src={assetPreview(config.faviconUrl) ?? ''} alt="" className="h-8 w-8 rounded border" />
-          )}
-          <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50">
-            <input
-              type="file"
-              accept="image/png,image/x-icon,image/vnd.microsoft.icon,.ico"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) uploadFavicon(f);
-              }}
-            />
-            {uploadingFavicon ? t('hq.saving') : t('hq.platform.uploadFavicon')}
-          </label>
-        </div>
-
-        <div className="space-y-2">
-          <p className="text-sm font-medium text-gray-700">{t('hq.platform.authBackground')}</p>
-          {config.authBackgroundUrl && (
-            <img
-              src={assetPreview(config.authBackgroundUrl) ?? ''}
-              alt=""
-              className="h-24 w-full max-w-md rounded-lg border object-cover"
-            />
-          )}
-          <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50">
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) uploadBackground(f);
-              }}
-            />
-            {uploadingBackground ? t('hq.saving') : t('hq.platform.uploadBackground')}
-          </label>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <BrandAssetField
+            label={t('hq.platform.favicon')}
+            url={config.faviconUrl}
+            cacheBust={assetBust}
+            accept="image/png,image/x-icon,image/vnd.microsoft.icon,.ico,image/webp"
+            uploading={uploadingFavicon}
+            uploadLabel={t('hq.platform.uploadFavicon')}
+            savingLabel={t('hq.saving')}
+            uploadedLabel={t('hq.platform.assetUploaded')}
+            showUploaded={!!uploadOk.favicon}
+            onUpload={uploadFavicon}
+            preview={(src) => (
+              <img src={src} alt="" className="mx-auto block h-8 w-8 object-contain" />
+            )}
+          />
+          <BrandAssetField
+            label={t('hq.platform.authBackground')}
+            url={config.authBackgroundUrl}
+            cacheBust={assetBust}
+            accept="image/png,image/jpeg,image/webp"
+            uploading={uploadingBackground}
+            uploadLabel={t('hq.platform.uploadBackground')}
+            savingLabel={t('hq.saving')}
+            uploadedLabel={t('hq.platform.assetUploaded')}
+            showUploaded={!!uploadOk.background}
+            onUpload={uploadBackground}
+            preview={(src) => (
+              <img src={src} alt="" className="h-24 w-full rounded object-cover" />
+            )}
+          />
         </div>
 
         <label className="block text-sm">
@@ -356,7 +345,7 @@ export default function HqPlatformPage() {
             value={config.footerText ?? ''}
             onChange={(e) => setConfig({ ...config, footerText: e.target.value })}
             rows={2}
-            className="mt-1 w-full rounded-lg border px-3 py-2"
+            className="pg-input mt-1"
             placeholder={t('hq.platform.footerPlaceholder')}
           />
         </label>
@@ -365,14 +354,14 @@ export default function HqPlatformPage() {
           type="button"
           onClick={saveBrand}
           disabled={savingBrand}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          className="pg-btn pg-btn-primary disabled:opacity-50"
         >
           {savingBrand ? t('hq.saving') : t('hq.platform.saveBrand')}
         </button>
         {msg && <p className="text-sm text-gray-600">{msg}</p>}
       </section>
 
-      <section className="rounded-lg border border-gray-200 bg-white p-6 space-y-4">
+      <section className="pg-section pg-section-pad space-y-3">
         <h2 className="font-semibold text-gray-900">{t('hq.platform.title')}</h2>
         <p className="text-sm text-gray-500">{t('hq.platform.desc')}</p>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -381,7 +370,7 @@ export default function HqPlatformPage() {
             <input
               value={config.primaryDomain}
               onChange={(e) => setConfig({ ...config, primaryDomain: e.target.value })}
-              className="mt-1 w-full rounded-lg border px-3 py-2"
+              className="pg-input mt-1"
             />
           </label>
           <label className="block text-sm">
@@ -389,7 +378,7 @@ export default function HqPlatformPage() {
             <input
               value={config.apiPublicUrl}
               onChange={(e) => setConfig({ ...config, apiPublicUrl: e.target.value })}
-              className="mt-1 w-full rounded-lg border px-3 py-2"
+              className="pg-input mt-1"
             />
           </label>
           <label className="block text-sm sm:col-span-2">
@@ -402,7 +391,7 @@ export default function HqPlatformPage() {
                   corsOrigins: e.target.value.split(',').map((s) => s.trim()).filter(Boolean),
                 })
               }
-              className="mt-1 w-full rounded-lg border px-3 py-2"
+              className="pg-input mt-1"
             />
           </label>
           <label className="block text-sm sm:col-span-2">
@@ -410,7 +399,7 @@ export default function HqPlatformPage() {
             <input
               value={config.sslCertPath ?? ''}
               onChange={(e) => setConfig({ ...config, sslCertPath: e.target.value })}
-              className="mt-1 w-full rounded-lg border px-3 py-2 font-mono text-xs"
+              className="pg-input mt-1 font-mono"
             />
           </label>
         </div>
@@ -426,14 +415,14 @@ export default function HqPlatformPage() {
           type="button"
           onClick={save}
           disabled={saving}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          className="pg-btn pg-btn-primary disabled:opacity-50"
         >
           {saving ? t('hq.saving') : t('hq.platform.save')}
         </button>
         {msg && <p className="text-sm text-gray-600">{msg}</p>}
       </section>
 
-      <section className="rounded-lg border border-gray-200 bg-white p-6 space-y-4">
+      <section className="pg-section pg-section-pad space-y-3">
         <h2 className="font-semibold text-gray-900">{t('hq.platform.emailTitle')}</h2>
         <p className="text-sm text-gray-500">{t('hq.platform.emailDesc')}</p>
 
@@ -495,7 +484,7 @@ export default function HqPlatformPage() {
               onChange={(e) =>
                 setEmail({ ...email, otpExpireMinutes: Number(e.target.value) || 5 })
               }
-              className="mt-1 w-full rounded-lg border px-3 py-2"
+              className="pg-input mt-1"
             />
           </label>
           <label className="block text-sm sm:col-span-2">
@@ -503,7 +492,7 @@ export default function HqPlatformPage() {
             <input
               value={email.otpEmailSubject}
               onChange={(e) => setEmail({ ...email, otpEmailSubject: e.target.value })}
-              className="mt-1 w-full rounded-lg border px-3 py-2"
+              className="pg-input mt-1"
             />
           </label>
           <label className="block text-sm sm:col-span-2">
@@ -512,7 +501,7 @@ export default function HqPlatformPage() {
               rows={4}
               value={email.otpEmailBody}
               onChange={(e) => setEmail({ ...email, otpEmailBody: e.target.value })}
-              className="mt-1 w-full rounded-lg border px-3 py-2 font-mono text-xs"
+              className="pg-input mt-1 font-mono"
             />
           </label>
           <label className="block text-sm">
@@ -520,7 +509,7 @@ export default function HqPlatformPage() {
             <input
               value={email.smtpHost}
               onChange={(e) => setEmail({ ...email, smtpHost: e.target.value })}
-              className="mt-1 w-full rounded-lg border px-3 py-2"
+              className="pg-input mt-1"
             />
           </label>
           <label className="block text-sm">
@@ -529,7 +518,7 @@ export default function HqPlatformPage() {
               type="number"
               value={email.smtpPort}
               onChange={(e) => setEmail({ ...email, smtpPort: Number(e.target.value) || 587 })}
-              className="mt-1 w-full rounded-lg border px-3 py-2"
+              className="pg-input mt-1"
             />
           </label>
           <label className="flex items-center gap-2 text-sm sm:col-span-2">
@@ -545,7 +534,7 @@ export default function HqPlatformPage() {
             <input
               value={email.smtpUser}
               onChange={(e) => setEmail({ ...email, smtpUser: e.target.value })}
-              className="mt-1 w-full rounded-lg border px-3 py-2"
+              className="pg-input mt-1"
             />
           </label>
           <label className="block text-sm">
@@ -555,7 +544,7 @@ export default function HqPlatformPage() {
               value={email.smtpPassword}
               placeholder={t('hq.platform.smtpPasswordHint')}
               onChange={(e) => setEmail({ ...email, smtpPassword: e.target.value })}
-              className="mt-1 w-full rounded-lg border px-3 py-2"
+              className="pg-input mt-1"
             />
           </label>
           <label className="block text-sm">
@@ -564,7 +553,7 @@ export default function HqPlatformPage() {
               type="email"
               value={email.fromAddress}
               onChange={(e) => setEmail({ ...email, fromAddress: e.target.value })}
-              className="mt-1 w-full rounded-lg border px-3 py-2"
+              className="pg-input mt-1"
             />
           </label>
           <label className="block text-sm">
@@ -572,7 +561,7 @@ export default function HqPlatformPage() {
             <input
               value={email.fromName}
               onChange={(e) => setEmail({ ...email, fromName: e.target.value })}
-              className="mt-1 w-full rounded-lg border px-3 py-2"
+              className="pg-input mt-1"
             />
           </label>
         </div>
@@ -582,7 +571,7 @@ export default function HqPlatformPage() {
             type="button"
             onClick={saveEmail}
             disabled={savingEmail}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            className="pg-btn pg-btn-primary disabled:opacity-50"
           >
             {savingEmail ? t('hq.saving') : t('hq.platform.saveEmail')}
           </button>
@@ -592,14 +581,14 @@ export default function HqPlatformPage() {
               type="email"
               value={testTo}
               onChange={(e) => setTestTo(e.target.value)}
-              className="mt-1 w-56 rounded-lg border px-3 py-2"
+              className="pg-input mt-1 w-56"
             />
           </label>
           <button
             type="button"
             onClick={sendTest}
             disabled={sendingTest || !testTo}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
+            className="pg-btn pg-btn-secondary disabled:opacity-50"
           >
             {sendingTest ? t('hq.saving') : t('hq.platform.sendTest')}
           </button>
@@ -608,7 +597,7 @@ export default function HqPlatformPage() {
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2">
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="pg-card pg-card-body">
           <h3 className="font-medium text-gray-900">{t('hq.platform.sslStatus')}</h3>
           <dl className="mt-2 space-y-1 text-sm">
             <div className="flex justify-between">
@@ -629,7 +618,7 @@ export default function HqPlatformPage() {
             )}
           </dl>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="pg-card pg-card-body">
           <h3 className="font-medium text-gray-900">{t('hq.platform.server')}</h3>
           <dl className="mt-2 space-y-1 text-sm">
             <div className="flex justify-between">
@@ -654,7 +643,7 @@ export default function HqPlatformPage() {
         <p className="font-medium text-gray-800">{t('hq.platform.leGuide')}</p>
         <pre className="mt-2 overflow-x-auto rounded bg-white p-3 text-xs">
 {`apt-get install -y certbot python3-certbot-nginx
-certbot --nginx -d api.tinpass.com -d tinpass.com -d www.tinpass.com`}
+sudo bash deploy/cafe24-business/setup-ssl-tinpass.sh`}
         </pre>
       </section>
     </div>

@@ -1,5 +1,6 @@
 import { CurrencyCode } from '@prisma/client';
 import { AppError } from '../lib/errors';
+import type { TransactionFees } from '../constants/hq-policy';
 
 export type FiatCurrency = 'KRW' | 'USD' | 'JPY';
 
@@ -91,14 +92,14 @@ export async function getExchangeRateDisplay(currency: FiatCurrency = 'KRW') {
 export function calculateExpectedUsdt(
   fiatAmount: number,
   exchangeRate: number,
-  gasFee: number,
-  platformFee: number,
+  fees: TransactionFees,
 ): number {
   if (exchangeRate <= 0) {
     throw new AppError(400, 'Invalid exchange rate', 'INVALID_RATE');
   }
   const grossUsdt = fiatAmount / exchangeRate;
-  const net = grossUsdt - gasFee - platformFee;
+  const fxFee = (grossUsdt * fees.fxFeePercent) / 100;
+  const net = grossUsdt - fxFee - fees.gasFeeUsdt - fees.transferFeeUsdt - fees.otherFeeUsdt;
   return Math.max(0, Number(net.toFixed(8)));
 }
 
@@ -106,11 +107,10 @@ export function calculateExpectedUsdt(
 export function calculateExpectedUsdtRange(
   fiatAmount: number,
   exchangeRate: number,
-  gasFee: number,
-  platformFee: number,
+  fees: TransactionFees,
 ): { expected: number; min: number; max: number } {
-  const expected = calculateExpectedUsdt(fiatAmount, exchangeRate, gasFee, platformFee);
-  const gasVariance = gasFee * 0.2;
+  const expected = calculateExpectedUsdt(fiatAmount, exchangeRate, fees);
+  const gasVariance = fees.gasFeeUsdt * 0.2;
   const min = Math.max(0, Number((expected - gasVariance).toFixed(8)));
   const max = Math.max(0, Number((expected + gasVariance).toFixed(8)));
   return { expected, min, max };

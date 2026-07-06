@@ -1,4 +1,5 @@
-import express from 'express';
+import express, { type Response } from 'express';
+import path from 'path';
 import cors from 'cors';
 import authRoutes from './routes/auth.routes';
 import walletRoutes from './routes/wallet.routes';
@@ -13,9 +14,32 @@ import { hqPolicyService } from './services/hq-policy.service';
 import { errorHandler } from './middleware/errorHandler';
 import { asyncHandler } from './middleware/asyncHandler';
 
+const BRAND_MIME: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif',
+  '.ico': 'image/x-icon',
+  '.svg': 'image/svg+xml',
+};
+
+function sendBrandingFile(res: Response, filePath: string | null): void {
+  if (!filePath) {
+    res.status(404).end();
+    return;
+  }
+  const abs = path.resolve(filePath);
+  const ext = path.extname(abs).toLowerCase();
+  if (BRAND_MIME[ext]) res.type(BRAND_MIME[ext]);
+  res.setHeader('Cache-Control', 'public, max-age=300');
+  res.sendFile(abs);
+}
+
 /** API + /health Express 앱 (listen 없음 — 통합 서버에서 마운트) */
 export function createApiApp(): express.Application {
   const app = express();
+  app.set('trust proxy', 1);
 
   const corsOrigin = process.env.CORS_ORIGIN;
   app.use(
@@ -39,39 +63,19 @@ export function createApiApp(): express.Application {
   );
 
   app.get('/api/branding/logo', (_req, res) => {
-    const logoPath = hqPolicyService.getLogoFilePath();
-    if (!logoPath) {
-      res.status(404).end();
-      return;
-    }
-    res.sendFile(logoPath);
+    sendBrandingFile(res, hqPolicyService.getLogoFilePath());
   });
 
   app.get('/api/branding/auth-logo', (_req, res) => {
-    const p = hqPolicyService.getAuthLogoFilePath();
-    if (!p) {
-      res.status(404).end();
-      return;
-    }
-    res.sendFile(p);
+    sendBrandingFile(res, hqPolicyService.getAuthLogoFilePath());
   });
 
   app.get('/api/branding/favicon', (_req, res) => {
-    const faviconPath = hqPolicyService.getFaviconFilePath();
-    if (!faviconPath) {
-      res.status(404).end();
-      return;
-    }
-    res.sendFile(faviconPath);
+    sendBrandingFile(res, hqPolicyService.getFaviconFilePath());
   });
 
   app.get('/api/branding/background', (_req, res) => {
-    const bgPath = hqPolicyService.getBackgroundFilePath();
-    if (!bgPath) {
-      res.status(404).end();
-      return;
-    }
-    res.sendFile(bgPath);
+    sendBrandingFile(res, hqPolicyService.getBackgroundFilePath());
   });
 
   app.use('/api/auth', authRoutes);

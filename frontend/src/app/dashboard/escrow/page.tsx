@@ -18,40 +18,47 @@ export default function EscrowListPage() {
   }, []);
 
   return (
-    <div>
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">{t('escrow.title')}</h1>
+    <div className="pg-stack">
+      <div className="flex items-center justify-end">
         {user?.role === 'CUSTOMER' && (
-          <Link href="/dashboard/escrow/new" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+          <Link href="/dashboard/escrow/new" className="pg-btn pg-btn-primary">
             {t('escrow.new')}
           </Link>
         )}
       </div>
-      <div className="mt-6 overflow-hidden rounded-xl border bg-white">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-50">
+      <div className="pg-card overflow-x-auto">
+        <table className="pg-table">
+          <thead>
             <tr>
-              <th className="px-4 py-3 text-left font-medium text-gray-500">{t('usdt.col.ticketNo')}</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-500">{t('escrow.col.title')}</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-500">{t('usdt.col.amount')}</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-500">{t('usdt.col.status')}</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-500">{t('escrow.col.createdAt')}</th>
+              <th>{t('usdt.col.ticketNo')}</th>
+              <th>{t('escrow.col.title')}</th>
+              <th>{t('usdt.col.amount')}</th>
+              <th>{t('usdt.col.status')}</th>
+              <th>{t('escrow.col.createdAt')}</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200">
+          <tbody>
             {tickets.map((ticket) => (
-              <tr key={ticket.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3">
-                  <Link href={`/dashboard/escrow/${ticket.id}`} className="font-medium text-blue-600 hover:underline">{ticket.ticketNo}</Link>
+              <tr key={ticket.id}>
+                <td>
+                  <Link href={`/dashboard/escrow/${ticket.id}`} className="font-medium text-blue-600 hover:underline">
+                    {ticket.ticketNo}
+                  </Link>
                 </td>
-                <td className="px-4 py-3">{ticket.title}</td>
-                <td className="px-4 py-3">{formatCurrency(ticket.amount, ticket.currency)}</td>
-                <td className="px-4 py-3"><StatusBadge status={ticket.status} /></td>
-                <td className="px-4 py-3 text-gray-500">{formatDate(ticket.createdAt)}</td>
+                <td>{ticket.title}</td>
+                <td>{formatCurrency(ticket.amount, ticket.currency)}</td>
+                <td>
+                  <StatusBadge status={ticket.status} />
+                </td>
+                <td className="text-gray-500">{formatDate(ticket.createdAt)}</td>
               </tr>
             ))}
             {tickets.length === 0 && (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-500">{t('escrow.empty')}</td></tr>
+              <tr>
+                <td colSpan={5} className="py-6 text-center text-gray-500">
+                  {t('escrow.empty')}
+                </td>
+              </tr>
             )}
           </tbody>
         </table>

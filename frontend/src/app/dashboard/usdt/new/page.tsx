@@ -4,10 +4,22 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useT } from '@/context/LocaleProvider';
 import { api, ExchangeRateResponse, Wallet } from '@/lib/api';
+import { calculateExpectedUsdtRange } from '@/lib/transaction-fees';
 import { UsdtRatePanel } from '@/components/UsdtRatePanel';
 
 const FIAT_CURRENCIES = ['KRW', 'JPY', 'USD'] as const;
 type FiatCurrency = (typeof FIAT_CURRENCIES)[number];
+
+function walletFees(wallet: Wallet) {
+  return (
+    wallet.effectiveFees ?? {
+      fxFeePercent: wallet.fxFeePercent,
+      gasFeeUsdt: wallet.gasFeeAmount,
+      transferFeeUsdt: wallet.transferFeeAmount || wallet.platformFeeAmount,
+      otherFeeUsdt: wallet.otherFeeAmount,
+    }
+  );
+}
 
 export default function UsdtNewPage() {
   const router = useRouter();
@@ -35,13 +47,11 @@ export default function UsdtNewPage() {
   const wallet = wallets.find((w) => w.id === walletId);
   const amount = parseFloat(fiatAmount) || 0;
   const fiatRate = rate?.usdtFiatRate ?? rate?.usdtKrwRate ?? 0;
-  const gasVariance = wallet ? wallet.gasFeeAmount * 0.2 : 0;
-  const expectedUsdt =
-    wallet && fiatRate > 0 && amount > 0
-      ? Math.max(0, amount / fiatRate - wallet.gasFeeAmount - wallet.platformFeeAmount)
-      : 0;
-  const expectedMin = Math.max(0, expectedUsdt - gasVariance);
-  const expectedMax = Math.max(0, expectedUsdt + gasVariance);
+  const fees = wallet ? walletFees(wallet) : null;
+  const range =
+    wallet && fees && fiatRate > 0 && amount > 0
+      ? calculateExpectedUsdtRange(amount, fiatRate, fees)
+      : { expected: 0, min: 0, max: 0 };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,19 +69,17 @@ export default function UsdtNewPage() {
 
   return (
     <div className="max-w-lg">
-      <h1 className="text-2xl font-bold">{t('usdt.newTitle')}</h1>
-
-      <div className="mt-4">
+      <div className="mb-3">
         <UsdtRatePanel compact />
       </div>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         <div>
-          <label className="block text-sm font-medium">{t('usdt.fiatCurrency')}</label>
+          <label className="pg-label">{t('usdt.fiatCurrency')}</label>
           <select
             value={fiatCurrency}
             onChange={(e) => setFiatCurrency(e.target.value as FiatCurrency)}
-            className="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+            className="pg-input mt-1"
           >
             {FIAT_CURRENCIES.map((c) => (
               <option key={c} value={c}>{c}</option>
@@ -84,12 +92,12 @@ export default function UsdtNewPage() {
           )}
         </div>
         <div>
-          <label className="block text-sm font-medium">{t('usdt.fiatAmountLabel', { currency: fiatCurrency })}</label>
-          <input type="number" value={fiatAmount} onChange={(e) => setFiatAmount(e.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" min="1" required />
+          <label className="pg-label">{t('usdt.fiatAmountLabel', { currency: fiatCurrency })}</label>
+          <input type="number" value={fiatAmount} onChange={(e) => setFiatAmount(e.target.value)} className="pg-input mt-1" min="1" required />
         </div>
         <div>
-          <label className="block text-sm font-medium">{t('usdt.wallet')}</label>
-          <select value={walletId} onChange={(e) => setWalletId(e.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" required>
+          <label className="pg-label">{t('usdt.wallet')}</label>
+          <select value={walletId} onChange={(e) => setWalletId(e.target.value)} className="pg-input mt-1" required>
             {wallets.map((w) => (
               <option key={w.id} value={w.id}>{w.label ?? w.address} ({w.network})</option>
             ))}
@@ -98,18 +106,20 @@ export default function UsdtNewPage() {
             <p className="mt-1 text-sm text-red-600">{t('usdt.noWallet')}</p>
           )}
         </div>
-        {wallet && amount > 0 && (
-          <div className="rounded-lg bg-gray-50 p-4 text-sm">
-            <p>{t('usdt.gasFee')}: {wallet.gasFeeAmount} USDT</p>
-            <p>{t('usdt.platformFee')}: {wallet.platformFeeAmount} USDT</p>
+        {wallet && fees && amount > 0 && (
+          <div className="rounded-lg bg-gray-50 p-4 text-sm space-y-1">
+            <p>{t('usdt.fxFee')}: {fees.fxFeePercent}%</p>
+            <p>{t('usdt.gasFee')}: {fees.gasFeeUsdt} USDT</p>
+            <p>{t('usdt.transferFee')}: {fees.transferFeeUsdt} USDT</p>
+            <p>{t('usdt.otherFee')}: {fees.otherFeeUsdt} USDT</p>
             <p className="mt-2 font-medium">
-              {t('usdt.expectedRange')}: {expectedMin.toFixed(4)} ~ {expectedMax.toFixed(4)} USDT
+              {t('usdt.expectedRange')}: {range.min.toFixed(4)} ~ {range.max.toFixed(4)} USDT
             </p>
             <p className="text-xs text-gray-500">{t('usdt.gasVarianceNote')}</p>
           </div>
         )}
         {error && <p className="text-sm text-red-600">{error}</p>}
-        <button type="submit" disabled={loading || wallets.length === 0} className="rounded-lg bg-blue-600 px-6 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+        <button type="submit" disabled={loading || wallets.length === 0} className="pg-btn pg-btn-primary disabled:opacity-50">
           {loading ? t('usdt.processing') : t('usdt.submit')}
         </button>
       </form>

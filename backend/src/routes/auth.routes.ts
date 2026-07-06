@@ -322,6 +322,19 @@ router.post(
 );
 
 router.get(
+  '/session-info',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const forwarded = req.headers['x-forwarded-for'];
+    const ip =
+      (typeof forwarded === 'string' ? forwarded.split(',')[0]?.trim() : undefined) ||
+      req.socket.remoteAddress ||
+      '';
+    res.json({ ip, serverTime: new Date().toISOString() });
+  }),
+);
+
+router.get(
   '/me',
   authenticate,
   asyncHandler(async (req, res) => {
@@ -353,7 +366,10 @@ router.get(
       passwordMustChange: user.passwordMustChange,
       wallets: user.wallets.map((w) => ({
         ...w,
+        fxFeePercent: Number(w.fxFeePercent),
         gasFeeAmount: Number(w.gasFeeAmount),
+        transferFeeAmount: Number(w.transferFeeAmount),
+        otherFeeAmount: Number(w.otherFeeAmount),
         platformFeeAmount: Number(w.platformFeeAmount),
       })),
     });

@@ -18,7 +18,7 @@ export default function HqUserSettingsPage() {
       <h2 className="text-lg font-semibold">{t('hq.sub.access.userSettings')}</h2>
       <p className="text-sm text-gray-600">{t('hq.userSettings.desc')}</p>
 
-      <div className="rounded-xl border bg-white p-6 text-sm space-y-3">
+      <div className="pg-section pg-section-pad text-sm space-y-3">
         <p><strong>{t('hq.userSettings.passwordPolicy')}</strong></p>
         <p className="text-gray-600">{t('hq.userSettings.passwordPolicyDesc')}</p>
         <p><strong>{t('hq.userSettings.otpPolicy')}</strong></p>

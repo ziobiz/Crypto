@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
+import { TicketType } from '@prisma/client';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { authenticate, requireRoles } from '../middleware/auth';
 import { hqPolicyService } from '../services/hq-policy.service';
@@ -67,6 +68,24 @@ router.put(
       return;
     }
     res.json(await hqPolicyService.saveCommissionRisk(body.risk));
+  }),
+);
+
+router.put(
+  '/commission/rates',
+  asyncHandler(async (req, res) => {
+    const body = req.body as {
+      rates?: Array<{ organizationId: string; ticketType: TicketType; ratePercent: number }>;
+    };
+    if (!body.rates?.length) {
+      res.status(400).json({ error: 'rates required' });
+      return;
+    }
+    try {
+      res.json(await hqPolicyService.saveCommissionRates(body.rates));
+    } catch (e) {
+      res.status(400).json({ error: e instanceof Error ? e.message : 'save failed' });
+    }
   }),
 );
 

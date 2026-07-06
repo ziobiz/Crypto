@@ -57,9 +57,24 @@ chmod +x deploy/cafe24-business/*.sh
 echo "==> Install runtime + restart PM2"
 bash deploy/cafe24-business/ftp-apply-built.sh
 
+echo "==> Nginx / SSL"
+if [ -f deploy/cafe24-business/setup-ssl-tinpass.sh ]; then
+  if [ "$(id -u)" -eq 0 ]; then
+    bash deploy/cafe24-business/setup-ssl-tinpass.sh
+  elif command -v sudo >/dev/null 2>&1; then
+    sudo bash deploy/cafe24-business/setup-ssl-tinpass.sh || {
+      echo "WARN: SSL setup failed — run manually:"
+      echo "  sudo bash deploy/cafe24-business/setup-ssl-tinpass.sh"
+    }
+  else
+    echo "WARN: run SSL setup as root:"
+    echo "  sudo bash deploy/cafe24-business/setup-ssl-tinpass.sh"
+  fi
+fi
+
 STAMP=$(date +%Y%m%d-%H%M%S)
 BACKUP="$ROOT/incoming/crypto-release.applied-${STAMP}.zip"
 mv "$ZIP" "$BACKUP"
 echo ""
 echo "Backup: $BACKUP"
-echo "Done: https://api.tinpass.com/login"
+echo "Done: https://tinpass.com/login"

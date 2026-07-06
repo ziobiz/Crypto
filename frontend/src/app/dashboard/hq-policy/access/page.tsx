@@ -56,7 +56,7 @@ export default function HqAccessPage() {
     <div className="space-y-4">
       <p className="text-sm text-gray-600">{t('hq.access.desc')}</p>
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-        <table className="min-w-full text-sm">
+        <table className="pg-table">
           <thead className="bg-gray-50">
             <tr>
               <th className="px-3 py-2 text-left font-medium text-gray-500">{t('hq.access.screen')}</th>
@@ -104,7 +104,7 @@ export default function HqAccessPage() {
           type="button"
           onClick={save}
           disabled={saving}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          className="pg-btn pg-btn-primary disabled:opacity-50"
         >
           {saving ? t('hq.saving') : t('hq.save')}
         </button>

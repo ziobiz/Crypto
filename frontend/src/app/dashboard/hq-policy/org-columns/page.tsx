@@ -85,7 +85,7 @@ export default function HqOrgColumnsPage() {
   }
 
   if (error) {
-    return <p className="text-sm text-red-600">{error} — {t('hq.backendHint')}</p>;
+    return <p className="text-sm text-red-600">{error} ??{t('hq.backendHint')}</p>;
   }
 
   if (!data) return <p className="text-sm text-gray-500">{t('hq.loading')}</p>;
@@ -117,7 +117,7 @@ export default function HqOrgColumnsPage() {
           ))}
         </select>
       </div>
-      <ul className="space-y-2 rounded-lg border border-gray-200 bg-white p-4">
+      <ul className="space-y-2 pg-card pg-card-body">
         {columns.map((col) => {
           const checked = row.allowedKeys.includes(col.key);
           const orderIdx = row.order.indexOf(col.key);
@@ -134,11 +134,9 @@ export default function HqOrgColumnsPage() {
               {checked && !col.fixed && (
                 <span className="flex gap-1">
                   <button type="button" className="rounded border px-2" onClick={() => moveKey(col.key, -1)}>
-                    ↑
-                  </button>
+                    ??                  </button>
                   <button type="button" className="rounded border px-2" onClick={() => moveKey(col.key, 1)}>
-                    ↓
-                  </button>
+                    ??                  </button>
                   <span className="text-xs text-gray-400">{t('hq.orgColumns.order')} {orderIdx + 1}</span>
                 </span>
               )}
@@ -151,7 +149,7 @@ export default function HqOrgColumnsPage() {
           type="button"
           onClick={save}
           disabled={saving}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          className="pg-btn pg-btn-primary disabled:opacity-50"
         >
           {saving ? t('hq.saving') : t('hq.save')}
         </button>

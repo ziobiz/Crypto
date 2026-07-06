@@ -2,6 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { execSync } from 'child_process';
+import { TicketType } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import {
   HQ_CONFIG_KEYS,
@@ -22,6 +23,11 @@ import {
   saveEmailOtpConfig,
 } from '../services/otp.service';
 import { sendTestEmail } from '../services/email.service';
+import {
+  defaultTransactionFees,
+  normalizeCommissionRisk,
+} from '../services/transaction-fee.service';
+import { DEFAULT_LOGIN_NOTICE_I18N } from '../constants/login-notice-i18n';
 
 const BRANDING_DIR = path.resolve(process.env.UPLOAD_DIR ?? './uploads', 'branding');
 
@@ -72,9 +78,12 @@ function defaultOrgColumns(): HqOrgColumnConfig {
 }
 
 function defaultCommissionRisk(): HqCommissionRiskConfig {
+  const fees = defaultTransactionFees();
   return {
-    defaultGasFeeUsdt: 1,
-    defaultPlatformFeeUsdt: 5,
+    defaultFxFeePercent: fees.fxFeePercent,
+    defaultGasFeeUsdt: fees.gasFeeUsdt,
+    defaultTransferFeeUsdt: fees.transferFeeUsdt,
+    defaultOtherFeeUsdt: fees.otherFeeUsdt,
     maxTicketAmountKrw: 100_000_000,
     riskEnabled: true,
     maxDailyTicketsPerCustomer: 10,
@@ -82,18 +91,36 @@ function defaultCommissionRisk(): HqCommissionRiskConfig {
   };
 }
 
+function mergeLoginNoticeI18n(
+  custom?: Partial<Record<keyof typeof DEFAULT_LOGIN_NOTICE_I18N, { title: string; body: string }>>,
+) {
+  const merged = { ...DEFAULT_LOGIN_NOTICE_I18N };
+  if (!custom) return merged;
+  for (const loc of Object.keys(DEFAULT_LOGIN_NOTICE_I18N) as Array<keyof typeof DEFAULT_LOGIN_NOTICE_I18N>) {
+    const entry = custom[loc];
+    if (entry?.title?.trim()) {
+      merged[loc] = { title: entry.title, body: entry.body ?? '' };
+    }
+  }
+  return merged;
+}
+
 function defaultPlatform(): HqPlatformConfig {
   return {
     primaryDomain: 'api.tinpass.com',
     apiPublicUrl: 'https://api.tinpass.com',
-    corsOrigins: ['https://api.tinpass.com', 'https://tinpass.com'],
+    corsOrigins: [
+      'https://api.tinpass.com',
+      'https://tinpass.com',
+      'https://www.tinpass.com',
+    ],
     sslCertPath: '/etc/letsencrypt/live/api.tinpass.com/fullchain.pem',
-    redirectRootToPrimary: true,
+    redirectRootToPrimary: false,
     siteName: 'Crypto Workflow',
     footerText: '',
     authMainText: '',
     loginNoticeEnabled: true,
-    loginNoticeI18n: {},
+    loginNoticeI18n: { ...DEFAULT_LOGIN_NOTICE_I18N },
   };
 }
 
@@ -123,7 +150,30 @@ function getBrandingAssetPath(asset: BrandAsset): string | null {
   if (!fs.existsSync(BRANDING_DIR)) return null;
   const files = fs.readdirSync(BRANDING_DIR).filter((f) => f.startsWith(`${asset}.`));
   if (files.length === 0) return null;
-  return path.join(BRANDING_DIR, files[0]!);
+  return path.resolve(BRANDING_DIR, files[0]!);
+}
+
+const BRAND_ASSETS: BrandAsset[] = ['logo', 'auth-logo', 'favicon', 'background'];
+
+/** DB에 URL이 없어도 uploads/branding 파일이 있으면 URL 복원 */
+function syncBrandingUrls(config: HqPlatformConfig): HqPlatformConfig {
+  const next = { ...config };
+  for (const asset of BRAND_ASSETS) {
+    if (getBrandingAssetPath(asset)) {
+      const key = BRAND_CONFIG_KEY[asset];
+      (next as Record<string, unknown>)[key as string] = BRAND_ASSET_URL[asset];
+    }
+  }
+  return next;
+}
+
+function withBrandingCacheBust(url: string | null | undefined, asset: BrandAsset): string | null {
+  if (!url) return null;
+  const filePath = getBrandingAssetPath(asset);
+  const base = url.split('?')[0]!;
+  if (!filePath) return base;
+  const v = fs.statSync(filePath).mtimeMs;
+  return `${base}?v=${v}`;
 }
 
 async function saveBrandingAsset(
@@ -215,7 +265,8 @@ export const hqPolicyService = {
   },
 
   async getCommissionPayload() {
-    const risk = await getConfig(HQ_CONFIG_KEYS.commissionRisk, defaultCommissionRisk());
+    const raw = await getConfig(HQ_CONFIG_KEYS.commissionRisk, defaultCommissionRisk());
+    const risk = normalizeCommissionRisk(raw);
     const rates = await prisma.commissionRate.findMany({
       where: { effectiveTo: null },
       include: { organization: { select: { id: true, code: true, name: true, type: true } } },
@@ -225,12 +276,76 @@ export const hqPolicyService = {
   },
 
   async saveCommissionRisk(risk: HqCommissionRiskConfig) {
-    await putConfig(HQ_CONFIG_KEYS.commissionRisk, risk, '수수료·리스크 정책');
+    const normalized = normalizeCommissionRisk(risk);
+    await putConfig(HQ_CONFIG_KEYS.commissionRisk, normalized, '수수료·리스크 정책');
+    return this.getCommissionPayload();
+  },
+
+  async saveCommissionRates(
+    rates: Array<{ organizationId: string; ticketType: TicketType; ratePercent: number }>,
+  ) {
+    if (!rates.length) {
+      throw new Error('수수료 요율이 비어 있습니다.');
+    }
+
+    const orgIds = [...new Set(rates.map((r) => r.organizationId))];
+    const orgCount = await prisma.organization.count({ where: { id: { in: orgIds } } });
+    if (orgCount !== orgIds.length) {
+      throw new Error('존재하지 않는 조직이 포함되어 있습니다.');
+    }
+
+    for (const item of rates) {
+      if (!Object.values(TicketType).includes(item.ticketType)) {
+        throw new Error(`잘못된 티켓 유형: ${item.ticketType}`);
+      }
+      if (item.ratePercent < 0 || item.ratePercent > 100) {
+        throw new Error('요율은 0~100% 사이여야 합니다.');
+      }
+    }
+
+    await prisma.$transaction(async (tx) => {
+      for (const item of rates) {
+        const existing = await tx.commissionRate.findFirst({
+          where: {
+            organizationId: item.organizationId,
+            ticketType: item.ticketType,
+            effectiveTo: null,
+          },
+          orderBy: { effectiveFrom: 'desc' },
+        });
+
+        const nextRate = Number(item.ratePercent.toFixed(4));
+        if (existing && Number(existing.ratePercent) === nextRate) continue;
+
+        if (existing) {
+          await tx.commissionRate.update({
+            where: { id: existing.id },
+            data: { effectiveTo: new Date() },
+          });
+        }
+
+        await tx.commissionRate.create({
+          data: {
+            organizationId: item.organizationId,
+            ticketType: item.ticketType,
+            ratePercent: nextRate,
+          },
+        });
+      }
+    });
+
     return this.getCommissionPayload();
   },
 
   async getPlatformPayload() {
-    const config = { ...defaultPlatform(), ...(await getConfig(HQ_CONFIG_KEYS.platform, defaultPlatform())) };
+    const raw = {
+      ...defaultPlatform(),
+      ...(await getConfig(HQ_CONFIG_KEYS.platform, defaultPlatform())),
+    };
+    const config = syncBrandingUrls({
+      ...raw,
+      loginNoticeI18n: mergeLoginNoticeI18n(raw.loginNoticeI18n),
+    });
     const emailRaw = await getEmailOtpConfig();
     const email = {
       ...emailRaw,
@@ -264,7 +379,9 @@ export const hqPolicyService = {
   },
 
   async savePlatform(config: HqPlatformConfig) {
-    await putConfig(HQ_CONFIG_KEYS.platform, config, '플랫폼 도메인·SSL');
+    const existing = await getConfig(HQ_CONFIG_KEYS.platform, defaultPlatform());
+    const merged = syncBrandingUrls({ ...existing, ...config });
+    await putConfig(HQ_CONFIG_KEYS.platform, merged, '플랫폼 도메인·SSL');
     return this.getPlatformPayload();
   },
 
@@ -300,13 +417,16 @@ export const hqPolicyService = {
   },
 
   async getPublicBranding() {
-    const config = { ...defaultPlatform(), ...(await getConfig(HQ_CONFIG_KEYS.platform, defaultPlatform())) };
+    const config = syncBrandingUrls({
+      ...defaultPlatform(),
+      ...(await getConfig(HQ_CONFIG_KEYS.platform, defaultPlatform())),
+    });
     return {
       siteName: config.siteName || 'Crypto Workflow',
-      logoUrl: config.logoUrl ?? null,
-      authLogoUrl: config.authLogoUrl ?? null,
-      faviconUrl: config.faviconUrl ?? null,
-      authBackgroundUrl: config.authBackgroundUrl ?? null,
+      logoUrl: withBrandingCacheBust(config.logoUrl, 'logo'),
+      authLogoUrl: withBrandingCacheBust(config.authLogoUrl, 'auth-logo'),
+      faviconUrl: withBrandingCacheBust(config.faviconUrl, 'favicon'),
+      authBackgroundUrl: withBrandingCacheBust(config.authBackgroundUrl, 'background'),
       authMainText: config.authMainText ?? '',
       footerText: config.footerText ?? '',
       loginNoticeEnabled: config.loginNoticeEnabled !== false,

@@ -125,6 +125,8 @@ export const api = {
 
   dashboard: () => request<DashboardResponse>('/api/auth/dashboard'),
 
+  sessionInfo: () => request<{ ip: string; serverTime: string }>('/api/auth/session-info'),
+
   salesOffices: () =>
     request<SalesOffice[]>('/api/organizations/sales-offices'),
 
@@ -364,8 +366,17 @@ export interface Wallet {
   address: string;
   network: string;
   isDefault: boolean;
+  fxFeePercent: number;
   gasFeeAmount: number;
+  transferFeeAmount: number;
+  otherFeeAmount: number;
   platformFeeAmount: number;
+  effectiveFees?: {
+    fxFeePercent: number;
+    gasFeeUsdt: number;
+    transferFeeUsdt: number;
+    otherFeeUsdt: number;
+  };
 }
 
 export interface WalletInput {
@@ -373,7 +384,10 @@ export interface WalletInput {
   address: string;
   network?: string;
   isDefault?: boolean;
+  fxFeePercent?: number;
   gasFeeAmount?: number;
+  transferFeeAmount?: number;
+  otherFeeAmount?: number;
   platformFeeAmount?: number;
 }
 
@@ -426,6 +440,9 @@ export interface UsdtTicket {
   depositorName?: string | null;
   depositTransferredAt?: string | null;
   gasFeeSnapshot: number;
+  fxFeePercentSnapshot: number;
+  transferFeeSnapshot: number;
+  otherFeeSnapshot: number;
   platformFeeSnapshot: number;
   usdtTxId?: string;
   actualUsdtAmount?: number;
@@ -508,6 +525,13 @@ export const hqPolicyApi = {
       method: 'PUT',
       body: JSON.stringify({ risk }),
     }),
+  saveCommissionRates: (
+    rates: Array<{ organizationId: string; ticketType: string; ratePercent: number }>,
+  ) =>
+    request<HqCommissionPayload>('/api/hq-policy/commission/rates', {
+      method: 'PUT',
+      body: JSON.stringify({ rates }),
+    }),
   getPlatform: () => request<HqPlatformPayload>('/api/hq-policy/platform'),
   savePlatform: (config: HqPlatformConfig) =>
     request<HqPlatformPayload>('/api/hq-policy/platform', {
@@ -581,12 +605,15 @@ export type HqOrgColumnConfig = Record<
 >;
 
 export interface HqCommissionRiskConfig {
+  defaultFxFeePercent: number;
   defaultGasFeeUsdt: number;
-  defaultPlatformFeeUsdt: number;
+  defaultTransferFeeUsdt: number;
+  defaultOtherFeeUsdt: number;
   maxTicketAmountKrw: number;
   riskEnabled: boolean;
   maxDailyTicketsPerCustomer: number;
   notes?: string;
+  defaultPlatformFeeUsdt?: number;
 }
 
 export interface HqCommissionPayload {

@@ -29,14 +29,14 @@ export default function EscrowDetailPage() {
 
   return (
     <div className="max-w-3xl">
-      <div className="flex items-center gap-3">
-        <h1 className="text-2xl font-bold">{ticket.ticketNo}</h1>
+      <div className="flex items-center gap-2">
+        <p className="text-sm font-semibold text-gray-900">{ticket.ticketNo}</p>
         <StatusBadge status={ticket.status} />
       </div>
-      <p className="mt-2 text-lg font-medium">{ticket.title}</p>
-      {ticket.description && <p className="text-gray-600">{ticket.description}</p>}
+      <p className="mt-1 text-xs font-medium sm:text-sm">{ticket.title}</p>
+      {ticket.description && <p className="text-[11px] text-gray-600 sm:text-xs">{ticket.description}</p>}
 
-      <dl className="mt-6 grid gap-4 rounded-xl border bg-white p-6 text-sm sm:grid-cols-2">
+      <dl className="mt-3 grid gap-3 rounded border bg-white p-3 text-sm sm:grid-cols-2 sm:p-4">
         <Item label={t('escrow.detail.amount')} value={formatCurrency(ticket.amount, ticket.currency)} />
         <Item label={t('escrow.detail.buyer')} value={`${ticket.buyer.name} (${ticket.buyer.email})`} />
         <Item label={t('escrow.detail.seller')} value={`${ticket.seller.name} (${ticket.seller.email})`} />
@@ -81,7 +81,7 @@ export default function EscrowDetailPage() {
 
       {isAdmin && ticket.status === 'BUYER_FINAL_APPROVAL' && (
         <ActionBox title={t('escrow.detail.adminComplete')}>
-          <input value={payoutTxId} onChange={(e) => setPayoutTxId(e.target.value)} placeholder={t('escrow.detail.payoutTx')} className="rounded-lg border px-3 py-2 text-sm" />
+          <input value={payoutTxId} onChange={(e) => setPayoutTxId(e.target.value)} placeholder={t('escrow.detail.payoutTx')} className="pg-input" />
           <button onClick={async () => { setLoading(true); await api.escrow.updateStatus(id, { status: 'ESCROW_COMPLETED', payoutTxId }); await load(); setLoading(false); }} disabled={loading || !payoutTxId} className="mt-2 rounded-lg bg-green-600 px-4 py-2 text-sm text-white">
             {t('escrow.detail.complete')}
           </button>
@@ -89,7 +89,7 @@ export default function EscrowDetailPage() {
       )}
 
       {ticket.attachments.length > 0 && (
-        <div className="mt-6 rounded-xl border bg-white p-6">
+        <div className="mt-6 pg-section pg-section-pad">
           <h2 className="font-semibold">{t('escrow.detail.attachments')}</h2>
           <ul className="mt-3 space-y-2">
             {ticket.attachments.map((a) => (
@@ -99,7 +99,7 @@ export default function EscrowDetailPage() {
         </div>
       )}
 
-      <div className="mt-6 rounded-xl border bg-white p-6">
+      <div className="mt-6 pg-section pg-section-pad">
         <h2 className="font-semibold">{t('escrow.detail.history')}</h2>
         <ol className="mt-3 space-y-3">
           {ticket.statusHistory.map((h) => (
@@ -119,5 +119,5 @@ function Item({ label, value }: { label: string; value: string }) {
 }
 
 function ActionBox({ title, children }: { title: string; children: React.ReactNode }) {
-  return (<div className="mt-6 rounded-xl border bg-white p-6"><h2 className="font-semibold">{title}</h2><div className="mt-3">{children}</div></div>);
+  return (<div className="mt-6 pg-section pg-section-pad"><h2 className="font-semibold">{title}</h2><div className="mt-3">{children}</div></div>);
 }

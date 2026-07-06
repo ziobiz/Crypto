@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api, setToken } from '@/lib/api';
 import { useAuth } from '@/context/AuthProvider';
 import { useT } from '@/context/LocaleProvider';
 import { AuthChrome } from '@/components/layout/AuthChrome';
+import { OtpCodeInput } from '@/components/OtpCodeInput';
 import { useBranding } from '@/hooks/useBranding';
 
 type Step = 'credentials' | 'changePassword' | 'enrollEmail' | 'enrollTotp' | 'loginOtp';
@@ -31,11 +32,25 @@ export default function LoginPage() {
   const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
   const branding = useBranding();
+  const otpSubmitLock = useRef(false);
 
   const finishSession = async (token: string) => {
     setToken(token);
     await refresh();
     router.push('/dashboard');
+  };
+
+  const withOtpLock = async (fn: () => Promise<void>) => {
+    if (otpSubmitLock.current || loading) return;
+    otpSubmitLock.current = true;
+    setError('');
+    setLoading(true);
+    try {
+      await fn();
+    } finally {
+      setLoading(false);
+      otpSubmitLock.current = false;
+    }
   };
 
   const handleCredentials = async (e: React.FormEvent) => {
@@ -61,6 +76,7 @@ export default function LoginPage() {
         setOtpToken(res.otpToken);
         setMaskedEmail(res.maskedEmail);
         setStep('loginOtp');
+        setOtpCode('');
         return;
       }
       if ('token' in res) {
@@ -83,6 +99,7 @@ export default function LoginPage() {
         setEnrollToken(res.enrollToken);
         setMaskedEmail(res.maskedEmail);
         setStep('enrollEmail');
+        setEmailCode('');
         await api.otpEnrollSendEmail(res.enrollToken);
         setInfo(t('auth.otpEnrollEmailSent'));
         return;
@@ -97,49 +114,56 @@ export default function LoginPage() {
     }
   };
 
-  const handleEnrollEmail = async (e: React.FormEvent) => {
+  const submitEnrollEmail = (code: string) =>
+    withOtpLock(async () => {
+      try {
+        const res = await api.otpEnrollVerifyEmail(enrollToken, code);
+        setEnrollToken(res.enrollToken);
+        setOtpauthUrl(res.otpauthUrl);
+        setStep('enrollTotp');
+        setOtpCode('');
+        setInfo(t('auth.otpScanHint'));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : t('auth.otpInvalid'));
+        setEmailCode('');
+      }
+    });
+
+  const submitEnrollTotp = (code: string) =>
+    withOtpLock(async () => {
+      try {
+        const res = await api.otpEnrollActivate(enrollToken, code);
+        await finishSession(res.token);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : t('auth.otpInvalid'));
+        setOtpCode('');
+      }
+    });
+
+  const submitLoginOtp = (code: string) =>
+    withOtpLock(async () => {
+      try {
+        const res = await api.verifyOtp(otpToken, code);
+        await finishSession(res.token);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : t('auth.otpInvalid'));
+        setOtpCode('');
+      }
+    });
+
+  const handleEnrollEmail = (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setLoading(true);
-    try {
-      const res = await api.otpEnrollVerifyEmail(enrollToken, emailCode);
-      setEnrollToken(res.enrollToken);
-      setOtpauthUrl(res.otpauthUrl);
-      setStep('enrollTotp');
-      setInfo(t('auth.otpScanHint'));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('auth.otpInvalid'));
-    } finally {
-      setLoading(false);
-    }
+    if (emailCode.length === 6) submitEnrollEmail(emailCode);
   };
 
-  const handleEnrollTotp = async (e: React.FormEvent) => {
+  const handleEnrollTotp = (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setLoading(true);
-    try {
-      const res = await api.otpEnrollActivate(enrollToken, otpCode);
-      await finishSession(res.token);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('auth.otpInvalid'));
-    } finally {
-      setLoading(false);
-    }
+    if (otpCode.length === 6) submitEnrollTotp(otpCode);
   };
 
-  const handleLoginOtp = async (e: React.FormEvent) => {
+  const handleLoginOtp = (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setLoading(true);
-    try {
-      const res = await api.verifyOtp(otpToken, otpCode);
-      await finishSession(res.token);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('auth.otpInvalid'));
-    } finally {
-      setLoading(false);
-    }
+    if (otpCode.length === 6) submitLoginOtp(otpCode);
   };
 
   const resendEnrollEmail = async () => {
@@ -147,6 +171,7 @@ export default function LoginPage() {
     try {
       await api.otpEnrollSendEmail(enrollToken);
       setInfo(t('auth.otpResent'));
+      setEmailCode('');
     } catch (err) {
       setError(err instanceof Error ? err.message : t('auth.otpInvalid'));
     } finally {
@@ -160,7 +185,6 @@ export default function LoginPage() {
         {step === 'credentials' && (
           <>
             <h2 className="text-xl font-bold sm:text-2xl">{t('auth.loginTitle')}</h2>
-            <p className="mt-1 text-xs text-gray-500">{t('auth.initialPasswordHint')}</p>
             <form onSubmit={handleCredentials} className="mt-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">{t('auth.email')}</label>
@@ -201,10 +225,20 @@ export default function LoginPage() {
             <p className="mt-2 text-sm text-gray-600">{t('auth.otpEmailHint', { email: maskedEmail })}</p>
             {info && <p className="mt-2 text-sm text-green-700">{info}</p>}
             <form onSubmit={handleEnrollEmail} className="mt-6 space-y-4">
-              <input type="text" inputMode="numeric" maxLength={6} value={emailCode} onChange={(e) => setEmailCode(e.target.value.replace(/\D/g, ''))} className="w-full rounded-lg border px-3 py-3 text-center text-2xl tracking-widest" placeholder="000000" required />
+              <OtpCodeInput
+                value={emailCode}
+                onChange={setEmailCode}
+                onComplete={submitEnrollEmail}
+                disabled={loading}
+              />
               {error && <p className="text-sm text-red-600">{error}</p>}
-              <button type="submit" disabled={loading || emailCode.length !== 6} className="w-full rounded-lg bg-blue-600 py-3 text-white">{t('auth.otpVerify')}</button>
-              <button type="button" onClick={resendEnrollEmail} className="w-full rounded-lg border py-2 text-sm">{t('auth.otpResend')}</button>
+              {loading && <p className="text-center text-sm text-gray-500">{t('auth.otpVerifying')}</p>}
+              <button type="submit" disabled={loading || emailCode.length !== 6} className="w-full rounded-lg bg-blue-600 py-3 text-white disabled:opacity-50">
+                {loading ? t('auth.otpVerifying') : t('auth.otpVerify')}
+              </button>
+              <button type="button" onClick={resendEnrollEmail} disabled={loading} className="w-full rounded-lg border py-2 text-sm">
+                {t('auth.otpResend')}
+              </button>
             </form>
           </>
         )}
@@ -217,9 +251,17 @@ export default function LoginPage() {
               <img src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(otpauthUrl)}`} alt="QR" className="mx-auto my-4 rounded border" />
             )}
             <form onSubmit={handleEnrollTotp} className="space-y-4">
-              <input type="text" inputMode="numeric" maxLength={6} value={otpCode} onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))} className="w-full rounded-lg border px-3 py-3 text-center text-2xl tracking-widest" placeholder="000000" required />
+              <OtpCodeInput
+                value={otpCode}
+                onChange={setOtpCode}
+                onComplete={submitEnrollTotp}
+                disabled={loading}
+              />
               {error && <p className="text-sm text-red-600">{error}</p>}
-              <button type="submit" disabled={loading || otpCode.length !== 6} className="w-full rounded-lg bg-blue-600 py-3 text-white">{t('auth.otpActivate')}</button>
+              {loading && <p className="text-center text-sm text-gray-500">{t('auth.otpVerifying')}</p>}
+              <button type="submit" disabled={loading || otpCode.length !== 6} className="w-full rounded-lg bg-blue-600 py-3 text-white disabled:opacity-50">
+                {loading ? t('auth.otpVerifying') : t('auth.otpActivate')}
+              </button>
             </form>
           </>
         )}
@@ -229,9 +271,17 @@ export default function LoginPage() {
             <h2 className="text-xl font-bold">{t('auth.otpTitle')}</h2>
             <p className="mt-2 text-sm text-gray-600">{t('auth.otpTotpHint')}</p>
             <form onSubmit={handleLoginOtp} className="mt-6 space-y-4">
-              <input type="text" inputMode="numeric" maxLength={6} value={otpCode} onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))} className="w-full rounded-lg border px-3 py-3 text-center text-2xl tracking-widest" placeholder="000000" required />
+              <OtpCodeInput
+                value={otpCode}
+                onChange={setOtpCode}
+                onComplete={submitLoginOtp}
+                disabled={loading}
+              />
               {error && <p className="text-sm text-red-600">{error}</p>}
-              <button type="submit" disabled={loading || otpCode.length !== 6} className="w-full rounded-lg bg-blue-600 py-3 text-white">{t('auth.otpVerify')}</button>
+              {loading && <p className="text-center text-sm text-gray-500">{t('auth.otpVerifying')}</p>}
+              <button type="submit" disabled={loading || otpCode.length !== 6} className="w-full rounded-lg bg-blue-600 py-3 text-white disabled:opacity-50">
+                {loading ? t('auth.otpVerifying') : t('auth.otpVerify')}
+              </button>
             </form>
           </>
         )}

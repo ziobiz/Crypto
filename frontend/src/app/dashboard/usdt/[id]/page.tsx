@@ -64,16 +64,19 @@ export default function UsdtDetailPage() {
 
   return (
     <div className="max-w-3xl">
-      <div className="flex items-center gap-3">
-        <h1 className="text-2xl font-bold">{ticket.ticketNo}</h1>
+      <div className="flex items-center gap-2">
+        <p className="text-sm font-semibold text-gray-900">{ticket.ticketNo}</p>
         <StatusBadge status={ticket.status} />
       </div>
 
-      <dl className="mt-6 grid gap-4 rounded-xl border bg-white p-6 text-sm sm:grid-cols-2">
+      <dl className="mt-3 grid gap-3 rounded border bg-white p-3 text-sm sm:grid-cols-2 sm:p-4">
         <Item label={t('usdt.detail.fiatAmount')} value={formatCurrency(ticket.fiatAmount, ticket.fiatCurrency)} />
         <Item label={t('usdt.detail.rate')} value={rateLabel} />
         <Item label={t('usdt.detail.expected')} value={expectedRange} />
-        <Item label={t('usdt.detail.fees')} value={`${ticket.gasFeeSnapshot} / ${ticket.platformFeeSnapshot} USDT`} />
+        <Item
+          label={t('usdt.detail.fees')}
+          value={`FX ${ticket.fxFeePercentSnapshot}% · ${t('usdt.gasFee')} ${ticket.gasFeeSnapshot} · ${t('usdt.transferFee')} ${ticket.transferFeeSnapshot} · ${t('usdt.otherFee')} ${ticket.otherFeeSnapshot} USDT`}
+        />
         {ticket.depositAmount != null && (
           <Item label={t('usdt.detail.depositAmount')} value={formatCurrency(ticket.depositAmount, ticket.fiatCurrency)} />
         )}
@@ -96,7 +99,7 @@ export default function UsdtDetailPage() {
       )}
 
       {isCustomer && ticket.status === 'DEPOSIT_PROOF_PENDING' && (
-        <div className="mt-6 rounded-xl border bg-white p-6">
+        <div className="mt-6 pg-section pg-section-pad">
           <h2 className="font-semibold">{t('usdt.detail.depositInfo')}</h2>
           <p className="mt-1 text-sm text-gray-500">{t('usdt.detail.depositInfoDesc')}</p>
           <div className="mt-4 space-y-3">
@@ -105,19 +108,19 @@ export default function UsdtDetailPage() {
               placeholder={t('usdt.detail.depositAmount')}
               value={depositAmount}
               onChange={(e) => setDepositAmount(e.target.value)}
-              className="w-full rounded-lg border px-3 py-2 text-sm"
+              className="pg-input"
             />
             <input
               placeholder={t('usdt.detail.depositor')}
               value={depositorName}
               onChange={(e) => setDepositorName(e.target.value)}
-              className="w-full rounded-lg border px-3 py-2 text-sm"
+              className="pg-input"
             />
             <input
               type="datetime-local"
               value={depositTime}
               onChange={(e) => setDepositTime(e.target.value)}
-              className="w-full rounded-lg border px-3 py-2 text-sm"
+              className="pg-input"
             />
             <input type="file" accept="image/*,.pdf" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="text-sm" />
           </div>
@@ -132,7 +135,7 @@ export default function UsdtDetailPage() {
       )}
 
       {isOperator && (
-        <div className="mt-6 rounded-xl border bg-white p-6">
+        <div className="mt-6 pg-section pg-section-pad">
           <h2 className="font-semibold">{t('usdt.detail.admin')}</h2>
           <p className="mt-1 text-sm text-gray-500">{t('usdt.detail.adminDesc')}</p>
           <div className="mt-3 flex flex-wrap gap-2">
@@ -151,13 +154,13 @@ export default function UsdtDetailPage() {
                   value={txId}
                   onChange={(e) => setTxId(e.target.value)}
                   placeholder="USDT TXID"
-                  className="rounded-lg border px-3 py-2 text-sm"
+                  className="pg-input"
                 />
                 <input
                   value={actualUsdt}
                   onChange={(e) => setActualUsdt(e.target.value)}
                   placeholder={t('usdt.detail.actualUsdt')}
-                  className="rounded-lg border px-3 py-2 text-sm"
+                  className="pg-input"
                 />
                 <button
                   onClick={() =>
@@ -178,7 +181,7 @@ export default function UsdtDetailPage() {
       )}
 
       {ticket.attachments.length > 0 && (
-        <div className="mt-6 rounded-xl border bg-white p-6">
+        <div className="mt-6 pg-section pg-section-pad">
           <h2 className="font-semibold">{t('usdt.detail.attachments')}</h2>
           <ul className="mt-3 space-y-2">
             {ticket.attachments.map((a) => (
@@ -188,7 +191,7 @@ export default function UsdtDetailPage() {
         </div>
       )}
 
-      <div className="mt-6 rounded-xl border bg-white p-6">
+      <div className="mt-6 pg-section pg-section-pad">
         <h2 className="font-semibold">{t('usdt.detail.history')}</h2>
         <ol className="mt-3 space-y-3">
           {ticket.statusHistory.map((h) => (

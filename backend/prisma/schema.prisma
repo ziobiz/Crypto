@@ -203,8 +203,11 @@ model Wallet {
   isDefault Boolean @default(false)
   isActive  Boolean @default(true)
 
-  // 가스피 및 시스템 부가 수수료 (티켓 생성 시 스냅샷으로 복사)
+  // 거래 통화 수수료 (티켓 생성 시 스냅샷으로 복사)
+  fxFeePercent      Decimal @default(0) @db.Decimal(5, 4)
   gasFeeAmount      Decimal @default(0) @db.Decimal(18, 8)
+  transferFeeAmount Decimal @default(0) @db.Decimal(18, 8)
+  otherFeeAmount    Decimal @default(0) @db.Decimal(18, 8)
   platformFeeAmount Decimal @default(0) @db.Decimal(18, 8)
   feeCurrency       CurrencyCode @default(USDT)
 
@@ -278,9 +281,12 @@ model UsdtPurchaseDetail {
   depositorName        String?
   depositTransferredAt DateTime?
 
-  // 수수료 스냅샷 (신청 시점 Wallet/설정값 복사)
-  gasFeeSnapshot      Decimal @default(0) @db.Decimal(18, 8)
-  platformFeeSnapshot Decimal @default(0) @db.Decimal(18, 8)
+  // 수수료 스냅샷 (신청 시점 Wallet/본사정책 복사)
+  fxFeePercentSnapshot  Decimal @default(0) @db.Decimal(5, 4)
+  gasFeeSnapshot        Decimal @default(0) @db.Decimal(18, 8)
+  transferFeeSnapshot   Decimal @default(0) @db.Decimal(18, 8)
+  otherFeeSnapshot      Decimal @default(0) @db.Decimal(18, 8)
+  platformFeeSnapshot   Decimal @default(0) @db.Decimal(18, 8)
 
   // 수령 지갑
   walletId String?

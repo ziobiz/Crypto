@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthProvider';
 import { useT } from '@/context/LocaleProvider';
 import { AppShell } from '@/components/layout/AppShell';
+import { PageFrame } from '@/components/layout/PageFrame';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -27,5 +28,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (!user) return null;
 
-  return <AppShell>{children}</AppShell>;
+  return (
+    <AppShell>
+      <PageFrame>{children}</PageFrame>
+    </AppShell>
+  );
 }

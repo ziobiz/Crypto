@@ -11,16 +11,15 @@ export function BrandingHead() {
     document.title = branding.siteName;
 
     const iconHref = branding.faviconUrl;
+    if (!iconHref) return;
     let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
-    if (iconHref) {
-      if (!link) {
-        link = document.createElement('link');
-        link.rel = 'icon';
-        document.head.appendChild(link);
-      }
-      link.href = iconHref;
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'icon';
+      document.head.appendChild(link);
     }
-  }, [branding]);
+    link.href = iconHref;
+  }, [branding?.faviconUrl, branding?.siteName]);
 
   return null;
 }

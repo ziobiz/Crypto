@@ -135,15 +135,12 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">{t('users.title')}</h1>
-          <p className="mt-1 text-sm text-gray-500">{t('users.subtitle')}</p>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[11px] text-gray-500 sm:text-xs">{t('users.subtitle')}</p>
         <button
           type="button"
           onClick={openCreate}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          className="rounded border border-blue-600 bg-blue-600 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-blue-700 sm:text-xs"
         >
           {t('users.add')}
         </button>
@@ -191,7 +188,7 @@ export default function UsersPage() {
       {msg && !modal && <p className="text-sm text-green-700">{msg}</p>}
 
       <div className="table-scroll overflow-x-auto rounded-lg border border-gray-200 bg-white">
-        <table className="min-w-full text-sm">
+        <table className="pg-table">
           <thead className="bg-gray-50">
             <tr>
               <th className="px-4 py-3 text-left font-medium text-gray-500">{t('users.col.email')}</th>
@@ -267,7 +264,7 @@ export default function UsersPage() {
                   required
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                  className="pg-input"
                 />
               </Field>
               <Field label={t('auth.password')} required>
@@ -277,7 +274,7 @@ export default function UsersPage() {
                   minLength={6}
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                  className="pg-input"
                 />
               </Field>
               <Field label={t('auth.name')} required>
@@ -285,21 +282,21 @@ export default function UsersPage() {
                   required
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                  className="pg-input"
                 />
               </Field>
               <Field label={t('auth.phone')}>
                 <input
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                  className="pg-input"
                 />
               </Field>
               <Field label={t('users.col.role')} required>
                 <select
                   value={form.role}
                   onChange={(e) => setForm({ ...form, role: e.target.value as UserRoleType })}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                  className="pg-input"
                 >
                   {isSuperAdmin && <option value="SUPER_ADMIN">{roleLabel('SUPER_ADMIN')}</option>}
                   <option value="ORG_STAFF">{roleLabel('ORG_STAFF')}</option>
@@ -312,7 +309,7 @@ export default function UsersPage() {
                     required
                     value={form.organizationId}
                     onChange={(e) => setForm({ ...form, organizationId: e.target.value })}
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                    className="pg-input"
                   >
                     <option value="">{t('users.select')}</option>
                     {orgs.map((o) => (
@@ -330,7 +327,7 @@ export default function UsersPage() {
                       required
                       value={form.recruitingOrgId}
                       onChange={(e) => setForm({ ...form, recruitingOrgId: e.target.value })}
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                      className="pg-input"
                     >
                       <option value="">{t('users.select')}</option>
                       {orgs
@@ -351,7 +348,7 @@ export default function UsersPage() {
                           customerType: e.target.value as 'INDIVIDUAL' | 'CORPORATE',
                         })
                       }
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                      className="pg-input"
                     >
                       <option value="INDIVIDUAL">{t('auth.individual')}</option>
                       <option value="CORPORATE">{t('auth.corporate')}</option>
@@ -365,7 +362,7 @@ export default function UsersPage() {
               <button type="button" onClick={() => setModal(null)} className="rounded-lg border border-gray-200 px-4 py-2 text-sm">
                 {t('common.cancel')}
               </button>
-              <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+              <button type="submit" className="pg-btn pg-btn-primary">
                 {t('common.register')}
               </button>
             </div>
@@ -387,14 +384,14 @@ export default function UsersPage() {
                   required
                   value={editForm.name ?? ''}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                  className="pg-input"
                 />
               </Field>
               <Field label={t('auth.phone')}>
                 <input
                   value={editForm.phone ?? ''}
                   onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                  className="pg-input"
                 />
               </Field>
               {isSuperAdmin && (
@@ -404,7 +401,7 @@ export default function UsersPage() {
                     onChange={(e) =>
                       setEditForm({ ...editForm, role: e.target.value as UserRoleType })
                     }
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                    className="pg-input"
                   >
                     <option value="SUPER_ADMIN">{roleLabel('SUPER_ADMIN')}</option>
                     <option value="ORG_STAFF">{roleLabel('ORG_STAFF')}</option>
@@ -419,7 +416,7 @@ export default function UsersPage() {
                     onChange={(e) =>
                       setEditForm({ ...editForm, organizationId: e.target.value || null })
                     }
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                    className="pg-input"
                   >
                     <option value="">{t('users.select')}</option>
                     {orgs.map((o) => (
@@ -437,7 +434,7 @@ export default function UsersPage() {
                     onChange={(e) =>
                       setEditForm({ ...editForm, recruitingOrgId: e.target.value })
                     }
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                    className="pg-input"
                   >
                     {orgs
                       .filter((o) => o.type === 'SALES_OFFICE')
@@ -465,7 +462,7 @@ export default function UsersPage() {
                   minLength={6}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                  className="pg-input"
                 />
               </Field>
             </div>
@@ -474,7 +471,7 @@ export default function UsersPage() {
               <button type="button" onClick={() => setModal(null)} className="rounded-lg border border-gray-200 px-4 py-2 text-sm">
                 {t('common.cancel')}
               </button>
-              <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+              <button type="submit" className="pg-btn pg-btn-primary">
                 {t('common.save')}
               </button>
             </div>

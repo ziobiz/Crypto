@@ -31,12 +31,8 @@ export default function HqPolicyLayout({ children }: { children: React.ReactNode
   ];
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">{t('hq.title')}</h1>
-        <p className="mt-1 text-sm text-gray-500">{t('hq.subtitle')}</p>
-      </div>
-      <nav className="flex flex-wrap gap-2 border-b border-gray-200 pb-3">
+    <div className="pg-stack">
+      <nav className="flex flex-wrap gap-x-5 gap-y-1 border-b border-gray-200 pb-2">
         {mainTabs.map((tab) => {
           const active =
             tab.href === '/dashboard/hq-policy/access'
@@ -48,8 +44,10 @@ export default function HqPolicyLayout({ children }: { children: React.ReactNode
             <Link
               key={tab.href}
               href={tab.href}
-              className={`rounded-lg px-4 py-2 text-sm font-medium ${
-                active ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              className={`border-b-2 pb-1.5 text-[11px] font-medium ${
+                active
+                  ? 'border-blue-600 text-blue-700'
+                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
               }`}
             >
               {t(tab.labelKey)}

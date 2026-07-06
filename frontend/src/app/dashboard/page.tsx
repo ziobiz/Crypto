@@ -6,10 +6,13 @@ import { useAuth } from '@/context/AuthProvider';
 import { useT } from '@/context/LocaleProvider';
 import { api, DashboardResponse } from '@/lib/api';
 import { UsdtRatePanel } from '@/components/UsdtRatePanel';
+import { ContentCard } from '@/components/layout/ContentCard';
+import { useBranding } from '@/hooks/useBranding';
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const t = useT();
+  const branding = useBranding();
   const [data, setData] = useState<DashboardResponse | null>(null);
 
   useEffect(() => {
@@ -18,23 +21,21 @@ export default function DashboardPage() {
 
   const stats = data?.stats ?? {};
 
-  const roleLabel =
-    user?.role === 'SUPER_ADMIN'
-      ? t('role.superAdmin')
-      : user?.role === 'ORG_STAFF'
-        ? t('role.orgStaff')
-        : t('role.customer');
+  const orgLine =
+    user?.organization?.name ??
+    user?.customerProfile?.recruitingOrg?.name ??
+    branding?.siteName ??
+    '';
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold">{t('nav.dashboard')}</h1>
-      <p className="mt-1 text-gray-500">{roleLabel}</p>
+    <div className="pg-stack">
+      {orgLine && <p className="pg-hint">{orgLine}</p>}
 
-      <div className="mt-6">
-        <UsdtRatePanel />
-      </div>
+      <ContentCard>
+        <UsdtRatePanel compact />
+      </ContentCard>
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {user?.role === 'SUPER_ADMIN' && (
           <>
             <StatCard label={t('dashboard.usdtPending')} value={stats.usdtPendingReview ?? 0} />
@@ -65,16 +66,16 @@ export default function DashboardPage() {
       </div>
 
       {user?.role === 'CUSTOMER' && (
-        <div className="mt-8 flex gap-4">
+        <div className="flex gap-2">
           <Link
             href="/dashboard/usdt/new"
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className="pg-btn pg-btn-primary"
           >
             {t('dashboard.newUsdt')}
           </Link>
           <Link
             href="/dashboard/escrow/new"
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50"
+            className="pg-btn pg-btn-secondary"
           >
             {t('dashboard.newEscrow')}
           </Link>
@@ -94,13 +95,13 @@ function StatCard({
   suffix?: string;
 }) {
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-      <p className="text-sm text-gray-500">{label}</p>
-      <p className="mt-2 text-3xl font-bold text-gray-900">
+    <div className="pg-stat">
+      <p className="pg-stat-label">{label}</p>
+      <p className="pg-stat-value">
         {typeof value === 'number' && value % 1 !== 0
           ? value.toLocaleString(undefined, { maximumFractionDigits: 2 })
           : value.toLocaleString()}
-        {suffix && <span className="ml-1 text-lg font-normal text-gray-500">{suffix}</span>}
+        {suffix && <span className="ml-1 text-[11px] font-normal text-gray-500">{suffix}</span>}
       </p>
     </div>
   );
