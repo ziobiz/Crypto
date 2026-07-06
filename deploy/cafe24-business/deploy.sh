@@ -31,12 +31,19 @@ export NODE_OPTIONS="--max-old-space-size=1536"
 npm run build
 cd ..
 
-echo "==> PM2 재시작"
+echo "==> Server (통합 Express + Next)"
+cd server
+npm ci
+npm run build
+cd ..
+
+echo "==> PM2 재시작 (crypto 단일 프로세스 :3000)"
 pm2 delete crypto-api crypto-web 2>/dev/null || true
+pm2 delete crypto 2>/dev/null || true
 pm2 start deploy/cafe24-business/ecosystem.config.cjs
 pm2 save
 
 echo "==> 배포 완료"
 pm2 status
-curl -sf http://127.0.0.1:4000/health && echo " API OK" || echo " API check failed"
-curl -sf -o /dev/null http://127.0.0.1:3000 && echo " Web OK" || echo " Web check failed"
+curl -sf http://127.0.0.1:3000/health && echo " health OK" || echo " health check failed"
+curl -sf -o /dev/null http://127.0.0.1:3000/login && echo " web OK" || echo " web check failed"
