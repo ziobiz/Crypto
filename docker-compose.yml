@@ -1,0 +1,37 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: crypto-workflow-db
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: crypto
+      POSTGRES_PASSWORD: crypto_dev
+      POSTGRES_DB: crypto_workflow
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crypto -d crypto_workflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 로컬 파일 스토리지 (증빙 이미지) — MinIO
+  minio:
+    image: minio/minio:latest
+    container_name: crypto-workflow-minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+
+volumes:
+  postgres_data:
+  minio_data:

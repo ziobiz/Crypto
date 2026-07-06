@@ -1,0 +1,449 @@
+// =============================================================================
+// Fintech Workflow & Ledger System — Database Schema
+// Stack: PostgreSQL + Prisma
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// 조직 계층 5단계 (고객은 User/CustomerProfile로 분리)
+enum OrgType {
+  HEAD_OFFICE        // 본사
+  MASTER_DISTRIBUTOR // 총판
+  REGIONAL_BRANCH    // 지사
+  AGENCY             // 대리점
+  SALES_OFFICE       // 영업점
+}
+
+enum UserRole {
+  SUPER_ADMIN // 총본사 관리자 — 전체 상태 변경·최종 승인
+  ORG_STAFF   // 본사~영업점 직원 — 하위 조회·수수료 조회만
+  CUSTOMER    // 고객 — 본인 거래·증빙·지갑 관리
+}
+
+enum CustomerType {
+  INDIVIDUAL // 개인
+  CORPORATE  // 기업 (가맹점 형태)
+}
+
+enum TicketType {
+  USDT_PURCHASE // 워크플로우 1: USDT 매입
+  TRADE_ESCROW  // 워크플로우 2: 무역 에스크로
+}
+
+/// USDT 매입 5단계 상태
+enum UsdtPurchaseStatus {
+  APPLICATION_COMPLETED   // 1) 신청 완료
+  DEPOSIT_PROOF_PENDING   // 2) 입금 증빙 대기
+  ADMIN_REVIEWING         // 3) 관리자 확인 중
+  TRANSFER_IN_PROGRESS    // 4) 송금 처리 중
+  COMPLETED               // 5) 거래 완료 (+ TXID, 수수료 정산)
+  CANCELLED
+}
+
+/// 무역 에스크로 6단계 상태
+enum TradeEscrowStatus {
+  ESCROW_CREATED          // 1) 에스크로 생성
+  BUYER_DEPOSIT_PROOF     // 2) A 입금 증빙
+  ADMIN_DEPOSIT_CONFIRMED // 3) 관리자 입금 확인
+  SELLER_FULFILLMENT_PROOF // 4) B 이행 증빙
+  BUYER_FINAL_APPROVAL    // 5) A 최종 승인
+  ESCROW_COMPLETED        // 6) 에스크로 완료 (+ 수수료 정산)
+  CANCELLED
+  DISPUTED
+}
+
+enum AttachmentPurpose {
+  FIAT_DEPOSIT_RECEIPT   // 법정화폐 입금 영수증
+  USDT_TRANSFER_PROOF    // USDT 송금 TXID/스크린샷
+  SHIPPING_PROOF         // 물품 발송 증빙
+  CONTRACT_DOCUMENT      // 계약/거래 명세
+  OTHER
+}
+
+enum LedgerEntryType {
+  COMMISSION_EARNED  // 수수료 적립
+  COMMISSION_REVERSED // 취소/환불 시 역분개
+  ADJUSTMENT         // 수동 조정 (관리자)
+}
+
+enum CurrencyCode {
+  KRW
+  USD
+  USDT
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ORGANIZATION — 5단계 영업 조직 트리
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Organization {
+  id        String   @id @default(cuid())
+  code      String   @unique // 조직 코드 (예: HQ-001, SO-SEOUL-01)
+  name      String
+  type      OrgType
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Adjacency List — 상위 조직 참조
+  parentId String?
+  parent   Organization?  @relation("OrgHierarchy", fields: [parentId], references: [id])
+  children Organization[] @relation("OrgHierarchy")
+
+  // Materialized path for efficient subtree queries (예: /HQ/MD01/RB02/AG03/SO04)
+  path String @default("/")
+
+  users            User[]
+  customers        CustomerProfile[] @relation("RecruitingOrg")
+  commissionRates  CommissionRate[]
+  ledgerEntries    LedgerEntry[]
+
+  @@index([parentId])
+  @@index([type])
+  @@index([path])
+  @@map("organizations")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// USER & CUSTOMER PROFILE
+// ─────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  phone        String?
+  role         UserRole
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  customerProfile CustomerProfile?
+  wallets         Wallet[]
+  statusChanges   TicketStatusHistory[] @relation("StatusChangedBy")
+
+  // 에스크로 거래에서의 역할
+  escrowAsBuyer  TradeEscrowDetail[] @relation("EscrowBuyer")
+  escrowAsSeller TradeEscrowDetail[] @relation("EscrowSeller")
+
+  @@index([organizationId])
+  @@index([role])
+  @@map("users")
+}
+
+/// 가맹점 등록과 동일한 형태의 고객 프로필
+model CustomerProfile {
+  id           String       @id @default(cuid())
+  customerType CustomerType
+  // 개인
+  residentId   String? // 주민번호/신분증 (암호화 저장 권장)
+  // 기업 (가맹점)
+  businessName    String?
+  businessNumber  String? // 사업자등록번호
+  representative  String?
+  businessAddress String?
+  businessCategory String?
+
+  // 유치 영업점 (수수료 정산 체인 시작점)
+  recruitingOrgId String
+  recruitingOrg   Organization @relation("RecruitingOrg", fields: [recruitingOrgId], references: [id])
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tickets TransactionTicket[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([recruitingOrgId])
+  @@index([businessNumber])
+  @@map("customer_profiles")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WALLET — 고객 지갑 + 수수료 설정
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Wallet {
+  id        String  @id @default(cuid())
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label     String? // 지갑 별칭
+  address   String  // USDT 수령 주소
+  network   String  @default("TRC20") // TRC20, ERC20 등
+  isDefault Boolean @default(false)
+  isActive  Boolean @default(true)
+
+  // 가스피 및 시스템 부가 수수료 (티켓 생성 시 스냅샷으로 복사)
+  gasFeeAmount      Decimal @default(0) @db.Decimal(18, 8)
+  platformFeeAmount Decimal @default(0) @db.Decimal(18, 8)
+  feeCurrency       CurrencyCode @default(USDT)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  usdtPurchaseTickets UsdtPurchaseDetail[]
+
+  @@unique([userId, address, network])
+  @@index([userId])
+  @@map("wallets")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TRANSACTION TICKET — 공통 거래 티켓 (워크플로우 진입점)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model TransactionTicket {
+  id         String     @id @default(cuid())
+  ticketNo   String     @unique // 사람이 읽을 수 있는 티켓 번호 (예: USDT-20260706-0001)
+  type       TicketType
+  customerId String
+  customer   CustomerProfile @relation(fields: [customerId], references: [id])
+
+  // 완료 시 수수료 정산 여부 (멱등성 보장)
+  commissionSettled   Boolean   @default(false)
+  commissionSettledAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  usdtPurchase UsdtPurchaseDetail?
+  tradeEscrow  TradeEscrowDetail?
+  attachments  Attachment[]
+  statusHistory TicketStatusHistory[]
+  ledgerEntries LedgerEntry[]
+
+  @@index([customerId])
+  @@index([type])
+  @@index([commissionSettled])
+  @@map("transaction_tickets")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WORKFLOW 1: USDT 매입
+// ─────────────────────────────────────────────────────────────────────────────
+
+model UsdtPurchaseDetail {
+  id       String @id @default(cuid())
+  ticketId String @unique
+  ticket   TransactionTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  status UsdtPurchaseStatus @default(APPLICATION_COMPLETED)
+
+  // 신청 금액
+  fiatAmount   Decimal      @db.Decimal(18, 2)
+  fiatCurrency CurrencyCode @default(KRW)
+
+  // 환율 API 스냅샷 (신청 시점 고정)
+  exchangeRate    Decimal @db.Decimal(18, 8)
+  exchangeRateAt  DateTime
+  exchangeSource  String  @default("external_api") // API 출처
+
+  // 예상 USDT 수량 (fiatAmount / exchangeRate - fees)
+  expectedUsdtAmount Decimal @db.Decimal(18, 8)
+
+  // 수수료 스냅샷 (신청 시점 Wallet/설정값 복사)
+  gasFeeSnapshot      Decimal @default(0) @db.Decimal(18, 8)
+  platformFeeSnapshot Decimal @default(0) @db.Decimal(18, 8)
+
+  // 수령 지갑
+  walletId String?
+  wallet   Wallet? @relation(fields: [walletId], references: [id])
+
+  // 완료 시 TXID
+  usdtTxId        String?
+  actualUsdtAmount Decimal? @db.Decimal(18, 8)
+
+  adminNote String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@map("usdt_purchase_details")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WORKFLOW 2: 무역 에스크로 (3자: 구매자 A, 판매자 B, 관리자)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model TradeEscrowDetail {
+  id       String @id @default(cuid())
+  ticketId String @unique
+  ticket   TransactionTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  status TradeEscrowStatus @default(ESCROW_CREATED)
+
+  buyerId  String
+  buyer    User @relation("EscrowBuyer", fields: [buyerId], references: [id])
+  sellerId String
+  seller   User @relation("EscrowSeller", fields: [sellerId], references: [id])
+
+  title       String
+  description String?
+
+  // 거래 금액
+  amount   Decimal      @db.Decimal(18, 2)
+  currency CurrencyCode @default(KRW)
+
+  // 수수료 풀 (완료 시 정산 기준)
+  totalCommissionPool Decimal @default(0) @db.Decimal(18, 2)
+
+  // 판매자 송금 정보 (완료 시 관리자 수동 송금)
+  sellerPayoutAccount String?
+  payoutTxId          String?
+
+  adminNote String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([buyerId])
+  @@index([sellerId])
+  @@map("trade_escrow_details")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STATUS HISTORY — 감사 추적 (누가, 언제, 어떤 상태로)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model TicketStatusHistory {
+  id       String @id @default(cuid())
+  ticketId String
+  ticket   TransactionTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  fromStatus String? // 이전 상태 (생성 시 null)
+  toStatus   String  // 변경 후 상태
+  note       String?
+
+  changedById String
+  changedBy   User @relation("StatusChangedBy", fields: [changedById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([ticketId])
+  @@index([createdAt])
+  @@map("ticket_status_histories")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ATTACHMENT — 증빙 파일
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Attachment {
+  id       String @id @default(cuid())
+  ticketId String
+  ticket   TransactionTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  purpose     AttachmentPurpose
+  fileName    String
+  mimeType    String
+  fileSize    Int
+  storageKey  String // S3/로컬 스토리지 키
+  storageUrl  String? // CDN URL (선택)
+
+  uploadedById String?
+  description  String?
+
+  createdAt DateTime @default(now())
+
+  @@index([ticketId])
+  @@index([purpose])
+  @@map("attachments")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMMISSION RATE — 조직별 수수료 요율 설정
+// ─────────────────────────────────────────────────────────────────────────────
+
+model CommissionRate {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  ticketType TicketType // USDT_PURCHASE | TRADE_ESCROW 별 요율
+
+  /// 해당 조직이 가져가는 비율 (%). 예: 영업점 0.5%, 지사 0.3% ...
+  ratePercent Decimal @db.Decimal(5, 4)
+
+  effectiveFrom DateTime  @default(now())
+  effectiveTo   DateTime? // null = 현재 유효
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, ticketType, effectiveFrom])
+  @@index([organizationId, ticketType])
+  @@map("commission_rates")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LEDGER — 가상 장부 (수수료 정산 기록)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model LedgerEntry {
+  id String @id @default(cuid())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  ticketId String
+  ticket   TransactionTicket @relation(fields: [ticketId], references: [id])
+
+  entryType LedgerEntryType @default(COMMISSION_EARNED)
+
+  // 정산 금액
+  amount   Decimal      @db.Decimal(18, 8)
+  currency CurrencyCode @default(KRW)
+
+  // 적용된 요율 스냅샷
+  ratePercent Decimal @db.Decimal(5, 4)
+
+  // 정산 기준 금액 (수수료 풀)
+  baseAmount Decimal @db.Decimal(18, 2)
+
+  description String?
+  settledAt   DateTime @default(now())
+
+  // 역분개 시 원본 참조
+  reversalOfId String?
+  reversalOf   LedgerEntry?  @relation("LedgerReversal", fields: [reversalOfId], references: [id])
+  reversals    LedgerEntry[] @relation("LedgerReversal")
+
+  @@index([organizationId, settledAt])
+  @@index([ticketId])
+  @@index([entryType])
+  @@map("ledger_entries")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SYSTEM CONFIG — 전역 수수료/환율 설정
+// ─────────────────────────────────────────────────────────────────────────────
+
+model SystemConfig {
+  id    String @id @default(cuid())
+  key   String @unique
+  value Json
+  description String?
+  updatedAt DateTime @updatedAt
+
+  @@map("system_configs")
+}

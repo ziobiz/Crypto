@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build
+dist/
+.next/
+out/
+build/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Prisma
+backend/prisma/migrations/**/migration.sql.bak
+
+# Logs
+*.log
+npm-debug.log*
+
+# Uploads (local dev)
+uploads/
+
+# Deploy archives
+*.zip
+
+# Docker volumes (if mounted locally)
+postgres_data/
+minio_data/
