@@ -46,7 +46,8 @@ systemctl restart postgresql
 
 echo "==> 앱 디렉터리"
 mkdir -p "$APP_DIR/uploads"
-chown -R "$SUDO_USER:$SUDO_USER" "$APP_DIR" 2>/dev/null || true
+APP_OWNER="${SUDO_USER:-root}"
+chown -R "$APP_OWNER:$APP_OWNER" "$APP_DIR" 2>/dev/null || true
 
 echo "==> PM2 부팅 시 자동 시작"
 pm2 startup systemd -u root --hp /root
