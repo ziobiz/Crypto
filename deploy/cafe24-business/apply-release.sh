@@ -36,7 +36,7 @@ fi
 
 echo "==> 압축 해제"
 mkdir -p "$ROOT/incoming"
-unzip -o "$ZIP" -d "$ROOT"
+bash deploy/cafe24-business/unpack-zip.sh "$ZIP" "$ROOT"
 
 echo "==> 배포 스크립트 적용"
 sed -i 's/\r$//' deploy/cafe24-business/*.sh
