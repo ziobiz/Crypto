@@ -15,9 +15,11 @@ fi
 npx prisma generate
 npm run build
 echo "==> DB 스키마 동기화"
-if [ -d prisma/migrations ] && [ -n "$(ls -A prisma/migrations 2>/dev/null)" ]; then
+MIGRATION_DIRS=$(find prisma/migrations -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)
+if [ "${MIGRATION_DIRS}" -gt 0 ]; then
   npx prisma migrate deploy
 else
+  echo "    (migrations 없음 → db push 사용)"
   npx prisma db push
 fi
 cd ..
