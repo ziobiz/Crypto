@@ -8,6 +8,7 @@ import tradeEscrowRoutes from './routes/trade-escrow.routes';
 import ledgerRoutes from './routes/ledger.routes';
 import organizationRoutes from './routes/organization.routes';
 import attachmentRoutes from './routes/attachment.routes';
+import hqPolicyRoutes from './routes/hq-policy.routes';
 import { errorHandler } from './middleware/errorHandler';
 
 dotenv.config();
@@ -36,6 +37,7 @@ app.use('/api/tickets/trade-escrow', tradeEscrowRoutes);
 app.use('/api/ledger', ledgerRoutes);
 app.use('/api/organizations', organizationRoutes);
 app.use('/api/attachments', attachmentRoutes);
+app.use('/api/hq-policy', hqPolicyRoutes);
 
 app.use(errorHandler);
 

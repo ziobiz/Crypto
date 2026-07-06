@@ -19,7 +19,13 @@ fi
 
 echo "==> 패키지 설치"
 apt-get update
-apt-get install -y curl git nginx postgresql postgresql-contrib
+apt-get install -y curl git nginx postgresql postgresql-contrib ufw
+
+echo "==> 방화벽 (HTTP/HTTPS + SSH)"
+ufw allow OpenSSH
+ufw allow 80/tcp
+ufw allow 443/tcp
+ufw --force enable
 
 echo "==> Node.js 20 LTS"
 curl -fsSL https://deb.nodesource.com/setup_20.x | bash -

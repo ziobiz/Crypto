@@ -312,3 +312,92 @@ export interface LedgerSummary {
     description?: string;
   }>;
 }
+
+export const hqPolicyApi = {
+  getAccess: () => request<HqAccessPayload>('/api/hq-policy/access'),
+  saveAccess: (matrix: HqAccessMatrix) =>
+    request<HqAccessPayload>('/api/hq-policy/access', {
+      method: 'PUT',
+      body: JSON.stringify({ matrix }),
+    }),
+  getOrgColumns: () => request<HqOrgColumnsPayload>('/api/hq-policy/org-columns'),
+  saveOrgColumns: (config: HqOrgColumnConfig) =>
+    request<HqOrgColumnsPayload>('/api/hq-policy/org-columns', {
+      method: 'PUT',
+      body: JSON.stringify({ config }),
+    }),
+  getCommission: () => request<HqCommissionPayload>('/api/hq-policy/commission'),
+  saveCommissionRisk: (risk: HqCommissionRiskConfig) =>
+    request<HqCommissionPayload>('/api/hq-policy/commission/risk', {
+      method: 'PUT',
+      body: JSON.stringify({ risk }),
+    }),
+  getPlatform: () => request<HqPlatformPayload>('/api/hq-policy/platform'),
+  savePlatform: (config: HqPlatformConfig) =>
+    request<HqPlatformPayload>('/api/hq-policy/platform', {
+      method: 'PUT',
+      body: JSON.stringify({ config }),
+    }),
+};
+
+export type HqPermissionLevel = 'NONE' | 'VIEW' | 'MODIFY' | 'DELETE';
+
+export type HqAccessMatrix = Record<string, Record<string, HqPermissionLevel>>;
+
+export interface HqAccessPayload {
+  pages: { path: string; label: string; group: string }[];
+  orgLevels: string[];
+  permissionLevels: HqPermissionLevel[];
+  matrix: HqAccessMatrix;
+}
+
+export interface HqOrgColumnsPayload {
+  catalog: Record<string, { key: string; label: string; fixed?: boolean }[]>;
+  orgLevels: string[];
+  config: HqOrgColumnConfig;
+}
+
+export type HqOrgColumnConfig = Record<
+  string,
+  Record<string, { allowedKeys: string[]; order: string[] }>
+>;
+
+export interface HqCommissionRiskConfig {
+  defaultGasFeeUsdt: number;
+  defaultPlatformFeeUsdt: number;
+  maxTicketAmountKrw: number;
+  riskEnabled: boolean;
+  maxDailyTicketsPerCustomer: number;
+  notes?: string;
+}
+
+export interface HqCommissionPayload {
+  risk: HqCommissionRiskConfig;
+  rates: Array<{
+    id: string;
+    ticketType: string;
+    ratePercent: string;
+    organization: { id: string; code: string; name: string; type: string };
+  }>;
+}
+
+export interface HqPlatformConfig {
+  primaryDomain: string;
+  apiPublicUrl: string;
+  corsOrigins: string[];
+  sslCertPath?: string;
+  redirectRootToPrimary: boolean;
+}
+
+export interface HqPlatformPayload {
+  config: HqPlatformConfig;
+  ssl: { status: string; detail: string; daysRemaining: number | null; notAfter?: string };
+  server: {
+    hostname: string;
+    uptimeSec: number;
+    memTotalMb: number;
+    memFreeMb: number;
+    loadAvg: number[];
+  };
+  pm2: unknown[];
+}

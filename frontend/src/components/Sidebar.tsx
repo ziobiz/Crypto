@@ -10,6 +10,7 @@ const NAV_ITEMS = {
     { href: '/dashboard/usdt', label: 'USDT 매입' },
     { href: '/dashboard/escrow', label: '무역 에스크로' },
     { href: '/dashboard/ledger', label: '수수료 장부' },
+    { href: '/dashboard/hq-policy', label: '본사정책' },
   ],
   ORG_STAFF: [
     { href: '/dashboard', label: '대시보드' },
