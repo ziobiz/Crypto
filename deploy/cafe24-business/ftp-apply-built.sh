@@ -72,10 +72,26 @@ else
 fi
 pm2 save
 
-sleep 2
+echo "    waiting for app to start..."
+HEALTH_OK=false
+for i in 1 2 3 4 5 6 7 8 9 10; do
+  sleep 3
+  if curl -sf http://127.0.0.1:3000/health >/dev/null 2>&1; then
+    HEALTH_OK=true
+    break
+  fi
+  echo "    retry $i/10..."
+done
+
+sleep 1
 pm2 status
-curl -sf http://127.0.0.1:3000/health && echo " health OK" || echo " health check FAILED"
-curl -sf -o /dev/null http://127.0.0.1:3000/login && echo " web OK" || echo " web check FAILED"
+if [ "$HEALTH_OK" = true ]; then
+  curl -sf http://127.0.0.1:3000/health && echo " health OK" || echo " health check FAILED"
+  curl -sf -o /dev/null http://127.0.0.1:3000/login && echo " web OK" || echo " web check FAILED"
+else
+  echo " health check FAILED (app still starting or crashed)"
+  echo " Check: pm2 logs crypto --lines 50"
+fi
 
 echo ""
 echo "Done: https://api.tinpass.com/login"
