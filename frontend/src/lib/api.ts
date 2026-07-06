@@ -74,6 +74,31 @@ export const api = {
   salesOffices: () =>
     request<SalesOffice[]>('/api/organizations/sales-offices'),
 
+  organizations: () => request<Organization[]>('/api/organizations'),
+
+  users: {
+    list: (params?: UserListParams) => {
+      const q = new URLSearchParams();
+      if (params?.role) q.set('role', params.role);
+      if (params?.organizationId) q.set('organizationId', params.organizationId);
+      if (params?.search) q.set('search', params.search);
+      if (params?.isActive !== undefined) q.set('isActive', String(params.isActive));
+      if (params?.page) q.set('page', String(params.page));
+      const qs = q.toString();
+      return request<UserListResponse>(`/api/users${qs ? `?${qs}` : ''}`);
+    },
+    get: (id: string) => request<ManagedUser>(`/api/users/${id}`),
+    create: (data: CreateUserInput) =>
+      request<ManagedUser>('/api/users', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: UpdateUserInput) =>
+      request<ManagedUser>(`/api/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    resetPassword: (id: string, password: string) =>
+      request<{ ok: boolean }>(`/api/users/${id}/password`, {
+        method: 'PATCH',
+        body: JSON.stringify({ password }),
+      }),
+  },
+
   exchangeRate: () =>
     request<ExchangeRateResponse>('/api/tickets/usdt-purchase/exchange-rate'),
 
@@ -196,6 +221,72 @@ export interface SalesOffice {
   id: string;
   code: string;
   name: string;
+}
+
+export interface Organization {
+  id: string;
+  code: string;
+  name: string;
+  type: string;
+  path?: string;
+}
+
+export type UserRoleType = 'SUPER_ADMIN' | 'ORG_STAFF' | 'CUSTOMER';
+
+export interface ManagedUser {
+  id: string;
+  email: string;
+  name: string;
+  phone?: string | null;
+  role: UserRoleType;
+  isActive: boolean;
+  lastLoginAt?: string | null;
+  createdAt: string;
+  organization?: { id: string; code: string; name: string; type: string; path: string } | null;
+  customerProfile?: {
+    id: string;
+    customerType: string;
+    businessName?: string | null;
+    recruitingOrg?: { id: string; code: string; name: string };
+  } | null;
+}
+
+export interface UserListParams {
+  role?: UserRoleType;
+  organizationId?: string;
+  search?: string;
+  isActive?: boolean;
+  page?: number;
+}
+
+export interface UserListResponse {
+  items: ManagedUser[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+}
+
+export interface CreateUserInput {
+  email: string;
+  password: string;
+  name: string;
+  phone?: string;
+  role: UserRoleType;
+  organizationId?: string;
+  customerType?: 'INDIVIDUAL' | 'CORPORATE';
+  recruitingOrgId?: string;
+  businessName?: string;
+  businessNumber?: string;
+}
+
+export interface UpdateUserInput {
+  name?: string;
+  phone?: string | null;
+  role?: UserRoleType;
+  organizationId?: string | null;
+  isActive?: boolean;
+  recruitingOrgId?: string;
 }
 
 export interface Wallet {

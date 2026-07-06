@@ -6,7 +6,7 @@ export type HqPermissionLevel = (typeof HQ_PERMISSION_LEVELS)[number];
 export const HQ_ORG_LEVELS = [
   'HEAD_OFFICE',
   'MASTER_DISTRIBUTOR',
-  'BRANCH',
+  'REGIONAL_BRANCH',
   'AGENCY',
   'SALES_OFFICE',
 ] as const;
@@ -20,6 +20,7 @@ export const HQ_PAGE_CATALOG = [
   { path: '/dashboard/escrow', label: '무역 에스크로', group: '업무' },
   { path: '/dashboard/ledger', label: '수수료 장부', group: '업무' },
   { path: '/dashboard/wallets', label: '내 지갑', group: '업무' },
+  { path: '/dashboard/users', label: '사용자관리', group: '사용자관리' },
   { path: '/dashboard/hq-policy/access', label: '접근·권한', group: '본사정책' },
   { path: '/dashboard/hq-policy/org-columns', label: '조직·화면', group: '본사정책' },
   { path: '/dashboard/hq-policy/commission', label: '수수료·리스크', group: '본사정책' },

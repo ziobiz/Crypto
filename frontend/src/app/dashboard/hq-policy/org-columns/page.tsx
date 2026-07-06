@@ -7,6 +7,7 @@ const ORG_LABELS: Record<string, string> = {
   HEAD_OFFICE: '본사',
   MASTER_DISTRIBUTOR: '총판',
   BRANCH: '지사',
+  REGIONAL_BRANCH: '지사',
   AGENCY: '대리점',
   SALES_OFFICE: '영업점',
 };
