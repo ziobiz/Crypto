@@ -3,9 +3,9 @@
 # [PC] powershell -File deploy\pack-release.ps1
 #      → deploy\release\crypto-release.zip 생성
 #
-# [FTP] 업로드 1개
-#      로컬: deploy\release\crypto-release.zip
-#      서버: /var/www/crypto-workflow/incoming/crypto-release.zip
+# [FTP] upload ONE file
+#      A) /var/www/crypto-workflow/incoming/crypto-release.zip
+#      B) /var/www/crypto-workflow/deploy/cafe24-business/crypto-release.zip
 #
 # [SSH] 배포 1줄
 #      cd /var/www/crypto-workflow && bash deploy/cafe24-business/apply-release.sh

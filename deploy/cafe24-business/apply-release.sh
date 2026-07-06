@@ -1,52 +1,65 @@
 #!/bin/bash
-# FTP로 올린 crypto-release.zip 한 번에 배포
+# Deploy crypto-release.zip (FTP upload)
 #
 #   cd /var/www/crypto-workflow
 #   bash deploy/cafe24-business/apply-release.sh
 #
-# 업로드 위치: /var/www/crypto-workflow/incoming/crypto-release.zip
+# FTP upload (either path works):
+#   /var/www/crypto-workflow/incoming/crypto-release.zip
+#   /var/www/crypto-workflow/deploy/cafe24-business/crypto-release.zip
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
-ZIP="$ROOT/incoming/crypto-release.zip"
+ZIP=""
+for candidate in \
+  "$ROOT/incoming/crypto-release.zip" \
+  "$ROOT/deploy/cafe24-business/crypto-release.zip"; do
+  if [ -f "$candidate" ]; then
+    ZIP="$candidate"
+    break
+  fi
+done
 
 echo "=============================================="
-echo " 배포 패키지 적용 (crypto-release.zip)"
+echo " Apply release package (crypto-release.zip)"
 echo " ROOT: $ROOT"
 echo "=============================================="
 
-if [ ! -f "$ZIP" ]; then
-  echo "ERROR: $ZIP 없음"
+if [ -z "$ZIP" ]; then
+  echo "ERROR: crypto-release.zip not found"
   echo ""
-  echo "PC에서 패키지 생성:"
+  echo "FTP upload to ONE of:"
+  echo "  incoming/crypto-release.zip"
+  echo "  deploy/cafe24-business/crypto-release.zip"
+  echo ""
+  echo "Create on PC:"
   echo "  powershell -File deploy\\pack-release.ps1"
-  echo ""
-  echo "FTP 업로드:"
-  echo "  로컬: deploy/release/crypto-release.zip"
-  echo "  서버: /var/www/crypto-workflow/incoming/crypto-release.zip"
   exit 1
 fi
+
+echo "Package: $ZIP"
 
 if [ ! -f backend/.env ]; then
-  echo "ERROR: backend/.env 없음 (서버 전용 — zip에 포함하지 말 것)"
+  echo "ERROR: backend/.env missing (server only - do not include in zip)"
   exit 1
 fi
 
-echo "==> 압축 해제"
+echo "==> Extract zip"
 mkdir -p "$ROOT/incoming"
 bash deploy/cafe24-business/unpack-zip.sh "$ZIP" "$ROOT"
 
-echo "==> 배포 스크립트 적용"
+echo "==> Fix deploy scripts"
 sed -i 's/\r$//' deploy/cafe24-business/*.sh
 chmod +x deploy/cafe24-business/*.sh
 
-echo "==> 런타임 설치 + PM2 재시작"
+echo "==> Install runtime + restart PM2"
 bash deploy/cafe24-business/ftp-apply-built.sh
 
 STAMP=$(date +%Y%m%d-%H%M%S)
-mv "$ZIP" "$ROOT/incoming/crypto-release.applied-$STAMP.zip"
+BACKUP="$ROOT/incoming/crypto-release.applied-${STAMP}.zip"
+mv "$ZIP" "$BACKUP"
 echo ""
-echo "백업: incoming/crypto-release.applied-$STAMP.zip"
-echo "완료: https://api.tinpass.com/login"
+echo "Backup: $BACKUP"
+echo "Done: https://api.tinpass.com/login"
