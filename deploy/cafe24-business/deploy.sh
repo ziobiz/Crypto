@@ -10,7 +10,12 @@ cd backend
 npm ci
 npx prisma generate
 npm run build
-npx prisma migrate deploy
+echo "==> DB 스키마 동기화"
+if [ -d prisma/migrations ] && [ -n "$(ls -A prisma/migrations 2>/dev/null)" ]; then
+  npx prisma migrate deploy
+else
+  npx prisma db push
+fi
 cd ..
 
 echo "==> Frontend (메모리 절약: NODE_OPTIONS 제한)"
