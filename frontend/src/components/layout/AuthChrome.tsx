@@ -1,6 +1,5 @@
 'use client';
 
-import { LocaleBar } from './LocaleBar';
 import { useLocale } from '@/context/LocaleProvider';
 import type { ResolvedBranding } from '@/hooks/useBranding';
 import { resolveLoginNotice } from '@/lib/login-notice';
@@ -13,7 +12,7 @@ export function AuthChrome({
   branding?: ResolvedBranding | null;
 }) {
   const { locale } = useLocale();
-  const siteName = branding?.siteName ?? 'Crypto Workflow';
+  const authLogo = branding?.authLogoUrl ?? branding?.logoUrl;
   const notice = resolveLoginNotice(
     locale,
     branding?.loginNoticeEnabled,
@@ -43,20 +42,15 @@ export function AuthChrome({
       {/* 오른쪽: 로그인 패널 (PG login-panel-wrap) */}
       <div className="flex w-full shrink-0 flex-col bg-white md:w-[360px] md:overflow-y-auto">
         <div className="flex flex-1 flex-col px-4 py-5 sm:px-5">
-          <div className="mb-4 flex items-start justify-between gap-2">
-            <div className="min-w-0 flex-1">
-              {branding?.authLogoUrl ? (
-                <img
-                  src={branding.authLogoUrl}
-                  alt=""
-                  className="mb-3 block max-h-[42px] max-w-[170px] object-contain"
-                />
-              ) : (
-                <p className="mb-3 text-lg font-bold text-gray-900">{siteName}</p>
-              )}
+          {authLogo ? (
+            <div className="mb-4 flex justify-center">
+              <img
+                src={authLogo}
+                alt=""
+                className="max-h-[52px] max-w-[220px] object-contain"
+              />
             </div>
-            <LocaleBar className="shrink-0" />
-          </div>
+          ) : null}
 
           {notice ? (
             <section

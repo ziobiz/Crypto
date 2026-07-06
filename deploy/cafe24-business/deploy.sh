@@ -20,7 +20,10 @@ if [ "${MIGRATION_DIRS}" -gt 0 ]; then
   npx prisma migrate deploy
 else
   echo "    (migrations 없음 → db push 사용)"
-  npx prisma db push
+  npx prisma db push || {
+    echo "ERROR: prisma db push 실패 — 로그인 500 원인. 수동: bash deploy/cafe24-business/fix-db-login.sh"
+    exit 1
+  }
 fi
 cd ..
 

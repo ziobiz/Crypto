@@ -35,7 +35,10 @@ MIGRATION_DIRS=$(find prisma/migrations -mindepth 1 -maxdepth 1 -type d 2>/dev/n
 if [ "${MIGRATION_DIRS}" -gt 0 ]; then
   npx prisma migrate deploy
 else
-  npx prisma db push
+  npx prisma db push || {
+    echo "ERROR: prisma db push 실패"
+    exit 1
+  }
 fi
 cd ..
 
