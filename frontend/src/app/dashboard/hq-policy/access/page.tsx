@@ -17,11 +17,16 @@ export default function HqAccessPage() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
 
+  const [error, setError] = useState('');
+
   useEffect(() => {
-    hqPolicyApi.getAccess().then((d) => {
-      setData(d);
-      setMatrix(d.matrix);
-    });
+    hqPolicyApi
+      .getAccess()
+      .then((d) => {
+        setData(d);
+        setMatrix(d.matrix);
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : '불러오기 실패'));
   }, []);
 
   async function save() {
@@ -37,6 +42,15 @@ export default function HqAccessPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  if (error) {
+    return (
+      <p className="text-sm text-red-600">
+        {error} — 백엔드 <code className="text-xs">/api/hq-policy</code> 재배포 후{' '}
+        <code className="text-xs">pm2 restart crypto-api</code> 하세요.
+      </p>
+    );
   }
 
   if (!data) return <p className="text-sm text-gray-500">불러오는 중…</p>;

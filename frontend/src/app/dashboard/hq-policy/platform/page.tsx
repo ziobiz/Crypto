@@ -8,12 +8,16 @@ export default function HqPlatformPage() {
   const [config, setConfig] = useState<HqPlatformConfig | null>(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    hqPolicyApi.getPlatform().then((d) => {
-      setData(d);
-      setConfig(d.config);
-    });
+    hqPolicyApi
+      .getPlatform()
+      .then((d) => {
+        setData(d);
+        setConfig(d.config);
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : '불러오기 실패'));
   }, []);
 
   async function save() {
@@ -30,6 +34,10 @@ export default function HqPlatformPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  if (error) {
+    return <p className="text-sm text-red-600">{error} — 백엔드 재배포 후 pm2 restart crypto-api</p>;
   }
 
   if (!data || !config) return <p className="text-sm text-gray-500">불러오는 중…</p>;

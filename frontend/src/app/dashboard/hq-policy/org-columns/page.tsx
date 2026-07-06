@@ -24,12 +24,16 @@ export default function HqOrgColumnsPage() {
   const [orgLevel, setOrgLevel] = useState('HEAD_OFFICE');
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    hqPolicyApi.getOrgColumns().then((d) => {
-      setData(d);
-      setConfig(d.config);
-    });
+    hqPolicyApi
+      .getOrgColumns()
+      .then((d) => {
+        setData(d);
+        setConfig(d.config);
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : '불러오기 실패'));
   }, []);
 
   const columns = data?.catalog[pagePath] ?? [];
@@ -79,6 +83,10 @@ export default function HqOrgColumnsPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  if (error) {
+    return <p className="text-sm text-red-600">{error} — 백엔드 재배포 후 pm2 restart crypto-api</p>;
   }
 
   if (!data) return <p className="text-sm text-gray-500">불러오는 중…</p>;
