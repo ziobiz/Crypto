@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { Attachment } from '@/lib/api';
+import { getApiBaseUrl } from '@/lib/api-base';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+const API_URL = getApiBaseUrl();
 
 export function AttachmentLink({ attachment }: { attachment: Attachment }) {
   const [url, setUrl] = useState<string | null>(null);
