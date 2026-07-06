@@ -56,7 +56,7 @@ bash deploy/cafe24-business/deploy.sh
 echo ""
 echo "============================================"
 echo " 완료 — https://api.tinpass.com"
-echo " 로그인: admin@ziobiz.com / password123"
+echo " 로그인: ziobizm@gmail.com / admin1234"
 echo "============================================"
 pm2 status
 curl -sf https://api.tinpass.com/api/auth/me -H "Authorization: Bearer x" | head -c 120 || true

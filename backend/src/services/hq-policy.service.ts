@@ -14,7 +14,16 @@ import {
   type HqOrgColumnConfig,
   type HqPermissionLevel,
   type HqPlatformConfig,
+  type HqEmailOtpConfig,
 } from '../constants/hq-policy';
+import {
+  defaultEmailOtpConfig,
+  getEmailOtpConfig,
+  saveEmailOtpConfig,
+} from '../services/otp.service';
+import { sendTestEmail } from '../services/email.service';
+
+const BRANDING_DIR = path.resolve(process.env.UPLOAD_DIR ?? './uploads', 'branding');
 
 async function getConfig<T>(key: string, fallback: T): Promise<T> {
   const row = await prisma.systemConfig.findUnique({ where: { key } });
@@ -80,7 +89,65 @@ function defaultPlatform(): HqPlatformConfig {
     corsOrigins: ['https://api.tinpass.com', 'https://tinpass.com'],
     sslCertPath: '/etc/letsencrypt/live/api.tinpass.com/fullchain.pem',
     redirectRootToPrimary: true,
+    siteName: 'Crypto Workflow',
+    footerText: '',
+    authMainText: '',
+    loginNoticeEnabled: true,
+    loginNoticeI18n: {},
   };
+}
+
+type BrandAsset = 'logo' | 'auth-logo' | 'favicon' | 'background';
+
+const BRAND_ASSET_URL: Record<BrandAsset, string> = {
+  logo: '/api/branding/logo',
+  'auth-logo': '/api/branding/auth-logo',
+  favicon: '/api/branding/favicon',
+  background: '/api/branding/background',
+};
+
+const BRAND_CONFIG_KEY: Record<BrandAsset, keyof HqPlatformConfig> = {
+  logo: 'logoUrl',
+  'auth-logo': 'authLogoUrl',
+  favicon: 'faviconUrl',
+  background: 'authBackgroundUrl',
+};
+
+function ensureBrandingDir() {
+  if (!fs.existsSync(BRANDING_DIR)) {
+    fs.mkdirSync(BRANDING_DIR, { recursive: true });
+  }
+}
+
+function getBrandingAssetPath(asset: BrandAsset): string | null {
+  if (!fs.existsSync(BRANDING_DIR)) return null;
+  const files = fs.readdirSync(BRANDING_DIR).filter((f) => f.startsWith(`${asset}.`));
+  if (files.length === 0) return null;
+  return path.join(BRANDING_DIR, files[0]!);
+}
+
+async function saveBrandingAsset(
+  asset: BrandAsset,
+  file: { buffer: Buffer; originalname: string },
+) {
+  ensureBrandingDir();
+  const defaults: Record<BrandAsset, string> = {
+    logo: '.png',
+    'auth-logo': '.png',
+    favicon: '.ico',
+    background: '.jpg',
+  };
+  const ext = path.extname(file.originalname) || defaults[asset];
+  for (const f of fs.readdirSync(BRANDING_DIR)) {
+    if (f.startsWith(`${asset}.`)) {
+      fs.unlinkSync(path.join(BRANDING_DIR, f));
+    }
+  }
+  fs.writeFileSync(path.join(BRANDING_DIR, `${asset}${ext}`), file.buffer);
+  const config = await getConfig(HQ_CONFIG_KEYS.platform, defaultPlatform());
+  const key = BRAND_CONFIG_KEY[asset];
+  const next = { ...config, [key]: BRAND_ASSET_URL[asset] };
+  await putConfig(HQ_CONFIG_KEYS.platform, next, '플랫폼 도메인·SSL');
 }
 
 function readSslInfo(certPath?: string) {
@@ -163,7 +230,12 @@ export const hqPolicyService = {
   },
 
   async getPlatformPayload() {
-    const config = await getConfig(HQ_CONFIG_KEYS.platform, defaultPlatform());
+    const config = { ...defaultPlatform(), ...(await getConfig(HQ_CONFIG_KEYS.platform, defaultPlatform())) };
+    const emailRaw = await getEmailOtpConfig();
+    const email = {
+      ...emailRaw,
+      smtpPassword: emailRaw.smtpPassword ? '********' : '',
+    };
     const ssl = readSslInfo(config.sslCertPath);
     let pm2List: unknown[] = [];
     try {
@@ -174,6 +246,7 @@ export const hqPolicyService = {
     }
     return {
       config,
+      email,
       ssl,
       server: {
         hostname: os.hostname(),
@@ -193,6 +266,68 @@ export const hqPolicyService = {
   async savePlatform(config: HqPlatformConfig) {
     await putConfig(HQ_CONFIG_KEYS.platform, config, '플랫폼 도메인·SSL');
     return this.getPlatformPayload();
+  },
+
+  async savePlatformEmail(email: HqEmailOtpConfig) {
+    await saveEmailOtpConfig(email);
+    return this.getPlatformPayload();
+  },
+
+  async sendPlatformEmailTest(to: string) {
+    const email = await getEmailOtpConfig();
+    await sendTestEmail(email, to);
+    return { ok: true };
+  },
+
+  async savePlatformLogo(file: { buffer: Buffer; originalname: string }) {
+    await saveBrandingAsset('logo', file);
+    return this.getPlatformPayload();
+  },
+
+  async savePlatformAuthLogo(file: { buffer: Buffer; originalname: string }) {
+    await saveBrandingAsset('auth-logo', file);
+    return this.getPlatformPayload();
+  },
+
+  async savePlatformFavicon(file: { buffer: Buffer; originalname: string }) {
+    await saveBrandingAsset('favicon', file);
+    return this.getPlatformPayload();
+  },
+
+  async savePlatformBackground(file: { buffer: Buffer; originalname: string }) {
+    await saveBrandingAsset('background', file);
+    return this.getPlatformPayload();
+  },
+
+  async getPublicBranding() {
+    const config = { ...defaultPlatform(), ...(await getConfig(HQ_CONFIG_KEYS.platform, defaultPlatform())) };
+    return {
+      siteName: config.siteName || 'Crypto Workflow',
+      logoUrl: config.logoUrl ?? null,
+      authLogoUrl: config.authLogoUrl ?? null,
+      faviconUrl: config.faviconUrl ?? null,
+      authBackgroundUrl: config.authBackgroundUrl ?? null,
+      authMainText: config.authMainText ?? '',
+      footerText: config.footerText ?? '',
+      loginNoticeEnabled: config.loginNoticeEnabled !== false,
+      loginNoticeI18n: config.loginNoticeI18n ?? {},
+    };
+  },
+
+  getLogoFilePath(): string | null {
+    return getBrandingAssetPath('logo');
+  },
+
+  getAuthLogoFilePath(): string | null {
+    return getBrandingAssetPath('auth-logo');
+  },
+
+  getFaviconFilePath(): string | null {
+    return getBrandingAssetPath('favicon');
+  },
+
+  getBackgroundFilePath(): string | null {
+    return getBrandingAssetPath('background');
   },
 
   /** 저장된 매트릭스 기준 페이지 접근 가능 여부 */

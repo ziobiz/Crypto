@@ -2,28 +2,48 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useT } from '@/context/LocaleProvider';
+import type { MessageKey } from '@/i18n/messages';
 
-const TABS = [
-  { href: '/dashboard/hq-policy/access', label: '접근·권한' },
-  { href: '/dashboard/hq-policy/org-columns', label: '조직·화면' },
-  { href: '/dashboard/hq-policy/commission', label: '수수료·리스크' },
-  { href: '/dashboard/hq-policy/platform', label: '플랫폼' },
+const TABS: { href: string; labelKey: MessageKey; matchPrefix?: string }[] = [
+  { href: '/dashboard/hq-policy/access', labelKey: 'hq.tab.access', matchPrefix: '/dashboard/hq-policy/access' },
+  { href: '/dashboard/hq-policy/user-settings', labelKey: 'hq.tab.access', matchPrefix: '/dashboard/hq-policy/user-settings' },
+  { href: '/dashboard/hq-policy/org-columns', labelKey: 'hq.tab.orgColumns', matchPrefix: '/dashboard/hq-policy/org-columns' },
+  { href: '/dashboard/hq-policy/grid-order', labelKey: 'hq.tab.orgColumns', matchPrefix: '/dashboard/hq-policy/grid-order' },
+  { href: '/dashboard/hq-policy/commission', labelKey: 'hq.tab.commission' },
+  { href: '/dashboard/hq-policy/platform', labelKey: 'hq.tab.platform' },
 ];
+
+function isActive(pathname: string, tab: (typeof TABS)[number]) {
+  if (tab.matchPrefix) return pathname.startsWith(tab.matchPrefix);
+  return pathname === tab.href;
+}
 
 export default function HqPolicyLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const t = useT();
+
+  const mainTabs = [
+    { href: '/dashboard/hq-policy/access', labelKey: 'hq.hub.access' as MessageKey },
+    { href: '/dashboard/hq-policy/org-columns', labelKey: 'hq.hub.org' as MessageKey },
+    { href: '/dashboard/hq-policy/commission', labelKey: 'hq.hub.commission' as MessageKey },
+    { href: '/dashboard/hq-policy/platform', labelKey: 'hq.hub.platform' as MessageKey },
+  ];
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">본사정책</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          PG 본사정책 허브와 동일한 구성 — 접근 권한, 조직 항목, 수수료·리스크, 플랫폼 도메인·SSL
-        </p>
+        <h1 className="text-2xl font-bold text-gray-900">{t('hq.title')}</h1>
+        <p className="mt-1 text-sm text-gray-500">{t('hq.subtitle')}</p>
       </div>
       <nav className="flex flex-wrap gap-2 border-b border-gray-200 pb-3">
-        {TABS.map((tab) => {
-          const active = pathname === tab.href;
+        {mainTabs.map((tab) => {
+          const active =
+            tab.href === '/dashboard/hq-policy/access'
+              ? pathname.startsWith('/dashboard/hq-policy/access') || pathname.startsWith('/dashboard/hq-policy/user-settings')
+              : tab.href === '/dashboard/hq-policy/org-columns'
+                ? pathname.startsWith('/dashboard/hq-policy/org-columns') || pathname.startsWith('/dashboard/hq-policy/grid-order')
+                : pathname.startsWith(tab.href);
           return (
             <Link
               key={tab.href}
@@ -32,7 +52,7 @@ export default function HqPolicyLayout({ children }: { children: React.ReactNode
                 active ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              {tab.label}
+              {t(tab.labelKey)}
             </Link>
           );
         })}

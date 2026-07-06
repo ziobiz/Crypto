@@ -2,10 +2,12 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useT } from '@/context/LocaleProvider';
 import { api } from '@/lib/api';
 
 export default function EscrowNewPage() {
   const router = useRouter();
+  const t = useT();
   const [form, setForm] = useState({ sellerEmail: 'seller@example.com', title: '', description: '', amount: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -22,7 +24,7 @@ export default function EscrowNewPage() {
       });
       router.push(`/dashboard/escrow/${ticket.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '생성 실패');
+      setError(err instanceof Error ? err.message : t('escrow.createFailed'));
     } finally {
       setLoading(false);
     }
@@ -30,27 +32,27 @@ export default function EscrowNewPage() {
 
   return (
     <div className="max-w-lg">
-      <h1 className="text-2xl font-bold">무역 에스크로 생성</h1>
+      <h1 className="text-2xl font-bold">{t('escrow.newTitle')}</h1>
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         <div>
-          <label className="block text-sm font-medium">판매자 이메일</label>
+          <label className="block text-sm font-medium">{t('escrow.sellerEmail')}</label>
           <input value={form.sellerEmail} onChange={(e) => setForm({ ...form, sellerEmail: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" required />
         </div>
         <div>
-          <label className="block text-sm font-medium">거래 제목</label>
+          <label className="block text-sm font-medium">{t('escrow.tradeTitle')}</label>
           <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" required />
         </div>
         <div>
-          <label className="block text-sm font-medium">거래 설명</label>
+          <label className="block text-sm font-medium">{t('escrow.tradeDesc')}</label>
           <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" rows={3} />
         </div>
         <div>
-          <label className="block text-sm font-medium">거래 금액 (KRW)</label>
+          <label className="block text-sm font-medium">{t('escrow.tradeAmount')}</label>
           <input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" min="1" required />
         </div>
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button type="submit" disabled={loading} className="rounded-lg bg-blue-600 px-6 py-2 text-sm text-white disabled:opacity-50">
-          {loading ? '생성 중...' : '에스크로 생성'}
+          {loading ? t('escrow.creating') : t('escrow.createSubmit')}
         </button>
       </form>
     </div>

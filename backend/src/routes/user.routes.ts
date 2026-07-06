@@ -23,7 +23,7 @@ const listQuerySchema = z.object({
 
 const createSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(6),
+  password: z.string().min(6).optional(),
   name: z.string().min(1),
   phone: z.string().optional(),
   role: z.nativeEnum(UserRole),
@@ -44,7 +44,7 @@ const updateSchema = z.object({
 });
 
 const passwordSchema = z.object({
-  password: z.string().min(6),
+  password: z.string().min(6).optional(),
 });
 
 router.get(

@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs';
 import {
   PrismaClient,
   OrgType,
@@ -5,12 +6,12 @@ import {
   CustomerType,
   TicketType,
 } from '@prisma/client';
-import bcrypt from 'bcryptjs';
+import { initialPasswordFromEmail } from '../src/lib/password-policy';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  const passwordHash = await bcrypt.hash('password123', 10);
+  const hashFor = async (email: string) => bcrypt.hash(initialPasswordFromEmail(email), 10);
 
   // ── 조직 계층: 본사 > 총판 > 지사 > 대리점 > 영업점 ──
   const hq = await prisma.organization.create({
@@ -81,32 +82,39 @@ async function main() {
   // ── 관리자 ──
   await prisma.user.create({
     data: {
-      email: 'admin@ziobiz.com',
-      passwordHash,
+      email: 'ziobizm@gmail.com',
+      passwordHash: await hashFor('ziobizm@gmail.com'),
       name: '총본사 관리자',
       role: UserRole.SUPER_ADMIN,
       organizationId: hq.id,
+      passwordMustChange: true,
+      emailVerified: true,
+      emailVerifiedAt: new Date(),
     },
   });
 
-  // ── 영업점 직원 ──
   await prisma.user.create({
     data: {
       email: 'staff@so-001.com',
-      passwordHash,
+      passwordHash: await hashFor('staff@so-001.com'),
       name: '영업점 직원',
       role: UserRole.ORG_STAFF,
       organizationId: salesOffice.id,
+      passwordMustChange: true,
+      emailVerified: true,
+      emailVerifiedAt: new Date(),
     },
   });
 
-  // ── 고객 (개인) ──
   const customerUser = await prisma.user.create({
     data: {
       email: 'customer@example.com',
-      passwordHash,
+      passwordHash: await hashFor('customer@example.com'),
       name: '홍길동',
       role: UserRole.CUSTOMER,
+      passwordMustChange: true,
+      emailVerified: true,
+      emailVerifiedAt: new Date(),
       customerProfile: {
         create: {
           customerType: CustomerType.INDIVIDUAL,
@@ -130,9 +138,12 @@ async function main() {
   await prisma.user.create({
     data: {
       email: 'seller@example.com',
-      passwordHash,
+      passwordHash: await hashFor('seller@example.com'),
       name: '김판매',
       role: UserRole.CUSTOMER,
+      passwordMustChange: true,
+      emailVerified: true,
+      emailVerifiedAt: new Date(),
       customerProfile: {
         create: {
           customerType: CustomerType.CORPORATE,
@@ -146,10 +157,10 @@ async function main() {
   });
 
   console.log('Seed completed.');
-  console.log('  Admin: admin@ziobiz.com / password123');
-  console.log('  Staff: staff@so-001.com / password123');
-  console.log('  Customer:', customerUser.email, '/ password123');
-  console.log('  Seller: seller@example.com / password123');
+  console.log('  Admin: ziobizm@gmail.com /', initialPasswordFromEmail('ziobizm@gmail.com'));
+  console.log('  Staff: staff@so-001.com /', initialPasswordFromEmail('staff@so-001.com'));
+  console.log('  Customer:', customerUser.email, '/', initialPasswordFromEmail('customer@example.com'));
+  console.log('  Seller: seller@example.com /', initialPasswordFromEmail('seller@example.com'));
 }
 
 main()

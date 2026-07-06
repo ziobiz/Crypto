@@ -1,24 +1,22 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useT } from '@/context/LocaleProvider';
 import { hqPolicyApi, type HqOrgColumnConfig, type HqOrgColumnsPayload } from '@/lib/api';
+import type { MessageKey } from '@/i18n/messages';
 
-const ORG_LABELS: Record<string, string> = {
-  HEAD_OFFICE: '본사',
-  MASTER_DISTRIBUTOR: '총판',
-  BRANCH: '지사',
-  REGIONAL_BRANCH: '지사',
-  AGENCY: '대리점',
-  SALES_OFFICE: '영업점',
-};
+function orgKey(org: string): MessageKey {
+  return (`org.${org}` as MessageKey);
+}
 
-const PAGE_LABELS: Record<string, string> = {
-  '/dashboard/usdt': 'USDT 매입 목록',
-  '/dashboard/escrow': '무역 에스크로 목록',
-  '/dashboard/ledger': '수수료 장부',
+const PAGE_KEYS: Record<string, MessageKey> = {
+  '/dashboard/usdt': 'hq.page.usdtList',
+  '/dashboard/escrow': 'hq.page.escrowList',
+  '/dashboard/ledger': 'hq.page.ledger',
 };
 
 export default function HqOrgColumnsPage() {
+  const t = useT();
   const [data, setData] = useState<HqOrgColumnsPayload | null>(null);
   const [config, setConfig] = useState<HqOrgColumnConfig>({});
   const [pagePath, setPagePath] = useState('/dashboard/usdt');
@@ -34,7 +32,7 @@ export default function HqOrgColumnsPage() {
         setData(d);
         setConfig(d.config);
       })
-      .catch((e) => setError(e instanceof Error ? e.message : '불러오기 실패'));
+      .catch((e) => setError(e instanceof Error ? e.message : t('common.loadFailed')));
   }, []);
 
   const columns = data?.catalog[pagePath] ?? [];
@@ -78,23 +76,23 @@ export default function HqOrgColumnsPage() {
       const next = await hqPolicyApi.saveOrgColumns(config);
       setData(next);
       setConfig(next.config);
-      setMsg('저장되었습니다.');
+      setMsg(t('hq.saved'));
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : '저장 실패');
+      setMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
     } finally {
       setSaving(false);
     }
   }
 
   if (error) {
-    return <p className="text-sm text-red-600">{error} — 백엔드 재배포 후 pm2 restart crypto-api</p>;
+    return <p className="text-sm text-red-600">{error} — {t('hq.backendHint')}</p>;
   }
 
-  if (!data) return <p className="text-sm text-gray-500">불러오는 중…</p>;
+  if (!data) return <p className="text-sm text-gray-500">{t('hq.loading')}</p>;
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-gray-600">PG 「조직항목설정」— 화면별·조직별 허용 열 및 표시 순서.</p>
+      <p className="text-sm text-gray-600">{t('hq.orgColumns.desc')}</p>
       <div className="flex flex-wrap gap-3">
         <select
           value={pagePath}
@@ -103,7 +101,7 @@ export default function HqOrgColumnsPage() {
         >
           {Object.keys(data.catalog).map((p) => (
             <option key={p} value={p}>
-              {PAGE_LABELS[p] ?? p}
+              {PAGE_KEYS[p] ? t(PAGE_KEYS[p]) : p}
             </option>
           ))}
         </select>
@@ -114,7 +112,7 @@ export default function HqOrgColumnsPage() {
         >
           {data.orgLevels.map((o) => (
             <option key={o} value={o}>
-              {ORG_LABELS[o] ?? o}
+              {t(orgKey(o))}
             </option>
           ))}
         </select>
@@ -132,7 +130,7 @@ export default function HqOrgColumnsPage() {
                 onChange={() => toggleKey(col.key)}
               />
               <span className="min-w-[8rem] font-medium">{col.label}</span>
-              {col.fixed && <span className="text-xs text-gray-400">고정</span>}
+              {col.fixed && <span className="text-xs text-gray-400">{t('hq.orgColumns.fixed')}</span>}
               {checked && !col.fixed && (
                 <span className="flex gap-1">
                   <button type="button" className="rounded border px-2" onClick={() => moveKey(col.key, -1)}>
@@ -141,7 +139,7 @@ export default function HqOrgColumnsPage() {
                   <button type="button" className="rounded border px-2" onClick={() => moveKey(col.key, 1)}>
                     ↓
                   </button>
-                  <span className="text-xs text-gray-400">순서 {orderIdx + 1}</span>
+                  <span className="text-xs text-gray-400">{t('hq.orgColumns.order')} {orderIdx + 1}</span>
                 </span>
               )}
             </li>
@@ -155,7 +153,7 @@ export default function HqOrgColumnsPage() {
           disabled={saving}
           className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
         >
-          {saving ? '저장 중…' : '저장'}
+          {saving ? t('hq.saving') : t('hq.save')}
         </button>
         {msg && <span className="text-sm text-gray-600">{msg}</span>}
       </div>

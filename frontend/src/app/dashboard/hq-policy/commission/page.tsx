@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useT } from '@/context/LocaleProvider';
 import {
   hqPolicyApi,
   type HqCommissionPayload,
@@ -8,6 +9,7 @@ import {
 } from '@/lib/api';
 
 export default function HqCommissionPage() {
+  const t = useT();
   const [data, setData] = useState<HqCommissionPayload | null>(null);
   const [risk, setRisk] = useState<HqCommissionRiskConfig | null>(null);
   const [saving, setSaving] = useState(false);
@@ -21,7 +23,7 @@ export default function HqCommissionPage() {
         setData(d);
         setRisk(d.risk);
       })
-      .catch((e) => setError(e instanceof Error ? e.message : '불러오기 실패'));
+      .catch((e) => setError(e instanceof Error ? e.message : t('common.loadFailed')));
   }, []);
 
   async function save() {
@@ -32,28 +34,28 @@ export default function HqCommissionPage() {
       const next = await hqPolicyApi.saveCommissionRisk(risk);
       setData(next);
       setRisk(next.risk);
-      setMsg('저장되었습니다.');
+      setMsg(t('hq.saved'));
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : '저장 실패');
+      setMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
     } finally {
       setSaving(false);
     }
   }
 
   if (error) {
-    return <p className="text-sm text-red-600">{error} — 백엔드 재배포 후 pm2 restart crypto-api</p>;
+    return <p className="text-sm text-red-600">{error} — {t('hq.backendHint')}</p>;
   }
 
-  if (!data || !risk) return <p className="text-sm text-gray-500">불러오는 중…</p>;
+  if (!data || !risk) return <p className="text-sm text-gray-500">{t('hq.loading')}</p>;
 
   return (
     <div className="space-y-6">
       <section className="rounded-lg border border-gray-200 bg-white p-6 space-y-4">
-        <h2 className="font-semibold text-gray-900">수수료·리스크 정책</h2>
-        <p className="text-sm text-gray-500">PG 「본사정책 → 수수료·리스크」 기본값 템플릿.</p>
+        <h2 className="font-semibold text-gray-900">{t('hq.commission.riskTitle')}</h2>
+        <p className="text-sm text-gray-500">{t('hq.commission.riskDesc')}</p>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block text-sm">
-            <span className="text-gray-600">기본 가스비 (USDT)</span>
+            <span className="text-gray-600">{t('hq.commission.gasFee')}</span>
             <input
               type="number"
               step="0.01"
@@ -63,7 +65,7 @@ export default function HqCommissionPage() {
             />
           </label>
           <label className="block text-sm">
-            <span className="text-gray-600">기본 플랫폼 수수료 (USDT)</span>
+            <span className="text-gray-600">{t('hq.commission.platformFee')}</span>
             <input
               type="number"
               step="0.01"
@@ -73,7 +75,7 @@ export default function HqCommissionPage() {
             />
           </label>
           <label className="block text-sm">
-            <span className="text-gray-600">티켓 최대 금액 (KRW)</span>
+            <span className="text-gray-600">{t('hq.commission.maxAmount')}</span>
             <input
               type="number"
               value={risk.maxTicketAmountKrw}
@@ -82,7 +84,7 @@ export default function HqCommissionPage() {
             />
           </label>
           <label className="block text-sm">
-            <span className="text-gray-600">고객 일일 최대 티켓 수</span>
+            <span className="text-gray-600">{t('hq.commission.maxDaily')}</span>
             <input
               type="number"
               value={risk.maxDailyTicketsPerCustomer}
@@ -97,10 +99,10 @@ export default function HqCommissionPage() {
             checked={risk.riskEnabled}
             onChange={(e) => setRisk({ ...risk, riskEnabled: e.target.checked })}
           />
-          리스크 관리 사용
+          {t('hq.commission.riskEnabled')}
         </label>
         <label className="block text-sm">
-          <span className="text-gray-600">메모</span>
+          <span className="text-gray-600">{t('hq.commission.memo')}</span>
           <textarea
             value={risk.notes ?? ''}
             onChange={(e) => setRisk({ ...risk, notes: e.target.value })}
@@ -114,21 +116,21 @@ export default function HqCommissionPage() {
           disabled={saving}
           className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
         >
-          {saving ? '저장 중…' : '리스크 정책 저장'}
+          {saving ? t('hq.saving') : t('hq.commission.saveRisk')}
         </button>
         {msg && <p className="text-sm text-gray-600">{msg}</p>}
       </section>
 
       <section className="rounded-lg border border-gray-200 bg-white p-6">
-        <h2 className="font-semibold text-gray-900">조직별 수수료 요율 (현재 유효)</h2>
+        <h2 className="font-semibold text-gray-900">{t('hq.commission.ratesTitle')}</h2>
         <div className="mt-4 overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-3 py-2 text-left text-gray-500">조직</th>
-                <th className="px-3 py-2 text-left text-gray-500">유형</th>
-                <th className="px-3 py-2 text-left text-gray-500">티켓</th>
-                <th className="px-3 py-2 text-right text-gray-500">요율 %</th>
+                <th className="px-3 py-2 text-left text-gray-500">{t('hq.commission.org')}</th>
+                <th className="px-3 py-2 text-left text-gray-500">{t('hq.commission.type')}</th>
+                <th className="px-3 py-2 text-left text-gray-500">{t('hq.commission.ticket')}</th>
+                <th className="px-3 py-2 text-right text-gray-500">{t('hq.commission.rate')}</th>
               </tr>
             </thead>
             <tbody>

@@ -1,0 +1,30 @@
+# FTP 업로드 대상 (모드 B — 로컬 빌드 후 산출물 배포) ★ 권장
+# Cafe24 FTP 루트: /var/www/crypto-workflow
+#
+# ✅ 업로드
+backend/dist/
+backend/prisma/
+backend/package.json
+backend/package-lock.json
+frontend/.next/
+frontend/public/
+frontend/package.json
+frontend/package-lock.json
+frontend/next.config.js
+server/dist/
+server/package.json
+server/package-lock.json
+deploy/
+
+# ❌ 업로드 금지
+node_modules/
+backend/src/
+frontend/src/
+server/src/
+.git/
+uploads/
+backend/.env
+frontend/.env.local
+
+# SSH 적용 (업로드 후, 1~2분)
+# bash deploy/cafe24-business/ftp-apply-built.sh

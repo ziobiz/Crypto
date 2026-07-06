@@ -2,6 +2,8 @@ import bcrypt from 'bcryptjs';
 import { CustomerType, Prisma, UserRole } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
+import { initialPasswordFromEmail } from '../lib/password-policy';
+import { clearUserTotp } from './otp.service';
 import type { AuthUser } from '../types/auth';
 
 const userSelect = {
@@ -150,7 +152,7 @@ export const userService = {
     actor: AuthUser,
     data: {
       email: string;
-      password: string;
+      password?: string;
       name: string;
       phone?: string;
       role: UserRole;
@@ -185,7 +187,8 @@ export const userService = {
       await assertOrgInScope(actor, data.recruitingOrgId);
     }
 
-    const passwordHash = await bcrypt.hash(data.password, 10);
+    const plainPassword = data.password ?? initialPasswordFromEmail(data.email);
+    const passwordHash = await bcrypt.hash(plainPassword, 10);
 
     if (data.role === UserRole.CUSTOMER) {
       return prisma.user.create({
@@ -195,6 +198,9 @@ export const userService = {
           name: data.name,
           phone: data.phone,
           role: UserRole.CUSTOMER,
+          passwordMustChange: true,
+          emailVerified: true,
+          emailVerifiedAt: new Date(),
           customerProfile: {
             create: {
               customerType: data.customerType ?? CustomerType.INDIVIDUAL,
@@ -216,6 +222,9 @@ export const userService = {
         phone: data.phone,
         role: data.role,
         organizationId: data.organizationId,
+        passwordMustChange: true,
+        emailVerified: true,
+        emailVerifiedAt: new Date(),
       },
       select: userSelect,
     });
@@ -281,17 +290,22 @@ export const userService = {
     return user;
   },
 
-  async resetPassword(actor: AuthUser, id: string, password: string) {
+  async resetPassword(actor: AuthUser, id: string, password?: string) {
     assertCanManageUsers(actor);
     const existing = await prisma.user.findUnique({
       where: { id },
-      select: { id: true, organization: { select: { path: true } }, customerProfile: { select: { recruitingOrg: { select: { path: true } } } } },
+      select: { id: true, email: true, organization: { select: { path: true } }, customerProfile: { select: { recruitingOrg: { select: { path: true } } } } },
     });
     if (!existing) throw new AppError(404, '사용자를 찾을 수 없습니다', 'NOT_FOUND');
     assertTargetInScope(actor, existing);
 
-    const passwordHash = await bcrypt.hash(password, 10);
-    await prisma.user.update({ where: { id }, data: { passwordHash } });
-    return { ok: true };
+    const plainPassword = password ?? initialPasswordFromEmail(existing.email);
+    const passwordHash = await bcrypt.hash(plainPassword, 10);
+    await clearUserTotp(id);
+    await prisma.user.update({
+      where: { id },
+      data: { passwordHash, passwordMustChange: true },
+    });
+    return { ok: true, initialPassword: plainPassword };
   },
 };

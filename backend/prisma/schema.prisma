@@ -80,6 +80,7 @@ enum LedgerEntryType {
 enum CurrencyCode {
   KRW
   USD
+  JPY
   USDT
 }
 
@@ -131,12 +132,23 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
+  /// PG OTP — Google Authenticator(TOTP)
+  totpSecret   String?
+  totpEnabled  Boolean   @default(false)
+
+  /// PG — 초기 비밀번호(이메일아이디+1!) 변경 강제
+  passwordMustChange Boolean @default(false)
+  /// 회원가입 이메일 인증 완료
+  emailVerified      Boolean   @default(false)
+  emailVerifiedAt    DateTime?
+
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id])
 
   customerProfile CustomerProfile?
   wallets         Wallet[]
   statusChanges   TicketStatusHistory[] @relation("StatusChangedBy")
+  otpChallenges   OtpLoginChallenge[]
 
   // 에스크로 거래에서의 역할
   escrowAsBuyer  TradeEscrowDetail[] @relation("EscrowBuyer")
@@ -258,6 +270,13 @@ model UsdtPurchaseDetail {
 
   // 예상 USDT 수량 (fiatAmount / exchangeRate - fees)
   expectedUsdtAmount Decimal @db.Decimal(18, 8)
+  expectedUsdtMin    Decimal? @db.Decimal(18, 8)
+  expectedUsdtMax    Decimal? @db.Decimal(18, 8)
+
+  // 고객 입금 증빙 정보
+  depositAmount        Decimal?  @db.Decimal(18, 2)
+  depositorName        String?
+  depositTransferredAt DateTime?
 
   // 수수료 스냅샷 (신청 시점 Wallet/설정값 복사)
   gasFeeSnapshot      Decimal @default(0) @db.Decimal(18, 8)
@@ -446,4 +465,32 @@ model SystemConfig {
   updatedAt DateTime @updatedAt
 
   @@map("system_configs")
+}
+
+/// PG 로그인 이메일 OTP 챌린지 (6자리)
+model OtpLoginChallenge {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash   String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, expiresAt])
+  @@map("otp_login_challenges")
+}
+
+/// PG — 회원가입·OTP 등록 시 이메일 인증 (가입 시 인증받은 이메일로 발송)
+model EmailVerificationChallenge {
+  id         String    @id @default(cuid())
+  email      String
+  purpose    String    // REGISTER | OTP_ENROLL
+  codeHash   String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([email, purpose, expiresAt])
+  @@map("email_verification_challenges")
 }

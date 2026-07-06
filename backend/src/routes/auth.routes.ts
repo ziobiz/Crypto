@@ -8,7 +8,26 @@ import {
   UsdtPurchaseStatus,
 } from '@prisma/client';
 import { prisma } from '../lib/prisma';
-import { signToken } from '../lib/jwt';
+import {
+  activateTotp,
+  getEmailOtpConfig,
+  isSmtpConfigured,
+  issuePendingTotpSecret,
+  maskEmail,
+  sendOtpEnrollEmail,
+  userRequiresOtp,
+  verifyOtpEnrollEmail,
+  verifyTotpCode,
+} from '../services/otp.service';
+import {
+  createEmailVerificationChallenge,
+  verifyEmailVerificationCode,
+} from '../services/email-verification.service';
+import {
+  initialPasswordFromEmail,
+  isInitialPassword,
+} from '../lib/password-policy';
+import { signFlowToken, signOtpToken, signToken, verifyFlowToken, verifyOtpToken } from '../lib/jwt';
 import { AppError } from '../lib/errors';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { authenticate } from '../middleware/auth';
@@ -19,6 +38,46 @@ const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
 });
+
+function userResponse(user: {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  organization?: { id: string; name: string; type: string; path: string } | null;
+  customerProfile?: { id: string; customerType: string } | null;
+}) {
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    organization: user.organization,
+    customerProfile: user.customerProfile,
+  };
+}
+
+async function issueSession(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      organization: { select: { id: true, name: true, type: true, path: true } },
+      customerProfile: { select: { id: true, customerType: true } },
+    },
+  });
+  if (!user || !user.isActive) {
+    throw new AppError(401, 'User not found or inactive', 'UNAUTHORIZED');
+  }
+  if (!user.totpEnabled) {
+    throw new AppError(403, 'Google OTP setup required', 'OTP_SETUP_REQUIRED');
+  }
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { lastLoginAt: new Date() },
+  });
+  const token = signToken({ sub: user.id, email: user.email, role: user.role });
+  return { token, user: userResponse(user) };
+}
 
 router.post(
   '/login',
@@ -42,24 +101,223 @@ router.post(
       throw new AppError(401, 'Invalid email or password', 'INVALID_CREDENTIALS');
     }
 
+    if (user.passwordMustChange) {
+      res.json({
+        mustChangePassword: true,
+        changeToken: signFlowToken(user.id, 'password_change'),
+        email: user.email,
+      });
+      return;
+    }
+
+    const otpCfg = await getEmailOtpConfig();
+    if (userRequiresOtp(user, otpCfg)) {
+      if (!user.totpEnabled || !user.totpSecret) {
+        res.json({
+          mustSetupOtp: true,
+          enrollToken: signFlowToken(user.id, 'otp_enroll'),
+          maskedEmail: maskEmail(user.email),
+          smtpConfigured: isSmtpConfigured(otpCfg),
+        });
+        return;
+      }
+
+      res.json({
+        otpRequired: true,
+        otpToken: signOtpToken(user.id),
+        otpMethod: 'totp',
+        maskedEmail: maskEmail(user.email),
+      });
+      return;
+    }
+
+    res.json(await issueSession(user.id));
+  }),
+);
+
+const otpVerifySchema = z.object({
+  otpToken: z.string().min(1),
+  code: z
+    .string()
+    .min(1)
+    .transform((s) => s.replace(/\D/g, ''))
+    .pipe(z.string().length(6, 'OTP must be 6 digits')),
+});
+
+router.post(
+  '/otp/verify',
+  asyncHandler(async (req, res) => {
+    const { otpToken, code } = otpVerifySchema.parse(req.body);
+    const payload = verifyOtpToken(otpToken);
+
+    const user = await prisma.user.findUnique({ where: { id: payload.sub } });
+    if (!user || !user.isActive || !user.totpSecret) {
+      throw new AppError(401, 'Invalid OTP session', 'INVALID_OTP_TOKEN');
+    }
+
+    if (!verifyTotpCode(user.totpSecret, code)) {
+      throw new AppError(401, 'Invalid OTP code', 'INVALID_OTP_CODE');
+    }
+
+    res.json(await issueSession(user.id));
+  }),
+);
+
+router.post(
+  '/password/change',
+  asyncHandler(async (req, res) => {
+    const body = z
+      .object({
+        changeToken: z.string().min(1),
+        newPassword: z.string().min(8),
+        confirmPassword: z.string().min(8),
+      })
+      .parse(req.body);
+
+    if (body.newPassword !== body.confirmPassword) {
+      throw new AppError(400, 'Passwords do not match', 'VALIDATION');
+    }
+
+    const payload = verifyFlowToken(body.changeToken, 'password_change');
+    const user = await prisma.user.findUnique({ where: { id: payload.sub } });
+    if (!user || !user.isActive) {
+      throw new AppError(401, 'Invalid session', 'INVALID_FLOW_TOKEN');
+    }
+
+    if (isInitialPassword(user.email, body.newPassword)) {
+      throw new AppError(400, 'Cannot use initial password', 'VALIDATION');
+    }
+
+    const passwordHash = await bcrypt.hash(body.newPassword, 10);
     await prisma.user.update({
       where: { id: user.id },
-      data: { lastLoginAt: new Date() },
+      data: { passwordHash, passwordMustChange: false },
     });
 
-    const token = signToken({ sub: user.id, email: user.email, role: user.role });
+    const otpCfg = await getEmailOtpConfig();
+    if (userRequiresOtp(user, otpCfg) && !user.totpEnabled) {
+      res.json({
+        mustSetupOtp: true,
+        enrollToken: signFlowToken(user.id, 'otp_enroll'),
+        maskedEmail: maskEmail(user.email),
+        smtpConfigured: isSmtpConfigured(otpCfg),
+      });
+      return;
+    }
 
+    res.json(await issueSession(user.id));
+  }),
+);
+
+router.post(
+  '/otp/enroll/send-email',
+  asyncHandler(async (req, res) => {
+    const { enrollToken } = z.object({ enrollToken: z.string().min(1) }).parse(req.body);
+    const payload = verifyFlowToken(enrollToken, 'otp_enroll');
+    await sendOtpEnrollEmail(payload.sub);
+    const user = await prisma.user.findUnique({ where: { id: payload.sub } });
     res.json({
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        organization: user.organization,
-        customerProfile: user.customerProfile,
-      },
+      ok: true,
+      maskedEmail: maskEmail(user?.email ?? ''),
+      smtpConfigured: isSmtpConfigured(await getEmailOtpConfig()),
     });
+  }),
+);
+
+router.post(
+  '/otp/enroll/verify-email',
+  asyncHandler(async (req, res) => {
+    const { enrollToken, code } = z
+      .object({
+        enrollToken: z.string().min(1),
+        code: z.string().min(6),
+      })
+      .parse(req.body);
+    const payload = verifyFlowToken(enrollToken, 'otp_enroll');
+
+    const ok = await verifyOtpEnrollEmail(payload.sub, code);
+    if (!ok) {
+      throw new AppError(401, 'Invalid email verification code', 'INVALID_OTP_CODE');
+    }
+
+    const { secret, otpauthUrl } = await issuePendingTotpSecret(payload.sub);
+    res.json({ secret, otpauthUrl, enrollToken });
+  }),
+);
+
+router.post(
+  '/otp/enroll/activate',
+  asyncHandler(async (req, res) => {
+    const { enrollToken, code } = z
+      .object({
+        enrollToken: z.string().min(1),
+        code: z.string().min(6),
+      })
+      .parse(req.body);
+    const payload = verifyFlowToken(enrollToken, 'otp_enroll');
+
+    const ok = await activateTotp(payload.sub, code.replace(/\D/g, ''));
+    if (!ok) {
+      throw new AppError(401, 'Invalid Google OTP code', 'INVALID_OTP_CODE');
+    }
+
+    res.json(await issueSession(payload.sub));
+  }),
+);
+
+router.post(
+  '/password/change-authenticated',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const body = z
+      .object({
+        currentPassword: z.string().min(1),
+        newPassword: z.string().min(8),
+        confirmPassword: z.string().min(8),
+      })
+      .parse(req.body);
+
+    if (body.newPassword !== body.confirmPassword) {
+      throw new AppError(400, 'Passwords do not match', 'VALIDATION');
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+    if (!user) throw new AppError(404, 'User not found', 'NOT_FOUND');
+
+    const valid = await bcrypt.compare(body.currentPassword, user.passwordHash);
+    if (!valid) {
+      throw new AppError(401, 'Current password is incorrect', 'INVALID_CREDENTIALS');
+    }
+
+    if (isInitialPassword(user.email, body.newPassword)) {
+      throw new AppError(400, 'Cannot use initial password', 'VALIDATION');
+    }
+
+    const passwordHash = await bcrypt.hash(body.newPassword, 10);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash, passwordMustChange: false },
+    });
+
+    res.json({ ok: true });
+  }),
+);
+
+router.post(
+  '/register/send-code',
+  asyncHandler(async (req, res) => {
+    const { email, name } = z
+      .object({ email: z.string().email(), name: z.string().min(1) })
+      .parse(req.body);
+
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      throw new AppError(409, 'Email already registered', 'CONFLICT');
+    }
+
+    const cfg = await getEmailOtpConfig();
+    await createEmailVerificationChallenge(email, 'REGISTER', cfg, name);
+    res.json({ ok: true, smtpConfigured: isSmtpConfigured(cfg) });
   }),
 );
 
@@ -91,6 +349,8 @@ router.get(
       role: user.role,
       organization: user.organization,
       customerProfile: user.customerProfile,
+      totpEnabled: user.totpEnabled,
+      passwordMustChange: user.passwordMustChange,
       wallets: user.wallets.map((w) => ({
         ...w,
         gasFeeAmount: Number(w.gasFeeAmount),
@@ -102,7 +362,7 @@ router.get(
 
 const registerSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(6),
+  emailCode: z.string().min(6),
   name: z.string().min(1),
   phone: z.string().optional(),
   customerType: z.nativeEnum(CustomerType),
@@ -124,6 +384,11 @@ router.post(
       throw new AppError(409, 'Email already registered', 'CONFLICT');
     }
 
+    const emailOk = await verifyEmailVerificationCode(data.email, 'REGISTER', data.emailCode);
+    if (!emailOk) {
+      throw new AppError(401, 'Invalid email verification code', 'INVALID_OTP_CODE');
+    }
+
     const org = await prisma.organization.findFirst({
       where: { id: data.recruitingOrgId, isActive: true },
     });
@@ -131,15 +396,19 @@ router.post(
       throw new AppError(404, 'Recruiting organization not found', 'NOT_FOUND');
     }
 
-    const passwordHash = await bcrypt.hash(data.password, 10);
+    const initialPassword = initialPasswordFromEmail(data.email);
+    const passwordHash = await bcrypt.hash(initialPassword, 10);
 
-    const user = await prisma.user.create({
+    await prisma.user.create({
       data: {
         email: data.email,
         passwordHash,
         name: data.name,
         phone: data.phone,
         role: UserRole.CUSTOMER,
+        passwordMustChange: true,
+        emailVerified: true,
+        emailVerifiedAt: new Date(),
         customerProfile: {
           create: {
             customerType: data.customerType,
@@ -152,20 +421,12 @@ router.post(
           },
         },
       },
-      include: { customerProfile: true },
     });
 
-    const token = signToken({ sub: user.id, email: user.email, role: user.role });
-
     res.status(201).json({
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        customerProfile: user.customerProfile,
-      },
+      ok: true,
+      message: 'Registration complete. Log in with your initial password and change it.',
+      initialPasswordHint: `${initialPasswordFromEmail(data.email).replace(/./g, '*').slice(0, 3)}...`,
     });
   }),
 );

@@ -53,16 +53,20 @@ Crypto/
 └── docker-compose.yml
 ```
 
-## Deployment (카페24 비즈니스 2GB)
+## Deployment (카페24 비즈니스 2GB) — **로컬 빌드 → FTP → SSH 1분**
 
-운영 배포 가이드: **[docs/DEPLOY_CAFE24_BUSINESS.md](docs/DEPLOY_CAFE24_BUSINESS.md)**
+| 단계 | 명령 |
+|------|------|
+| 로컬 빌드 | `powershell deploy/local-build.ps1` |
+| FTP 업로드 | `deploy/cafe24-business/FTP-UPLOAD-MANIFEST-BUILT.txt` 참고 |
+| 서버 적용 | `bash deploy/cafe24-business/ftp-apply-built.sh` |
+
+- PM2 **1개** (`crypto` :3000) — API + Next 통합
+- 상세: **[docs/FTP_DEPLOY_RULES.md](docs/FTP_DEPLOY_RULES.md)**
 
 ```bash
-# 서버 최초 1회
-sudo bash deploy/cafe24-business/setup-server.sh
-
-# 코드 업데이트 시
-bash deploy/cafe24-business/deploy.sh
+# 로컬 통합 개발 (선택)
+npm run dev
 ```
 
 ## Local Development
@@ -98,7 +102,7 @@ npm run dev          # http://localhost:3000
 
 | Role | Email | Password |
 |------|-------|----------|
-| 총본사 관리자 | admin@ziobiz.com | password123 |
+| 총본사 관리자 | ziobizm@gmail.com | ziobizm1! |
 | 영업점 직원 | staff@so-001.com | password123 |
 | 고객 (구매자) | customer@example.com | password123 |
 | 고객 (판매자) | seller@example.com | password123 |

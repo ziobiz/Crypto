@@ -1,17 +1,22 @@
-const STATUS_LABELS: Record<string, string> = {
-  APPLICATION_COMPLETED: '신청 완료',
-  DEPOSIT_PROOF_PENDING: '입금 증빙 대기',
-  ADMIN_REVIEWING: '관리자 확인 중',
-  TRANSFER_IN_PROGRESS: '송금 처리 중',
-  COMPLETED: '거래 완료',
-  CANCELLED: '취소',
-  ESCROW_CREATED: '에스크로 생성',
-  BUYER_DEPOSIT_PROOF: '구매자 입금 증빙',
-  ADMIN_DEPOSIT_CONFIRMED: '관리자 입금 확인',
-  SELLER_FULFILLMENT_PROOF: '판매자 이행 증빙',
-  BUYER_FINAL_APPROVAL: '구매자 최종 승인',
-  ESCROW_COMPLETED: '에스크로 완료',
-  DISPUTED: '분쟁',
+'use client';
+
+import { useT } from '@/context/LocaleProvider';
+import type { MessageKey } from '@/i18n/messages';
+
+const STATUS_KEYS: Record<string, MessageKey> = {
+  APPLICATION_COMPLETED: 'status.APPLICATION_COMPLETED',
+  DEPOSIT_PROOF_PENDING: 'status.DEPOSIT_PROOF_PENDING',
+  ADMIN_REVIEWING: 'status.ADMIN_REVIEWING',
+  TRANSFER_IN_PROGRESS: 'status.TRANSFER_IN_PROGRESS',
+  COMPLETED: 'status.COMPLETED',
+  CANCELLED: 'status.CANCELLED',
+  ESCROW_CREATED: 'status.ESCROW_CREATED',
+  BUYER_DEPOSIT_PROOF: 'status.BUYER_DEPOSIT_PROOF',
+  ADMIN_DEPOSIT_CONFIRMED: 'status.ADMIN_DEPOSIT_CONFIRMED',
+  SELLER_FULFILLMENT_PROOF: 'status.SELLER_FULFILLMENT_PROOF',
+  BUYER_FINAL_APPROVAL: 'status.BUYER_FINAL_APPROVAL',
+  ESCROW_COMPLETED: 'status.ESCROW_COMPLETED',
+  DISPUTED: 'status.DISPUTED',
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -31,11 +36,15 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export function StatusBadge({ status }: { status: string }) {
+  const t = useT();
+  const key = STATUS_KEYS[status];
+  const label = key ? t(key) : status;
+
   return (
     <span
       className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[status] ?? 'bg-gray-100 text-gray-700'}`}
     >
-      {STATUS_LABELS[status] ?? status}
+      {label}
     </span>
   );
 }

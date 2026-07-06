@@ -1,10 +1,15 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { authenticate, requireRoles } from '../middleware/auth';
 import { hqPolicyService } from '../services/hq-policy.service';
-import type { HqAccessMatrix, HqCommissionRiskConfig, HqOrgColumnConfig, HqPlatformConfig } from '../constants/hq-policy';
+import type { HqAccessMatrix, HqCommissionRiskConfig, HqOrgColumnConfig, HqPlatformConfig, HqEmailOtpConfig } from '../constants/hq-policy';
 
 const router = Router();
+const logoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
 
 router.use(authenticate, requireRoles('SUPER_ADMIN'));
 
@@ -81,6 +86,78 @@ router.put(
       return;
     }
     res.json(await hqPolicyService.savePlatform(body.config));
+  }),
+);
+
+router.put(
+  '/platform/email',
+  asyncHandler(async (req, res) => {
+    const body = req.body as { email?: HqEmailOtpConfig };
+    if (!body.email) {
+      res.status(400).json({ error: 'email required' });
+      return;
+    }
+    res.json(await hqPolicyService.savePlatformEmail(body.email));
+  }),
+);
+
+router.post(
+  '/platform/email/test',
+  asyncHandler(async (req, res) => {
+    const body = req.body as { to?: string };
+    if (!body.to) {
+      res.status(400).json({ error: 'to required' });
+      return;
+    }
+    res.json(await hqPolicyService.sendPlatformEmailTest(body.to));
+  }),
+);
+
+router.post(
+  '/platform/logo',
+  logoUpload.single('file'),
+  asyncHandler(async (req, res) => {
+    if (!req.file) {
+      res.status(400).json({ error: 'file required' });
+      return;
+    }
+    res.json(await hqPolicyService.savePlatformLogo(req.file));
+  }),
+);
+
+router.post(
+  '/platform/auth-logo',
+  logoUpload.single('file'),
+  asyncHandler(async (req, res) => {
+    if (!req.file) {
+      res.status(400).json({ error: 'file required' });
+      return;
+    }
+    res.json(await hqPolicyService.savePlatformAuthLogo(req.file));
+  }),
+);
+
+router.post(
+  '/platform/favicon',
+  logoUpload.single('file'),
+  asyncHandler(async (req, res) => {
+    if (!req.file) {
+      res.status(400).json({ error: 'file required' });
+      return;
+    }
+    res.json(await hqPolicyService.savePlatformFavicon(req.file));
+  }),
+);
+
+router.post(
+  '/platform/background',
+  logoUpload.single('file'),
+  asyncHandler(async (req, res) => {
+    if (!req.file) {
+      res.status(400).json({ error: 'file required' });
+      return;
+    }
+    res.json(await hqPolicyService.savePlatformBackground(req.file));
   }),
 );
 

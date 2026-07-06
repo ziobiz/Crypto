@@ -54,15 +54,69 @@ async function request<T>(
   return res.json();
 }
 
+export type LoginResponse =
+  | { token: string; user: User }
+  | {
+      otpRequired: true;
+      otpToken: string;
+      otpMethod: 'totp';
+      maskedEmail: string;
+    }
+  | { mustChangePassword: true; changeToken: string; email: string }
+  | {
+      mustSetupOtp: true;
+      enrollToken: string;
+      maskedEmail: string;
+      smtpConfigured?: boolean;
+    };
+
 export const api = {
+  branding: () => request<BrandingResponse>('/api/branding'),
+
   login: (email: string, password: string) =>
-    request<{ token: string; user: User }>('/api/auth/login', {
+    request<LoginResponse>('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     }),
 
+  verifyOtp: (otpToken: string, code: string) =>
+    request<{ token: string; user: User }>('/api/auth/otp/verify', {
+      method: 'POST',
+      body: JSON.stringify({ otpToken, code }),
+    }),
+
+  changePassword: (changeToken: string, newPassword: string, confirmPassword: string) =>
+    request<LoginResponse>('/api/auth/password/change', {
+      method: 'POST',
+      body: JSON.stringify({ changeToken, newPassword, confirmPassword }),
+    }),
+
+  otpEnrollSendEmail: (enrollToken: string) =>
+    request<{ ok: boolean; maskedEmail: string; smtpConfigured?: boolean }>(
+      '/api/auth/otp/enroll/send-email',
+      { method: 'POST', body: JSON.stringify({ enrollToken }) },
+    ),
+
+  otpEnrollVerifyEmail: (enrollToken: string, code: string) =>
+    request<{ secret: string; otpauthUrl: string; enrollToken: string }>(
+      '/api/auth/otp/enroll/verify-email',
+      { method: 'POST', body: JSON.stringify({ enrollToken, code }) },
+    ),
+
+  otpEnrollActivate: (enrollToken: string, code: string) =>
+    request<{ token: string; user: User }>('/api/auth/otp/enroll/activate', {
+      method: 'POST',
+      body: JSON.stringify({ enrollToken, code }),
+    }),
+
+  registerSendCode: (email: string, name: string) =>
+    request<{ ok: boolean }>('/api/auth/register/send-code', {
+      method: 'POST',
+      body: JSON.stringify({ email, name }),
+    }),
+
   register: (data: RegisterInput) =>
-    request<{ token: string; user: User }>('/api/auth/register', {
+    request<{ ok: boolean; message: string }>('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
@@ -102,6 +156,12 @@ export const api = {
   exchangeRate: () =>
     request<ExchangeRateResponse>('/api/tickets/usdt-purchase/exchange-rate'),
 
+  exchangeRatesAll: () =>
+    request<AllExchangeRatesResponse>('/api/tickets/usdt-purchase/exchange-rate?all=true'),
+
+  exchangeRateFor: (currency: string) =>
+    request<ExchangeRateResponse>(`/api/tickets/usdt-purchase/exchange-rate?currency=${currency}`),
+
   wallets: {
     list: () => request<Wallet[]>('/api/wallets'),
     create: (data: WalletInput) =>
@@ -126,9 +186,16 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify(data),
       }),
-    uploadDepositProof: (id: string, file: File) => {
+    uploadDepositProof: (
+      id: string,
+      file: File,
+      meta?: { depositAmount?: number; depositorName?: string; depositTransferredAt?: string },
+    ) => {
       const form = new FormData();
       form.append('file', file);
+      if (meta?.depositAmount != null) form.append('depositAmount', String(meta.depositAmount));
+      if (meta?.depositorName) form.append('depositorName', meta.depositorName);
+      if (meta?.depositTransferredAt) form.append('depositTransferredAt', meta.depositTransferredAt);
       return request<UsdtTicket>(`/api/tickets/usdt-purchase/${id}/deposit-proof`, {
         method: 'POST',
         body: form,
@@ -195,6 +262,8 @@ export interface User {
 }
 
 export interface MeResponse extends User {
+  totpEnabled?: boolean;
+  passwordMustChange?: boolean;
   wallets: Wallet[];
   customerProfile?: {
     id: string;
@@ -205,7 +274,7 @@ export interface MeResponse extends User {
 
 export interface RegisterInput {
   email: string;
-  password: string;
+  emailCode: string;
   name: string;
   phone?: string;
   customerType: 'INDIVIDUAL' | 'CORPORATE';
@@ -309,7 +378,16 @@ export interface WalletInput {
 }
 
 export interface ExchangeRateResponse {
+  currency?: string;
+  usdtFiatRate?: number;
   usdtKrwRate: number;
+  source: string;
+  fetchedAt: string;
+  disclaimer: string;
+}
+
+export interface AllExchangeRatesResponse {
+  rates: Record<string, { rate: number; label: string }>;
   source: string;
   fetchedAt: string;
   disclaimer: string;
@@ -342,6 +420,11 @@ export interface UsdtTicket {
   fiatCurrency: string;
   exchangeRate: number;
   expectedUsdtAmount: number;
+  expectedUsdtMin?: number | null;
+  expectedUsdtMax?: number | null;
+  depositAmount?: number | null;
+  depositorName?: string | null;
+  depositTransferredAt?: string | null;
   gasFeeSnapshot: number;
   platformFeeSnapshot: number;
   usdtTxId?: string;
@@ -431,6 +514,48 @@ export const hqPolicyApi = {
       method: 'PUT',
       body: JSON.stringify({ config }),
     }),
+  savePlatformEmail: (email: HqEmailOtpConfig) =>
+    request<HqPlatformPayload>('/api/hq-policy/platform/email', {
+      method: 'PUT',
+      body: JSON.stringify({ email }),
+    }),
+  sendPlatformEmailTest: (to: string) =>
+    request<{ ok: boolean }>('/api/hq-policy/platform/email/test', {
+      method: 'POST',
+      body: JSON.stringify({ to }),
+    }),
+  uploadPlatformLogo: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return request<HqPlatformPayload>('/api/hq-policy/platform/logo', {
+      method: 'POST',
+      body: form,
+    });
+  },
+  uploadPlatformAuthLogo: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return request<HqPlatformPayload>('/api/hq-policy/platform/auth-logo', {
+      method: 'POST',
+      body: form,
+    });
+  },
+  uploadPlatformFavicon: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return request<HqPlatformPayload>('/api/hq-policy/platform/favicon', {
+      method: 'POST',
+      body: form,
+    });
+  },
+  uploadPlatformBackground: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return request<HqPlatformPayload>('/api/hq-policy/platform/background', {
+      method: 'POST',
+      body: form,
+    });
+  },
 };
 
 export type HqPermissionLevel = 'NONE' | 'VIEW' | 'MODIFY' | 'DELETE';
@@ -474,16 +599,42 @@ export interface HqCommissionPayload {
   }>;
 }
 
+export interface BrandingResponse {
+  siteName: string;
+  logoUrl: string | null;
+  authLogoUrl: string | null;
+  faviconUrl: string | null;
+  authBackgroundUrl: string | null;
+  authMainText: string;
+  footerText: string;
+  loginNoticeEnabled: boolean;
+  loginNoticeI18n: Partial<
+    Record<'KR' | 'JP' | 'US' | 'CH' | 'TH', { title: string; body: string }>
+  >;
+}
+
 export interface HqPlatformConfig {
   primaryDomain: string;
   apiPublicUrl: string;
   corsOrigins: string[];
   sslCertPath?: string;
   redirectRootToPrimary: boolean;
+  siteName: string;
+  logoUrl?: string;
+  authLogoUrl?: string;
+  faviconUrl?: string;
+  authBackgroundUrl?: string;
+  authMainText?: string;
+  footerText?: string;
+  loginNoticeEnabled?: boolean;
+  loginNoticeI18n?: Partial<
+    Record<'KR' | 'JP' | 'US' | 'CH' | 'TH', { title: string; body: string }>
+  >;
 }
 
 export interface HqPlatformPayload {
   config: HqPlatformConfig;
+  email: HqEmailOtpConfig;
   ssl: { status: string; detail: string; daysRemaining: number | null; notAfter?: string };
   server: {
     hostname: string;
@@ -493,4 +644,22 @@ export interface HqPlatformPayload {
     loadAvg: number[];
   };
   pm2: unknown[];
+}
+
+export interface HqEmailOtpConfig {
+  otpEnabled: boolean;
+  otpForSuperAdmin: boolean;
+  otpForHeadOffice: boolean;
+  otpForMasterDistributor: boolean;
+  otpExpireMinutes: number;
+  otpEmailSubject: string;
+  otpEmailBody: string;
+  smtpHost: string;
+  smtpPort: number;
+  smtpSecure: boolean;
+  smtpUser: string;
+  smtpPassword: string;
+  fromAddress: string;
+  fromName: string;
+  tradeReceiptEmailEnabled: boolean;
 }

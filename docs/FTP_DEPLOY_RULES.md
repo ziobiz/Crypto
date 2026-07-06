@@ -6,17 +6,23 @@
 
 ---
 
-## 1. 운영 흐름 (매번 동일)
+## 1. 운영 흐름 (매번 동일) — **모드 B 권장**
 
 ```
-[로컬 PC] 코드 수정 · 테스트
+[로컬 PC] deploy/local-build.ps1 (또는 local-build.sh)
     ↓
-[FTP] 지정 폴더/파일만 서버에 업로드
+[FTP] dist + .next + server/dist (manifest B)
     ↓
-[SSH] bash deploy/cafe24-business/ftp-apply.sh
+[SSH] bash deploy/cafe24-business/ftp-apply-built.sh  (1~2분)
     ↓
-[브라우저] https://api.tinpass.com 확인
+[브라우저] https://api.tinpass.com
 ```
+
+PM2 프로세스 **1개** (`crypto` :3000) — API + 웹 통합.
+
+---
+
+## 1-legacy. 모드 A (서버 빌드 — 느림, 비권장)
 
 ---
 

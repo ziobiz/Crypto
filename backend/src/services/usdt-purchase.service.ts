@@ -3,10 +3,12 @@ import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
 import { AuthUser } from '../types/auth';
 import {
-  calculateExpectedUsdt,
-  fetchUsdtKrwRate,
+  calculateExpectedUsdtRange,
+  fetchUsdtFiatRate,
+  type FiatCurrency,
 } from './exchange-rate.service';
 import { settleCommission } from './commission.service';
+import { sendTradeReceiptEmail } from './trade-email.service';
 
 const USDT_PURCHASE_INCLUDE = {
   usdtPurchase: { include: { wallet: true } },
@@ -23,7 +25,7 @@ const USDT_PURCHASE_INCLUDE = {
   },
 } satisfies Prisma.TransactionTicketInclude;
 
-/** 관리자 전용 상태 전환 */
+/** 운영자 전용 상태 전환 */
 const ADMIN_TRANSITIONS: Record<UsdtPurchaseStatus, UsdtPurchaseStatus[]> = {
   [UsdtPurchaseStatus.APPLICATION_COMPLETED]: [UsdtPurchaseStatus.DEPOSIT_PROOF_PENDING],
   [UsdtPurchaseStatus.DEPOSIT_PROOF_PENDING]: [UsdtPurchaseStatus.ADMIN_REVIEWING],
@@ -58,7 +60,7 @@ export async function createUsdtPurchaseTicket(
   user: AuthUser,
   input: {
     fiatAmount: number;
-    fiatCurrency?: 'KRW' | 'USD';
+    fiatCurrency?: FiatCurrency;
     walletId: string;
   },
 ) {
@@ -78,10 +80,16 @@ export async function createUsdtPurchaseTicket(
     throw new AppError(404, 'Wallet not found', 'NOT_FOUND');
   }
 
-  const { rate, source, fetchedAt } = await fetchUsdtKrwRate();
+  const currency = input.fiatCurrency ?? 'KRW';
+  const { rate, source, fetchedAt } = await fetchUsdtFiatRate(currency);
   const gasFee = Number(wallet.gasFeeAmount);
   const platformFee = Number(wallet.platformFeeAmount);
-  const expectedUsdt = calculateExpectedUsdt(input.fiatAmount, rate, gasFee, platformFee);
+  const { expected, min, max } = calculateExpectedUsdtRange(
+    input.fiatAmount,
+    rate,
+    gasFee,
+    platformFee,
+  );
 
   const ticket = await prisma.$transaction(async (tx) => {
     const created = await tx.transactionTicket.create({
@@ -93,11 +101,13 @@ export async function createUsdtPurchaseTicket(
           create: {
             status: UsdtPurchaseStatus.APPLICATION_COMPLETED,
             fiatAmount: input.fiatAmount,
-            fiatCurrency: input.fiatCurrency ?? 'KRW',
+            fiatCurrency: currency,
             exchangeRate: rate,
             exchangeRateAt: fetchedAt,
             exchangeSource: source,
-            expectedUsdtAmount: expectedUsdt,
+            expectedUsdtAmount: expected,
+            expectedUsdtMin: min,
+            expectedUsdtMax: max,
             gasFeeSnapshot: gasFee,
             platformFeeSnapshot: platformFee,
             walletId: wallet.id,
@@ -117,7 +127,6 @@ export async function createUsdtPurchaseTicket(
       },
     });
 
-    // 신청 완료 → 입금 증빙 대기
     await tx.usdtPurchaseDetail.update({
       where: { ticketId: created.id },
       data: { status: UsdtPurchaseStatus.DEPOSIT_PROOF_PENDING },
@@ -171,6 +180,43 @@ export async function getUsdtPurchaseTicket(user: AuthUser, ticketId: string) {
   return serializeTicket(ticket);
 }
 
+export async function saveDepositProofMetadata(
+  user: AuthUser,
+  ticketId: string,
+  input: {
+    depositAmount?: number;
+    depositorName?: string;
+    depositTransferredAt?: string;
+  },
+) {
+  const { assertTicketAccess } = await import('./ticket-access.service');
+  await assertTicketAccess(user, ticketId);
+
+  const ticket = await prisma.transactionTicket.findUnique({
+    where: { id: ticketId },
+    include: { usdtPurchase: true },
+  });
+
+  if (!ticket?.usdtPurchase) {
+    throw new AppError(404, 'Ticket not found', 'NOT_FOUND');
+  }
+
+  if (ticket.usdtPurchase.status !== UsdtPurchaseStatus.DEPOSIT_PROOF_PENDING) {
+    throw new AppError(400, 'Deposit proof not expected at this stage', 'INVALID_STATE');
+  }
+
+  await prisma.usdtPurchaseDetail.update({
+    where: { ticketId },
+    data: {
+      ...(input.depositAmount != null && { depositAmount: input.depositAmount }),
+      ...(input.depositorName && { depositorName: input.depositorName }),
+      ...(input.depositTransferredAt && {
+        depositTransferredAt: new Date(input.depositTransferredAt),
+      }),
+    },
+  });
+}
+
 export async function transitionUsdtPurchaseStatus(
   user: AuthUser,
   ticketId: string,
@@ -184,7 +230,10 @@ export async function transitionUsdtPurchaseStatus(
 
   const ticket = await prisma.transactionTicket.findUnique({
     where: { id: ticketId },
-    include: { usdtPurchase: true },
+    include: {
+      usdtPurchase: true,
+      customer: { include: { user: { select: { name: true, email: true } } } },
+    },
   });
 
   if (!ticket?.usdtPurchase) {
@@ -254,6 +303,20 @@ export async function transitionUsdtPurchaseStatus(
     });
   });
 
+  if (toStatus === UsdtPurchaseStatus.COMPLETED && ticket.customer?.user) {
+    const detail = updated.usdtPurchase!;
+    void sendTradeReceiptEmail({
+      to: ticket.customer.user.email,
+      userName: ticket.customer.user.name,
+      ticketNo: updated.ticketNo,
+      fiatAmount: Number(detail.fiatAmount),
+      fiatCurrency: detail.fiatCurrency,
+      expectedUsdt: Number(detail.expectedUsdtAmount),
+      actualUsdt: detail.actualUsdtAmount ? Number(detail.actualUsdtAmount) : null,
+      usdtTxId: detail.usdtTxId,
+    }).catch((err) => console.error('[trade-email]', err));
+  }
+
   return serializeTicket(updated);
 }
 
@@ -277,6 +340,11 @@ function serializeTicket(ticket: Prisma.TransactionTicketGetPayload<{
     exchangeRateAt: detail.exchangeRateAt,
     exchangeSource: detail.exchangeSource,
     expectedUsdtAmount: Number(detail.expectedUsdtAmount),
+    expectedUsdtMin: detail.expectedUsdtMin ? Number(detail.expectedUsdtMin) : null,
+    expectedUsdtMax: detail.expectedUsdtMax ? Number(detail.expectedUsdtMax) : null,
+    depositAmount: detail.depositAmount ? Number(detail.depositAmount) : null,
+    depositorName: detail.depositorName,
+    depositTransferredAt: detail.depositTransferredAt,
     gasFeeSnapshot: Number(detail.gasFeeSnapshot),
     platformFeeSnapshot: Number(detail.platformFeeSnapshot),
     usdtTxId: detail.usdtTxId,

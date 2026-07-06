@@ -10,11 +10,13 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, clearToken, MeResponse, setToken } from '@/lib/api';
+import { touchActivity, useIdleTimeout } from '@/hooks/useIdleTimeout';
 
 interface AuthContextValue {
   user: MeResponse | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  completeLogin: (token: string) => Promise<void>;
   logout: () => void;
   refresh: () => Promise<void>;
 }
@@ -26,10 +28,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
+  const logout = useCallback(() => {
+    clearToken();
+    setUser(null);
+    sessionStorage.removeItem('crypto_last_activity');
+    router.push('/login');
+  }, [router]);
+
+  useIdleTimeout(logout, Boolean(user));
+
   const refresh = useCallback(async () => {
     try {
       const me = await api.me();
       setUser(me);
+      touchActivity();
     } catch {
       clearToken();
       setUser(null);
@@ -40,21 +52,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refresh().finally(() => setLoading(false));
   }, [refresh]);
 
-  const login = async (email: string, password: string) => {
-    const res = await api.login(email, password);
-    setToken(res.token);
+  const completeLogin = async (token: string) => {
+    setToken(token);
+    touchActivity();
     await refresh();
     router.push('/dashboard');
   };
 
-  const logout = () => {
-    clearToken();
-    setUser(null);
-    router.push('/login');
+  const login = async (email: string, password: string) => {
+    const res = await api.login(email, password);
+    if ('otpRequired' in res && res.otpRequired) {
+      throw new Error('OTP_REQUIRED');
+    }
+    if ('mustChangePassword' in res && res.mustChangePassword) {
+      throw new Error('MUST_CHANGE_PASSWORD');
+    }
+    if ('mustSetupOtp' in res && res.mustSetupOtp) {
+      throw new Error('MUST_SETUP_OTP');
+    }
+    if ('token' in res) {
+      await completeLogin(res.token);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, refresh }}>
+    <AuthContext.Provider value={{ user, loading, login, completeLogin, logout, refresh }}>
       {children}
     </AuthContext.Provider>
   );

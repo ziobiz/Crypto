@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthProvider';
+import { useT } from '@/context/LocaleProvider';
 import {
   api,
   type CreateUserInput,
@@ -10,20 +11,7 @@ import {
   type UpdateUserInput,
   type UserRoleType,
 } from '@/lib/api';
-
-const ROLE_LABELS: Record<UserRoleType, string> = {
-  SUPER_ADMIN: '총본사 관리자',
-  ORG_STAFF: '조직 직원',
-  CUSTOMER: '고객',
-};
-
-const ORG_TYPE_LABELS: Record<string, string> = {
-  HEAD_OFFICE: '본사',
-  MASTER_DISTRIBUTOR: '총판',
-  REGIONAL_BRANCH: '지사',
-  AGENCY: '대리점',
-  SALES_OFFICE: '영업점',
-};
+import type { MessageKey } from '@/i18n/messages';
 
 const emptyCreate: CreateUserInput = {
   email: '',
@@ -36,7 +24,11 @@ const emptyCreate: CreateUserInput = {
 
 export default function UsersPage() {
   const { user: me } = useAuth();
+  const t = useT();
   const isSuperAdmin = me?.role === 'SUPER_ADMIN';
+
+  const roleLabel = (role: UserRoleType) => t(`role.${role}` as MessageKey);
+  const orgTypeLabel = (type: string) => t(`org.${type}` as MessageKey);
 
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [orgs, setOrgs] = useState<Organization[]>([]);
@@ -68,7 +60,7 @@ export default function UsersPage() {
       setUsers(res.items);
       setTotal(res.total);
     } catch (e) {
-      setError(e instanceof Error ? e.message : '목록 불러오기 실패');
+      setError(e instanceof Error ? e.message : t('users.loadError'));
     } finally {
       setLoading(false);
     }
@@ -109,10 +101,10 @@ export default function UsersPage() {
     try {
       await api.users.create(form);
       setModal(null);
-      setMsg('사용자가 등록되었습니다.');
+      setMsg(t('users.created'));
       load();
     } catch (err) {
-      setMsg(err instanceof Error ? err.message : '등록 실패');
+      setMsg(err instanceof Error ? err.message : t('users.createFailed'));
     }
   }
 
@@ -126,17 +118,17 @@ export default function UsersPage() {
         await api.users.resetPassword(editing.id, newPassword);
       }
       setModal(null);
-      setMsg('저장되었습니다.');
+      setMsg(t('users.saved'));
       load();
     } catch (err) {
-      setMsg(err instanceof Error ? err.message : '저장 실패');
+      setMsg(err instanceof Error ? err.message : t('users.saveFailed'));
     }
   }
 
   function orgLabel(u: ManagedUser) {
-    if (u.organization) return `${u.organization.name} (${ORG_TYPE_LABELS[u.organization.type] ?? u.organization.type})`;
+    if (u.organization) return `${u.organization.name} (${orgTypeLabel(u.organization.type)})`;
     if (u.customerProfile?.recruitingOrg) {
-      return `유치: ${u.customerProfile.recruitingOrg.name}`;
+      return `${t('users.recruitPrefix')}: ${u.customerProfile.recruitingOrg.name}`;
     }
     return '—';
   }
@@ -145,24 +137,22 @@ export default function UsersPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">사용자관리</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            PG 사용자관리와 동일 — 계정 등록·수정·비활성화·비밀번호 재설정
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900">{t('users.title')}</h1>
+          <p className="mt-1 text-sm text-gray-500">{t('users.subtitle')}</p>
         </div>
         <button
           type="button"
           onClick={openCreate}
           className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
         >
-          + 사용자 등록
+          {t('users.add')}
         </button>
       </div>
 
       <div className="flex flex-wrap gap-3">
         <input
           type="search"
-          placeholder="이메일·이름·연락처 검색"
+          placeholder={t('users.search')}
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
@@ -178,10 +168,10 @@ export default function UsersPage() {
           }}
           className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
         >
-          <option value="">전체 역할</option>
-          {isSuperAdmin && <option value="SUPER_ADMIN">총본사 관리자</option>}
-          <option value="ORG_STAFF">조직 직원</option>
-          <option value="CUSTOMER">고객</option>
+          <option value="">{t('users.filter.role')}</option>
+          {isSuperAdmin && <option value="SUPER_ADMIN">{roleLabel('SUPER_ADMIN')}</option>}
+          <option value="ORG_STAFF">{roleLabel('ORG_STAFF')}</option>
+          <option value="CUSTOMER">{roleLabel('CUSTOMER')}</option>
         </select>
         <select
           value={activeFilter}
@@ -191,39 +181,39 @@ export default function UsersPage() {
           }}
           className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
         >
-          <option value="">전체 상태</option>
-          <option value="true">활성</option>
-          <option value="false">비활성</option>
+          <option value="">{t('users.filter.active')}</option>
+          <option value="true">{t('users.active')}</option>
+          <option value="false">{t('users.inactive')}</option>
         </select>
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
       {msg && !modal && <p className="text-sm text-green-700">{msg}</p>}
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+      <div className="table-scroll overflow-x-auto rounded-lg border border-gray-200 bg-white">
         <table className="min-w-full text-sm">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-4 py-3 text-left font-medium text-gray-500">이메일</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-500">이름</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-500">역할</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-500">조직</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-500">상태</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-500">최종 로그인</th>
-              <th className="px-4 py-3 text-right font-medium text-gray-500">관리</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500">{t('users.col.email')}</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500">{t('users.col.name')}</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500">{t('users.col.role')}</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500">{t('users.col.org')}</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500">{t('users.col.status')}</th>
+              <th className="px-4 py-3 text-left font-medium text-gray-500">{t('users.col.lastLogin')}</th>
+              <th className="px-4 py-3 text-right font-medium text-gray-500">{t('users.col.actions')}</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
-                  불러오는 중…
+                  {t('common.loading')}
                 </td>
               </tr>
             ) : users.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
-                  사용자가 없습니다.
+                  {t('users.empty')}
                 </td>
               </tr>
             ) : (
@@ -231,7 +221,7 @@ export default function UsersPage() {
                 <tr key={u.id} className="border-t border-gray-100">
                   <td className="px-4 py-3">{u.email}</td>
                   <td className="px-4 py-3">{u.name}</td>
-                  <td className="px-4 py-3">{ROLE_LABELS[u.role]}</td>
+                  <td className="px-4 py-3">{roleLabel(u.role)}</td>
                   <td className="px-4 py-3">{orgLabel(u)}</td>
                   <td className="px-4 py-3">
                     <span
@@ -239,7 +229,7 @@ export default function UsersPage() {
                         u.isActive ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'
                       }`}
                     >
-                      {u.isActive ? '활성' : '비활성'}
+                      {u.isActive ? t('users.active') : t('users.inactive')}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-gray-500">
@@ -251,7 +241,7 @@ export default function UsersPage() {
                       onClick={() => openEdit(u)}
                       className="text-blue-600 hover:underline"
                     >
-                      수정
+                      {t('users.edit')}
                     </button>
                   </td>
                 </tr>
@@ -261,7 +251,7 @@ export default function UsersPage() {
         </table>
       </div>
 
-      <p className="text-xs text-gray-400">총 {total}명</p>
+      <p className="text-xs text-gray-400">{t('users.total', { n: total })}</p>
 
       {modal === 'create' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -269,9 +259,9 @@ export default function UsersPage() {
             onSubmit={handleCreate}
             className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-lg"
           >
-            <h2 className="text-lg font-bold">사용자 등록</h2>
+            <h2 className="text-lg font-bold">{t('users.createTitle')}</h2>
             <div className="mt-4 space-y-3">
-              <Field label="이메일" required>
+              <Field label={t('auth.email')} required>
                 <input
                   type="email"
                   required
@@ -280,7 +270,7 @@ export default function UsersPage() {
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                 />
               </Field>
-              <Field label="비밀번호" required>
+              <Field label={t('auth.password')} required>
                 <input
                   type="password"
                   required
@@ -290,7 +280,7 @@ export default function UsersPage() {
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                 />
               </Field>
-              <Field label="이름" required>
+              <Field label={t('auth.name')} required>
                 <input
                   required
                   value={form.name}
@@ -298,33 +288,33 @@ export default function UsersPage() {
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                 />
               </Field>
-              <Field label="연락처">
+              <Field label={t('auth.phone')}>
                 <input
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                 />
               </Field>
-              <Field label="역할" required>
+              <Field label={t('users.col.role')} required>
                 <select
                   value={form.role}
                   onChange={(e) => setForm({ ...form, role: e.target.value as UserRoleType })}
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                 >
-                  {isSuperAdmin && <option value="SUPER_ADMIN">총본사 관리자</option>}
-                  <option value="ORG_STAFF">조직 직원</option>
-                  <option value="CUSTOMER">고객</option>
+                  {isSuperAdmin && <option value="SUPER_ADMIN">{roleLabel('SUPER_ADMIN')}</option>}
+                  <option value="ORG_STAFF">{roleLabel('ORG_STAFF')}</option>
+                  <option value="CUSTOMER">{roleLabel('CUSTOMER')}</option>
                 </select>
               </Field>
               {form.role === 'ORG_STAFF' && (
-                <Field label="소속 조직" required>
+                <Field label={t('users.orgStaff')} required>
                   <select
                     required
                     value={form.organizationId}
                     onChange={(e) => setForm({ ...form, organizationId: e.target.value })}
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                   >
-                    <option value="">선택</option>
+                    <option value="">{t('users.select')}</option>
                     {orgs.map((o) => (
                       <option key={o.id} value={o.id}>
                         {o.name} ({o.code})
@@ -335,14 +325,14 @@ export default function UsersPage() {
               )}
               {form.role === 'CUSTOMER' && (
                 <>
-                  <Field label="유치 영업점" required>
+                  <Field label={t('users.recruitOrg')} required>
                     <select
                       required
                       value={form.recruitingOrgId}
                       onChange={(e) => setForm({ ...form, recruitingOrgId: e.target.value })}
                       className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                     >
-                      <option value="">선택</option>
+                      <option value="">{t('users.select')}</option>
                       {orgs
                         .filter((o) => o.type === 'SALES_OFFICE')
                         .map((o) => (
@@ -352,7 +342,7 @@ export default function UsersPage() {
                         ))}
                     </select>
                   </Field>
-                  <Field label="고객 유형">
+                  <Field label={t('auth.customerType')}>
                     <select
                       value={form.customerType ?? 'INDIVIDUAL'}
                       onChange={(e) =>
@@ -363,8 +353,8 @@ export default function UsersPage() {
                       }
                       className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                     >
-                      <option value="INDIVIDUAL">개인</option>
-                      <option value="CORPORATE">기업</option>
+                      <option value="INDIVIDUAL">{t('auth.individual')}</option>
+                      <option value="CORPORATE">{t('auth.corporate')}</option>
                     </select>
                   </Field>
                 </>
@@ -373,10 +363,10 @@ export default function UsersPage() {
             {msg && <p className="mt-3 text-sm text-red-600">{msg}</p>}
             <div className="mt-6 flex justify-end gap-2">
               <button type="button" onClick={() => setModal(null)} className="rounded-lg border border-gray-200 px-4 py-2 text-sm">
-                취소
+                {t('common.cancel')}
               </button>
               <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-                등록
+                {t('common.register')}
               </button>
             </div>
           </form>
@@ -389,10 +379,10 @@ export default function UsersPage() {
             onSubmit={handleUpdate}
             className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-lg"
           >
-            <h2 className="text-lg font-bold">사용자 수정</h2>
+            <h2 className="text-lg font-bold">{t('users.editTitle')}</h2>
             <p className="text-sm text-gray-500">{editing.email}</p>
             <div className="mt-4 space-y-3">
-              <Field label="이름" required>
+              <Field label={t('auth.name')} required>
                 <input
                   required
                   value={editForm.name ?? ''}
@@ -400,7 +390,7 @@ export default function UsersPage() {
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                 />
               </Field>
-              <Field label="연락처">
+              <Field label={t('auth.phone')}>
                 <input
                   value={editForm.phone ?? ''}
                   onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
@@ -408,7 +398,7 @@ export default function UsersPage() {
                 />
               </Field>
               {isSuperAdmin && (
-                <Field label="역할">
+                <Field label={t('users.col.role')}>
                   <select
                     value={editForm.role}
                     onChange={(e) =>
@@ -416,14 +406,14 @@ export default function UsersPage() {
                     }
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                   >
-                    <option value="SUPER_ADMIN">총본사 관리자</option>
-                    <option value="ORG_STAFF">조직 직원</option>
-                    <option value="CUSTOMER">고객</option>
+                    <option value="SUPER_ADMIN">{roleLabel('SUPER_ADMIN')}</option>
+                    <option value="ORG_STAFF">{roleLabel('ORG_STAFF')}</option>
+                    <option value="CUSTOMER">{roleLabel('CUSTOMER')}</option>
                   </select>
                 </Field>
               )}
               {editForm.role === 'ORG_STAFF' && (
-                <Field label="소속 조직">
+                <Field label={t('users.orgStaff')}>
                   <select
                     value={editForm.organizationId ?? ''}
                     onChange={(e) =>
@@ -431,7 +421,7 @@ export default function UsersPage() {
                     }
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                   >
-                    <option value="">선택</option>
+                    <option value="">{t('users.select')}</option>
                     {orgs.map((o) => (
                       <option key={o.id} value={o.id}>
                         {o.name}
@@ -441,7 +431,7 @@ export default function UsersPage() {
                 </Field>
               )}
               {editForm.role === 'CUSTOMER' && (
-                <Field label="유치 영업점">
+                <Field label={t('users.recruitOrg')}>
                   <select
                     value={editForm.recruitingOrgId ?? ''}
                     onChange={(e) =>
@@ -459,17 +449,17 @@ export default function UsersPage() {
                   </select>
                 </Field>
               )}
-              <Field label="상태">
+              <Field label={t('users.col.status')}>
                 <label className="flex items-center gap-2 text-sm">
                   <input
                     type="checkbox"
                     checked={editForm.isActive ?? true}
                     onChange={(e) => setEditForm({ ...editForm, isActive: e.target.checked })}
                   />
-                  활성 계정
+                  {t('users.accountActive')}
                 </label>
               </Field>
-              <Field label="비밀번호 재설정 (6자 이상, 비우면 유지)">
+              <Field label={t('users.resetPassword')}>
                 <input
                   type="password"
                   minLength={6}
@@ -482,10 +472,10 @@ export default function UsersPage() {
             {msg && <p className="mt-3 text-sm text-red-600">{msg}</p>}
             <div className="mt-6 flex justify-end gap-2">
               <button type="button" onClick={() => setModal(null)} className="rounded-lg border border-gray-200 px-4 py-2 text-sm">
-                취소
+                {t('common.cancel')}
               </button>
               <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-                저장
+                {t('common.save')}
               </button>
             </div>
           </form>

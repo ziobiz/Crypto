@@ -4,14 +4,19 @@ import { z } from 'zod';
 import { AttachmentPurpose, UsdtPurchaseStatus, UserRole } from '@prisma/client';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { authenticate, requireRoles } from '../middleware/auth';
-import { getExchangeRateDisplay } from '../services/exchange-rate.service';
+import {
+  getAllExchangeRatesDisplay,
+  getExchangeRateDisplay,
+  type FiatCurrency,
+} from '../services/exchange-rate.service';
 import {
   createUsdtPurchaseTicket,
   getUsdtPurchaseTicket,
   listUsdtPurchaseTickets,
+  saveDepositProofMetadata,
   transitionUsdtPurchaseStatus,
 } from '../services/usdt-purchase.service';
-import { assertTicketAccess } from '../services/ticket-access.service';
+import { assertTicketAccess, canOperateUsdtTicket } from '../services/ticket-access.service';
 import { saveAttachment } from '../services/attachment.service';
 import { AppError } from '../lib/errors';
 
@@ -32,8 +37,14 @@ router.use(authenticate);
 
 router.get(
   '/exchange-rate',
-  asyncHandler(async (_req, res) => {
-    const rate = await getExchangeRateDisplay();
+  asyncHandler(async (req, res) => {
+    const all = req.query.all === 'true';
+    if (all) {
+      res.json(await getAllExchangeRatesDisplay());
+      return;
+    }
+    const currency = (req.query.currency as FiatCurrency) || 'KRW';
+    const rate = await getExchangeRateDisplay(currency);
     res.json(rate);
   }),
 );
@@ -60,7 +71,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const schema = z.object({
       fiatAmount: z.number().positive(),
-      fiatCurrency: z.enum(['KRW', 'USD']).optional(),
+      fiatCurrency: z.enum(['KRW', 'USD', 'JPY']).optional(),
       walletId: z.string().min(1),
     });
     const body = schema.parse(req.body);
@@ -88,8 +99,8 @@ router.patch(
       UsdtPurchaseStatus.COMPLETED,
     ];
 
-    if (adminOnlyStatuses.includes(body.status) && user.role !== UserRole.SUPER_ADMIN) {
-      throw new AppError(403, 'Admin only status change', 'FORBIDDEN');
+    if (adminOnlyStatuses.includes(body.status) && !canOperateUsdtTicket(user)) {
+      throw new AppError(403, 'Operator role required', 'FORBIDDEN');
     }
 
     const ticket = await transitionUsdtPurchaseStatus(user, req.params.id, body.status, {
@@ -100,6 +111,13 @@ router.patch(
     res.json(ticket);
   }),
 );
+
+const depositProofSchema = z.object({
+  depositAmount: z.coerce.number().positive().optional(),
+  depositorName: z.string().min(1).optional(),
+  depositTransferredAt: z.string().optional(),
+  description: z.string().optional(),
+});
 
 router.post(
   '/:id/deposit-proof',
@@ -113,12 +131,20 @@ router.post(
     const ticketId = req.params.id;
     await assertTicketAccess(req.user!, ticketId);
 
+    const meta = depositProofSchema.parse(req.body);
+
+    await saveDepositProofMetadata(req.user!, ticketId, {
+      depositAmount: meta.depositAmount,
+      depositorName: meta.depositorName,
+      depositTransferredAt: meta.depositTransferredAt,
+    });
+
     await saveAttachment(
       req.user!,
       ticketId,
       req.file,
       AttachmentPurpose.FIAT_DEPOSIT_RECEIPT,
-      req.body.description,
+      meta.description,
     );
 
     const ticket = await transitionUsdtPurchaseStatus(

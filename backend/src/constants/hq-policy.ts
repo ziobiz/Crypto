@@ -64,6 +64,7 @@ export const HQ_CONFIG_KEYS = {
   orgColumns: 'hq.org_columns',
   commissionRisk: 'hq.commission.risk',
   platform: 'hq.platform.domains',
+  emailOtp: 'hq.platform.email_otp',
 } as const;
 
 export type HqAccessMatrix = Record<HqOrgLevel, Record<string, HqPermissionLevel>>;
@@ -88,4 +89,44 @@ export type HqPlatformConfig = {
   corsOrigins: string[];
   sslCertPath?: string;
   redirectRootToPrimary: boolean;
+  /** 브랜드 카드 — 사이트 이름 (로그인·헤더 표시) */
+  siteName: string;
+  /** 로그인 후 좌측 메뉴 상단 로고 (/api/branding/logo) */
+  logoUrl?: string;
+  /** 첫화면(로그인) 우측 패널 상단 로고 (/api/branding/auth-logo) — 로그인 후 로고와 별도 */
+  authLogoUrl?: string;
+  /** 파비콘 (/api/branding/favicon) */
+  faviconUrl?: string;
+  /** 로그인 첫화면 왼쪽 배경 (/api/branding/background) */
+  authBackgroundUrl?: string;
+  /** 왼쪽 배경 위 브랜드 문구 (줄바꿈 가능) */
+  authMainText?: string;
+  /** 첫화면 하단 푸터 문구 */
+  footerText?: string;
+  /** 로그인 패널 공지 노출 */
+  loginNoticeEnabled?: boolean;
+  /** 로그인 패널 공지 (다국어) */
+  loginNoticeI18n?: Partial<
+    Record<'KR' | 'JP' | 'US' | 'CH' | 'TH', { title: string; body: string }>
+  >;
+};
+
+/** PG 본사정책 → 플랫폼 → 이메일·OTP */
+export type HqEmailOtpConfig = {
+  otpEnabled: boolean;
+  otpForSuperAdmin: boolean;
+  otpForHeadOffice: boolean;
+  otpForMasterDistributor: boolean;
+  otpExpireMinutes: number;
+  otpEmailSubject: string;
+  otpEmailBody: string;
+  smtpHost: string;
+  smtpPort: number;
+  smtpSecure: boolean;
+  smtpUser: string;
+  smtpPassword: string;
+  fromAddress: string;
+  fromName: string;
+  /** 거래 완료 시 고객에게 거래명세 이메일 자동 발송 */
+  tradeReceiptEmailEnabled: boolean;
 };

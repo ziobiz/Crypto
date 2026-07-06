@@ -1,23 +1,20 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useT } from '@/context/LocaleProvider';
 import { hqPolicyApi, type HqAccessMatrix, type HqAccessPayload } from '@/lib/api';
+import type { MessageKey } from '@/i18n/messages';
 
-const ORG_LABELS: Record<string, string> = {
-  HEAD_OFFICE: '본사',
-  MASTER_DISTRIBUTOR: '총판',
-  BRANCH: '지사',
-  REGIONAL_BRANCH: '지사',
-  AGENCY: '대리점',
-  SALES_OFFICE: '영업점',
-};
+function orgKey(org: string): MessageKey {
+  return (`org.${org}` as MessageKey);
+}
 
 export default function HqAccessPage() {
+  const t = useT();
   const [data, setData] = useState<HqAccessPayload | null>(null);
   const [matrix, setMatrix] = useState<HqAccessMatrix>({});
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
-
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -27,7 +24,7 @@ export default function HqAccessPage() {
         setData(d);
         setMatrix(d.matrix);
       })
-      .catch((e) => setError(e instanceof Error ? e.message : '불러오기 실패'));
+      .catch((e) => setError(e instanceof Error ? e.message : t('common.loadFailed')));
   }, []);
 
   async function save() {
@@ -37,9 +34,9 @@ export default function HqAccessPage() {
       const next = await hqPolicyApi.saveAccess(matrix);
       setData(next);
       setMatrix(next.matrix);
-      setMsg('저장되었습니다.');
+      setMsg(t('hq.saved'));
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : '저장 실패');
+      setMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -48,27 +45,24 @@ export default function HqAccessPage() {
   if (error) {
     return (
       <p className="text-sm text-red-600">
-        {error} — 백엔드 <code className="text-xs">/api/hq-policy</code> 재배포 후{' '}
-        <code className="text-xs">pm2 restart crypto-api</code> 하세요.
+        {error} — {t('hq.backendHint')}
       </p>
     );
   }
 
-  if (!data) return <p className="text-sm text-gray-500">불러오는 중…</p>;
+  if (!data) return <p className="text-sm text-gray-500">{t('hq.loading')}</p>;
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-gray-600">
-        조직 단계별 화면 권한 (NONE / VIEW / MODIFY / DELETE). PG 「본사권한설정」과 동일 개념입니다.
-      </p>
+      <p className="text-sm text-gray-600">{t('hq.access.desc')}</p>
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
         <table className="min-w-full text-sm">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-3 py-2 text-left font-medium text-gray-500">화면</th>
+              <th className="px-3 py-2 text-left font-medium text-gray-500">{t('hq.access.screen')}</th>
               {data.orgLevels.map((org) => (
                 <th key={org} className="px-3 py-2 text-left font-medium text-gray-500">
-                  {ORG_LABELS[org] ?? org}
+                  {t(orgKey(org))}
                 </th>
               ))}
             </tr>
@@ -112,7 +106,7 @@ export default function HqAccessPage() {
           disabled={saving}
           className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
         >
-          {saving ? '저장 중…' : '저장'}
+          {saving ? t('hq.saving') : t('hq.save')}
         </button>
         {msg && <span className="text-sm text-gray-600">{msg}</span>}
       </div>

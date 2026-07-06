@@ -3,10 +3,13 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthProvider';
+import { useT } from '@/context/LocaleProvider';
 import { api, DashboardResponse } from '@/lib/api';
+import { UsdtRatePanel } from '@/components/UsdtRatePanel';
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const t = useT();
   const [data, setData] = useState<DashboardResponse | null>(null);
 
   useEffect(() => {
@@ -15,37 +18,48 @@ export default function DashboardPage() {
 
   const stats = data?.stats ?? {};
 
+  const roleLabel =
+    user?.role === 'SUPER_ADMIN'
+      ? t('role.superAdmin')
+      : user?.role === 'ORG_STAFF'
+        ? t('role.orgStaff')
+        : t('role.customer');
+
   return (
     <div>
-      <h1 className="text-2xl font-bold">대시보드</h1>
-      <p className="mt-1 text-gray-500">
-        {user?.role === 'SUPER_ADMIN' && '총본사 관리자'}
-        {user?.role === 'ORG_STAFF' && '영업 조직'}
-        {user?.role === 'CUSTOMER' && '고객'}
-      </p>
+      <h1 className="text-2xl font-bold">{t('nav.dashboard')}</h1>
+      <p className="mt-1 text-gray-500">{roleLabel}</p>
+
+      <div className="mt-6">
+        <UsdtRatePanel />
+      </div>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {user?.role === 'SUPER_ADMIN' && (
           <>
-            <StatCard label="USDT 확인 대기" value={stats.usdtPendingReview ?? 0} />
-            <StatCard label="에스크로 진행 중" value={stats.escrowPending ?? 0} />
-            <StatCard label="USDT 완료" value={stats.usdtCompleted ?? 0} />
-            <StatCard label="에스크로 완료" value={stats.escrowCompleted ?? 0} />
+            <StatCard label={t('dashboard.usdtPending')} value={stats.usdtPendingReview ?? 0} />
+            <StatCard label={t('dashboard.escrowPending')} value={stats.escrowPending ?? 0} />
+            <StatCard label={t('dashboard.usdtCompleted')} value={stats.usdtCompleted ?? 0} />
+            <StatCard label={t('dashboard.escrowCompleted')} value={stats.escrowCompleted ?? 0} />
           </>
         )}
         {user?.role === 'ORG_STAFF' && (
           <>
-            <StatCard label="USDT 거래" value={stats.usdtTickets ?? 0} />
-            <StatCard label="에스크로 거래" value={stats.escrowTickets ?? 0} />
-            <StatCard label="누적 수수료" value={stats.totalCommission ?? 0} suffix="원" />
-            <StatCard label="정산 건수" value={stats.commissionCount ?? 0} />
+            <StatCard label={t('dashboard.usdtTickets')} value={stats.usdtTickets ?? 0} />
+            <StatCard label={t('dashboard.escrowTickets')} value={stats.escrowTickets ?? 0} />
+            <StatCard
+              label={t('dashboard.totalCommission')}
+              value={stats.totalCommission ?? 0}
+              suffix={t('dashboard.currency.won')}
+            />
+            <StatCard label={t('dashboard.commissionCount')} value={stats.commissionCount ?? 0} />
           </>
         )}
         {user?.role === 'CUSTOMER' && (
           <>
-            <StatCard label="USDT 매입" value={stats.usdtTickets ?? 0} />
-            <StatCard label="에스크로" value={stats.escrowTickets ?? 0} />
-            <StatCard label="등록 지갑" value={stats.wallets ?? 0} />
+            <StatCard label={t('dashboard.usdtPurchase')} value={stats.usdtTickets ?? 0} />
+            <StatCard label={t('dashboard.escrow')} value={stats.escrowTickets ?? 0} />
+            <StatCard label={t('dashboard.wallets')} value={stats.wallets ?? 0} />
           </>
         )}
       </div>
@@ -56,13 +70,13 @@ export default function DashboardPage() {
             href="/dashboard/usdt/new"
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
           >
-            USDT 매입 신청
+            {t('dashboard.newUsdt')}
           </Link>
           <Link
             href="/dashboard/escrow/new"
             className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-50"
           >
-            에스크로 생성
+            {t('dashboard.newEscrow')}
           </Link>
         </div>
       )}

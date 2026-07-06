@@ -91,7 +91,11 @@ export function buildTicketListFilter(user: AuthUser, type?: TicketType): Prisma
 }
 
 export function canChangeTicketStatus(user: AuthUser): boolean {
-  return user.role === UserRole.SUPER_ADMIN;
+  return user.role === UserRole.SUPER_ADMIN || user.role === UserRole.ORG_STAFF;
+}
+
+export function canOperateUsdtTicket(user: AuthUser): boolean {
+  return user.role === UserRole.SUPER_ADMIN || user.role === UserRole.ORG_STAFF;
 }
 
 export function isEscrowBuyer(user: AuthUser, buyerId: string): boolean {
