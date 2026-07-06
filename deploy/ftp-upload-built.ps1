@@ -6,7 +6,6 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $Server = "root@114.207.245.160"
 $RemoteDir = "/var/www/crypto-workflow"
-$ZipPath = Join-Path $env:TEMP "crypto-built-upload.zip"
 
 Set-Location $Root
 
