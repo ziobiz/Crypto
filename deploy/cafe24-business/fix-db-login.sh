@@ -9,7 +9,7 @@ cd "$ROOT"
 echo "==> Prisma 스키마 동기화 (users OTP·passwordMustChange 등)"
 cd backend
 npx prisma generate
-npx prisma db push
+npx prisma db push --accept-data-loss
 cd ..
 
 echo "==> 관리자 계정"
