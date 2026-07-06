@@ -30,5 +30,5 @@ if (-not (Test-Path "server\node_modules\.bin\tsc.cmd")) {
 npm run build --prefix server
 
 Write-Host ""
-Write-Host "빌드 완료. FTP 업로드 후 서버 SSH:"
-Write-Host "  bash deploy/cafe24-business/ftp-apply-built.sh"
+Write-Host "빌드 완료. 배포 zip 생성:"
+Write-Host "  powershell -ExecutionPolicy Bypass -File deploy\pack-release.ps1 -SkipBuild"

@@ -1,7 +1,18 @@
-# FTP 업로드 대상 (모드 B — 로컬 빌드 후 산출물 배포) ★ 권장
-# Cafe24 FTP 루트: /var/www/crypto-workflow
+# 배포 방식 (권장) — 단일 zip
 #
-# ✅ 업로드
+# [PC] powershell -File deploy\pack-release.ps1
+#      → deploy\release\crypto-release.zip 생성
+#
+# [FTP] 업로드 1개
+#      로컬: deploy\release\crypto-release.zip
+#      서버: /var/www/crypto-workflow/incoming/crypto-release.zip
+#
+# [SSH] 배포 1줄
+#      cd /var/www/crypto-workflow && bash deploy/cafe24-business/apply-release.sh
+#
+# ─────────────────────────────────────────────
+# zip 안에 들어가는 내용 (참고)
+# ─────────────────────────────────────────────
 backend/dist/
 backend/prisma/
 backend/package.json
@@ -15,16 +26,12 @@ server/dist/
 server/package.json
 server/package-lock.json
 deploy/
-
-# ❌ 업로드 금지
+#
+# ❌ zip에 넣지 말 것
 node_modules/
 backend/src/
 frontend/src/
 server/src/
-.git/
-uploads/
 backend/.env
 frontend/.env.local
-
-# SSH 적용 (업로드 후, 1~2분)
-# bash deploy/cafe24-business/ftp-apply-built.sh
+uploads/
