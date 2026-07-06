@@ -7,9 +7,9 @@ cd "$ROOT"
 
 echo "==> Backend"
 cd backend
-npm ci
+npm ci --ignore-scripts
 if [ ! -d node_modules/express ]; then
-  echo "ERROR: backend dependencies missing (express not found). Run: cd backend && npm ci"
+  echo "ERROR: backend dependencies missing. Run: bash deploy/cafe24-business/deploy-install.sh"
   exit 1
 fi
 npx prisma generate
@@ -21,7 +21,7 @@ if [ "${MIGRATION_DIRS}" -gt 0 ]; then
 else
   echo "    (migrations 없음 → db push 사용)"
   npx prisma db push || {
-    echo "ERROR: prisma db push 실패 — 로그인 500 원인. 수동: bash deploy/cafe24-business/fix-db-login.sh"
+    echo "ERROR: prisma db push 실패 — bash deploy/cafe24-business/fix-db-login.sh"
     exit 1
   }
 fi
@@ -29,14 +29,14 @@ cd ..
 
 echo "==> Frontend (메모리 절약: NODE_OPTIONS 제한)"
 cd frontend
-npm ci
-export NODE_OPTIONS="--max-old-space-size=1536"
+npm ci --ignore-scripts
+export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=1536}"
 npm run build
 cd ..
 
 echo "==> Server (통합 Express + Next)"
 cd server
-npm ci
+npm ci --ignore-scripts
 npm run build
 cd ..
 
