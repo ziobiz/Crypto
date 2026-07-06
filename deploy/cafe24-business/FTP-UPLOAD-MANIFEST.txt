@@ -4,6 +4,7 @@
 # ✅ 업로드
 backend/src/
 backend/prisma/
+backend/package.json
 backend/package-lock.json
 backend/tsconfig.json
 frontend/src/
