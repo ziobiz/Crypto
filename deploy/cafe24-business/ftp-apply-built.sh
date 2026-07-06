@@ -39,7 +39,10 @@ npm ci --omit=dev --ignore-scripts
 echo "    prisma generate..."
 npx prisma generate
 echo "    db push..."
-MIGRATION_DIRS=$(find prisma/migrations -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')
+MIGRATION_DIRS=0
+if [ -d prisma/migrations ]; then
+  MIGRATION_DIRS=$(find prisma/migrations -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')
+fi
 if [ "${MIGRATION_DIRS:-0}" -gt 0 ]; then
   npx prisma migrate deploy
 else

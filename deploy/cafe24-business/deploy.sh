@@ -14,9 +14,12 @@ if [ ! -d node_modules/express ]; then
 fi
 npx prisma generate
 npm run build
-echo "==> DB 스키마 동기화"
-MIGRATION_DIRS=$(find prisma/migrations -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)
-if [ "${MIGRATION_DIRS}" -gt 0 ]; then
+echo "==> DB schema sync"
+MIGRATION_DIRS=0
+if [ -d prisma/migrations ]; then
+  MIGRATION_DIRS=$(find prisma/migrations -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')
+fi
+if [ "${MIGRATION_DIRS:-0}" -gt 0 ]; then
   npx prisma migrate deploy
 else
   echo "    (migrations 없음 → db push 사용)"
