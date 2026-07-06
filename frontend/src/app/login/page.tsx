@@ -18,7 +18,12 @@ export default function LoginPage() {
     try {
       await login(email, password);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '로그인 실패');
+      const msg = err instanceof Error ? err.message : '로그인 실패';
+      setError(
+        msg === 'Failed to fetch'
+          ? '서버에 연결할 수 없습니다. 프론트 재배포(ftp-apply.sh) 후 시크릿 창으로 다시 시도하세요.'
+          : msg,
+      );
     } finally {
       setLoading(false);
     }

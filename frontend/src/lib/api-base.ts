@@ -1,10 +1,18 @@
 /**
- * Nginx가 같은 도메인에서 /api 를 프록시할 때 빈 문자열 = same-origin.
- * 로컬 개발은 frontend/.env.local 에 NEXT_PUBLIC_API_URL=http://localhost:4000
+ * API 베이스 URL
+ * - 운영(api.tinpass.com 등): 항상 same-origin → Nginx /api 프록시
+ * - 로컬: frontend/.env.local 의 NEXT_PUBLIC_API_URL 또는 localhost:4000
  */
 export function getApiBaseUrl(): string {
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host !== 'localhost' && host !== '127.0.0.1') {
+      return '';
+    }
+  }
+
   const fromEnv = process.env.NEXT_PUBLIC_API_URL?.trim();
   if (fromEnv) return fromEnv.replace(/\/$/, '');
-  if (typeof window !== 'undefined') return '';
+
   return 'http://localhost:4000';
 }
