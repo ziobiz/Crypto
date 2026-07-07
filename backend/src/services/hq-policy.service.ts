@@ -2,7 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { execSync } from 'child_process';
-import { TicketType } from '@prisma/client';
+import { AdminChangeAction, TicketType } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import {
   HQ_CONFIG_KEYS,
@@ -16,6 +16,10 @@ import {
   type HqPermissionLevel,
   type HqPlatformConfig,
   type HqEmailOtpConfig,
+  type HqExchangeRateSourcePolicy,
+  type IdleTimeoutMinutes,
+  IDLE_TIMEOUT_MINUTES_OPTIONS,
+  type SymbolFeeTierPolicy,
 } from '../constants/hq-policy';
 import {
   defaultEmailOtpConfig,
@@ -25,11 +29,57 @@ import {
 import { sendTestEmail } from '../services/email.service';
 import {
   defaultTransactionFees,
+  getSymbolFeeTiers,
   normalizeCommissionRisk,
+  normalizeSymbolFeeTiers,
 } from '../services/transaction-fee.service';
+import {
+  getExchangeRatePolicyPreview,
+  getExchangeRateSourcePolicy,
+  saveExchangeRateSourcePolicy,
+} from '../services/exchange-rate-policy.service';
+import { getAllLocalMarketPremiums } from '../services/local-market-premium.service';
+import { getKimchiPremiumAnalysis } from '../services/kimchi-premium.service';
 import { DEFAULT_LOGIN_NOTICE_I18N } from '../constants/login-notice-i18n';
+import { defaultTransactionLimitsPolicy } from '../lib/transaction-limit-policy';
+import {
+  logAdminChange,
+  type AuditContext,
+} from './admin-change-log.service';
 
 const BRANDING_DIR = path.resolve(process.env.UPLOAD_DIR ?? './uploads', 'branding');
+
+function maskEmailConfig(config: HqEmailOtpConfig): HqEmailOtpConfig {
+  return { ...config, smtpPassword: config.smtpPassword ? '********' : '' };
+}
+
+async function putConfigWithAudit<T>(
+  audit: AuditContext,
+  params: {
+    key: string;
+    value: T;
+    description?: string;
+    entityType: string;
+    summary: string;
+  },
+): Promise<T> {
+  const beforeRow = await prisma.systemConfig.findUnique({ where: { key: params.key } });
+  const before = beforeRow?.value ?? null;
+  await putConfig(params.key, params.value, params.description);
+  await logAdminChange({
+    actor: audit.actor,
+    action: beforeRow ? AdminChangeAction.UPDATE : AdminChangeAction.CREATE,
+    entityType: params.entityType,
+    entityId: params.key,
+    entityLabel: params.description ?? params.key,
+    summary: `${params.summary} (관리자: ${audit.actor.email})`,
+    before,
+    after: params.value,
+    ipAddress: audit.ipAddress,
+    userAgent: audit.userAgent,
+  });
+  return params.value;
+}
 
 async function getConfig<T>(key: string, fallback: T): Promise<T> {
   const row = await prisma.systemConfig.findUnique({ where: { key } });
@@ -87,6 +137,7 @@ function defaultCommissionRisk(): HqCommissionRiskConfig {
     maxTicketAmountKrw: 100_000_000,
     riskEnabled: true,
     maxDailyTicketsPerCustomer: 10,
+    transactionLimits: defaultTransactionLimitsPolicy(100_000_000),
     notes: '',
   };
 }
@@ -105,6 +156,24 @@ function mergeLoginNoticeI18n(
   return merged;
 }
 
+function normalizeIdleTimeoutMinutes(value?: number): IdleTimeoutMinutes {
+  const n = value ?? 30;
+  return (IDLE_TIMEOUT_MINUTES_OPTIONS as readonly number[]).includes(n)
+    ? (n as IdleTimeoutMinutes)
+    : 30;
+}
+
+function normalizePlatformConfig(raw: Partial<HqPlatformConfig>): HqPlatformConfig {
+  const base = defaultPlatform();
+  const merged = { ...base, ...raw };
+  return {
+    ...merged,
+    idleTimeoutMinutes: normalizeIdleTimeoutMinutes(merged.idleTimeoutMinutes),
+    defaultUsdtFiatCurrency: merged.defaultUsdtFiatCurrency ?? 'JPY',
+    loginNoticeI18n: mergeLoginNoticeI18n(merged.loginNoticeI18n),
+  };
+}
+
 function defaultPlatform(): HqPlatformConfig {
   return {
     primaryDomain: 'api.tinpass.com',
@@ -121,6 +190,10 @@ function defaultPlatform(): HqPlatformConfig {
     authMainText: '',
     loginNoticeEnabled: true,
     loginNoticeI18n: { ...DEFAULT_LOGIN_NOTICE_I18N },
+    customerRegistrationEnabled: false,
+    idleTimeoutMinutes: 30,
+    defaultUsdtFiatCurrency: 'JPY',
+    depositReceivingAccounts: {},
   };
 }
 
@@ -177,6 +250,7 @@ function withBrandingCacheBust(url: string | null | undefined, asset: BrandAsset
 }
 
 async function saveBrandingAsset(
+  audit: AuditContext,
   asset: BrandAsset,
   file: { buffer: Buffer; originalname: string },
 ) {
@@ -198,6 +272,18 @@ async function saveBrandingAsset(
   const key = BRAND_CONFIG_KEY[asset];
   const next = { ...config, [key]: BRAND_ASSET_URL[asset] };
   await putConfig(HQ_CONFIG_KEYS.platform, next, '플랫폼 도메인·SSL');
+  await logAdminChange({
+    actor: audit.actor,
+    action: AdminChangeAction.UPDATE,
+    entityType: 'HQ_PLATFORM_BRANDING',
+    entityId: asset,
+    entityLabel: asset,
+    summary: `브랜딩 파일 업로드: ${file.originalname} (관리자: ${audit.actor.email})`,
+    before: { [key]: config[key] },
+    after: { [key]: BRAND_ASSET_URL[asset], filename: file.originalname },
+    ipAddress: audit.ipAddress,
+    userAgent: audit.userAgent,
+  });
 }
 
 function readSslInfo(certPath?: string) {
@@ -240,7 +326,7 @@ export const hqPolicyService = {
     };
   },
 
-  async saveAccessMatrix(matrix: HqAccessMatrix) {
+  async saveAccessMatrix(audit: AuditContext, matrix: HqAccessMatrix) {
     for (const org of HQ_ORG_LEVELS) {
       if (!matrix[org]) throw new Error(`조직 단계 누락: ${org}`);
       for (const page of HQ_PAGE_CATALOG) {
@@ -250,7 +336,13 @@ export const hqPolicyService = {
         }
       }
     }
-    await putConfig(HQ_CONFIG_KEYS.accessMatrix, matrix, '본사권한설정 매트릭스');
+    await putConfigWithAudit(audit, {
+      key: HQ_CONFIG_KEYS.accessMatrix,
+      value: matrix,
+      description: '본사권한설정 매트릭스',
+      entityType: 'HQ_ACCESS_MATRIX',
+      summary: '본사 접근·권한 매트릭스 저장',
+    });
     return this.getAccessPayload();
   },
 
@@ -259,29 +351,106 @@ export const hqPolicyService = {
     return { catalog: HQ_VIEW_COLUMN_CATALOG, orgLevels: HQ_ORG_LEVELS, config };
   },
 
-  async saveOrgColumns(config: HqOrgColumnConfig) {
-    await putConfig(HQ_CONFIG_KEYS.orgColumns, config, '조직항목설정');
+  async saveOrgColumns(audit: AuditContext, config: HqOrgColumnConfig) {
+    await putConfigWithAudit(audit, {
+      key: HQ_CONFIG_KEYS.orgColumns,
+      value: config,
+      description: '조직항목설정',
+      entityType: 'HQ_ORG_COLUMNS',
+      summary: '조직·화면 항목 설정 저장',
+    });
     return this.getOrgColumnsPayload();
   },
 
   async getCommissionPayload() {
     const raw = await getConfig(HQ_CONFIG_KEYS.commissionRisk, defaultCommissionRisk());
     const risk = normalizeCommissionRisk(raw);
+    const feeTiers = await getSymbolFeeTiers();
+    const exchangeRateSources = await getExchangeRateSourcePolicy();
+    const exchangeRatePreview = await getExchangeRatePolicyPreview();
+    const localPremiums = await getAllLocalMarketPremiums();
+    const krwPremium = localPremiums.find((p) => p.currency === 'KRW');
+    let kimchiPremium = null;
+    try {
+      kimchiPremium = await getKimchiPremiumAnalysis();
+    } catch {
+      kimchiPremium = krwPremium
+        ? {
+            domesticRate: krwPremium.domesticRate,
+            fairRate: krwPremium.fairRate,
+            premiumPercent: krwPremium.premiumPercent,
+            upbitRate: krwPremium.detailRates.upbit ?? null,
+            bithumbRate: krwPremium.detailRates.bithumb ?? null,
+            usdKrwRate: krwPremium.usdFiatRate,
+            usdtUsdRate: krwPremium.usdtUsdRate,
+            fetchedAt: krwPremium.fetchedAt,
+          }
+        : null;
+    }
     const rates = await prisma.commissionRate.findMany({
       where: { effectiveTo: null },
       include: { organization: { select: { id: true, code: true, name: true, type: true } } },
       orderBy: [{ ticketType: 'asc' }, { organization: { code: 'asc' } }],
     });
-    return { risk, rates };
+    return {
+      risk,
+      feeTiers,
+      exchangeRateSources,
+      exchangeRatePreview,
+      localPremiums,
+      kimchiPremium,
+      rates,
+    };
   },
 
-  async saveCommissionRisk(risk: HqCommissionRiskConfig) {
+  async saveCommissionRisk(audit: AuditContext, risk: HqCommissionRiskConfig) {
     const normalized = normalizeCommissionRisk(risk);
-    await putConfig(HQ_CONFIG_KEYS.commissionRisk, normalized, '수수료·리스크 정책');
+    await putConfigWithAudit(audit, {
+      key: HQ_CONFIG_KEYS.commissionRisk,
+      value: normalized,
+      description: '수수료·리스크 정책',
+      entityType: 'HQ_COMMISSION_RISK',
+      summary: '수수료·리스크 정책 저장',
+    });
+    return this.getCommissionPayload();
+  },
+
+  async saveSymbolFeeTiers(audit: AuditContext, tiers: SymbolFeeTierPolicy) {
+    const normalized = normalizeSymbolFeeTiers(tiers);
+    if (!normalized.length) {
+      throw new Error('수수료 구간이 비어 있습니다.');
+    }
+    await putConfigWithAudit(audit, {
+      key: HQ_CONFIG_KEYS.feeTiers,
+      value: normalized,
+      description: '시볼(티켓) 통화별 수수료 구간',
+      entityType: 'HQ_FEE_TIERS',
+      summary: '시볼 수수료 구간 저장',
+    });
+    return this.getCommissionPayload();
+  },
+
+  async saveExchangeRateSources(audit: AuditContext, policy: HqExchangeRateSourcePolicy) {
+    const before = await getExchangeRateSourcePolicy();
+    await saveExchangeRateSourcePolicy(policy);
+    const after = await getExchangeRateSourcePolicy();
+    await logAdminChange({
+      actor: audit.actor,
+      action: AdminChangeAction.UPDATE,
+      entityType: 'HQ_EXCHANGE_RATE_SOURCES',
+      entityId: HQ_CONFIG_KEYS.exchangeRateSources,
+      entityLabel: '기준가 소스',
+      summary: `환율 기준가 소스 정책 저장 (관리자: ${audit.actor.email})`,
+      before,
+      after,
+      ipAddress: audit.ipAddress,
+      userAgent: audit.userAgent,
+    });
     return this.getCommissionPayload();
   },
 
   async saveCommissionRates(
+    audit: AuditContext,
     rates: Array<{ organizationId: string; ticketType: TicketType; ratePercent: number }>,
   ) {
     if (!rates.length) {
@@ -302,6 +471,11 @@ export const hqPolicyService = {
         throw new Error('요율은 0~100% 사이여야 합니다.');
       }
     }
+
+    const beforeRates = await prisma.commissionRate.findMany({
+      where: { effectiveTo: null },
+      include: { organization: { select: { code: true, name: true } } },
+    });
 
     await prisma.$transaction(async (tx) => {
       for (const item of rates) {
@@ -334,18 +508,33 @@ export const hqPolicyService = {
       }
     });
 
+    const afterRates = await prisma.commissionRate.findMany({
+      where: { effectiveTo: null },
+      include: { organization: { select: { code: true, name: true } } },
+    });
+
+    await logAdminChange({
+      actor: audit.actor,
+      action: AdminChangeAction.UPDATE,
+      entityType: 'HQ_COMMISSION_RATES',
+      entityLabel: '조직별 수수료 요율',
+      summary: `조직별 수수료 요율 저장 (${rates.length}건, 관리자: ${audit.actor.email})`,
+      before: beforeRates,
+      after: afterRates,
+      ipAddress: audit.ipAddress,
+      userAgent: audit.userAgent,
+    });
+
     return this.getCommissionPayload();
   },
 
   async getPlatformPayload() {
-    const raw = {
-      ...defaultPlatform(),
-      ...(await getConfig(HQ_CONFIG_KEYS.platform, defaultPlatform())),
-    };
-    const config = syncBrandingUrls({
-      ...raw,
-      loginNoticeI18n: mergeLoginNoticeI18n(raw.loginNoticeI18n),
-    });
+    const config = syncBrandingUrls(
+      normalizePlatformConfig({
+        ...defaultPlatform(),
+        ...(await getConfig(HQ_CONFIG_KEYS.platform, defaultPlatform())),
+      }),
+    );
     const emailRaw = await getEmailOtpConfig();
     const email = {
       ...emailRaw,
@@ -378,15 +567,48 @@ export const hqPolicyService = {
     };
   },
 
-  async savePlatform(config: HqPlatformConfig) {
+  async savePlatform(audit: AuditContext, config: HqPlatformConfig) {
     const existing = await getConfig(HQ_CONFIG_KEYS.platform, defaultPlatform());
-    const merged = syncBrandingUrls({ ...existing, ...config });
-    await putConfig(HQ_CONFIG_KEYS.platform, merged, '플랫폼 도메인·SSL');
+    const merged = syncBrandingUrls(
+      normalizePlatformConfig({ ...existing, ...config }),
+    );
+    await putConfigWithAudit(audit, {
+      key: HQ_CONFIG_KEYS.platform,
+      value: merged,
+      description: '플랫폼 도메인·SSL',
+      entityType: 'HQ_PLATFORM',
+      summary: '플랫폼 설정 저장',
+    });
     return this.getPlatformPayload();
   },
 
-  async savePlatformEmail(email: HqEmailOtpConfig) {
+  async getSessionPolicy() {
+    const config = normalizePlatformConfig({
+      ...defaultPlatform(),
+      ...(await getConfig(HQ_CONFIG_KEYS.platform, defaultPlatform())),
+    });
+    return {
+      idleTimeoutMinutes: config.idleTimeoutMinutes ?? 30,
+      defaultUsdtFiatCurrency: config.defaultUsdtFiatCurrency ?? 'JPY',
+    };
+  },
+
+  async savePlatformEmail(audit: AuditContext, email: HqEmailOtpConfig) {
+    const before = maskEmailConfig(await getEmailOtpConfig());
     await saveEmailOtpConfig(email);
+    const after = maskEmailConfig(await getEmailOtpConfig());
+    await logAdminChange({
+      actor: audit.actor,
+      action: AdminChangeAction.UPDATE,
+      entityType: 'HQ_PLATFORM_EMAIL',
+      entityId: HQ_CONFIG_KEYS.emailOtp,
+      entityLabel: '이메일·OTP',
+      summary: `플랫폼 이메일·OTP 설정 저장 (관리자: ${audit.actor.email})`,
+      before,
+      after,
+      ipAddress: audit.ipAddress,
+      userAgent: audit.userAgent,
+    });
     return this.getPlatformPayload();
   },
 
@@ -396,31 +618,33 @@ export const hqPolicyService = {
     return { ok: true };
   },
 
-  async savePlatformLogo(file: { buffer: Buffer; originalname: string }) {
-    await saveBrandingAsset('logo', file);
+  async savePlatformLogo(audit: AuditContext, file: { buffer: Buffer; originalname: string }) {
+    await saveBrandingAsset(audit, 'logo', file);
     return this.getPlatformPayload();
   },
 
-  async savePlatformAuthLogo(file: { buffer: Buffer; originalname: string }) {
-    await saveBrandingAsset('auth-logo', file);
+  async savePlatformAuthLogo(audit: AuditContext, file: { buffer: Buffer; originalname: string }) {
+    await saveBrandingAsset(audit, 'auth-logo', file);
     return this.getPlatformPayload();
   },
 
-  async savePlatformFavicon(file: { buffer: Buffer; originalname: string }) {
-    await saveBrandingAsset('favicon', file);
+  async savePlatformFavicon(audit: AuditContext, file: { buffer: Buffer; originalname: string }) {
+    await saveBrandingAsset(audit, 'favicon', file);
     return this.getPlatformPayload();
   },
 
-  async savePlatformBackground(file: { buffer: Buffer; originalname: string }) {
-    await saveBrandingAsset('background', file);
+  async savePlatformBackground(audit: AuditContext, file: { buffer: Buffer; originalname: string }) {
+    await saveBrandingAsset(audit, 'background', file);
     return this.getPlatformPayload();
   },
 
   async getPublicBranding() {
-    const config = syncBrandingUrls({
-      ...defaultPlatform(),
-      ...(await getConfig(HQ_CONFIG_KEYS.platform, defaultPlatform())),
-    });
+    const config = syncBrandingUrls(
+      normalizePlatformConfig({
+        ...defaultPlatform(),
+        ...(await getConfig(HQ_CONFIG_KEYS.platform, defaultPlatform())),
+      }),
+    );
     return {
       siteName: config.siteName || 'Crypto Workflow',
       logoUrl: withBrandingCacheBust(config.logoUrl, 'logo'),
@@ -431,7 +655,19 @@ export const hqPolicyService = {
       footerText: config.footerText ?? '',
       loginNoticeEnabled: config.loginNoticeEnabled !== false,
       loginNoticeI18n: config.loginNoticeI18n ?? {},
+      customerRegistrationEnabled: config.customerRegistrationEnabled === true,
+      defaultUsdtFiatCurrency: config.defaultUsdtFiatCurrency ?? 'JPY',
     };
+  },
+
+  async isCustomerRegistrationEnabled(): Promise<boolean> {
+    const config = await getConfig(HQ_CONFIG_KEYS.platform, defaultPlatform());
+    return config.customerRegistrationEnabled === true;
+  },
+
+  async getDepositReceivingAccounts() {
+    const config = await getConfig(HQ_CONFIG_KEYS.platform, defaultPlatform());
+    return config.depositReceivingAccounts ?? {};
   },
 
   getLogoFilePath(): string | null {

@@ -25,13 +25,11 @@ export function SideNav({
   return (
     <nav className="flex flex-1 flex-col overflow-hidden">
       {onCollapse && (
-        <button
-          type="button"
-          onClick={onCollapse}
-          className="mx-2.5 mb-2 flex items-center justify-center gap-1 rounded-md border border-white/15 bg-black/10 py-2 text-xs text-gray-200 transition hover:bg-white/10"
-        >
-          {collapsed ? '»' : `« ${t('nav.collapse')}`}
-        </button>
+        <div className="pg-sidebar-collapse-wrap">
+          <button type="button" onClick={onCollapse} className="pg-sidebar-collapse">
+            {collapsed ? '»' : `« ${t('nav.collapse')}`}
+          </button>
+        </div>
       )}
 
       <div className="flex-1 space-y-1 overflow-y-auto px-2 pb-4">
@@ -47,7 +45,7 @@ export function SideNav({
               }}
               title={t(item.labelKey)}
               className={`pg-nav-item ${collapsed ? 'justify-center px-2.5' : ''} ${
-                active ? 'pg-nav-item-active' : 'pg-nav-item-idle'
+                active ? 'pg-nav-item-active' : ''
               }`}
             >
               <NavIcon id={item.icon} className="h-[18px] w-[18px] shrink-0 opacity-95" />

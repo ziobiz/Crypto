@@ -28,6 +28,7 @@ export default function HqPolicyLayout({ children }: { children: React.ReactNode
     { href: '/dashboard/hq-policy/org-columns', labelKey: 'hq.hub.org' as MessageKey },
     { href: '/dashboard/hq-policy/commission', labelKey: 'hq.hub.commission' as MessageKey },
     { href: '/dashboard/hq-policy/platform', labelKey: 'hq.hub.platform' as MessageKey },
+    { href: '/dashboard/hq-policy/ops', labelKey: 'hq.hub.ops' as MessageKey },
   ];
 
   return (
@@ -39,12 +40,14 @@ export default function HqPolicyLayout({ children }: { children: React.ReactNode
               ? pathname.startsWith('/dashboard/hq-policy/access') || pathname.startsWith('/dashboard/hq-policy/user-settings')
               : tab.href === '/dashboard/hq-policy/org-columns'
                 ? pathname.startsWith('/dashboard/hq-policy/org-columns') || pathname.startsWith('/dashboard/hq-policy/grid-order')
-                : pathname.startsWith(tab.href);
+                : tab.href === '/dashboard/hq-policy/ops'
+                  ? pathname.startsWith('/dashboard/hq-policy/ops')
+                  : pathname.startsWith(tab.href);
           return (
             <Link
               key={tab.href}
               href={tab.href}
-              className={`border-b-2 pb-1.5 text-[11px] font-medium ${
+              className={`border-b-2 pb-1.5 text-[13px] font-bold ${
                 active
                   ? 'border-blue-600 text-blue-700'
                   : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'

@@ -7,6 +7,7 @@ export interface AuthUser {
   role: UserRole;
   organizationId: string | null;
   organizationPath: string | null;
+  organizationType: string | null;
   customerProfileId: string | null;
 }
 

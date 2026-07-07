@@ -12,6 +12,8 @@ type RouteRule = {
 
 const RULES: RouteRule[] = [
   { test: (p) => p === '/dashboard', meta: { titleKey: 'nav.dashboard', trailKeys: [] } },
+  { test: (p) => p.startsWith('/dashboard/hq-policy/ops/release-history'), meta: { titleKey: 'hq.ops.releaseHistory', trailKeys: ['nav.hqPolicy', 'hq.hub.ops'] } },
+  { test: (p) => p.startsWith('/dashboard/hq-policy/ops'), meta: { titleKey: 'hq.ops.changeHistory', trailKeys: ['nav.hqPolicy', 'hq.hub.ops'] } },
   { test: (p) => p.startsWith('/dashboard/hq-policy/platform'), meta: { titleKey: 'hq.tab.platform', trailKeys: ['nav.hqPolicy'] } },
   { test: (p) => p.startsWith('/dashboard/hq-policy/commission'), meta: { titleKey: 'hq.tab.commission', trailKeys: ['nav.hqPolicy'] } },
   { test: (p) => p.startsWith('/dashboard/hq-policy/user-settings'), meta: { titleKey: 'hq.sub.access.userSettings', trailKeys: ['nav.hqPolicy', 'hq.hub.access'] } },

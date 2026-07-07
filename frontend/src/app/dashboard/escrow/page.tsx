@@ -26,13 +26,16 @@ export default function EscrowListPage() {
           </Link>
         )}
       </div>
-      <div className="pg-card overflow-x-auto">
+      <div className="pg-card pg-table-wrap">
         <table className="pg-table">
           <thead>
             <tr>
               <th>{t('usdt.col.ticketNo')}</th>
               <th>{t('escrow.col.title')}</th>
+              <th>{t('escrow.col.buyer')}</th>
+              <th>{t('escrow.col.seller')}</th>
               <th>{t('usdt.col.amount')}</th>
+              <th>{t('escrow.col.tier')}</th>
               <th>{t('usdt.col.status')}</th>
               <th>{t('escrow.col.createdAt')}</th>
             </tr>
@@ -41,21 +44,24 @@ export default function EscrowListPage() {
             {tickets.map((ticket) => (
               <tr key={ticket.id}>
                 <td>
-                  <Link href={`/dashboard/escrow/${ticket.id}`} className="font-medium text-blue-600 hover:underline">
+                  <Link href={`/dashboard/escrow/${ticket.id}`} className="pg-link">
                     {ticket.ticketNo}
                   </Link>
                 </td>
                 <td>{ticket.title}</td>
+                <td className="pg-muted">{ticket.buyer.name}</td>
+                <td className="pg-muted">{ticket.seller.name}</td>
                 <td>{formatCurrency(ticket.amount, ticket.currency)}</td>
+                <td>{t(`escrow.tier.${ticket.tradeTier}` as 'escrow.tier.PREMIUM')}</td>
                 <td>
                   <StatusBadge status={ticket.status} />
                 </td>
-                <td className="text-gray-500">{formatDate(ticket.createdAt)}</td>
+                <td className="pg-muted">{formatDate(ticket.createdAt)}</td>
               </tr>
             ))}
             {tickets.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-6 text-center text-gray-500">
+                <td colSpan={8} className="pg-empty">
                   {t('escrow.empty')}
                 </td>
               </tr>

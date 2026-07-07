@@ -3,17 +3,22 @@
 import { useEffect, useState } from 'react';
 import { useT } from '@/context/LocaleProvider';
 import { hqPolicyApi, type HqOrgColumnConfig, type HqOrgColumnsPayload } from '@/lib/api';
+import { hqColumnLabelKey, hqPageLabelKey } from '@/i18n/page-paths';
 import type { MessageKey } from '@/i18n/messages';
 
 function orgKey(org: string): MessageKey {
   return (`org.${org}` as MessageKey);
 }
 
-const PAGE_KEYS: Record<string, MessageKey> = {
-  '/dashboard/usdt': 'hq.page.usdtList',
-  '/dashboard/escrow': 'hq.page.escrowList',
-  '/dashboard/ledger': 'hq.page.ledger',
-};
+function pageLabel(t: (k: MessageKey) => string, path: string) {
+  const key = hqPageLabelKey(path);
+  return key ? t(key) : path;
+}
+
+function columnLabel(t: (k: MessageKey) => string, pagePath: string, colKey: string, fallback: string) {
+  const key = hqColumnLabelKey(pagePath, colKey);
+  return key ? t(key) : fallback;
+}
 
 export default function HqOrgColumnsPage() {
   const t = useT();
@@ -85,76 +90,68 @@ export default function HqOrgColumnsPage() {
   }
 
   if (error) {
-    return <p className="text-sm text-red-600">{error} ??{t('hq.backendHint')}</p>;
+    return <p className="text-red-600">{error} — {t('hq.backendHint')}</p>;
   }
 
-  if (!data) return <p className="text-sm text-gray-500">{t('hq.loading')}</p>;
+  if (!data) return <p className="pg-hint">{t('hq.loading')}</p>;
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-gray-600">{t('hq.orgColumns.desc')}</p>
-      <div className="flex flex-wrap gap-3">
-        <select
-          value={pagePath}
-          onChange={(e) => setPagePath(e.target.value)}
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
-        >
-          {Object.keys(data.catalog).map((p) => (
-            <option key={p} value={p}>
-              {PAGE_KEYS[p] ? t(PAGE_KEYS[p]) : p}
-            </option>
-          ))}
-        </select>
-        <select
-          value={orgLevel}
-          onChange={(e) => setOrgLevel(e.target.value)}
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
-        >
-          {data.orgLevels.map((o) => (
-            <option key={o} value={o}>
-              {t(orgKey(o))}
-            </option>
-          ))}
-        </select>
+    <section className="pg-section">
+      <div className="pg-section-head">{t('hq.sub.org.columns')}</div>
+      <div className="pg-section-pad space-y-3">
+        <p className="pg-hint">{t('hq.orgColumns.desc')}</p>
+        <div className="flex flex-wrap gap-3">
+          <select value={pagePath} onChange={(e) => setPagePath(e.target.value)} className="pg-select w-auto min-w-[12rem]">
+            {Object.keys(data.catalog).map((p) => (
+              <option key={p} value={p}>
+                {pageLabel(t, p)}
+              </option>
+            ))}
+          </select>
+          <select value={orgLevel} onChange={(e) => setOrgLevel(e.target.value)} className="pg-select w-auto min-w-[10rem]">
+            {data.orgLevels.map((o) => (
+              <option key={o} value={o}>
+                {t(orgKey(o))}
+              </option>
+            ))}
+          </select>
+        </div>
+        <ul className="pg-card divide-y">
+          {columns.map((col) => {
+            const checked = row.allowedKeys.includes(col.key);
+            const orderIdx = row.order.indexOf(col.key);
+            return (
+              <li key={col.key} className="flex flex-wrap items-center gap-3 px-4 py-2">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  disabled={col.fixed}
+                  onChange={() => toggleKey(col.key)}
+                />
+                <span className="min-w-[8rem] font-medium">{columnLabel(t, pagePath, col.key, col.label)}</span>
+                {col.fixed && <span className="pg-hint">{t('hq.orgColumns.fixed')}</span>}
+                {checked && !col.fixed && (
+                  <span className="flex items-center gap-1">
+                    <button type="button" className="pg-btn pg-btn-secondary px-2" onClick={() => moveKey(col.key, -1)}>
+                      ↑
+                    </button>
+                    <button type="button" className="pg-btn pg-btn-secondary px-2" onClick={() => moveKey(col.key, 1)}>
+                      ↓
+                    </button>
+                    <span className="pg-hint">{t('hq.orgColumns.order')} {orderIdx + 1}</span>
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+        <div className="flex items-center gap-3">
+          <button type="button" onClick={save} disabled={saving} className="pg-btn pg-btn-primary disabled:opacity-50">
+            {saving ? t('hq.saving') : t('hq.save')}
+          </button>
+          {msg && <span className="pg-hint">{msg}</span>}
+        </div>
       </div>
-      <ul className="space-y-2 pg-card pg-card-body">
-        {columns.map((col) => {
-          const checked = row.allowedKeys.includes(col.key);
-          const orderIdx = row.order.indexOf(col.key);
-          return (
-            <li key={col.key} className="flex items-center gap-3 text-sm">
-              <input
-                type="checkbox"
-                checked={checked}
-                disabled={col.fixed}
-                onChange={() => toggleKey(col.key)}
-              />
-              <span className="min-w-[8rem] font-medium">{col.label}</span>
-              {col.fixed && <span className="text-xs text-gray-400">{t('hq.orgColumns.fixed')}</span>}
-              {checked && !col.fixed && (
-                <span className="flex gap-1">
-                  <button type="button" className="rounded border px-2" onClick={() => moveKey(col.key, -1)}>
-                    ??                  </button>
-                  <button type="button" className="rounded border px-2" onClick={() => moveKey(col.key, 1)}>
-                    ??                  </button>
-                  <span className="text-xs text-gray-400">{t('hq.orgColumns.order')} {orderIdx + 1}</span>
-                </span>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={save}
-          disabled={saving}
-          className="pg-btn pg-btn-primary disabled:opacity-50"
-        >
-          {saving ? t('hq.saving') : t('hq.save')}
-        </button>
-        {msg && <span className="text-sm text-gray-600">{msg}</span>}
-      </div>
-    </div>
+    </section>
   );
 }

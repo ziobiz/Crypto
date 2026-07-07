@@ -21,7 +21,7 @@ export function authenticate(
     const user = await prisma.user.findUnique({
       where: { id: payload.sub },
       include: {
-        organization: { select: { path: true } },
+        organization: { select: { path: true, type: true } },
         customerProfile: { select: { id: true } },
       },
     });
@@ -37,6 +37,7 @@ export function authenticate(
       role: user.role,
       organizationId: user.organizationId,
       organizationPath: user.organization?.path ?? null,
+      organizationType: user.organization?.type ?? null,
       customerProfileId: user.customerProfile?.id ?? null,
     };
 

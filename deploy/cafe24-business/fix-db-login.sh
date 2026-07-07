@@ -13,7 +13,7 @@ npx prisma db push --accept-data-loss
 cd ..
 
 echo "==> 관리자 계정"
-bash deploy/cafe24-business/update-admin-account.sh
+cd backend && node scripts/ensure-admin-account.js && cd ..
 
 echo "==> PM2 재시작"
 pm2 restart crypto

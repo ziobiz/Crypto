@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api, setToken } from '@/lib/api';
@@ -34,6 +34,13 @@ export default function LoginPage() {
   const branding = useBranding();
   const otpSubmitLock = useRef(false);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.search.includes('idle=1')) {
+      const min = Number(sessionStorage.getItem('crypto_idle_minutes')) || 30;
+      setInfo(t('auth.idleLogout', { min }));
+    }
+  }, [t]);
+
   const finishSession = async (token: string) => {
     setToken(token);
     await refresh();
@@ -58,7 +65,7 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      const res = await api.login(email, password);
+      const res = await api.login(email.trim().toLowerCase(), password.trim());
       if ('mustChangePassword' in res && res.mustChangePassword) {
         setChangeToken(res.changeToken);
         setStep('changePassword');
@@ -200,8 +207,12 @@ export default function LoginPage() {
               </button>
             </form>
             <p className="mt-6 text-center text-sm text-gray-500">
-              {t('auth.noAccount')}{' '}
-              <Link href="/register" className="text-blue-600 hover:underline">{t('auth.register')}</Link>
+              {branding?.customerRegistrationEnabled && (
+                <>
+                  {t('auth.noAccount')}{' '}
+                  <Link href="/register" className="text-blue-600 hover:underline">{t('auth.register')}</Link>
+                </>
+              )}
             </p>
           </>
         )}

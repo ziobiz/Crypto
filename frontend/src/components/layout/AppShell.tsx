@@ -5,10 +5,10 @@ import { useAuth } from '@/context/AuthProvider';
 import { useT } from '@/context/LocaleProvider';
 import { NavTabsProvider } from '@/context/NavTabsContext';
 import { TabletModeProvider, useTabletMode } from '@/context/TabletModeContext';
+import { ShellThemeProvider } from '@/context/ShellThemeContext';
 import { SideNav } from './SideNav';
 import { NavTabBar } from './NavTabBar';
 import { SessionMetaBar } from './SessionMetaBar';
-import { MobileBottomNav } from './MobileBottomNav';
 import { NAV_ITEMS } from './nav-config';
 import { useBranding } from '@/hooks/useBranding';
 
@@ -16,9 +16,11 @@ const SIDEBAR_KEY = 'crypto-sidebar-collapsed';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
-    <TabletModeProvider>
-      <AppShellInner>{children}</AppShellInner>
-    </TabletModeProvider>
+    <ShellThemeProvider>
+      <TabletModeProvider>
+        <AppShellInner>{children}</AppShellInner>
+      </TabletModeProvider>
+    </ShellThemeProvider>
   );
 }
 
@@ -38,7 +40,6 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
   if (!user) return null;
 
   const items = NAV_ITEMS[user.role] ?? [];
-  const isCustomer = user.role === 'CUSTOMER';
 
   const toggleCollapsed = () => {
     setCollapsed((c) => {
@@ -53,19 +54,22 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
       <div className="flex min-h-screen bg-white">
         {/* 데스크톱 사이드바 — ICOPAY 밀착 레이아웃 */}
         <aside
-          className={`shrink-0 flex-col border-r border-[#5c636e] bg-[#6d7582] text-gray-100 transition-all duration-200 ${
+          className={`pg-sidebar shrink-0 flex-col transition-all duration-200 ${
             tablet ? 'hidden' : `hidden md:flex ${collapsed ? 'w-[3.75rem]' : 'w-[13rem]'}`
           }`}
         >
-          <div className={`border-b border-white/15 px-3 py-3.5 ${collapsed ? 'text-center' : ''}`}>
+          <div className={`pg-sidebar-logo ${collapsed ? 'px-2' : 'px-3'}`}>
             {branding?.logoUrl ? (
               <img
                 src={branding.logoUrl}
                 alt=""
-                className={`object-contain ${collapsed ? 'mx-auto h-8 w-8' : 'h-9 max-w-[180px]'}`}
+                className={`object-contain ${collapsed ? 'h-8 w-8' : 'h-9 max-w-full'}`}
               />
             ) : (
-              <span className={`font-bold text-white ${collapsed ? 'text-xs' : 'text-base'}`}>
+              <span
+                className={`font-bold ${collapsed ? 'text-xs' : 'text-sm'}`}
+                style={{ color: 'var(--shell-logo-text)' }}
+              >
                 {collapsed ? 'C' : (branding?.siteName ?? t('app.title'))}
               </span>
             )}
@@ -82,10 +86,12 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
               aria-label={t('common.close')}
               onClick={() => setDrawerOpen(false)}
             />
-            <aside className="absolute left-0 top-0 flex h-full w-[min(100vw-3rem,16rem)] flex-col bg-[#6d7582] shadow-xl">
-              <div className="flex h-14 items-center justify-between border-b border-white/10 px-4">
-                <span className="font-semibold text-white">{t('nav.menu')}</span>
-                <button type="button" className="touch-target text-gray-300" onClick={() => setDrawerOpen(false)}>
+            <aside className="pg-sidebar absolute left-0 top-0 flex h-full w-[min(100vw-3rem,16rem)] flex-col shadow-xl">
+              <div className="flex h-14 items-center justify-between border-b px-4" style={{ borderColor: 'var(--shell-sidebar-border)' }}>
+                <span className="font-semibold" style={{ color: 'var(--shell-nav-text)' }}>
+                  {t('nav.menu')}
+                </span>
+                <button type="button" className="touch-target opacity-70" onClick={() => setDrawerOpen(false)}>
                   ✕
                 </button>
               </div>
@@ -95,7 +101,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
         )}
 
         <div className="tablet-shell flex min-w-0 flex-1 flex-col bg-white">
-          <div className={`flex items-center gap-2 border-b border-gray-300 bg-[#6d7582] px-3 py-2 ${tablet ? 'hidden' : 'md:hidden'}`}>
+          <div className={`pg-sidebar flex items-center gap-2 border-b px-3 py-2 md:hidden ${tablet ? 'hidden' : ''}`}>
             <button
               type="button"
               className="touch-target rounded p-2 text-gray-200"
@@ -116,18 +122,10 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
           <SessionMetaBar />
           <NavTabBar items={items} />
 
-          <main
-            className={`pg-admin min-h-0 flex-1 overflow-auto bg-[#eceef1] px-4 py-4 ${
-              isCustomer && !tablet
-                ? 'pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-4'
-                : ''
-            }`}
-          >
+          <main className="pg-admin pg-main min-h-0 flex-1 overflow-auto px-4 py-4">
             {children}
           </main>
         </div>
-
-        {!tablet && <MobileBottomNav />}
       </div>
     </NavTabsProvider>
   );

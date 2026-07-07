@@ -10,6 +10,9 @@ import organizationRoutes from './routes/organization.routes';
 import attachmentRoutes from './routes/attachment.routes';
 import userRoutes from './routes/user.routes';
 import hqPolicyRoutes from './routes/hq-policy.routes';
+import dashboardRoutes from './routes/dashboard.routes';
+import { startMarketSnapshotCollector } from './services/market-snapshot.service';
+import { startEscrowJobScheduler } from './services/escrow-jobs.service';
 import { hqPolicyService } from './services/hq-policy.service';
 import { errorHandler } from './middleware/errorHandler';
 import { asyncHandler } from './middleware/asyncHandler';
@@ -38,6 +41,8 @@ function sendBrandingFile(res: Response, filePath: string | null): void {
 
 /** API + /health Express 앱 (listen 없음 — 통합 서버에서 마운트) */
 export function createApiApp(): express.Application {
+  startMarketSnapshotCollector();
+  startEscrowJobScheduler();
   const app = express();
   app.set('trust proxy', 1);
 
@@ -87,6 +92,27 @@ export function createApiApp(): express.Application {
   app.use('/api/attachments', attachmentRoutes);
   app.use('/api/users', userRoutes);
   app.use('/api/hq-policy', hqPolicyRoutes);
+  app.use('/api/dashboard', dashboardRoutes);
+
+  app.post(
+    '/api/internal/deploy-release',
+    asyncHandler(async (req, res) => {
+      const token = req.headers['x-deploy-token'];
+      const expected = process.env.DEPLOY_RELEASE_TOKEN;
+      if (!expected || token !== expected) {
+        res.status(403).json({ error: 'forbidden' });
+        return;
+      }
+      const { recordDeployRelease } = await import('./services/platform-release.service');
+      const sizeMb = req.body?.packageSizeMb ? Number(req.body.packageSizeMb) : undefined;
+      res.json(
+        await recordDeployRelease({
+          packageSizeMb: sizeMb,
+          notes: typeof req.body?.notes === 'string' ? req.body.notes : undefined,
+        }),
+      );
+    }),
+  );
 
   app.use(errorHandler);
 

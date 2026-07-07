@@ -7,6 +7,7 @@ import { useTabletMode } from '@/context/TabletModeContext';
 import { useNavTabs } from '@/context/NavTabsContext';
 import { api } from '@/lib/api';
 import { UserMenu } from './UserMenu';
+import { ThemeSelector } from './ThemeSelector';
 
 function intlLocale(locale: Locale): string {
   if (locale === 'US') return 'en-US';
@@ -16,34 +17,27 @@ function intlLocale(locale: Locale): string {
   return 'ko-KR';
 }
 
-export function formatAccessTime(date: Date): string {
+export function formatAccessTime(date: Date, locale: Locale): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
   const d = String(date.getDate()).padStart(2, '0');
   const h = String(date.getHours()).padStart(2, '0');
   const min = String(date.getMinutes()).padStart(2, '0');
   const sec = String(date.getSeconds()).padStart(2, '0');
-  return `${y}. ${m}. ${d} ${h}:${min}:${sec}`;
-}
-
-export function formatDateBadge(date: Date, locale: Locale): string {
-  const day = String(date.getDate()).padStart(2, '0');
-  const loc = intlLocale(locale);
-  const month = new Intl.DateTimeFormat(loc, { month: 'long' }).format(date);
-  const weekday = new Intl.DateTimeFormat(loc, { weekday: 'short' }).format(date);
-  const monthUp =
-    locale === 'KR' || locale === 'JP' || locale === 'CH' || locale === 'TH'
-      ? month
-      : month.toUpperCase();
-  const weekUp =
-    locale === 'KR' || locale === 'JP' || locale === 'CH' || locale === 'TH'
-      ? weekday
-      : weekday.toUpperCase();
-  return `${day}. ${monthUp}. ${weekUp}`;
+  const weekday = new Intl.DateTimeFormat(intlLocale(locale), { weekday: 'short' }).format(date);
+  return `${y}. ${m}. ${d} ${h}:${min}:${sec} ${weekday}`;
 }
 
 function Pipe() {
-  return <span className="mx-2.5 shrink-0 select-none text-gray-300" aria-hidden>|</span>;
+  return (
+    <span
+      className="mx-2.5 shrink-0 select-none opacity-40"
+      style={{ color: 'var(--shell-session-text)' }}
+      aria-hidden
+    >
+      |
+    </span>
+  );
 }
 
 export function SessionMetaBar() {
@@ -60,13 +54,15 @@ export function SessionMetaBar() {
     return () => clearInterval(tick);
   }, []);
 
-  const timeStr = formatAccessTime(now);
-  const dateStr = formatDateBadge(now, locale);
+  const timeStr = formatAccessTime(now, locale);
+  const canCloseAll = tabs.length > 1;
 
   return (
     <header className="pg-session-bar">
       <div className="pg-session-inner">
         <div className="flex min-w-0 items-center overflow-x-auto whitespace-nowrap">
+          <ThemeSelector />
+          <Pipe />
           <label className="inline-flex cursor-pointer items-center gap-2">
             <span className="pg-session-meta-label">{t('session.tablet')}</span>
             <button
@@ -105,18 +101,20 @@ export function SessionMetaBar() {
           <MetaField label={t('session.accessIp')} value={ip} />
           <Pipe />
           <MetaField label={t('session.accessTime')} value={timeStr} />
-          <Pipe />
-          <MetaField label={t('session.date')} value={dateStr} />
         </div>
 
         <Pipe />
         <UserMenu />
-        {tabs.length > 1 && (
-          <button type="button" onClick={closeAll} className="pg-session-close">
-            <span aria-hidden>✕</span>
-            <span className="hidden sm:inline">{t('nav.closeAllLabel')}</span>
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={canCloseAll ? closeAll : undefined}
+          disabled={!canCloseAll}
+          aria-disabled={!canCloseAll}
+          className={`pg-session-close ${canCloseAll ? 'pg-session-close-active' : 'pg-session-close-idle'}`}
+        >
+          <span aria-hidden>✕</span>
+          <span className="hidden sm:inline">{t('nav.closeAllLabel')}</span>
+        </button>
       </div>
     </header>
   );
@@ -126,7 +124,9 @@ function MetaField({ label, value }: { label: string; value: string }) {
   return (
     <span className="pg-session-meta">
       <span className="pg-session-meta-label">{label}</span>
-      <span className="text-gray-400">:</span>
+      <span className="text-gray-400" style={{ color: 'var(--shell-session-text-muted)' }}>
+        :
+      </span>
       <span className="pg-session-meta-value">{value}</span>
     </span>
   );

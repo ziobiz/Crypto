@@ -3,17 +3,22 @@
 import { useEffect, useState } from 'react';
 import { useT } from '@/context/LocaleProvider';
 import { hqPolicyApi, type HqOrgColumnConfig, type HqOrgColumnsPayload } from '@/lib/api';
+import { hqColumnLabelKey, hqPageLabelKey } from '@/i18n/page-paths';
 import type { MessageKey } from '@/i18n/messages';
 
 function orgKey(org: string): MessageKey {
   return (`org.${org}` as MessageKey);
 }
 
-const PAGE_KEYS: Record<string, MessageKey> = {
-  '/dashboard/usdt': 'hq.page.usdtList',
-  '/dashboard/escrow': 'hq.page.escrowList',
-  '/dashboard/ledger': 'hq.page.ledger',
-};
+function pageLabel(t: (k: MessageKey) => string, path: string) {
+  const key = hqPageLabelKey(path);
+  return key ? t(key) : path;
+}
+
+function columnLabel(t: (k: MessageKey) => string, pagePath: string, colKey: string, fallback: string) {
+  const key = hqColumnLabelKey(pagePath, colKey);
+  return key ? t(key) : fallback;
+}
 
 export default function HqGridOrderPage() {
   const t = useT();
@@ -65,45 +70,47 @@ export default function HqGridOrderPage() {
   }
 
   return (
-    <div className="max-w-2xl space-y-4">
-      <h2 className="text-lg font-semibold">{t('hq.sub.org.order')}</h2>
-      <p className="text-sm text-gray-600">{t('hq.gridOrder.desc')}</p>
+    <section className="pg-section">
+      <div className="pg-section-head">{t('hq.sub.org.order')}</div>
+      <div className="pg-section-pad space-y-3">
+        <p className="pg-hint">{t('hq.gridOrder.desc')}</p>
 
-      <div className="flex flex-wrap gap-3">
-        <select value={pagePath} onChange={(e) => setPagePath(e.target.value)} className="pg-input">
-          {Object.entries(PAGE_KEYS).map(([path, key]) => (
-            <option key={path} value={path}>{t(key)}</option>
-          ))}
-        </select>
-        <select value={orgLevel} onChange={(e) => setOrgLevel(e.target.value)} className="pg-input">
-          {['HEAD_OFFICE', 'MASTER', 'BRANCH', 'AGENCY', 'SALES_OFFICE'].map((o) => (
-            <option key={o} value={o}>{t(orgKey(o))}</option>
-          ))}
-        </select>
+        <div className="flex flex-wrap gap-3">
+          <select value={pagePath} onChange={(e) => setPagePath(e.target.value)} className="pg-select w-auto min-w-[12rem]">
+            {Object.keys(data?.catalog ?? {}).map((path) => (
+              <option key={path} value={path}>{pageLabel(t, path)}</option>
+            ))}
+          </select>
+          <select value={orgLevel} onChange={(e) => setOrgLevel(e.target.value)} className="pg-select w-auto min-w-[10rem]">
+            {['HEAD_OFFICE', 'MASTER', 'BRANCH', 'AGENCY', 'SALES_OFFICE'].map((o) => (
+              <option key={o} value={o}>{t(orgKey(o))}</option>
+            ))}
+          </select>
+        </div>
+
+        <ul className="pg-card divide-y">
+          {ordered.map((key) => {
+            const col = columns.find((c) => c.key === key);
+            return (
+              <li key={key} className="flex items-center justify-between px-4 py-2">
+                <span>{columnLabel(t, pagePath, key, col?.label ?? key)}</span>
+                <div className="flex gap-1">
+                  <button type="button" onClick={() => moveKey(key, -1)} className="pg-btn pg-btn-secondary px-2">↑</button>
+                  <button type="button" onClick={() => moveKey(key, 1)} className="pg-btn pg-btn-secondary px-2">↓</button>
+                </div>
+              </li>
+            );
+          })}
+          {ordered.length === 0 && (
+            <li className="px-4 py-6 text-center pg-hint">{t('hq.gridOrder.empty')}</li>
+          )}
+        </ul>
+
+        <button onClick={save} disabled={saving} className="pg-btn pg-btn-primary disabled:opacity-50">
+          {saving ? t('hq.saving') : t('hq.save')}
+        </button>
+        {msg && <p className="pg-hint">{msg}</p>}
       </div>
-
-      <ul className="rounded-xl border bg-white divide-y">
-        {ordered.map((key) => {
-          const col = columns.find((c) => c.key === key);
-          return (
-            <li key={key} className="flex items-center justify-between px-4 py-3 text-sm">
-              <span>{col?.label ?? key}</span>
-              <div className="flex gap-1">
-                <button type="button" onClick={() => moveKey(key, -1)} className="rounded border px-2 py-1">↑</button>
-                <button type="button" onClick={() => moveKey(key, 1)} className="rounded border px-2 py-1">↓</button>
-              </div>
-            </li>
-          );
-        })}
-        {ordered.length === 0 && (
-          <li className="px-4 py-6 text-center text-gray-500">{t('hq.gridOrder.empty')}</li>
-        )}
-      </ul>
-
-      <button onClick={save} disabled={saving} className="rounded-lg bg-blue-600 px-4 py-2 text-sm text-white disabled:opacity-50">
-        {saving ? t('hq.saving') : t('hq.save')}
-      </button>
-      {msg && <p className="text-sm text-gray-600">{msg}</p>}
-    </div>
+    </section>
   );
 }

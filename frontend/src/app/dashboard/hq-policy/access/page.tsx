@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useT } from '@/context/LocaleProvider';
 import { hqPolicyApi, type HqAccessMatrix, type HqAccessPayload } from '@/lib/api';
 import type { MessageKey } from '@/i18n/messages';
+import { hqPageLabelKey, permissionLabelKey } from '@/i18n/page-paths';
 
 function orgKey(org: string): MessageKey {
   return (`org.${org}` as MessageKey);
@@ -44,72 +45,77 @@ export default function HqAccessPage() {
 
   if (error) {
     return (
-      <p className="text-sm text-red-600">
+      <p className="text-red-600">
         {error} — {t('hq.backendHint')}
       </p>
     );
   }
 
-  if (!data) return <p className="text-sm text-gray-500">{t('hq.loading')}</p>;
+  if (!data) return <p className="pg-hint">{t('hq.loading')}</p>;
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-gray-600">{t('hq.access.desc')}</p>
-      <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+    <section className="pg-section">
+      <div className="pg-section-head">{t('hq.sub.access.permission')}</div>
+      <div className="pg-section-pad space-y-3">
+        <p className="pg-hint">{t('hq.access.desc')}</p>
+        <div className="pg-card pg-table-wrap">
         <table className="pg-table">
-          <thead className="bg-gray-50">
+          <thead>
             <tr>
-              <th className="px-3 py-2 text-left font-medium text-gray-500">{t('hq.access.screen')}</th>
+              <th>{t('hq.access.screen')}</th>
               {data.orgLevels.map((org) => (
-                <th key={org} className="px-3 py-2 text-left font-medium text-gray-500">
-                  {t(orgKey(org))}
-                </th>
+                <th key={org}>{t(orgKey(org))}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {data.pages.map((page) => (
-              <tr key={page.path} className="border-t border-gray-100">
-                <td className="px-3 py-2">
-                  <div className="font-medium text-gray-900">{page.label}</div>
-                  <div className="text-xs text-gray-400">{page.path}</div>
-                </td>
-                {data.orgLevels.map((org) => (
-                  <td key={org} className="px-3 py-2">
-                    <select
-                      value={matrix[org]?.[page.path] ?? 'NONE'}
-                      onChange={(e) =>
-                        setMatrix((m) => ({
-                          ...m,
-                          [org]: { ...m[org], [page.path]: e.target.value as HqAccessMatrix[string][string] },
-                        }))
-                      }
-                      className="w-full rounded border border-gray-200 px-2 py-1"
-                    >
-                      {data.permissionLevels.map((lv) => (
-                        <option key={lv} value={lv}>
-                          {lv}
-                        </option>
-                      ))}
-                    </select>
+            {data.pages.map((page) => {
+              const labelKey = hqPageLabelKey(page.path);
+              const label = labelKey ? t(labelKey) : page.label;
+              return (
+                <tr key={page.path}>
+                  <td>
+                    <div className="font-medium">{label}</div>
+                    <div className="pg-hint">{page.path}</div>
                   </td>
-                ))}
-              </tr>
-            ))}
+                  {data.orgLevels.map((org) => (
+                    <td key={org}>
+                      <select
+                        value={matrix[org]?.[page.path] ?? 'NONE'}
+                        onChange={(e) =>
+                          setMatrix((m) => ({
+                            ...m,
+                            [org]: { ...m[org], [page.path]: e.target.value as HqAccessMatrix[string][string] },
+                          }))
+                        }
+                        className="pg-select"
+                      >
+                        {data.permissionLevels.map((lv) => (
+                          <option key={lv} value={lv}>
+                            {t(permissionLabelKey(lv))}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={save}
+            disabled={saving}
+            className="pg-btn pg-btn-primary disabled:opacity-50"
+          >
+            {saving ? t('hq.saving') : t('hq.save')}
+          </button>
+          {msg && <span className="pg-hint">{msg}</span>}
+        </div>
       </div>
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={save}
-          disabled={saving}
-          className="pg-btn pg-btn-primary disabled:opacity-50"
-        >
-          {saving ? t('hq.saving') : t('hq.save')}
-        </button>
-        {msg && <span className="text-sm text-gray-600">{msg}</span>}
-      </div>
-    </div>
+    </section>
   );
 }

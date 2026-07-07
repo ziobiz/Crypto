@@ -22,7 +22,7 @@ const PASSWORD = `${local}1!`;
     data: {
       email: EMAIL,
       passwordHash,
-      passwordMustChange: true,
+      passwordMustChange: false,
       emailVerified: true,
       emailVerifiedAt: new Date(),
       totpEnabled: false,

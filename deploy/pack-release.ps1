@@ -40,6 +40,7 @@ if (Test-Path $ZipPath) { Remove-Item $ZipPath -Force }
 $copy = @(
   @{ Src = "backend\dist"; Dst = "backend\dist" },
   @{ Src = "backend\prisma"; Dst = "backend\prisma" },
+  @{ Src = "backend\scripts"; Dst = "backend\scripts" },
   @{ Src = "backend\package.json"; Dst = "backend\package.json" },
   @{ Src = "backend\package-lock.json"; Dst = "backend\package-lock.json" },
   @{ Src = "frontend\.next"; Dst = "frontend\.next" },

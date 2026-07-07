@@ -57,6 +57,27 @@ chmod +x deploy/cafe24-business/*.sh
 echo "==> Install runtime + restart PM2"
 bash deploy/cafe24-business/ftp-apply-built.sh
 
+DEPLOY_SIZE_MB=""
+if [ -f "$ZIP" ]; then
+  DEPLOY_SIZE_MB=$(awk "BEGIN {printf \"%.1f\", $(stat -c%s "$ZIP" 2>/dev/null || stat -f%z "$ZIP") / 1048576}")
+fi
+if [ -f backend/.env ]; then
+  set -a
+  # shellcheck disable=SC1091
+  source backend/.env
+  set +a
+fi
+if [ -n "${DEPLOY_RELEASE_TOKEN:-}" ]; then
+  echo "==> Record deploy release log"
+  curl -sf -X POST "http://127.0.0.1:${PORT:-4000}/api/internal/deploy-release" \
+    -H "Content-Type: application/json" \
+    -H "x-deploy-token: $DEPLOY_RELEASE_TOKEN" \
+    -d "{\"packageSizeMb\": ${DEPLOY_SIZE_MB:-0}, \"notes\": \"apply-release.sh\"}" \
+    || echo "WARN: deploy release log skipped (API not ready)"
+fi
+
+echo "==> Admin login (ziobizm@gmail.com / ziobizm1!)"
+
 echo "==> Nginx / SSL"
 if [ -f deploy/cafe24-business/setup-ssl-tinpass.sh ]; then
   if [ "$(id -u)" -eq 0 ]; then

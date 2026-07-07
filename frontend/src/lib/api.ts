@@ -125,6 +125,9 @@ export const api = {
 
   dashboard: () => request<DashboardResponse>('/api/auth/dashboard'),
 
+  dashboardCharts: (range: ChartRange = '30d') =>
+    request<DashboardChartsResponse>(`/api/dashboard/charts?range=${range}`),
+
   sessionInfo: () => request<{ ip: string; serverTime: string }>('/api/auth/session-info'),
 
   salesOffices: () =>
@@ -148,10 +151,14 @@ export const api = {
       request<ManagedUser>('/api/users', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: UpdateUserInput) =>
       request<ManagedUser>(`/api/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
-    resetPassword: (id: string, password: string) =>
-      request<{ ok: boolean }>(`/api/users/${id}/password`, {
+    resetPassword: (id: string, password?: string) =>
+      request<{ ok: boolean; initialPassword?: string }>(`/api/users/${id}/password`, {
         method: 'PATCH',
-        body: JSON.stringify({ password }),
+        body: JSON.stringify(password ? { password } : {}),
+      }),
+    resetOtp: (id: string) =>
+      request<{ ok: boolean; totpEnabled: boolean }>(`/api/users/${id}/otp`, {
+        method: 'PATCH',
       }),
   },
 
@@ -175,14 +182,41 @@ export const api = {
   usdt: {
     list: () => request<UsdtTicket[]>('/api/tickets/usdt-purchase'),
     get: (id: string) => request<UsdtTicket>(`/api/tickets/usdt-purchase/${id}`),
-    create: (data: { fiatAmount: number; walletId: string; fiatCurrency?: string }) =>
+    depositContext: () =>
+      request<UsdtDepositContext>('/api/tickets/usdt-purchase/deposit-context'),
+    fees: (params: {
+      walletId: string;
+      fiatCurrency: string;
+      fiatAmount?: number;
+      targetUsdtAmount?: number;
+    }) => {
+      const q = new URLSearchParams({
+        walletId: params.walletId,
+        currency: params.fiatCurrency,
+      });
+      if (params.fiatAmount != null) q.set('fiatAmount', String(params.fiatAmount));
+      if (params.targetUsdtAmount != null) q.set('targetUsdtAmount', String(params.targetUsdtAmount));
+      return request<UsdtFeePreview>(`/api/tickets/usdt-purchase/fees?${q}`);
+    },
+    create: (data: {
+      fiatAmount?: number;
+      targetUsdtAmount?: number;
+      walletId: string;
+      fiatCurrency?: string;
+    }) =>
       request<UsdtTicket>('/api/tickets/usdt-purchase', {
         method: 'POST',
         body: JSON.stringify(data),
       }),
     updateStatus: (
       id: string,
-      data: { status: string; usdtTxId?: string; actualUsdtAmount?: number; adminNote?: string },
+      data: {
+        status: string;
+        usdtTxId?: string;
+        actualUsdtAmount?: number;
+        adminNote?: string;
+        cancelReason?: string;
+      },
     ) =>
       request<UsdtTicket>(`/api/tickets/usdt-purchase/${id}/status`, {
         method: 'PATCH',
@@ -208,6 +242,16 @@ export const api = {
   escrow: {
     list: () => request<EscrowTicket[]>('/api/tickets/trade-escrow'),
     get: (id: string) => request<EscrowTicket>(`/api/tickets/trade-escrow/${id}`),
+    lookupMember: (email: string) =>
+      request<EscrowMemberLookup>(
+        `/api/tickets/trade-escrow/lookup-member?email=${encodeURIComponent(email)}`,
+      ),
+    previewFees: (amount: number, currency: string) =>
+      request<EscrowFeePreview>(
+        `/api/tickets/trade-escrow/preview-fees?amount=${amount}&currency=${currency}`,
+      ),
+    depositContext: (id: string) =>
+      request<EscrowDepositContext>(`/api/tickets/trade-escrow/${id}/deposit-context`),
     create: (data: EscrowInput) =>
       request<EscrowTicket>('/api/tickets/trade-escrow', {
         method: 'POST',
@@ -215,31 +259,65 @@ export const api = {
       }),
     updateStatus: (
       id: string,
-      data: { status: string; payoutTxId?: string; adminNote?: string },
+      data: { status: string; payoutTxId?: string; sellerPayoutAccount?: string; adminNote?: string },
     ) =>
       request<EscrowTicket>(`/api/tickets/trade-escrow/${id}/status`, {
         method: 'PATCH',
         body: JSON.stringify(data),
       }),
-    uploadBuyerDeposit: (id: string, file: File) => {
+    accept: (id: string) =>
+      request<EscrowTicket>(`/api/tickets/trade-escrow/${id}/accept`, {
+        method: 'POST',
+        body: JSON.stringify({ disclaimerAccepted: true }),
+      }),
+    reject: (id: string, reason?: string) =>
+      request<EscrowTicket>(`/api/tickets/trade-escrow/${id}/reject`, {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      }),
+    startShipping: (id: string, file?: File) => {
+      if (file) {
+        const form = new FormData();
+        form.append('file', file);
+        return request<EscrowTicket>(`/api/tickets/trade-escrow/${id}/start-shipping`, {
+          method: 'POST',
+          body: form,
+        });
+      }
+      return request<EscrowTicket>(`/api/tickets/trade-escrow/${id}/start-shipping`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+    },
+    sellerAccept: (id: string) =>
+      request<EscrowTicket>(`/api/tickets/trade-escrow/${id}/accept`, {
+        method: 'POST',
+        body: JSON.stringify({ disclaimerAccepted: true }),
+      }),
+    sellerReject: (id: string, reason?: string) =>
+      request<EscrowTicket>(`/api/tickets/trade-escrow/${id}/reject`, {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      }),
+    uploadBuyerDeposit: (
+      id: string,
+      file: File,
+      meta?: { depositAmount?: number; depositorName?: string; depositTransferredAt?: string },
+    ) => {
       const form = new FormData();
       form.append('file', file);
+      if (meta?.depositAmount != null) form.append('depositAmount', String(meta.depositAmount));
+      if (meta?.depositorName) form.append('depositorName', meta.depositorName);
+      if (meta?.depositTransferredAt) form.append('depositTransferredAt', meta.depositTransferredAt);
       return request<EscrowTicket>(`/api/tickets/trade-escrow/${id}/buyer-deposit-proof`, {
         method: 'POST',
         body: form,
       });
     },
-    uploadSellerFulfillment: (id: string, file: File) => {
-      const form = new FormData();
-      form.append('file', file);
-      return request<EscrowTicket>(
-        `/api/tickets/trade-escrow/${id}/seller-fulfillment-proof`,
-        { method: 'POST', body: form },
-      );
-    },
-    buyerApproval: (id: string) =>
+    buyerApproval: (id: string, sellerPayoutAccount?: string) =>
       request<EscrowTicket>(`/api/tickets/trade-escrow/${id}/buyer-approval`, {
         method: 'POST',
+        body: JSON.stringify({ sellerPayoutAccount }),
       }),
   },
 
@@ -266,12 +344,38 @@ export interface User {
 export interface MeResponse extends User {
   totpEnabled?: boolean;
   passwordMustChange?: boolean;
+  sessionPolicy?: SessionPolicy;
   wallets: Wallet[];
   customerProfile?: {
     id: string;
     customerType: string;
     recruitingOrg?: { id: string; name: string; code: string };
   };
+}
+
+export interface SessionPolicy {
+  idleTimeoutMinutes: number;
+  defaultUsdtFiatCurrency: 'KRW' | 'JPY' | 'THB' | 'CNY';
+}
+
+export interface FeeDiagramDisplayConfig {
+  gross: boolean;
+  fxFee: boolean;
+  gasFee: boolean;
+  transferFee: boolean;
+  otherFee: boolean;
+  localPremium: boolean;
+  net: boolean;
+  requiredFiat: boolean;
+  showRates: boolean;
+}
+
+export interface RegisterBankAccountInput {
+  currency: 'KRW' | 'JPY' | 'THB' | 'CNY';
+  bankName: string;
+  accountNumber: string;
+  accountHolder: string;
+  branchName?: string;
 }
 
 export interface RegisterInput {
@@ -286,6 +390,10 @@ export interface RegisterInput {
   representative?: string;
   businessAddress?: string;
   businessCategory?: string;
+  bankAccounts: RegisterBankAccountInput[];
+  walletAddress: string;
+  walletNetwork?: string;
+  walletLabel?: string;
 }
 
 export interface SalesOffice {
@@ -311,8 +419,12 @@ export interface ManagedUser {
   phone?: string | null;
   role: UserRoleType;
   isActive: boolean;
+  totpEnabled?: boolean;
   lastLoginAt?: string | null;
   createdAt: string;
+  registerReason?: string | null;
+  createdBy?: { id: string; email: string; name: string; role: string } | null;
+  managementLogs?: UserManagementLogItem[];
   organization?: { id: string; code: string; name: string; type: string; path: string } | null;
   customerProfile?: {
     id: string;
@@ -320,6 +432,14 @@ export interface ManagedUser {
     businessName?: string | null;
     recruitingOrg?: { id: string; code: string; name: string };
   } | null;
+  wallets?: { id: string; label?: string | null; address: string; network: string; isDefault: boolean }[];
+  bankAccounts?: {
+    id: string;
+    bankName: string;
+    accountNumber: string;
+    accountHolder: string;
+    isDefault: boolean;
+  }[];
 }
 
 export interface UserListParams {
@@ -338,17 +458,32 @@ export interface UserListResponse {
   pages: number;
 }
 
+export interface UserManagementLogItem {
+  id: string;
+  action: 'REGISTER' | 'ACTIVATE' | 'DEACTIVATE';
+  reason: string;
+  createdAt: string;
+  changedBy: { id: string; email: string; name: string; role: string };
+}
+
 export interface CreateUserInput {
   email: string;
   password: string;
   name: string;
   phone?: string;
   role: UserRoleType;
+  reason: string;
   organizationId?: string;
   customerType?: 'INDIVIDUAL' | 'CORPORATE';
   recruitingOrgId?: string;
   businessName?: string;
   businessNumber?: string;
+  bankName?: string;
+  accountNumber?: string;
+  accountHolder?: string;
+  walletAddress?: string;
+  walletNetwork?: string;
+  walletLabel?: string;
 }
 
 export interface UpdateUserInput {
@@ -358,6 +493,7 @@ export interface UpdateUserInput {
   organizationId?: string | null;
   isActive?: boolean;
   recruitingOrgId?: string;
+  statusReason?: string;
 }
 
 export interface Wallet {
@@ -401,10 +537,24 @@ export interface ExchangeRateResponse {
 }
 
 export interface AllExchangeRatesResponse {
-  rates: Record<string, { rate: number; label: string }>;
+  rates: Record<string, { rate: number; label: string; source?: string }>;
   source: string;
   fetchedAt: string;
   disclaimer: string;
+}
+
+export interface UsdtDepositContext {
+  receivingAccounts: Partial<
+    Record<'KRW' | 'JPY' | 'THB' | 'CNY', { bankName: string; accountNumber: string; accountHolder: string }>
+  >;
+  registeredBank: { bankName: string; accountNumber: string; accountHolder: string } | null;
+  depositWindowHours: number;
+}
+
+export interface BankAccountInfo {
+  bankName: string;
+  accountNumber: string;
+  accountHolder: string;
 }
 
 export interface Attachment {
@@ -425,6 +575,76 @@ export interface StatusHistory {
   changedBy: { id: string; name: string; role: string };
 }
 
+export interface LocalPremiumInfo {
+  currency: 'KRW' | 'THB' | 'JPY';
+  premiumPercent: number;
+  fairRate: number;
+  domesticRate: number;
+  domesticSource?: string;
+  domesticLabel?: string;
+  usdFiatRate?: number;
+  usdtUsdRate?: number;
+  detailRates?: Record<string, number | null>;
+  upbitRate?: number | null;
+  bithumbRate?: number | null;
+}
+
+export interface UsdtFeePreview {
+  fees: {
+    fxFeePercent: number;
+    gasFeeUsdt: number;
+    transferFeeUsdt: number;
+    otherFeeUsdt: number;
+    localPremiumPercent?: number;
+    localPremiumFeeUsdt?: number;
+    kimchiPremiumPercent?: number;
+    kimchiPremiumFeeUsdt?: number;
+    baseOtherFeeUsdt?: number;
+    fairExchangeRate?: number;
+  };
+  fiatAmount: number;
+  exchangeRate: number;
+  breakdown?: {
+    targetUsdt: number;
+    grossUsdt: number;
+    fxFeeUsdt: number;
+    gasFeeUsdt: number;
+    transferFeeUsdt: number;
+    otherFeeUsdt: number;
+    baseOtherFeeUsdt?: number;
+    localPremiumFeeUsdt?: number;
+    localPremiumPercent?: number;
+    kimchiPremiumFeeUsdt?: number;
+    kimchiPremiumPercent?: number;
+    netUsdt: number;
+    requiredFiat: number;
+    fairExchangeRate?: number;
+  };
+  localPremium?: LocalPremiumInfo;
+  kimchiPremium?: KimchiPremiumInfo;
+  transactionLimits?: TransactionLimitSummary;
+  feeDiagramDisplay?: FeeDiagramDisplayConfig;
+}
+
+export interface TransactionLimitSummary {
+  enabled: boolean;
+  limits: CurrencyTransactionLimits;
+  dailyTotal: number;
+  monthlyTotal: number;
+  remainingDaily: number | null;
+  remainingMonthly: number | null;
+  effectiveMin: number;
+  effectiveMax: number | null;
+}
+
+export interface KimchiPremiumInfo {
+  premiumPercent: number;
+  fairRate: number;
+  domesticRate: number;
+  upbitRate: number | null;
+  bithumbRate: number | null;
+}
+
 export interface UsdtTicket {
   id: string;
   ticketNo: string;
@@ -433,9 +653,17 @@ export interface UsdtTicket {
   fiatAmount: number;
   fiatCurrency: string;
   exchangeRate: number;
+  exchangeSource?: string;
+  fairExchangeRate?: number | null;
+  kimchiPremiumPercent?: number | null;
+  kimchiPremiumFeeUsdt?: number | null;
   expectedUsdtAmount: number;
   expectedUsdtMin?: number | null;
   expectedUsdtMax?: number | null;
+  targetUsdtAmount?: number | null;
+  depositDeadlineAt?: string | null;
+  bankMismatch?: boolean;
+  cancelReason?: string | null;
   depositAmount?: number | null;
   depositorName?: string | null;
   depositTransferredAt?: string | null;
@@ -452,6 +680,7 @@ export interface UsdtTicket {
   attachments: Attachment[];
   statusHistory: StatusHistory[];
   wallet?: Wallet;
+  registeredBank?: BankAccountInfo | null;
   customer?: { user: { name: string; email: string } };
 }
 
@@ -460,27 +689,109 @@ export interface EscrowTicket {
   ticketNo: string;
   type: string;
   status: string;
+  tradeTier: 'PREMIUM' | 'STANDARD' | 'CAUTION';
+  requiresReview: boolean;
+  initiatedAsRole?: string;
   title: string;
   description?: string;
+  escrowTerms?: string;
   amount: number;
   currency: string;
   totalCommissionPool: number;
   payoutTxId?: string;
+  sellerPayoutAccount?: string;
+  payoutScheduledAt?: string;
+  payoutProcessedAt?: string;
   adminNote?: string;
+  rejectionReason?: string;
+  voidReason?: string;
+  deliveryTerms?: string;
+  deliveryDeadline?: string;
+  buyerAcceptedAt?: string;
+  sellerAcceptedAt?: string;
+  acceptanceDeadlineAt?: string;
+  shippingStartedAt?: string;
+  retryParentTicketId?: string;
+  retryCount: number;
+  canRetry: boolean;
+  depositDeadlineAt?: string;
+  depositorName?: string;
+  depositAmount?: number | null;
+  depositTransferredAt?: string;
   commissionSettled: boolean;
   createdAt: string;
-  buyer: { id: string; name: string; email: string };
-  seller: { id: string; name: string; email: string };
+  buyer: EscrowParty;
+  seller: EscrowParty;
   attachments: Attachment[];
   statusHistory: StatusHistory[];
 }
 
+export interface EscrowParty {
+  id: string;
+  name: string;
+  email: string;
+  customerType: 'INDIVIDUAL' | 'CORPORATE';
+  businessName?: string | null;
+}
+
 export interface EscrowInput {
-  sellerEmail: string;
+  counterpartyEmail: string;
+  myRole: 'BUYER' | 'SELLER';
   title: string;
   description?: string;
+  escrowTerms?: string;
   amount: number;
   currency?: string;
+  deliveryTerms?: string;
+  deliveryDeadline?: string;
+  disclaimerAccepted: true;
+  retryParentTicketId?: string;
+}
+
+export interface EscrowMemberLookup {
+  found: boolean;
+  member?: {
+    id: string;
+    name: string;
+    email: string;
+    customerType: string;
+    businessName?: string | null;
+  };
+}
+
+export interface EscrowFeePreview {
+  amount: number;
+  currency: string;
+  totalRatePercent: number;
+  commissionPool: number;
+  netToSeller: number;
+  lines: Array<{
+    organizationId: string;
+    organizationName: string;
+    ratePercent: number;
+    amount: number;
+  }>;
+}
+
+export interface EscrowDepositContext {
+  ticketNo: string;
+  amount: number;
+  currency: string;
+  receivingAccount?: {
+    bankName: string;
+    accountNumber: string;
+    accountHolder: string;
+  } | null;
+  registeredBank?: {
+    bankName: string;
+    accountNumber: string;
+    accountHolder: string;
+  } | null;
+  depositWindowHours: number;
+  depositDeadlineAt?: string;
+  isUsdtEscrow: boolean;
+  tradeTier?: string;
+  payoutPolicy?: 'SAME_DAY' | 'NEXT_DAY_13KST';
 }
 
 export interface DashboardResponse {
@@ -489,14 +800,67 @@ export interface DashboardResponse {
   organizationId?: string;
 }
 
+export type ChartRange = '7d' | '30d' | '12m';
+
+export type ChartFiatCurrency = 'KRW' | 'JPY' | 'THB' | 'CNY';
+
+export interface ExchangeStatSnapshot {
+  rate: number;
+  volume24hUsdt: number | null;
+  volume24hQuote: number | null;
+  changePercent24h: number | null;
+  source: string;
+  capturedAt: string;
+}
+
+export interface DashboardChartsResponse {
+  range: ChartRange;
+  scope: 'self' | 'all' | 'org_subtree';
+  usdtFlow: {
+    stages: Array<{ status: string; count: number }>;
+    timeline: Array<{ date: string; count: number; fiatAmount: number; usdtAmount: number }>;
+  };
+  marketRates: Record<
+    ChartFiatCurrency,
+    {
+      current: ExchangeStatSnapshot | null;
+      series: Array<{ date: string; rate: number }>;
+    }
+  >;
+  exchangeStats: Record<ChartFiatCurrency, ExchangeStatSnapshot | null>;
+  ourPerformance: {
+    showOrgBreakdown: boolean;
+    totals: { count: number; fiatAmount: number; usdtAmount: number };
+    byCurrency: Array<{
+      currency: ChartFiatCurrency;
+      count: number;
+      fiatAmount: number;
+      usdtAmount: number;
+    }>;
+    byOrg?: Array<{
+      orgId: string;
+      orgName: string;
+      orgType: string;
+      count: number;
+      fiatAmount: number;
+      usdtAmount: number;
+    }>;
+    timeline: Array<{ date: string; count: number; fiatAmount: number; usdtAmount: number }>;
+  } | null;
+}
+
 export interface LedgerSummary {
   organizationId: string;
   totalAmount: number;
   currency: string;
+  totalAmountAll?: number;
+  totalsByCurrency: Record<string, number>;
+  byTicketType: Record<string, Record<string, number>>;
   count: number;
   entries: Array<{
     id: string;
     amount: number;
+    currency: string;
     ratePercent: number;
     baseAmount: number;
     ticketNo: string;
@@ -524,6 +888,16 @@ export const hqPolicyApi = {
     request<HqCommissionPayload>('/api/hq-policy/commission/risk', {
       method: 'PUT',
       body: JSON.stringify({ risk }),
+    }),
+  saveSymbolFeeTiers: (feeTiers: SymbolFeeTierRow[]) =>
+    request<HqCommissionPayload>('/api/hq-policy/commission/fee-tiers', {
+      method: 'PUT',
+      body: JSON.stringify({ feeTiers }),
+    }),
+  saveExchangeRateSources: (exchangeRateSources: HqExchangeRateSourcePolicy) =>
+    request<HqCommissionPayload>('/api/hq-policy/commission/exchange-rate-sources', {
+      method: 'PUT',
+      body: JSON.stringify({ exchangeRateSources }),
     }),
   saveCommissionRates: (
     rates: Array<{ organizationId: string; ticketType: string; ratePercent: number }>,
@@ -580,6 +954,93 @@ export const hqPolicyApi = {
       body: form,
     });
   },
+  listChangeLogs: (query?: {
+    page?: number;
+    limit?: number;
+    entityType?: string;
+    search?: string;
+    from?: string;
+    to?: string;
+  }) => {
+    const params = new URLSearchParams();
+    if (query?.page) params.set('page', String(query.page));
+    if (query?.limit) params.set('limit', String(query.limit));
+    if (query?.entityType) params.set('entityType', query.entityType);
+    if (query?.search) params.set('search', query.search);
+    if (query?.from) params.set('from', query.from);
+    if (query?.to) params.set('to', query.to);
+    const qs = params.toString();
+    return request<AdminChangeLogListResponse>(
+      `/api/hq-policy/ops/change-logs${qs ? `?${qs}` : ''}`,
+    );
+  },
+  listReleaseLogs: (query?: { page?: number; limit?: number; search?: string; locale?: string }) => {
+    const params = new URLSearchParams();
+    if (query?.page) params.set('page', String(query.page));
+    if (query?.limit) params.set('limit', String(query.limit));
+    if (query?.search) params.set('search', query.search);
+    if (query?.locale) params.set('locale', query.locale);
+    const qs = params.toString();
+    return request<PlatformReleaseListResponse>(
+      `/api/hq-policy/ops/release-logs${qs ? `?${qs}` : ''}`,
+    );
+  },
+};
+
+export type AdminChangeLogItem = {
+  id: string;
+  action: 'CREATE' | 'UPDATE' | 'DELETE';
+  entityType: string;
+  entityId: string | null;
+  entityLabel: string | null;
+  summary: string;
+  before: unknown;
+  after: unknown;
+  ipAddress: string | null;
+  createdAt: string;
+  changedBy: { id: string; email: string; name: string; role: string };
+};
+
+export type AdminChangeLogListResponse = {
+  items: AdminChangeLogItem[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+};
+
+export type PlatformReleaseLogItem = {
+  id: string;
+  version: string;
+  title: string | null;
+  description: string | null;
+  changeLevel: 'MAJOR' | 'MINOR' | 'PATCH';
+  source: 'AUTO' | 'MANUAL' | 'DEPLOY';
+  entityType: string | null;
+  packageSizeMb: number | null;
+  status: string;
+  deployedAt: string;
+  notes: string | null;
+  createdAt: string;
+  recordedBy: { id: string; email: string; name: string; role: string } | null;
+};
+
+export type PlatformReleaseListResponse = {
+  items: PlatformReleaseLogItem[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+};
+
+export type CreatePlatformReleaseInput = {
+  version: string;
+  title?: string;
+  description?: string;
+  packageSizeMb?: number;
+  status?: string;
+  deployedAt?: string;
+  notes?: string;
 };
 
 export type HqPermissionLevel = 'NONE' | 'VIEW' | 'MODIFY' | 'DELETE';
@@ -604,20 +1065,99 @@ export type HqOrgColumnConfig = Record<
   Record<string, { allowedKeys: string[]; order: string[] }>
 >;
 
+export type CurrencyTransactionLimits = {
+  perTransactionMin: number;
+  perTransactionMax: number;
+  dailyMin: number;
+  dailyMax: number;
+  monthlyMin: number;
+  monthlyMax: number;
+};
+
+export type CustomerTransactionLimitsPolicy = {
+  INDIVIDUAL: Record<SymbolFeeCurrency, CurrencyTransactionLimits>;
+  CORPORATE: Record<SymbolFeeCurrency, CurrencyTransactionLimits>;
+};
+
 export interface HqCommissionRiskConfig {
   defaultFxFeePercent: number;
   defaultGasFeeUsdt: number;
   defaultTransferFeeUsdt: number;
   defaultOtherFeeUsdt: number;
+  feeDiagramDisplay?: FeeDiagramDisplayConfig;
   maxTicketAmountKrw: number;
   riskEnabled: boolean;
   maxDailyTicketsPerCustomer: number;
+  transactionLimits: CustomerTransactionLimitsPolicy;
   notes?: string;
   defaultPlatformFeeUsdt?: number;
 }
 
+export type SymbolFeeCurrency = 'KRW' | 'JPY' | 'THB' | 'CNY' | 'USD';
+
+export interface SymbolFeeTierRow {
+  id: string;
+  currency: SymbolFeeCurrency;
+  maxAmount: number;
+  fxFeePercent: number;
+  gasFeeUsdt: number;
+  transferFeeUsdt: number;
+  otherFeeUsdt: number;
+}
+
+export type ExchangeRateSourceId =
+  | 'coingecko'
+  | 'exchangerate_api'
+  | 'binance_cross'
+  | 'binance_global'
+  | 'binance_th'
+  | 'bybit_cross'
+  | 'kraken_book'
+  | 'upbit'
+  | 'kr_domestic';
+
+export type HqExchangeRateSourcePolicy = Record<SymbolFeeCurrency, ExchangeRateSourceId>;
+
+export interface LocalMarketPremiumAnalysis {
+  currency: 'KRW' | 'THB' | 'JPY';
+  domesticRate: number;
+  fairRate: number;
+  premiumPercent: number;
+  domesticSource: string;
+  domesticLabel: string;
+  usdFiatRate: number;
+  usdtUsdRate: number;
+  detailRates: Record<string, number | null>;
+  fetchedAt: string;
+}
+
+export interface KimchiPremiumAnalysis {
+  domesticRate: number;
+  fairRate: number;
+  premiumPercent: number;
+  upbitRate: number | null;
+  bithumbRate: number | null;
+  usdKrwRate: number;
+  usdtUsdRate: number;
+  fetchedAt: string;
+}
+
+export interface ExchangeRatePreviewRow {
+  currency: SymbolFeeCurrency;
+  configuredSource: ExchangeRateSourceId;
+  rate: number | null;
+  actualSource: string;
+  fetchedAt: string | null;
+  error?: string;
+}
+
 export interface HqCommissionPayload {
   risk: HqCommissionRiskConfig;
+  feeTiers: SymbolFeeTierRow[];
+  exchangeRateSources: HqExchangeRateSourcePolicy;
+  exchangeRatePreview: ExchangeRatePreviewRow[];
+  localPremiums: LocalMarketPremiumAnalysis[];
+  kimchiPremium: KimchiPremiumAnalysis | null;
   rates: Array<{
     id: string;
     ticketType: string;
@@ -638,6 +1178,8 @@ export interface BrandingResponse {
   loginNoticeI18n: Partial<
     Record<'KR' | 'JP' | 'US' | 'CH' | 'TH', { title: string; body: string }>
   >;
+  customerRegistrationEnabled: boolean;
+  defaultUsdtFiatCurrency?: 'KRW' | 'JPY' | 'THB' | 'CNY';
 }
 
 export interface HqPlatformConfig {
@@ -656,6 +1198,12 @@ export interface HqPlatformConfig {
   loginNoticeEnabled?: boolean;
   loginNoticeI18n?: Partial<
     Record<'KR' | 'JP' | 'US' | 'CH' | 'TH', { title: string; body: string }>
+  >;
+  customerRegistrationEnabled?: boolean;
+  idleTimeoutMinutes?: number;
+  defaultUsdtFiatCurrency?: 'KRW' | 'JPY' | 'THB' | 'CNY';
+  depositReceivingAccounts?: Partial<
+    Record<'KRW' | 'JPY' | 'THB' | 'CNY', { bankName: string; accountNumber: string; accountHolder: string }>
   >;
 }
 

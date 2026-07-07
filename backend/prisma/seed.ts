@@ -132,6 +132,14 @@ async function main() {
           otherFeeAmount: 0,
         },
       },
+      bankAccounts: {
+        create: {
+          bankName: '국민은행',
+          accountNumber: '123456-01-123456',
+          accountHolder: '홍길동',
+          isDefault: true,
+        },
+      },
     },
   });
 

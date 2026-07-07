@@ -104,6 +104,51 @@ async function buildOrgChain(
   return chain;
 }
 
+export interface CommissionPreviewLine {
+  organizationId: string;
+  organizationName: string;
+  ratePercent: number;
+  amount: number;
+}
+
+/** 구매자 소속 조직 체인 기준 수수료 풀·배분 미리보기 */
+export async function previewCommissionPool(
+  recruitingOrgId: string,
+  ticketType: TicketType,
+  tradeAmount: number,
+): Promise<{ totalRatePercent: number; commissionPool: number; lines: CommissionPreviewLine[] }> {
+  const { prisma } = await import('../lib/prisma');
+  const chain = await buildOrgChain(prisma, recruitingOrgId);
+  const lines: CommissionPreviewLine[] = [];
+  let totalRatePercent = 0;
+
+  for (const org of chain) {
+    const rate = await prisma.commissionRate.findFirst({
+      where: {
+        organizationId: org.id,
+        ticketType,
+        effectiveTo: null,
+      },
+      orderBy: { effectiveFrom: 'desc' },
+    });
+    if (!rate) continue;
+    const ratePercent = Number(rate.ratePercent);
+    totalRatePercent += ratePercent;
+    lines.push({
+      organizationId: org.id,
+      organizationName: org.name,
+      ratePercent,
+      amount: (tradeAmount * ratePercent) / 100,
+    });
+  }
+
+  return {
+    totalRatePercent,
+    commissionPool: (tradeAmount * totalRatePercent) / 100,
+    lines,
+  };
+}
+
 /** 조직별 누적 수수료 조회 */
 export async function getOrgLedgerSummary(
   organizationId: string,
@@ -132,10 +177,28 @@ export async function getOrgLedgerSummary(
 
   const totalAmount = entries.reduce((sum, e) => sum + Number(e.amount), 0);
 
+  const totalsByCurrency: Record<string, number> = {};
+  const byTicketType: Record<string, Record<string, number>> = {};
+
+  for (const e of entries) {
+    const cur = e.currency;
+    const amt = Number(e.amount);
+    totalsByCurrency[cur] = (totalsByCurrency[cur] ?? 0) + amt;
+
+    const tt = e.ticket.type;
+    if (!byTicketType[tt]) byTicketType[tt] = {};
+    byTicketType[tt][cur] = (byTicketType[tt][cur] ?? 0) + amt;
+  }
+
+  const usdtTotal = totalsByCurrency[CurrencyCode.USDT] ?? 0;
+
   return {
     organizationId,
-    totalAmount,
-    currency: entries[0]?.currency ?? CurrencyCode.KRW,
+    totalAmount: usdtTotal,
+    currency: CurrencyCode.USDT,
+    totalAmountAll: totalAmount,
+    totalsByCurrency,
+    byTicketType,
     count: entries.length,
     entries: entries.map((e) => ({
       id: e.id,

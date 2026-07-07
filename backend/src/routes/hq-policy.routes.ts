@@ -1,10 +1,13 @@
 import { Router } from 'express';
 import multer from 'multer';
+import { z } from 'zod';
 import { TicketType } from '@prisma/client';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { authenticate, requireRoles } from '../middleware/auth';
+import { auditFromRequest, listAdminChangeLogs } from '../services/admin-change-log.service';
 import { hqPolicyService } from '../services/hq-policy.service';
-import type { HqAccessMatrix, HqCommissionRiskConfig, HqOrgColumnConfig, HqPlatformConfig, HqEmailOtpConfig } from '../constants/hq-policy';
+import { createPlatformRelease, listPlatformReleases } from '../services/platform-release.service';
+import type { HqAccessMatrix, HqCommissionRiskConfig, HqExchangeRateSourcePolicy, HqOrgColumnConfig, HqPlatformConfig, HqEmailOtpConfig, SymbolFeeTierPolicy } from '../constants/hq-policy';
 
 const router = Router();
 const logoUpload = multer({
@@ -29,7 +32,8 @@ router.put(
       res.status(400).json({ error: 'matrix required' });
       return;
     }
-    res.json(await hqPolicyService.saveAccessMatrix(body.matrix));
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await hqPolicyService.saveAccessMatrix(audit, body.matrix));
   }),
 );
 
@@ -48,7 +52,8 @@ router.put(
       res.status(400).json({ error: 'config required' });
       return;
     }
-    res.json(await hqPolicyService.saveOrgColumns(body.config));
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await hqPolicyService.saveOrgColumns(audit, body.config));
   }),
 );
 
@@ -67,7 +72,34 @@ router.put(
       res.status(400).json({ error: 'risk required' });
       return;
     }
-    res.json(await hqPolicyService.saveCommissionRisk(body.risk));
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await hqPolicyService.saveCommissionRisk(audit, body.risk));
+  }),
+);
+
+router.put(
+  '/commission/fee-tiers',
+  asyncHandler(async (req, res) => {
+    const body = req.body as { feeTiers?: SymbolFeeTierPolicy };
+    if (!body.feeTiers?.length) {
+      res.status(400).json({ error: 'feeTiers required' });
+      return;
+    }
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await hqPolicyService.saveSymbolFeeTiers(audit, body.feeTiers));
+  }),
+);
+
+router.put(
+  '/commission/exchange-rate-sources',
+  asyncHandler(async (req, res) => {
+    const body = req.body as { exchangeRateSources?: HqExchangeRateSourcePolicy };
+    if (!body.exchangeRateSources) {
+      res.status(400).json({ error: 'exchangeRateSources required' });
+      return;
+    }
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await hqPolicyService.saveExchangeRateSources(audit, body.exchangeRateSources));
   }),
 );
 
@@ -82,7 +114,8 @@ router.put(
       return;
     }
     try {
-      res.json(await hqPolicyService.saveCommissionRates(body.rates));
+      const audit = auditFromRequest(req.user!, req);
+      res.json(await hqPolicyService.saveCommissionRates(audit, body.rates));
     } catch (e) {
       res.status(400).json({ error: e instanceof Error ? e.message : 'save failed' });
     }
@@ -104,7 +137,8 @@ router.put(
       res.status(400).json({ error: 'config required' });
       return;
     }
-    res.json(await hqPolicyService.savePlatform(body.config));
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await hqPolicyService.savePlatform(audit, body.config));
   }),
 );
 
@@ -116,7 +150,8 @@ router.put(
       res.status(400).json({ error: 'email required' });
       return;
     }
-    res.json(await hqPolicyService.savePlatformEmail(body.email));
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await hqPolicyService.savePlatformEmail(audit, body.email));
   }),
 );
 
@@ -140,7 +175,8 @@ router.post(
       res.status(400).json({ error: 'file required' });
       return;
     }
-    res.json(await hqPolicyService.savePlatformLogo(req.file));
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await hqPolicyService.savePlatformLogo(audit, req.file));
   }),
 );
 
@@ -152,7 +188,8 @@ router.post(
       res.status(400).json({ error: 'file required' });
       return;
     }
-    res.json(await hqPolicyService.savePlatformAuthLogo(req.file));
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await hqPolicyService.savePlatformAuthLogo(audit, req.file));
   }),
 );
 
@@ -164,7 +201,8 @@ router.post(
       res.status(400).json({ error: 'file required' });
       return;
     }
-    res.json(await hqPolicyService.savePlatformFavicon(req.file));
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await hqPolicyService.savePlatformFavicon(audit, req.file));
   }),
 );
 
@@ -176,7 +214,60 @@ router.post(
       res.status(400).json({ error: 'file required' });
       return;
     }
-    res.json(await hqPolicyService.savePlatformBackground(req.file));
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await hqPolicyService.savePlatformBackground(audit, req.file));
+  }),
+);
+
+const changeLogQuerySchema = z.object({
+  page: z.coerce.number().int().positive().optional(),
+  limit: z.coerce.number().int().positive().optional(),
+  entityType: z.string().optional(),
+  changedById: z.string().optional(),
+  search: z.string().optional(),
+  from: z.string().optional(),
+  to: z.string().optional(),
+});
+
+const releaseLogQuerySchema = z.object({
+  page: z.coerce.number().int().positive().optional(),
+  limit: z.coerce.number().int().positive().optional(),
+  search: z.string().optional(),
+  locale: z.enum(['KR', 'US', 'JP', 'CH', 'TH']).optional(),
+});
+
+const createReleaseSchema = z.object({
+  version: z.string().optional(),
+  title: z.string().optional(),
+  description: z.string().optional(),
+  packageSizeMb: z.number().optional(),
+  status: z.string().optional(),
+  deployedAt: z.string().optional(),
+  notes: z.string().optional(),
+  changeLevel: z.enum(['MAJOR', 'MINOR', 'PATCH']).optional(),
+});
+
+router.get(
+  '/ops/change-logs',
+  asyncHandler(async (req, res) => {
+    const query = changeLogQuerySchema.parse(req.query);
+    res.json(await listAdminChangeLogs(query));
+  }),
+);
+
+router.get(
+  '/ops/release-logs',
+  asyncHandler(async (req, res) => {
+    const query = releaseLogQuerySchema.parse(req.query);
+    res.json(await listPlatformReleases(query));
+  }),
+);
+
+router.post(
+  '/ops/release-logs',
+  asyncHandler(async (req, res) => {
+    const body = createReleaseSchema.parse(req.body);
+    res.status(201).json(await createPlatformRelease(req.user!, body));
   }),
 );
 

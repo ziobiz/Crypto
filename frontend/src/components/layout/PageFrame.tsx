@@ -15,11 +15,8 @@ export function PageFrame({ children }: { children: React.ReactNode }) {
   return (
     <div className="pg-frame">
       <div className="pg-frame-head">
-        <h1 className="pg-frame-title">
-          {t('page.breadcrumbPrefix')}
-          {t(titleKey)}
-        </h1>
-        {pathLabels.length > 1 && (
+        <h1 className="pg-frame-title">{t(titleKey)}</h1>
+        {trailKeys.length > 0 && (
           <p className="pg-frame-path" aria-label={t('page.pathLabel')}>
             {pathText}
           </p>

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useLocale } from '@/context/LocaleProvider';
 import type { ResolvedBranding } from '@/hooks/useBranding';
 import { resolveLoginNotice } from '@/lib/login-notice';
@@ -44,11 +45,17 @@ export function AuthChrome({
         <div className="flex flex-1 flex-col px-4 py-5 sm:px-5">
           {authLogo ? (
             <div className="mb-4 flex justify-center">
-              <img
-                src={authLogo}
-                alt=""
-                className="max-h-[52px] max-w-[220px] object-contain"
-              />
+              <Link
+                href="/"
+                className="inline-flex rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                aria-label="Home"
+              >
+                <img
+                  src={authLogo}
+                  alt=""
+                  className="max-h-[52px] max-w-[220px] cursor-pointer object-contain"
+                />
+              </Link>
             </div>
           ) : null}
 

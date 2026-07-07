@@ -1,43 +1,45 @@
 ---
-description: FTP 재배포 및 서버 운영 규칙 (tinpass.com / api.tinpass.com)
-globs:
-  - deploy/**
-  - backend/**
-  - frontend/**
-alwaysApply: false
+description: 배포 전용 개발 규칙 — 로컬 개발 금지, zip FTP 배포만 사용
+alwaysApply: true
 ---
 
-# FTP 재배포 운영 규칙
+# 배포 전용 개발 규칙 (Crypto / TINPASS)
 
-운영 서버 관리는 **Git pull이 아니라 FTP + SSH** 가 표준이다.
+**로컬에서 개발·검증하지 않는다.** 코드 수정 후 반드시 **배포 zip**을 만들고, 사용자가 FTP 업로드 → 압축 해제 → 재실행으로 운영 서버에서 확인한다.
 
-## 흐름
+## 금지
 
-1. 로컬 PC에서 코드 수정·테스트
-2. FTP로 `/var/www/crypto-workflow/` 에 소스만 업로드
-3. SSH: `bash deploy/cafe24-business/ftp-apply.sh`
+- `npm run dev` 로 로컬 UI/API 확인을 전제로 한 개발
+- 로컬 브라우저·로컬 서버에서 “완료” 판단
+- Git push만 하고 zip 없이 끝내기
+- 서버 `backend/.env` 덮어쓰기
 
-## FTP 업로드 (모드 A)
+## 필수 — 작업 완료 시
 
-- `backend/src/`, `backend/prisma/`, `backend/package*.json`, `backend/tsconfig.json`
-- `frontend/src/`, `frontend/public/`, `frontend/package*.json`, `frontend/*.config.js`, `frontend/tsconfig.json`
-- `deploy/`
+1. 로컬에서 **빌드 포함 zip 생성**:
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File deploy\pack-release.ps1
+   ```
+2. 산출물 안내:
+   - `deploy\release\crypto-release.zip`
+3. 사용자 작업 (에이전트가 대신 하지 않음):
+   - FTP → `/var/www/crypto-workflow/incoming/crypto-release.zip`
+   - SSH → `cd /var/www/crypto-workflow && bash deploy/cafe24-business/apply-release.sh`
 
-## 절대 FTP로 덮어쓰지 말 것
+## zip 패키지에 포함되는 것
 
-- `backend/.env`, `frontend/.env.local`
-- `uploads/`
-- `/etc/nginx/conf.d/crypto-workflow-tinpass.conf` (certbot SSL)
-- `node_modules/`, `backend/dist/`, `frontend/.next/` (모드 A)
+- `backend/dist/`, `frontend/.next/`, `server/dist/` (빌드 산출물)
+- `deploy/`, `backend/prisma/`, `package*.json` 등 서버 설치 스크립트
 
-## SSH 명령
+## 운영 서버
 
-```bash
-cd /var/www/crypto-workflow
-bash deploy/cafe24-business/ftp-apply.sh   # 소스 업로드 후
-pm2 status                                  # 확인
-```
+- PM2 `crypto`, 포트 3000
+- 도메인: `tinpass.com`, `api.tinpass.com`
+- 상세: `docs/FTP_DEPLOY_RULES.md`
 
-로컬 빌드 산출물만 올린 경우: `bash deploy/cafe24-business/ftp-apply-built.sh`
+## 에이전트 체크리스트
 
-상세: `docs/FTP_DEPLOY_RULES.md`
+- [ ] 기능/수정 코드 반영
+- [ ] `pack-release.ps1` 실행으로 zip 생성
+- [ ] zip 경로·FTP 경로·SSH 명령을 사용자에게 전달
+- [ ] 로컬 dev 서버 기동은 하지 않음

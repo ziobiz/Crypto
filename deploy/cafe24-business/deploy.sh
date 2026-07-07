@@ -19,14 +19,29 @@ MIGRATION_DIRS=0
 if [ -d prisma/migrations ]; then
   MIGRATION_DIRS=$(find prisma/migrations -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')
 fi
-if [ "${MIGRATION_DIRS:-0}" -gt 0 ]; then
-  npx prisma migrate deploy
-else
+if [ "${MIGRATION_DIRS:-0}" -eq 0 ]; then
   echo "    (migrations 없음 → db push 사용)"
-  npx prisma db push || {
+  npx prisma db push --accept-data-loss || {
     echo "ERROR: prisma db push 실패 — bash deploy/cafe24-business/fix-db-login.sh"
     exit 1
   }
+else
+  MIGRATE_ERR=$(mktemp)
+  if ! npx prisma migrate deploy 2>"$MIGRATE_ERR"; then
+    if grep -q 'P3005' "$MIGRATE_ERR"; then
+      echo "    P3005: db push 후 migration baseline..."
+      cat "$MIGRATE_ERR"
+      npx prisma db push --accept-data-loss
+      for dir in $(find prisma/migrations -mindepth 1 -maxdepth 1 -type d | sort); do
+        npx prisma migrate resolve --applied "$(basename "$dir")"
+      done
+    else
+      cat "$MIGRATE_ERR"
+      rm -f "$MIGRATE_ERR"
+      exit 1
+    fi
+  fi
+  rm -f "$MIGRATE_ERR"
 fi
 cd ..
 

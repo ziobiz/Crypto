@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { CustomerType, UserRole } from '@prisma/client';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { authenticate, requireRoles } from '../middleware/auth';
+import { auditFromRequest } from '../services/admin-change-log.service';
 import { userService } from '../services/user.service';
 
 const router = Router();
@@ -32,6 +33,13 @@ const createSchema = z.object({
   recruitingOrgId: z.string().optional(),
   businessName: z.string().optional(),
   businessNumber: z.string().optional(),
+  bankName: z.string().min(1).optional(),
+  accountNumber: z.string().min(1).optional(),
+  accountHolder: z.string().min(1).optional(),
+  walletAddress: z.string().min(10).optional(),
+  walletNetwork: z.string().optional(),
+  walletLabel: z.string().optional(),
+  reason: z.string().min(1, '등록 사유가 필요합니다'),
 });
 
 const updateSchema = z.object({
@@ -41,6 +49,7 @@ const updateSchema = z.object({
   organizationId: z.string().nullable().optional(),
   isActive: z.boolean().optional(),
   recruitingOrgId: z.string().optional(),
+  statusReason: z.string().optional(),
 });
 
 const passwordSchema = z.object({
@@ -66,7 +75,8 @@ router.post(
   '/',
   asyncHandler(async (req, res) => {
     const body = createSchema.parse(req.body);
-    const user = await userService.create(req.user!, body);
+    const audit = auditFromRequest(req.user!, req);
+    const user = await userService.create(req.user!, body, audit);
     res.status(201).json(user);
   }),
 );
@@ -75,7 +85,8 @@ router.patch(
   '/:id',
   asyncHandler(async (req, res) => {
     const body = updateSchema.parse(req.body);
-    res.json(await userService.update(req.user!, req.params.id, body));
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await userService.update(req.user!, req.params.id, body, audit));
   }),
 );
 
@@ -83,7 +94,16 @@ router.patch(
   '/:id/password',
   asyncHandler(async (req, res) => {
     const { password } = passwordSchema.parse(req.body);
-    res.json(await userService.resetPassword(req.user!, req.params.id, password));
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await userService.resetPassword(req.user!, req.params.id, password, audit));
+  }),
+);
+
+router.patch(
+  '/:id/otp',
+  asyncHandler(async (req, res) => {
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await userService.resetOtp(req.user!, req.params.id, audit));
   }),
 );
 

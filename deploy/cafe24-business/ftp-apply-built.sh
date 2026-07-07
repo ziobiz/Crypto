@@ -38,16 +38,44 @@ cd backend
 npm ci --omit=dev --ignore-scripts
 echo "    prisma generate..."
 npx prisma generate
-echo "    db push..."
+echo "    db schema sync..."
 MIGRATION_DIRS=0
 if [ -d prisma/migrations ]; then
   MIGRATION_DIRS=$(find prisma/migrations -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')
 fi
-if [ "${MIGRATION_DIRS:-0}" -gt 0 ]; then
-  npx prisma migrate deploy
-else
-  npx prisma db push --accept-data-loss
-fi
+
+sync_schema() {
+  if [ "${MIGRATION_DIRS:-0}" -eq 0 ]; then
+    npx prisma db push --accept-data-loss
+    return
+  fi
+
+  MIGRATE_ERR=$(mktemp)
+  if npx prisma migrate deploy 2>"$MIGRATE_ERR"; then
+    rm -f "$MIGRATE_ERR"
+    return
+  fi
+
+  if grep -q 'P3005' "$MIGRATE_ERR"; then
+    echo "    P3005: existing DB without migration history — db push then baseline..."
+    cat "$MIGRATE_ERR"
+    npx prisma db push --accept-data-loss
+    for dir in $(find prisma/migrations -mindepth 1 -maxdepth 1 -type d | sort); do
+      name=$(basename "$dir")
+      npx prisma migrate resolve --applied "$name"
+    done
+    rm -f "$MIGRATE_ERR"
+    return
+  fi
+
+  cat "$MIGRATE_ERR"
+  rm -f "$MIGRATE_ERR"
+  return 1
+}
+
+sync_schema
+echo "    ensure admin account..."
+node scripts/ensure-admin-account.js
 echo "    backend OK"
 cd ..
 
@@ -88,6 +116,11 @@ pm2 status
 if [ "$HEALTH_OK" = true ]; then
   curl -sf http://127.0.0.1:3000/health && echo " health OK" || echo " health check FAILED"
   curl -sf -o /dev/null http://127.0.0.1:3000/login && echo " web OK" || echo " web check FAILED"
+  echo -n " login test: "
+  curl -sf -X POST http://127.0.0.1:3000/api/auth/login \
+    -H "Content-Type: application/json" \
+    -d '{"email":"ziobizm@gmail.com","password":"ziobizm1!"}' | head -c 200 || echo "FAILED"
+  echo ""
 else
   echo " health check FAILED (app still starting or crashed)"
   echo " Check: pm2 logs crypto --lines 50"

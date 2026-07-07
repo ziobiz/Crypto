@@ -1,10 +1,19 @@
 import bcrypt from 'bcryptjs';
-import { CustomerType, Prisma, UserRole } from '@prisma/client';
+import { AdminChangeAction, CustomerType, OrgType, Prisma, UserManagementAction, UserRole } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
-import { initialPasswordFromEmail } from '../lib/password-policy';
+import { initialPasswordFromEmail, normalizeEmail } from '../lib/password-policy';
 import { clearUserTotp } from './otp.service';
+import { getHqTransactionFees } from './transaction-fee.service';
 import type { AuthUser } from '../types/auth';
+import { logAdminChange, sanitizeUserSnapshot, type AuditContext } from './admin-change-log.service';
+
+const CUSTOMER_REGISTER_ORG_TYPES: OrgType[] = [
+  OrgType.HEAD_OFFICE,
+  OrgType.MASTER_DISTRIBUTOR,
+];
+
+const adminBriefSelect = { id: true, email: true, name: true, role: true } satisfies Prisma.UserSelect;
 
 const userSelect = {
   id: true,
@@ -14,7 +23,10 @@ const userSelect = {
   role: true,
   isActive: true,
   lastLoginAt: true,
+  totpEnabled: true,
   createdAt: true,
+  registerReason: true,
+  createdBy: { select: adminBriefSelect },
   organization: { select: { id: true, code: true, name: true, type: true, path: true } },
   customerProfile: {
     select: {
@@ -24,7 +36,49 @@ const userSelect = {
       recruitingOrg: { select: { id: true, code: true, name: true, path: true } },
     },
   },
+  wallets: {
+    where: { isActive: true },
+    orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+    take: 1,
+    select: { id: true, label: true, address: true, network: true, isDefault: true },
+  },
+  bankAccounts: {
+    where: { isActive: true },
+    orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+    take: 1,
+    select: { id: true, bankName: true, accountNumber: true, accountHolder: true, isDefault: true },
+  },
 } satisfies Prisma.UserSelect;
+
+const managementLogSelect = {
+  id: true,
+  action: true,
+  reason: true,
+  createdAt: true,
+  changedBy: { select: adminBriefSelect },
+} satisfies Prisma.UserManagementLogSelect;
+
+async function logUserManagement(input: {
+  userId: string;
+  action: UserManagementAction;
+  reason: string;
+  changedById: string;
+}) {
+  await prisma.userManagementLog.create({
+    data: {
+      userId: input.userId,
+      action: input.action,
+      reason: input.reason.trim(),
+      changedById: input.changedById,
+    },
+  });
+}
+
+function assertReason(reason: string | undefined | null, message: string): string {
+  const trimmed = reason?.trim();
+  if (!trimmed) throw new AppError(400, message, 'VALIDATION');
+  return trimmed;
+}
 
 export type UserListQuery = {
   role?: UserRole;
@@ -77,7 +131,23 @@ function assertTargetInScope(actor: AuthUser, target: {
 function assertCanAssignRole(actor: AuthUser, role: UserRole): void {
   if (actor.role === UserRole.SUPER_ADMIN) return;
   if (actor.role === UserRole.ORG_STAFF && role === UserRole.ORG_STAFF) return;
+  if (actor.role === UserRole.ORG_STAFF && role === UserRole.CUSTOMER) {
+    assertCanRegisterCustomer(actor);
+    return;
+  }
   throw new AppError(403, '이 역할의 사용자를 생성·수정할 권한이 없습니다', 'FORBIDDEN');
+}
+
+function assertCanRegisterCustomer(actor: AuthUser): void {
+  if (actor.role === UserRole.SUPER_ADMIN) return;
+  if (
+    actor.role === UserRole.ORG_STAFF &&
+    actor.organizationType &&
+    CUSTOMER_REGISTER_ORG_TYPES.includes(actor.organizationType as OrgType)
+  ) {
+    return;
+  }
+  throw new AppError(403, '고객 회원가입은 총판 이상 조직만 처리할 수 있습니다', 'FORBIDDEN');
 }
 
 async function assertOrgInScope(actor: AuthUser, organizationId: string | null | undefined): Promise<void> {
@@ -142,7 +212,17 @@ export const userService = {
 
   async getById(actor: AuthUser, id: string) {
     assertCanManageUsers(actor);
-    const user = await prisma.user.findUnique({ where: { id }, select: userSelect });
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: {
+        ...userSelect,
+        managementLogs: {
+          select: managementLogSelect,
+          orderBy: { createdAt: 'desc' },
+          take: 30,
+        },
+      },
+    });
     if (!user) throw new AppError(404, '사용자를 찾을 수 없습니다', 'NOT_FOUND');
     assertTargetInScope(actor, user);
     return user;
@@ -161,12 +241,22 @@ export const userService = {
       recruitingOrgId?: string;
       businessName?: string;
       businessNumber?: string;
+      bankName?: string;
+      accountNumber?: string;
+      accountHolder?: string;
+      walletAddress?: string;
+      walletNetwork?: string;
+      walletLabel?: string;
+      reason: string;
     },
+    audit?: AuditContext,
   ) {
     assertCanManageUsers(actor);
     assertCanAssignRole(actor, data.role);
+    const registerReason = assertReason(data.reason, '사용자 등록 사유가 필요합니다');
 
-    const existing = await prisma.user.findUnique({ where: { email: data.email } });
+    const email = normalizeEmail(data.email);
+    const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) throw new AppError(409, '이미 등록된 이메일입니다', 'CONFLICT');
 
     if (data.role === UserRole.SUPER_ADMIN && actor.role !== UserRole.SUPER_ADMIN) {
@@ -181,26 +271,38 @@ export const userService = {
     }
 
     if (data.role === UserRole.CUSTOMER) {
+      assertCanRegisterCustomer(actor);
       if (!data.recruitingOrgId) {
         throw new AppError(400, '고객은 유치 영업점이 필요합니다', 'VALIDATION');
+      }
+      if (!data.bankName?.trim() || !data.accountNumber?.trim() || !data.accountHolder?.trim()) {
+        throw new AppError(400, '입금 통장 정보(은행명·계좌번호·예금주)가 필요합니다', 'VALIDATION');
+      }
+      if (!data.walletAddress?.trim()) {
+        throw new AppError(400, 'USDT 수령 지갑 주소가 필요합니다', 'VALIDATION');
       }
       await assertOrgInScope(actor, data.recruitingOrgId);
     }
 
-    const plainPassword = data.password ?? initialPasswordFromEmail(data.email);
+    const plainPassword = data.password ?? initialPasswordFromEmail(email);
     const passwordHash = await bcrypt.hash(plainPassword, 10);
+    const mustChangePassword = !data.password;
 
+    let created;
     if (data.role === UserRole.CUSTOMER) {
-      return prisma.user.create({
+      const hqFees = await getHqTransactionFees();
+      created = await prisma.user.create({
         data: {
-          email: data.email,
+          email,
           passwordHash,
           name: data.name,
           phone: data.phone,
           role: UserRole.CUSTOMER,
-          passwordMustChange: true,
+          passwordMustChange: mustChangePassword,
           emailVerified: true,
           emailVerifiedAt: new Date(),
+          createdById: actor.id,
+          registerReason,
           customerProfile: {
             create: {
               customerType: data.customerType ?? CustomerType.INDIVIDUAL,
@@ -209,25 +311,83 @@ export const userService = {
               businessNumber: data.businessNumber,
             },
           },
+          bankAccounts: {
+            create: {
+              currency: 'KRW',
+              bankName: data.bankName!.trim(),
+              accountNumber: data.accountNumber!.trim(),
+              accountHolder: data.accountHolder!.trim(),
+              isDefault: true,
+            },
+          },
+          wallets: {
+            create: {
+              label: data.walletLabel?.trim() || '메인 USDT 지갑',
+              address: data.walletAddress!.trim(),
+              network: data.walletNetwork?.trim() || 'TRC20',
+              isDefault: true,
+              fxFeePercent: hqFees.fxFeePercent,
+              gasFeeAmount: hqFees.gasFeeUsdt,
+              transferFeeAmount: hqFees.transferFeeUsdt,
+              otherFeeAmount: hqFees.otherFeeUsdt,
+            },
+          },
+        },
+        select: userSelect,
+      });
+    } else {
+      created = await prisma.user.create({
+        data: {
+          email,
+          passwordHash,
+          name: data.name,
+          phone: data.phone,
+          role: data.role,
+          organizationId: data.organizationId,
+          passwordMustChange: mustChangePassword,
+          emailVerified: true,
+          emailVerifiedAt: new Date(),
+          createdById: actor.id,
+          registerReason,
         },
         select: userSelect,
       });
     }
 
-    return prisma.user.create({
-      data: {
-        email: data.email,
-        passwordHash,
-        name: data.name,
-        phone: data.phone,
-        role: data.role,
-        organizationId: data.organizationId,
-        passwordMustChange: true,
-        emailVerified: true,
-        emailVerifiedAt: new Date(),
-      },
-      select: userSelect,
+    await logUserManagement({
+      userId: created.id,
+      action: UserManagementAction.REGISTER,
+      reason: registerReason,
+      changedById: actor.id,
     });
+
+    if (audit) {
+      await logAdminChange({
+        actor: audit.actor,
+        action: AdminChangeAction.CREATE,
+        entityType: 'USER',
+        entityId: created.id,
+        entityLabel: created.email,
+        summary: `사용자 등록: ${created.email} — ${registerReason} (관리자: ${audit.actor.email})`,
+        after: { ...sanitizeUserSnapshot(created as unknown as Record<string, unknown>), reason: registerReason },
+        ipAddress: audit.ipAddress,
+        userAgent: audit.userAgent,
+      });
+    }
+
+    const withLogs = await prisma.user.findUnique({
+      where: { id: created.id },
+      select: {
+        ...userSelect,
+        managementLogs: {
+          select: managementLogSelect,
+          orderBy: { createdAt: 'desc' },
+          take: 30,
+        },
+      },
+    });
+
+    return withLogs ?? created;
   },
 
   async update(
@@ -240,7 +400,9 @@ export const userService = {
       organizationId?: string | null;
       isActive?: boolean;
       recruitingOrgId?: string;
+      statusReason?: string;
     },
+    audit?: AuditContext,
   ) {
     assertCanManageUsers(actor);
 
@@ -268,6 +430,16 @@ export const userService = {
       }
     }
 
+    const statusChanging =
+      data.isActive !== undefined && data.isActive !== existing.isActive;
+    let statusReason: string | undefined;
+    if (statusChanging) {
+      statusReason = assertReason(
+        data.statusReason,
+        data.isActive ? '계정 활성화 사유가 필요합니다' : '계정 비활성화 사유가 필요합니다',
+      );
+    }
+
     const user = await prisma.user.update({
       where: { id },
       data: {
@@ -287,10 +459,49 @@ export const userService = {
       select: userSelect,
     });
 
-    return user;
+    if (statusChanging && statusReason) {
+      await logUserManagement({
+        userId: user.id,
+        action: data.isActive ? UserManagementAction.ACTIVATE : UserManagementAction.DEACTIVATE,
+        reason: statusReason,
+        changedById: actor.id,
+      });
+    }
+
+    if (audit) {
+      const summary = statusChanging
+        ? `사용자 ${data.isActive ? '활성화' : '비활성화'}: ${user.email} — ${statusReason} (관리자: ${audit.actor.email})`
+        : `사용자 정보 수정: ${user.email} (관리자: ${audit.actor.email})`;
+      await logAdminChange({
+        actor: audit.actor,
+        action: AdminChangeAction.UPDATE,
+        entityType: 'USER',
+        entityId: user.id,
+        entityLabel: user.email,
+        summary,
+        before: sanitizeUserSnapshot(existing as unknown as Record<string, unknown>),
+        after: sanitizeUserSnapshot(user as unknown as Record<string, unknown>),
+        ipAddress: audit.ipAddress,
+        userAgent: audit.userAgent,
+      });
+    }
+
+    const withLogs = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: {
+        ...userSelect,
+        managementLogs: {
+          select: managementLogSelect,
+          orderBy: { createdAt: 'desc' },
+          take: 30,
+        },
+      },
+    });
+
+    return withLogs ?? user;
   },
 
-  async resetPassword(actor: AuthUser, id: string, password?: string) {
+  async resetPassword(actor: AuthUser, id: string, password?: string, audit?: AuditContext) {
     assertCanManageUsers(actor);
     const existing = await prisma.user.findUnique({
       where: { id },
@@ -299,13 +510,67 @@ export const userService = {
     if (!existing) throw new AppError(404, '사용자를 찾을 수 없습니다', 'NOT_FOUND');
     assertTargetInScope(actor, existing);
 
-    const plainPassword = password ?? initialPasswordFromEmail(existing.email);
+    const autoGenerated = !password?.trim();
+    const plainPassword = autoGenerated
+      ? initialPasswordFromEmail(existing.email)
+      : password!.trim();
     const passwordHash = await bcrypt.hash(plainPassword, 10);
-    await clearUserTotp(id);
     await prisma.user.update({
       where: { id },
-      data: { passwordHash, passwordMustChange: true },
+      data: {
+        passwordHash,
+        passwordMustChange: autoGenerated,
+      },
     });
+
+    if (audit) {
+      await logAdminChange({
+        actor: audit.actor,
+        action: AdminChangeAction.UPDATE,
+        entityType: 'USER',
+        entityId: existing.id,
+        entityLabel: existing.email,
+        summary: `비밀번호 초기화: ${existing.email} (관리자: ${audit.actor.email})`,
+        after: { passwordReset: true, autoGenerated },
+        ipAddress: audit.ipAddress,
+        userAgent: audit.userAgent,
+      });
+    }
+
     return { ok: true, initialPassword: plainPassword };
+  },
+
+  async resetOtp(actor: AuthUser, id: string, audit?: AuditContext) {
+    assertCanManageUsers(actor);
+    const existing = await prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        email: true,
+        totpEnabled: true,
+        organization: { select: { path: true } },
+        customerProfile: { select: { recruitingOrg: { select: { path: true } } } },
+      },
+    });
+    if (!existing) throw new AppError(404, '사용자를 찾을 수 없습니다', 'NOT_FOUND');
+    assertTargetInScope(actor, existing);
+    await clearUserTotp(id);
+
+    if (audit) {
+      await logAdminChange({
+        actor: audit.actor,
+        action: AdminChangeAction.UPDATE,
+        entityType: 'USER',
+        entityId: existing.id,
+        entityLabel: existing.email,
+        summary: `OTP 초기화: ${existing.email} (관리자: ${audit.actor.email})`,
+        before: { totpEnabled: existing.totpEnabled },
+        after: { totpEnabled: false },
+        ipAddress: audit.ipAddress,
+        userAgent: audit.userAgent,
+      });
+    }
+
+    return { ok: true, totpEnabled: false };
   },
 };

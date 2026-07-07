@@ -11,6 +11,11 @@ const STATUS_KEYS: Record<string, MessageKey> = {
   COMPLETED: 'status.COMPLETED',
   CANCELLED: 'status.CANCELLED',
   ESCROW_CREATED: 'status.ESCROW_CREATED',
+  SELLER_ACCEPTED: 'status.SELLER_ACCEPTED',
+  CONTRACT_CONFIRMED: 'status.CONTRACT_CONFIRMED',
+  SHIPPING_STARTED: 'status.SHIPPING_STARTED',
+  PAYOUT_SCHEDULED: 'status.PAYOUT_SCHEDULED',
+  VOIDED: 'status.VOIDED',
   BUYER_DEPOSIT_PROOF: 'status.BUYER_DEPOSIT_PROOF',
   ADMIN_DEPOSIT_CONFIRMED: 'status.ADMIN_DEPOSIT_CONFIRMED',
   SELLER_FULFILLMENT_PROOF: 'status.SELLER_FULFILLMENT_PROOF',
@@ -19,32 +24,32 @@ const STATUS_KEYS: Record<string, MessageKey> = {
   DISPUTED: 'status.DISPUTED',
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  APPLICATION_COMPLETED: 'bg-blue-100 text-blue-800',
-  DEPOSIT_PROOF_PENDING: 'bg-yellow-100 text-yellow-800',
-  ADMIN_REVIEWING: 'bg-orange-100 text-orange-800',
-  TRANSFER_IN_PROGRESS: 'bg-purple-100 text-purple-800',
-  COMPLETED: 'bg-green-100 text-green-800',
-  CANCELLED: 'bg-gray-100 text-gray-600',
-  ESCROW_CREATED: 'bg-blue-100 text-blue-800',
-  BUYER_DEPOSIT_PROOF: 'bg-yellow-100 text-yellow-800',
-  ADMIN_DEPOSIT_CONFIRMED: 'bg-orange-100 text-orange-800',
-  SELLER_FULFILLMENT_PROOF: 'bg-purple-100 text-purple-800',
-  BUYER_FINAL_APPROVAL: 'bg-indigo-100 text-indigo-800',
-  ESCROW_COMPLETED: 'bg-green-100 text-green-800',
-  DISPUTED: 'bg-red-100 text-red-800',
+const STATUS_BADGE: Record<string, string> = {
+  APPLICATION_COMPLETED: 'pg-badge-info',
+  DEPOSIT_PROOF_PENDING: 'pg-badge-warn',
+  ADMIN_REVIEWING: 'pg-badge-warn',
+  TRANSFER_IN_PROGRESS: 'pg-badge-progress',
+  COMPLETED: 'pg-badge-success',
+  CANCELLED: 'pg-badge-muted',
+  ESCROW_CREATED: 'pg-badge-info',
+  SELLER_ACCEPTED: 'pg-badge-info',
+  CONTRACT_CONFIRMED: 'pg-badge-warn',
+  SHIPPING_STARTED: 'pg-badge-progress',
+  PAYOUT_SCHEDULED: 'pg-badge-progress',
+  VOIDED: 'pg-badge-muted',
+  BUYER_DEPOSIT_PROOF: 'pg-badge-warn',
+  ADMIN_DEPOSIT_CONFIRMED: 'pg-badge-warn',
+  SELLER_FULFILLMENT_PROOF: 'pg-badge-progress',
+  BUYER_FINAL_APPROVAL: 'pg-badge-progress',
+  ESCROW_COMPLETED: 'pg-badge-success',
+  DISPUTED: 'pg-badge-error',
 };
 
 export function StatusBadge({ status }: { status: string }) {
   const t = useT();
   const key = STATUS_KEYS[status];
   const label = key ? t(key) : status;
+  const tone = STATUS_BADGE[status] ?? 'pg-badge-muted';
 
-  return (
-    <span
-      className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium leading-none ${STATUS_COLORS[status] ?? 'bg-gray-100 text-gray-700'}`}
-    >
-      {label}
-    </span>
-  );
+  return <span className={`pg-badge ${tone}`}>{label}</span>;
 }

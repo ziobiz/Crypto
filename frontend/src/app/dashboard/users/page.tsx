@@ -12,6 +12,9 @@ import {
   type UserRoleType,
 } from '@/lib/api';
 import type { MessageKey } from '@/i18n/messages';
+import { WALLET_NETWORKS } from '@/constants/wallet-networks';
+
+const CUSTOMER_REGISTER_ORG_TYPES = ['HEAD_OFFICE', 'MASTER_DISTRIBUTOR'] as const;
 
 const emptyCreate: CreateUserInput = {
   email: '',
@@ -19,13 +22,25 @@ const emptyCreate: CreateUserInput = {
   name: '',
   phone: '',
   role: 'ORG_STAFF',
+  reason: '',
   organizationId: '',
+  bankName: '',
+  accountNumber: '',
+  accountHolder: '',
+  walletAddress: '',
+  walletNetwork: 'TRC20',
+  walletLabel: '',
 };
 
 export default function UsersPage() {
   const { user: me } = useAuth();
   const t = useT();
   const isSuperAdmin = me?.role === 'SUPER_ADMIN';
+  const canRegisterCustomer =
+    isSuperAdmin ||
+    CUSTOMER_REGISTER_ORG_TYPES.includes(
+      (me?.organization?.type ?? '') as (typeof CUSTOMER_REGISTER_ORG_TYPES)[number],
+    );
 
   const roleLabel = (role: UserRoleType) => t(`role.${role}` as MessageKey);
   const orgTypeLabel = (type: string) => t(`org.${type}` as MessageKey);
@@ -46,6 +61,8 @@ export default function UsersPage() {
   const [form, setForm] = useState<CreateUserInput>(emptyCreate);
   const [editForm, setEditForm] = useState<UpdateUserInput>({});
   const [newPassword, setNewPassword] = useState('');
+  const [statusReason, setStatusReason] = useState('');
+  const [initialIsActive, setInitialIsActive] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -80,19 +97,26 @@ export default function UsersPage() {
     setMsg('');
   }
 
-  function openEdit(u: ManagedUser) {
-    setEditing(u);
-    setEditForm({
-      name: u.name,
-      phone: u.phone ?? '',
-      role: u.role,
-      organizationId: u.organization?.id ?? null,
-      isActive: u.isActive,
-      recruitingOrgId: u.customerProfile?.recruitingOrg?.id,
-    });
-    setNewPassword('');
-    setModal('edit');
+  async function openEdit(u: ManagedUser) {
     setMsg('');
+    try {
+      const detail = await api.users.get(u.id);
+      setEditing(detail);
+      setEditForm({
+        name: detail.name,
+        phone: detail.phone ?? '',
+        role: detail.role,
+        organizationId: detail.organization?.id ?? null,
+        isActive: detail.isActive,
+        recruitingOrgId: detail.customerProfile?.recruitingOrg?.id,
+      });
+      setInitialIsActive(detail.isActive);
+      setStatusReason('');
+      setNewPassword('');
+      setModal('edit');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('users.loadError'));
+    }
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -112,8 +136,16 @@ export default function UsersPage() {
     e.preventDefault();
     if (!editing) return;
     setMsg('');
+    const statusChanging = editForm.isActive !== undefined && editForm.isActive !== initialIsActive;
+    if (statusChanging && !statusReason.trim()) {
+      setMsg(t('users.statusReasonRequired'));
+      return;
+    }
     try {
-      await api.users.update(editing.id, editForm);
+      await api.users.update(editing.id, {
+        ...editForm,
+        statusReason: statusChanging ? statusReason.trim() : undefined,
+      });
       if (newPassword.length >= 6) {
         await api.users.resetPassword(editing.id, newPassword);
       }
@@ -125,6 +157,41 @@ export default function UsersPage() {
     }
   }
 
+  async function handleResetPassword(u: ManagedUser) {
+    if (!window.confirm(t('users.resetPasswordConfirm', { email: u.email }))) return;
+    setMsg('');
+    setError('');
+    try {
+      const res = await api.users.resetPassword(u.id);
+      setMsg(t('users.passwordResetDone', { password: res.initialPassword ?? '' }));
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('users.resetPasswordFailed'));
+    }
+  }
+
+  async function handleResetOtp(u: ManagedUser) {
+    if (!window.confirm(t('users.resetOtpConfirm', { email: u.email }))) return;
+    setMsg('');
+    setError('');
+    try {
+      await api.users.resetOtp(u.id);
+      setMsg(t('users.otpResetDone', { email: u.email }));
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('users.resetOtpFailed'));
+    }
+  }
+
+  function salesOfficesForActor() {
+    const path = me?.organization?.path;
+    return orgs.filter(
+      (o) =>
+        o.type === 'SALES_OFFICE' &&
+        (isSuperAdmin || !path || (o.path && o.path.startsWith(path))),
+    );
+  }
+
   function orgLabel(u: ManagedUser) {
     if (u.organization) return `${u.organization.name} (${orgTypeLabel(u.organization.type)})`;
     if (u.customerProfile?.recruitingOrg) {
@@ -133,20 +200,28 @@ export default function UsersPage() {
     return '—';
   }
 
+  function adminLabel(admin?: { name: string; email: string } | null) {
+    if (!admin) return '—';
+    return `${admin.name} (${admin.email})`;
+  }
+
+  function mgmtActionLabel(action: string) {
+    return t(`users.mgmt.${action}` as MessageKey);
+  }
+
+  const statusChanging =
+    editForm.isActive !== undefined && editForm.isActive !== initialIsActive;
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[11px] text-gray-500 sm:text-xs">{t('users.subtitle')}</p>
-        <button
-          type="button"
-          onClick={openCreate}
-          className="rounded border border-blue-600 bg-blue-600 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-blue-700 sm:text-xs"
-        >
+    <div className="pg-stack">
+      <div className="pg-toolbar">
+        <p className="pg-hint">{t('users.subtitle')}</p>
+        <button type="button" onClick={openCreate} className="pg-btn pg-btn-primary">
           {t('users.add')}
         </button>
       </div>
 
-      <div className="flex flex-wrap gap-3">
+      <div className="pg-filter-bar">
         <input
           type="search"
           placeholder={t('users.search')}
@@ -155,7 +230,7 @@ export default function UsersPage() {
             setSearch(e.target.value);
             setPage(1);
           }}
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
+          className="pg-input max-w-xs"
         />
         <select
           value={roleFilter}
@@ -163,7 +238,7 @@ export default function UsersPage() {
             setRoleFilter(e.target.value as UserRoleType | '');
             setPage(1);
           }}
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
+          className="pg-select w-auto min-w-[8rem]"
         >
           <option value="">{t('users.filter.role')}</option>
           {isSuperAdmin && <option value="SUPER_ADMIN">{roleLabel('SUPER_ADMIN')}</option>}
@@ -176,7 +251,7 @@ export default function UsersPage() {
             setActiveFilter(e.target.value as '' | 'true' | 'false');
             setPage(1);
           }}
-          className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
+          className="pg-select w-auto min-w-[8rem]"
         >
           <option value="">{t('users.filter.active')}</option>
           <option value="true">{t('users.active')}</option>
@@ -184,62 +259,66 @@ export default function UsersPage() {
         </select>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      {msg && !modal && <p className="text-sm text-green-700">{msg}</p>}
+      {error && <p className="pg-callout pg-callout-error">{error}</p>}
+      {msg && !modal && <p className="pg-callout pg-callout-success">{msg}</p>}
 
-      <div className="table-scroll overflow-x-auto rounded-lg border border-gray-200 bg-white">
+      <div className="pg-card pg-table-wrap">
         <table className="pg-table">
-          <thead className="bg-gray-50">
+          <thead>
             <tr>
-              <th className="px-4 py-3 text-left font-medium text-gray-500">{t('users.col.email')}</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-500">{t('users.col.name')}</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-500">{t('users.col.role')}</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-500">{t('users.col.org')}</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-500">{t('users.col.status')}</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-500">{t('users.col.lastLogin')}</th>
-              <th className="px-4 py-3 text-right font-medium text-gray-500">{t('users.col.actions')}</th>
+              <th>{t('users.col.email')}</th>
+              <th>{t('users.col.name')}</th>
+              <th>{t('users.col.role')}</th>
+              <th>{t('users.col.org')}</th>
+              <th>{t('users.col.status')}</th>
+              <th>{t('users.col.createdBy')}</th>
+              <th>{t('users.col.lastLogin')}</th>
+              <th>{t('users.col.actions')}</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
+                <td colSpan={8} className="pg-empty">
                   {t('common.loading')}
                 </td>
               </tr>
             ) : users.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
+                <td colSpan={8} className="pg-empty">
                   {t('users.empty')}
                 </td>
               </tr>
             ) : (
               users.map((u) => (
-                <tr key={u.id} className="border-t border-gray-100">
-                  <td className="px-4 py-3">{u.email}</td>
-                  <td className="px-4 py-3">{u.name}</td>
-                  <td className="px-4 py-3">{roleLabel(u.role)}</td>
-                  <td className="px-4 py-3">{orgLabel(u)}</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs ${
-                        u.isActive ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'
-                      }`}
-                    >
+                <tr key={u.id}>
+                  <td>{u.email}</td>
+                  <td>{u.name}</td>
+                  <td>{roleLabel(u.role)}</td>
+                  <td>{orgLabel(u)}</td>
+                  <td>
+                    <span className={`pg-badge ${u.isActive ? 'pg-badge-success' : 'pg-badge-muted'}`}>
                       {u.isActive ? t('users.active') : t('users.inactive')}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-gray-500">
+                  <td className="pg-muted text-[11px]">{adminLabel(u.createdBy)}</td>
+                  <td className="pg-muted">
                     {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString('ko-KR') : '—'}
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      type="button"
-                      onClick={() => openEdit(u)}
-                      className="text-blue-600 hover:underline"
-                    >
-                      {t('users.edit')}
-                    </button>
+                  <td>
+                    <div className="pg-table-actions">
+                      <button type="button" onClick={() => openEdit(u)} className="pg-link">
+                        {t('users.edit')}
+                      </button>
+                      <span className="pg-muted">|</span>
+                      <button type="button" onClick={() => handleResetPassword(u)} className="pg-link-warn">
+                        {t('users.resetPasswordBtn')}
+                      </button>
+                      <span className="pg-muted">|</span>
+                      <button type="button" onClick={() => handleResetOtp(u)} className="pg-link-danger">
+                        {t('users.resetOtpBtn')}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -248,16 +327,15 @@ export default function UsersPage() {
         </table>
       </div>
 
-      <p className="text-xs text-gray-400">{t('users.total', { n: total })}</p>
+      <p className="pg-hint">{t('users.total', { n: total })}</p>
 
       {modal === 'create' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <form
-            onSubmit={handleCreate}
-            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-lg"
-          >
-            <h2 className="text-lg font-bold">{t('users.createTitle')}</h2>
-            <div className="mt-4 space-y-3">
+        <div className="pg-modal-overlay">
+          <form onSubmit={handleCreate} className="pg-modal">
+            <div className="pg-modal-head">
+              <h2 className="pg-modal-title">{t('users.createTitle')}</h2>
+            </div>
+            <div className="pg-modal-body">
               <Field label={t('auth.email')} required>
                 <input
                   type="email"
@@ -300,7 +378,7 @@ export default function UsersPage() {
                 >
                   {isSuperAdmin && <option value="SUPER_ADMIN">{roleLabel('SUPER_ADMIN')}</option>}
                   <option value="ORG_STAFF">{roleLabel('ORG_STAFF')}</option>
-                  <option value="CUSTOMER">{roleLabel('CUSTOMER')}</option>
+                  {canRegisterCustomer && <option value="CUSTOMER">{roleLabel('CUSTOMER')}</option>}
                 </select>
               </Field>
               {form.role === 'ORG_STAFF' && (
@@ -330,13 +408,11 @@ export default function UsersPage() {
                       className="pg-input"
                     >
                       <option value="">{t('users.select')}</option>
-                      {orgs
-                        .filter((o) => o.type === 'SALES_OFFICE')
-                        .map((o) => (
-                          <option key={o.id} value={o.id}>
-                            {o.name}
-                          </option>
-                        ))}
+                      {salesOfficesForActor().map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.name}
+                        </option>
+                      ))}
                     </select>
                   </Field>
                   <Field label={t('auth.customerType')}>
@@ -354,12 +430,83 @@ export default function UsersPage() {
                       <option value="CORPORATE">{t('auth.corporate')}</option>
                     </select>
                   </Field>
+                  <div className="pg-inset-panel">
+                    <p className="pg-inset-title">{t('users.bankSection')}</p>
+                    <Field label={t('users.bankName')} required>
+                      <input
+                        required
+                        value={form.bankName ?? ''}
+                        onChange={(e) => setForm({ ...form, bankName: e.target.value })}
+                        className="pg-input"
+                        placeholder={t('users.bankNamePlaceholder')}
+                      />
+                    </Field>
+                    <Field label={t('users.accountNumber')} required>
+                      <input
+                        required
+                        value={form.accountNumber ?? ''}
+                        onChange={(e) => setForm({ ...form, accountNumber: e.target.value })}
+                        className="pg-input"
+                      />
+                    </Field>
+                    <Field label={t('users.accountHolder')} required>
+                      <input
+                        required
+                        value={form.accountHolder ?? ''}
+                        onChange={(e) => setForm({ ...form, accountHolder: e.target.value })}
+                        className="pg-input"
+                      />
+                    </Field>
+                  </div>
+                  <div className="pg-inset-panel">
+                    <p className="pg-inset-title">{t('users.walletSection')}</p>
+                    <Field label={t('wallets.label')}>
+                      <input
+                        value={form.walletLabel ?? ''}
+                        onChange={(e) => setForm({ ...form, walletLabel: e.target.value })}
+                        className="pg-input"
+                        placeholder={t('wallets.defaultLabel')}
+                      />
+                    </Field>
+                    <Field label={t('wallets.address')} required>
+                      <input
+                        required
+                        value={form.walletAddress ?? ''}
+                        onChange={(e) => setForm({ ...form, walletAddress: e.target.value })}
+                        className="pg-input"
+                      />
+                    </Field>
+                    <Field label={t('users.walletNetwork')} required>
+                      <select
+                        required
+                        value={form.walletNetwork ?? 'TRC20'}
+                        onChange={(e) => setForm({ ...form, walletNetwork: e.target.value })}
+                        className="pg-input"
+                      >
+                        {WALLET_NETWORKS.map((n) => (
+                          <option key={n.value} value={n.value}>
+                            {n.label}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                  </div>
                 </>
               )}
+              <Field label={t('users.registerReason')} required>
+                <textarea
+                  required
+                  rows={3}
+                  value={form.reason}
+                  onChange={(e) => setForm({ ...form, reason: e.target.value })}
+                  className="pg-input min-h-[72px]"
+                  placeholder={t('users.registerReasonPlaceholder')}
+                />
+              </Field>
             </div>
-            {msg && <p className="mt-3 text-sm text-red-600">{msg}</p>}
-            <div className="mt-6 flex justify-end gap-2">
-              <button type="button" onClick={() => setModal(null)} className="rounded-lg border border-gray-200 px-4 py-2 text-sm">
+            {msg && <p className="pg-callout pg-callout-error mx-6 mb-0">{msg}</p>}
+            <div className="pg-modal-foot">
+              <button type="button" onClick={() => setModal(null)} className="pg-btn pg-btn-secondary">
                 {t('common.cancel')}
               </button>
               <button type="submit" className="pg-btn pg-btn-primary">
@@ -371,14 +518,28 @@ export default function UsersPage() {
       )}
 
       {modal === 'edit' && editing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <form
-            onSubmit={handleUpdate}
-            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-lg"
-          >
-            <h2 className="text-lg font-bold">{t('users.editTitle')}</h2>
-            <p className="text-sm text-gray-500">{editing.email}</p>
-            <div className="mt-4 space-y-3">
+        <div className="pg-modal-overlay">
+          <form onSubmit={handleUpdate} className="pg-modal">
+            <div className="pg-modal-head">
+              <h2 className="pg-modal-title">{t('users.editTitle')}</h2>
+              <p className="pg-modal-sub">{editing.email}</p>
+            </div>
+            <div className="pg-modal-body">
+              {(editing.createdBy || editing.registerReason) && (
+                <div className="pg-inset-panel mb-3">
+                  <p className="pg-inset-title">{t('users.registrationInfo')}</p>
+                  <p className="mt-1 text-[12px]">
+                    <span className="font-medium">{t('users.col.createdBy')}: </span>
+                    {adminLabel(editing.createdBy)}
+                  </p>
+                  {editing.registerReason && (
+                    <p className="mt-1 text-[12px]">
+                      <span className="font-medium">{t('users.registerReason')}: </span>
+                      {editing.registerReason}
+                    </p>
+                  )}
+                </div>
+              )}
               <Field label={t('auth.name')} required>
                 <input
                   required
@@ -428,26 +589,42 @@ export default function UsersPage() {
                 </Field>
               )}
               {editForm.role === 'CUSTOMER' && (
-                <Field label={t('users.recruitOrg')}>
-                  <select
-                    value={editForm.recruitingOrgId ?? ''}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, recruitingOrgId: e.target.value })
-                    }
-                    className="pg-input"
-                  >
-                    {orgs
-                      .filter((o) => o.type === 'SALES_OFFICE')
-                      .map((o) => (
+                <>
+                  <Field label={t('users.recruitOrg')}>
+                    <select
+                      value={editForm.recruitingOrgId ?? ''}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, recruitingOrgId: e.target.value })
+                      }
+                      className="pg-input"
+                    >
+                      {salesOfficesForActor().map((o) => (
                         <option key={o.id} value={o.id}>
                           {o.name}
                         </option>
                       ))}
-                  </select>
-                </Field>
+                    </select>
+                  </Field>
+                  {editing.bankAccounts?.[0] && (
+                    <div className="pg-inset-panel">
+                      <p className="pg-inset-title">{t('users.bankSection')}</p>
+                      <p className="mt-1">
+                        {editing.bankAccounts[0].bankName} · {editing.bankAccounts[0].accountNumber}
+                      </p>
+                      <p className="pg-hint">{editing.bankAccounts[0].accountHolder}</p>
+                    </div>
+                  )}
+                  {editing.wallets?.[0] && (
+                    <div className="pg-inset-panel">
+                      <p className="pg-inset-title">{t('users.walletSection')}</p>
+                      <p className="mt-1 font-mono text-[11px]">{editing.wallets[0].address}</p>
+                      <p className="pg-hint">{editing.wallets[0].network}</p>
+                    </div>
+                  )}
+                </>
               )}
               <Field label={t('users.col.status')}>
-                <label className="flex items-center gap-2 text-sm">
+                <label className="flex items-center gap-2 text-xs">
                   <input
                     type="checkbox"
                     checked={editForm.isActive ?? true}
@@ -456,6 +633,22 @@ export default function UsersPage() {
                   {t('users.accountActive')}
                 </label>
               </Field>
+              {statusChanging && (
+                <Field label={t('users.statusReason')} required>
+                  <textarea
+                    required
+                    rows={3}
+                    value={statusReason}
+                    onChange={(e) => setStatusReason(e.target.value)}
+                    className="pg-input min-h-[72px]"
+                    placeholder={
+                      editForm.isActive
+                        ? t('users.activateReasonPlaceholder')
+                        : t('users.deactivateReasonPlaceholder')
+                    }
+                  />
+                </Field>
+              )}
               <Field label={t('users.resetPassword')}>
                 <input
                   type="password"
@@ -465,10 +658,29 @@ export default function UsersPage() {
                   className="pg-input"
                 />
               </Field>
+              {editing.managementLogs && editing.managementLogs.length > 0 && (
+                <div className="pg-inset-panel">
+                  <p className="pg-inset-title">{t('users.mgmtHistory')}</p>
+                  <div className="mt-2 max-h-40 space-y-2 overflow-y-auto">
+                    {editing.managementLogs.map((log) => (
+                      <div key={log.id} className="border-b border-gray-100 pb-2 text-[11px] last:border-0">
+                        <div className="flex flex-wrap gap-x-2 font-medium">
+                          <span>{mgmtActionLabel(log.action)}</span>
+                          <span className="pg-muted">
+                            {new Date(log.createdAt).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="pg-muted">{adminLabel(log.changedBy)}</div>
+                        <div className="mt-0.5">{log.reason}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-            {msg && <p className="mt-3 text-sm text-red-600">{msg}</p>}
-            <div className="mt-6 flex justify-end gap-2">
-              <button type="button" onClick={() => setModal(null)} className="rounded-lg border border-gray-200 px-4 py-2 text-sm">
+            {msg && <p className="pg-callout pg-callout-error mx-6 mb-0">{msg}</p>}
+            <div className="pg-modal-foot">
+              <button type="button" onClick={() => setModal(null)} className="pg-btn pg-btn-secondary">
                 {t('common.cancel')}
               </button>
               <button type="submit" className="pg-btn pg-btn-primary">
@@ -492,10 +704,10 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <label className="block text-sm">
-      <span className="text-gray-600">
+    <label className="pg-field">
+      <span className="pg-field-label">
         {label}
-        {required && <span className="text-red-500"> *</span>}
+        {required && <span className="pg-field-required"> *</span>}
       </span>
       <div className="mt-1">{children}</div>
     </label>

@@ -15,6 +15,7 @@ export type ResolvedBranding = {
   footerText: string;
   loginNoticeEnabled: boolean;
   loginNoticeI18n: Partial<Record<Locale, { title: string; body: string }>>;
+  customerRegistrationEnabled: boolean;
 };
 
 function resolveUrls(b: BrandingResponse): ResolvedBranding {
@@ -29,6 +30,7 @@ function resolveUrls(b: BrandingResponse): ResolvedBranding {
     footerText: b.footerText || '',
     loginNoticeEnabled: b.loginNoticeEnabled !== false,
     loginNoticeI18n: b.loginNoticeI18n ?? {},
+    customerRegistrationEnabled: b.customerRegistrationEnabled === true,
   };
 }
 
@@ -42,6 +44,7 @@ const FALLBACK: ResolvedBranding = {
   footerText: '',
   loginNoticeEnabled: true,
   loginNoticeI18n: {},
+  customerRegistrationEnabled: false,
 };
 
 export function useBranding() {

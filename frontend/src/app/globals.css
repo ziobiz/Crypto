@@ -5,6 +5,122 @@
 @layer base {
   html {
     -webkit-tap-highlight-color: transparent;
+    /* 본문 영역 — 셸 테마와 무관 (기본형 패턴 고정) */
+    --shell-main-bg: #eceef1;
+    --shell-content-text: #374151;
+    --shell-content-text-muted: #6b7280;
+    --shell-frame-bg: #ffffff;
+    --shell-frame-border: #e5e7eb;
+    --shell-frame-head-bg: #ffffff;
+    --shell-card-bg: #ffffff;
+    --shell-card-head-bg: #f8f9fa;
+    --shell-card-border: #e5e7eb;
+    --shell-table-head-bg: #f8f9fa;
+    --shell-table-border: #e5e7eb;
+    --shell-table-row-hover: rgba(0, 0, 0, 0.03);
+    --shell-stat-bg: #ffffff;
+    --shell-stat-border: #e5e7eb;
+    --shell-input-bg: #ffffff;
+    --shell-input-border: #d1d5db;
+    --shell-input-text: #1f2937;
+    --shell-subtab-active-bg: #8b929e;
+    --shell-subtab-active-text: #ffffff;
+    --shell-subtab-idle-bg: #f3f4f6;
+    --shell-subtab-idle-text: #4b5563;
+    /* 사이드바 로고·접기 행과 우측 세션·탭 행 높이 동기화 */
+    --shell-chrome-logo-h: calc(3.5rem + 0.5rem);
+    --shell-chrome-nav-row-h: 2.25rem;
+  }
+
+  /* 기본형 */
+  html,
+  html[data-shell-theme='default'] {
+    --shell-sidebar-bg: #565e6d;
+    --shell-sidebar-border: #464d5a;
+    --shell-sidebar-divider: rgba(0, 0, 0, 0.18);
+    --shell-sidebar-gap: 0.5rem;
+    --shell-collapse-bg: #4e5664;
+    --shell-nav-text: #ffffff;
+    --shell-nav-idle: #ffffff;
+    --shell-nav-hover-bg: rgba(255, 255, 255, 0.14);
+    --shell-nav-active-bg: #8b929e;
+    --shell-nav-active-text: #ffffff;
+    --shell-collapse-text: #e5e7eb;
+    --shell-collapse-hover: rgba(255, 255, 255, 0.12);
+    --shell-session-bg: #c8cdd6;
+    --shell-session-border: #b0b7c2;
+    --shell-session-text: #1f2937;
+    --shell-session-text-muted: #4b5563;
+    --shell-session-pill-bg: #ffffff;
+    --shell-session-pill-border: #a8b0bc;
+    --shell-session-hover: rgba(255, 255, 255, 0.45);
+    --shell-tab-bg: #bcc2cc;
+    --shell-tab-border: #a8b0bc;
+    --shell-tab-text: #374151;
+    --shell-tab-hover: rgba(255, 255, 255, 0.55);
+    --shell-tab-active-bg: #ffffff;
+    --shell-tab-active-text: #111827;
+    --shell-logo-text: #ffffff;
+  }
+
+  /* 어두운색 — ICOPAY 동일 톤 (사이드바·상단바만) */
+  html[data-shell-theme='dark'] {
+    --shell-sidebar-bg: #2c2f36;
+    --shell-sidebar-border: #1e2128;
+    --shell-sidebar-divider: rgba(255, 255, 255, 0.1);
+    --shell-sidebar-gap: 0.5rem;
+    --shell-collapse-bg: #35383f;
+    --shell-nav-text: #f3f4f6;
+    --shell-nav-idle: #d1d5db;
+    --shell-nav-hover-bg: rgba(255, 255, 255, 0.06);
+    --shell-nav-active-bg: #25282e;
+    --shell-nav-active-text: #ffffff;
+    --shell-collapse-text: #e5e7eb;
+    --shell-collapse-hover: rgba(255, 255, 255, 0.08);
+    --shell-session-bg: #eef0f3;
+    --shell-session-border: #d1d5db;
+    --shell-session-text: #1f2937;
+    --shell-session-text-muted: #4b5563;
+    --shell-session-pill-bg: #ffffff;
+    --shell-session-pill-border: #c8cdd4;
+    --shell-session-hover: rgba(0, 0, 0, 0.05);
+    --shell-tab-bg: #525860;
+    --shell-tab-border: #464b54;
+    --shell-tab-text: #e5e7eb;
+    --shell-tab-hover: rgba(255, 255, 255, 0.08);
+    --shell-tab-active-bg: #2c2f36;
+    --shell-tab-active-text: #ffffff;
+    --shell-logo-text: #f3f4f6;
+  }
+
+  /* 밝은형 */
+  html[data-shell-theme='light'] {
+    --shell-sidebar-bg: #dfe3e8;
+    --shell-sidebar-border: #c8cdd4;
+    --shell-sidebar-divider: rgba(0, 0, 0, 0.1);
+    --shell-sidebar-gap: 0.5rem;
+    --shell-collapse-bg: #d5dae0;
+    --shell-nav-text: #111827;
+    --shell-nav-idle: #374151;
+    --shell-nav-hover-bg: rgba(255, 255, 255, 0.65);
+    --shell-nav-active-bg: #b8bec8;
+    --shell-nav-active-text: #111827;
+    --shell-collapse-text: #374151;
+    --shell-collapse-hover: rgba(255, 255, 255, 0.5);
+    --shell-session-bg: #f3f4f6;
+    --shell-session-border: #e5e7eb;
+    --shell-session-text: #374151;
+    --shell-session-text-muted: #6b7280;
+    --shell-session-pill-bg: #ffffff;
+    --shell-session-pill-border: #d1d5db;
+    --shell-session-hover: rgba(0, 0, 0, 0.04);
+    --shell-tab-bg: #e8eaed;
+    --shell-tab-border: #d1d5db;
+    --shell-tab-text: #4b5563;
+    --shell-tab-hover: rgba(255, 255, 255, 0.7);
+    --shell-tab-active-bg: #ffffff;
+    --shell-tab-active-text: #111827;
+    --shell-logo-text: #111827;
   }
 
   input,
@@ -24,34 +140,43 @@
   }
 }
 
-/* ICOPAY / ziobiz PG 관리자 UI */
+/* ICOPAY / ziobiz PG 관리자 UI — 폰트 스케일 (업체정보 화면 기준) */
 @layer components {
   .pg-admin {
     font-family: -apple-system, BlinkMacSystemFont, "Malgun Gothic", "Apple SD Gothic Neo",
       "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.5;
-    color: #374151;
+    color: var(--shell-content-text);
   }
 
   .pg-frame {
-    @apply min-h-full overflow-hidden rounded border border-gray-200 bg-white shadow-sm;
+    @apply min-h-full overflow-hidden rounded shadow-sm;
+    background-color: var(--shell-frame-bg);
+    border: 1px solid var(--shell-frame-border);
   }
 
   .pg-frame-head {
-    @apply flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-gray-200 bg-white px-4 py-2.5;
+    @apply flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b px-4 py-3;
+    background-color: var(--shell-frame-head-bg);
+    border-color: var(--shell-frame-border);
   }
 
+  /* 좌측 페이지 제목 — 13px bold */
   .pg-frame-title {
-    @apply text-[11px] font-semibold text-gray-800;
+    @apply text-[13px] font-bold leading-snug;
+    color: var(--shell-content-text);
   }
 
+  /* 우측 breadcrumb — 13px bold */
   .pg-frame-path {
-    @apply text-[10px] text-gray-500;
+    @apply text-[13px] font-bold leading-snug;
+    color: var(--shell-content-text);
   }
 
   .pg-frame-body {
     @apply space-y-4 p-4;
+    color: var(--shell-content-text);
   }
 
   .pg-stack {
@@ -59,41 +184,59 @@
   }
 
   .pg-card {
-    @apply overflow-hidden rounded border border-gray-200 bg-white;
+    @apply overflow-hidden rounded;
+    background-color: var(--shell-card-bg);
+    border: 1px solid var(--shell-card-border);
   }
 
   .pg-card-head {
-    @apply border-b border-gray-100 bg-[#f8f9fa] px-4 py-2 text-[11px] font-semibold text-gray-700;
+    @apply border-b px-4 py-2 text-xs font-bold leading-snug;
+    background-color: var(--shell-card-head-bg);
+    border-color: var(--shell-card-border);
+    color: var(--shell-content-text);
   }
 
   .pg-card-body {
-    @apply p-4 text-[11px] leading-relaxed text-gray-700;
+    @apply p-4 text-xs leading-relaxed;
+    color: var(--shell-content-text);
   }
 
   .pg-section {
-    @apply overflow-hidden rounded border border-gray-200 bg-white;
+    @apply overflow-hidden rounded;
+    background-color: var(--shell-card-bg);
+    border: 1px solid var(--shell-card-border);
   }
 
+  /* 섹션 헤더 — 12px bold (시볼 수수료 정책, 수수료·리스크 정책 등) */
   .pg-section-head {
-    @apply border-b border-gray-100 bg-[#f8f9fa] px-4 py-2 text-[11px] font-semibold text-gray-800;
+    @apply border-b px-4 py-2 text-xs font-bold leading-snug;
+    background-color: var(--shell-card-head-bg);
+    border-color: var(--shell-card-border);
+    color: var(--shell-content-text);
   }
 
   .pg-section-pad {
-    @apply space-y-3 p-4 text-[11px] leading-relaxed text-gray-700;
+    @apply space-y-3 p-4 text-xs leading-relaxed;
+    color: var(--shell-content-text);
   }
 
   .pg-label {
-    @apply block text-[11px] font-medium text-gray-700;
+    @apply block text-xs font-medium;
+    color: var(--shell-content-text);
   }
 
   .pg-hint {
-    @apply text-[10px] leading-relaxed text-gray-500;
+    @apply text-[11px] leading-relaxed;
+    color: var(--shell-content-text-muted);
   }
 
   .pg-input,
   .pg-select,
   .pg-textarea {
-    @apply w-full rounded border border-gray-300 bg-white px-2.5 py-1.5 text-[11px] text-gray-800 shadow-sm;
+    @apply w-full rounded px-2.5 py-1.5 text-xs shadow-sm;
+    background-color: var(--shell-input-bg);
+    border: 1px solid var(--shell-input-border);
+    color: var(--shell-input-text);
   }
 
   .pg-input:focus,
@@ -103,7 +246,7 @@
   }
 
   .pg-btn {
-    @apply inline-flex items-center justify-center rounded border px-2.5 py-1 text-[11px] font-medium leading-none transition;
+    @apply inline-flex items-center justify-center rounded border px-2.5 py-1.5 text-xs font-medium leading-none transition;
   }
 
   .pg-btn-primary {
@@ -114,72 +257,373 @@
     @apply border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50;
   }
 
+  html[data-shell-theme='dark'] .pg-btn-secondary {
+    background-color: var(--shell-input-bg);
+    border-color: var(--shell-input-border);
+    color: var(--shell-content-text);
+  }
+
+  html[data-shell-theme='dark'] .pg-btn-secondary:hover {
+    background-color: var(--shell-card-head-bg);
+  }
+
   .pg-table {
-    @apply min-w-full border-collapse text-[11px];
+    @apply min-w-full border-collapse text-xs;
+    color: var(--shell-content-text);
+    border: 1px solid var(--shell-table-border);
   }
 
   .pg-table thead {
-    @apply bg-[#f8f9fa];
+    background-color: var(--shell-table-head-bg);
   }
 
   .pg-table th {
-    @apply border-b border-gray-200 px-3 py-2 text-left font-medium text-gray-500;
+    @apply px-3 py-2.5 text-center align-middle font-medium;
+    border: 1px solid var(--shell-table-border);
+    color: var(--shell-content-text-muted);
   }
 
   .pg-table td {
-    @apply border-b border-gray-100 px-3 py-2 text-gray-700;
+    @apply px-3 py-2.5 text-center align-middle;
+    border: 1px solid var(--shell-table-border);
+    color: var(--shell-content-text);
+  }
+
+  .pg-table tbody tr:nth-child(even) {
+    background-color: rgba(248, 250, 252, 0.65);
   }
 
   .pg-table tbody tr:hover {
-    @apply bg-gray-50/80;
+    background-color: var(--shell-table-row-hover);
+  }
+
+  .pg-table .pg-input,
+  .pg-table .pg-select,
+  .pg-table input:not([type='checkbox']),
+  .pg-table select {
+    @apply mx-auto text-center;
+    display: block;
+  }
+
+  .pg-table input[type='checkbox'] {
+    @apply mx-auto;
+    display: block;
+  }
+
+  .pg-table .pg-table-actions {
+    @apply flex flex-wrap items-center justify-center gap-1;
+  }
+
+  .pg-table td > span,
+  .pg-table td > .policy-cell-value {
+    @apply mx-auto;
+  }
+
+  .pg-table-wrap {
+    @apply overflow-x-auto;
+  }
+
+  .pg-toolbar {
+    @apply flex flex-wrap items-center justify-between gap-2;
+  }
+
+  .pg-filter-bar {
+    @apply flex flex-wrap gap-2;
+  }
+
+  .pg-empty {
+    @apply py-6 text-center;
+    color: var(--shell-content-text-muted);
+  }
+
+  .pg-muted {
+    color: var(--shell-content-text-muted);
+  }
+
+  .pg-link {
+    @apply font-medium text-blue-600 hover:underline;
+  }
+
+  .pg-link-warn {
+    @apply text-amber-700 hover:underline;
+  }
+
+  .pg-link-danger {
+    @apply text-rose-700 hover:underline;
+  }
+
+  .pg-row-edit {
+    background-color: rgba(255, 251, 235, 0.75) !important;
+  }
+
+  .pg-callout {
+    @apply rounded border px-3 py-2 text-[11px] leading-relaxed;
+  }
+
+  .pg-callout-info {
+    border-color: #bfdbfe;
+    background-color: #eff6ff;
+    color: #1e40af;
+  }
+
+  .pg-callout-warn {
+    border-color: #fde68a;
+    background-color: #fffbeb;
+    color: #92400e;
+  }
+
+  .pg-callout-muted {
+    border-color: var(--shell-card-border);
+    background-color: var(--shell-card-head-bg);
+    color: var(--shell-content-text);
+  }
+
+  .pg-callout-error {
+    border-color: #fecaca;
+    background-color: #fef2f2;
+    color: #991b1b;
+  }
+
+  .pg-callout-success {
+    border-color: #bbf7d0;
+    background-color: #f0fdf4;
+    color: #166534;
+  }
+
+  .pg-badge {
+    @apply inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium leading-none;
+  }
+
+  .pg-badge-success {
+    background-color: #dcfce7;
+    color: #166534;
+  }
+
+  .pg-badge-info {
+    background-color: #dbeafe;
+    color: #1e40af;
+  }
+
+  .pg-badge-warn {
+    background-color: #fef3c7;
+    color: #92400e;
+  }
+
+  .pg-badge-progress {
+    background-color: #ede9fe;
+    color: #5b21b6;
+  }
+
+  .pg-badge-muted {
+    background-color: #f3f4f6;
+    color: #6b7280;
+  }
+
+  .pg-badge-error {
+    background-color: #fee2e2;
+    color: #991b1b;
+  }
+
+  .pg-modal-overlay {
+    @apply fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4;
+  }
+
+  .pg-modal {
+    @apply max-h-[90vh] w-full max-w-lg overflow-y-auto rounded shadow-lg;
+    background-color: var(--shell-card-bg);
+    border: 1px solid var(--shell-card-border);
+  }
+
+  .pg-modal-head {
+    @apply border-b px-6 py-4;
+    border-color: var(--shell-card-border);
+  }
+
+  .pg-modal-title {
+    @apply text-sm font-bold;
+    color: var(--shell-content-text);
+  }
+
+  .pg-modal-sub {
+    @apply mt-1 text-[11px];
+    color: var(--shell-content-text-muted);
+  }
+
+  .pg-modal-body {
+    @apply space-y-3 p-6 text-xs;
+  }
+
+  .pg-modal-foot {
+    @apply flex justify-end gap-2 border-t px-6 py-4;
+    border-color: var(--shell-card-border);
+  }
+
+  .pg-segment-bar {
+    @apply flex flex-wrap gap-1 border-b pb-2;
+    border-color: var(--shell-card-border);
+  }
+
+  .pg-choice {
+    @apply rounded border px-3 py-2.5 text-left text-xs transition;
+    border-color: var(--shell-card-border);
+    background-color: var(--shell-card-head-bg);
+    color: var(--shell-content-text);
+  }
+
+  .pg-choice-active {
+    border-color: #2563eb;
+    background-color: #eff6ff;
+    color: #1e3a8a;
+    @apply ring-1 ring-blue-600;
+  }
+
+  .pg-field {
+    @apply block text-xs;
+  }
+
+  .pg-field-label {
+    @apply font-medium;
+    color: var(--shell-content-text);
+  }
+
+  .pg-field-required {
+    @apply text-red-500;
+  }
+
+  .pg-inset-panel {
+    @apply space-y-3 rounded border p-3;
+    border-color: var(--shell-card-border);
+    background-color: var(--shell-card-head-bg);
+  }
+
+  .pg-inset-title {
+    @apply text-xs font-semibold;
+    color: var(--shell-content-text);
   }
 
   .pg-stat {
-    @apply rounded border border-gray-200 bg-white p-4;
+    @apply rounded p-4;
+    background-color: var(--shell-stat-bg);
+    border: 1px solid var(--shell-stat-border);
   }
 
   .pg-stat-label {
-    @apply text-[10px] text-gray-500;
+    @apply text-[10px];
+    color: var(--shell-content-text-muted);
   }
 
   .pg-stat-value {
-    @apply mt-1 text-base font-bold text-gray-900;
+    @apply mt-1 text-base font-bold;
+    color: var(--shell-content-text);
   }
 
   .pg-nav-item {
-    @apply mb-1 flex items-center gap-2.5 rounded-md px-3 py-2.5 text-[12px] leading-snug transition;
+    @apply mb-1 flex items-center gap-2.5 rounded-md px-3 py-2.5 text-[13px] leading-snug transition;
+    color: var(--shell-nav-idle);
   }
 
   .pg-nav-item-active {
-    @apply bg-[#8b929e] font-medium text-white shadow-sm;
+    background-color: var(--shell-nav-active-bg);
+    color: var(--shell-nav-active-text);
+    @apply font-medium shadow-sm;
   }
 
-  .pg-nav-item-idle {
-    @apply text-[#e8eaed] hover:bg-white/10 hover:text-white;
+  .pg-nav-item-idle:hover {
+    background-color: var(--shell-nav-hover-bg);
+    color: var(--shell-nav-text);
+  }
+
+  .pg-sidebar {
+    background-color: var(--shell-sidebar-bg);
+    border-right: 1px solid var(--shell-sidebar-border);
+  }
+
+  .pg-sidebar-logo {
+    @apply flex items-center justify-center;
+    min-height: var(--shell-chrome-logo-h);
+    background-color: var(--shell-sidebar-bg);
+  }
+
+  .pg-sidebar-collapse-wrap {
+    @apply flex items-stretch;
+    min-height: var(--shell-chrome-nav-row-h);
+    margin-bottom: var(--shell-sidebar-gap);
+    border-top: 1px solid var(--shell-sidebar-divider);
+    border-bottom: 1px solid var(--shell-sidebar-divider);
+    background-color: var(--shell-collapse-bg);
+  }
+
+  .pg-sidebar-collapse {
+    @apply flex w-full flex-1 items-center justify-center gap-1 text-xs transition;
+    border: none;
+    background: transparent;
+    color: var(--shell-collapse-text);
+  }
+
+  .pg-sidebar-collapse:hover {
+    background-color: var(--shell-collapse-hover);
+  }
+
+  .pg-tab-bar {
+    @apply flex shrink-0 items-center gap-0 border-b px-3;
+    min-height: var(--shell-chrome-nav-row-h);
+    background-color: var(--shell-tab-bg);
+    border-color: var(--shell-tab-border);
+  }
+
+  .pg-tab {
+    @apply max-w-[180px] truncate rounded-t border border-transparent px-3 py-1.5 text-xs leading-tight transition;
+    color: var(--shell-tab-text);
+  }
+
+  .pg-tab-active {
+    background-color: var(--shell-tab-active-bg);
+    color: var(--shell-tab-active-text);
+    @apply font-medium;
+    border-color: var(--shell-tab-border);
+    border-bottom-color: var(--shell-tab-active-bg);
+  }
+
+  .pg-tab-idle:hover {
+    background-color: var(--shell-tab-hover);
   }
 
   .pg-subtab {
-    @apply rounded-md px-3 py-1.5 text-[11px] font-medium transition;
+    @apply rounded-md px-3 py-1.5 text-xs font-bold transition;
   }
 
   .pg-subtab-active {
-    @apply bg-[#8b929e] text-white;
+    background-color: var(--shell-subtab-active-bg);
+    color: var(--shell-subtab-active-text);
   }
 
   .pg-subtab-idle {
-    @apply bg-gray-100 text-gray-600 hover:bg-gray-200;
+    background-color: var(--shell-subtab-idle-bg);
+    color: var(--shell-subtab-idle-text);
+  }
+
+  .pg-subtab-idle:hover {
+    filter: brightness(1.05);
   }
 
   .pg-session-bar {
-    @apply shrink-0 border-b border-gray-300 bg-[#eef0f3] text-xs leading-normal text-gray-700;
+    @apply shrink-0 border-b text-xs leading-normal;
+    min-height: var(--shell-chrome-logo-h);
+    background-color: var(--shell-session-bg);
+    border-color: var(--shell-session-border);
+    color: var(--shell-session-text);
   }
 
   .pg-session-inner {
-    @apply flex min-h-[40px] items-center justify-end gap-1 px-4 py-2;
+    @apply flex items-center justify-end gap-1 px-4 py-1;
+    min-height: var(--shell-chrome-logo-h);
+    height: 100%;
   }
 
   .pg-session-pill {
-    @apply inline-flex items-center rounded-full border border-gray-300 bg-white px-1.5 py-1 shadow-sm;
+    @apply inline-flex items-center rounded-full border px-1.5 py-1 shadow-sm;
+    background-color: var(--shell-session-pill-bg);
+    border-color: var(--shell-session-pill-border);
   }
 
   .pg-session-lang {
@@ -191,7 +635,11 @@
   }
 
   .pg-session-lang-idle {
-    @apply text-gray-500 hover:text-gray-800;
+    color: var(--shell-session-text-muted);
+  }
+
+  .pg-session-lang-idle:hover {
+    color: var(--shell-session-text);
   }
 
   .pg-session-meta {
@@ -199,34 +647,66 @@
   }
 
   .pg-session-meta-label {
-    @apply font-medium text-gray-800;
+    @apply font-medium;
+    color: var(--shell-session-text);
   }
 
   .pg-session-meta-value {
-    @apply font-mono text-xs text-gray-600;
+    @apply font-mono text-xs;
+    color: var(--shell-session-text-muted);
   }
 
   .pg-session-user {
-    @apply inline-flex h-8 max-w-[15rem] items-center gap-2 rounded-md px-2 text-left hover:bg-white/70;
+    @apply inline-flex h-8 max-w-[15rem] items-center gap-2 rounded-md px-2 text-left;
+  }
+
+  .pg-session-user:hover {
+    background-color: var(--shell-session-hover);
+  }
+
+  .pg-theme-pill {
+    @apply inline-flex items-center rounded-full border px-0.5 py-0.5 shadow-sm;
+    background-color: var(--shell-session-pill-bg);
+    border-color: var(--shell-session-pill-border);
+  }
+
+  .pg-theme-btn {
+    @apply rounded-full px-2 py-1 text-xs font-semibold leading-none transition;
+  }
+
+  .pg-theme-btn-active {
+    @apply bg-blue-600 text-white;
+  }
+
+  .pg-theme-btn-idle {
+    color: var(--shell-session-text-muted);
+  }
+
+  .pg-theme-btn-idle:hover {
+    color: var(--shell-session-text);
   }
 
   .pg-session-close {
-    @apply ml-2 inline-flex shrink-0 items-center gap-1 rounded bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700;
+    @apply ml-2 inline-flex shrink-0 items-center gap-1 rounded px-3 py-1.5 text-xs font-medium;
   }
 
-  .pg-tab {
-    @apply max-w-[180px] truncate rounded-t border border-transparent px-3 py-1.5 text-[11px] text-gray-600 transition;
+  .pg-session-close-active {
+    @apply bg-red-600 text-white hover:bg-red-700;
   }
 
-  .pg-tab-active {
-    @apply border-gray-200 border-b-white bg-white font-medium text-gray-900;
+  .pg-session-close-idle {
+    @apply cursor-default bg-gray-400 text-gray-100;
+  }
+
+  .pg-main {
+    background-color: var(--shell-main-bg);
   }
 
   .pg-admin input,
   .pg-admin select,
   .pg-admin textarea,
   .pg-admin button {
-    font-size: 11px;
+    font-size: 12px;
   }
 }
 

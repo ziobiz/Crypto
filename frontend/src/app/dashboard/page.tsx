@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthProvider';
 import { useT } from '@/context/LocaleProvider';
 import { api, DashboardResponse } from '@/lib/api';
 import { UsdtRatePanel } from '@/components/UsdtRatePanel';
+import { DashboardCharts } from '@/components/DashboardCharts';
 import { ContentCard } from '@/components/layout/ContentCard';
 import { useBranding } from '@/hooks/useBranding';
 
@@ -35,6 +36,10 @@ export default function DashboardPage() {
         <UsdtRatePanel compact />
       </ContentCard>
 
+      <ContentCard title={t('dashboard.chart.sectionTitle')}>
+        <DashboardCharts />
+      </ContentCard>
+
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {user?.role === 'SUPER_ADMIN' && (
           <>
@@ -51,7 +56,7 @@ export default function DashboardPage() {
             <StatCard
               label={t('dashboard.totalCommission')}
               value={stats.totalCommission ?? 0}
-              suffix={t('dashboard.currency.won')}
+              suffix="USDT"
             />
             <StatCard label={t('dashboard.commissionCount')} value={stats.commissionCount ?? 0} />
           </>
@@ -61,25 +66,22 @@ export default function DashboardPage() {
             <StatCard label={t('dashboard.usdtPurchase')} value={stats.usdtTickets ?? 0} />
             <StatCard label={t('dashboard.escrow')} value={stats.escrowTickets ?? 0} />
             <StatCard label={t('dashboard.wallets')} value={stats.wallets ?? 0} />
+            <StatCard label={t('dashboard.usdtCompleted')} value={stats.usdtCompleted ?? 0} />
           </>
         )}
       </div>
 
       {user?.role === 'CUSTOMER' && (
-        <div className="flex gap-2">
-          <Link
-            href="/dashboard/usdt/new"
-            className="pg-btn pg-btn-primary"
-          >
-            {t('dashboard.newUsdt')}
-          </Link>
-          <Link
-            href="/dashboard/escrow/new"
-            className="pg-btn pg-btn-secondary"
-          >
-            {t('dashboard.newEscrow')}
-          </Link>
-        </div>
+        <ContentCard title={t('dashboard.quickActions')}>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/dashboard/usdt/new" className="pg-btn pg-btn-primary">
+              {t('dashboard.newUsdt')}
+            </Link>
+            <Link href="/dashboard/escrow/new" className="pg-btn pg-btn-secondary">
+              {t('dashboard.newEscrow')}
+            </Link>
+          </div>
+        </ContentCard>
       )}
     </div>
   );

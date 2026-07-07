@@ -26,17 +26,20 @@ import {
 import {
   initialPasswordFromEmail,
   isInitialPassword,
+  normalizeEmail,
 } from '../lib/password-policy';
 import { signFlowToken, signOtpToken, signToken, verifyFlowToken, verifyOtpToken } from '../lib/jwt';
 import { AppError } from '../lib/errors';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { authenticate } from '../middleware/auth';
+import { hqPolicyService } from '../services/hq-policy.service';
+import { findUserByLoginEmail } from '../services/user-lookup.service';
 
 const router = Router();
 
 const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
+  email: z.string().email().transform(normalizeEmail),
+  password: z.string().min(1).transform((s) => s.trim()),
 });
 
 function userResponse(user: {
@@ -68,7 +71,8 @@ async function issueSession(userId: string) {
   if (!user || !user.isActive) {
     throw new AppError(401, 'User not found or inactive', 'UNAUTHORIZED');
   }
-  if (!user.totpEnabled) {
+  const otpCfg = await getEmailOtpConfig();
+  if (userRequiresOtp(user, otpCfg) && !user.totpEnabled) {
     throw new AppError(403, 'Google OTP setup required', 'OTP_SETUP_REQUIRED');
   }
   await prisma.user.update({
@@ -84,13 +88,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const { email, password } = loginSchema.parse(req.body);
 
-    const user = await prisma.user.findUnique({
-      where: { email },
-      include: {
-        organization: { select: { id: true, name: true, type: true, path: true } },
-        customerProfile: { select: { id: true, customerType: true } },
-      },
-    });
+    const user = await findUserByLoginEmail(email);
 
     if (!user || !user.isActive) {
       throw new AppError(401, 'Invalid email or password', 'INVALID_CREDENTIALS');
@@ -306,6 +304,10 @@ router.post(
 router.post(
   '/register/send-code',
   asyncHandler(async (req, res) => {
+    if (!(await hqPolicyService.isCustomerRegistrationEnabled())) {
+      throw new AppError(403, 'Registration is disabled', 'REGISTRATION_DISABLED');
+    }
+
     const { email, name } = z
       .object({ email: z.string().email(), name: z.string().min(1) })
       .parse(req.body);
@@ -364,6 +366,7 @@ router.get(
       customerProfile: user.customerProfile,
       totpEnabled: user.totpEnabled,
       passwordMustChange: user.passwordMustChange,
+      sessionPolicy: await hqPolicyService.getSessionPolicy(),
       wallets: user.wallets.map((w) => ({
         ...w,
         fxFeePercent: Number(w.fxFeePercent),
@@ -375,6 +378,14 @@ router.get(
     });
   }),
 );
+
+const registerBankAccountSchema = z.object({
+  currency: z.enum(['KRW', 'JPY', 'THB', 'CNY']),
+  bankName: z.string().min(1),
+  accountNumber: z.string().min(1),
+  accountHolder: z.string().min(1),
+  branchName: z.string().optional(),
+});
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -388,12 +399,21 @@ const registerSchema = z.object({
   representative: z.string().optional(),
   businessAddress: z.string().optional(),
   businessCategory: z.string().optional(),
+  bankAccounts: z.array(registerBankAccountSchema).min(1),
+  walletAddress: z.string().min(1),
+  walletNetwork: z.string().optional(),
+  walletLabel: z.string().optional(),
 });
 
 router.post(
   '/register',
   asyncHandler(async (req, res) => {
-    const data = registerSchema.parse(req.body);
+    if (!(await hqPolicyService.isCustomerRegistrationEnabled())) {
+      throw new AppError(403, 'Registration is disabled', 'REGISTRATION_DISABLED');
+    }
+
+    const parsed = registerSchema.parse(req.body);
+    const data = { ...parsed, email: normalizeEmail(parsed.email) };
 
     const existing = await prisma.user.findUnique({ where: { email: data.email } });
     if (existing) {
@@ -414,6 +434,9 @@ router.post(
 
     const initialPassword = initialPasswordFromEmail(data.email);
     const passwordHash = await bcrypt.hash(initialPassword, 10);
+    const hqFees = await import('../services/transaction-fee.service').then((m) =>
+      m.getHqTransactionFees(),
+    );
 
     await prisma.user.create({
       data: {
@@ -434,6 +457,28 @@ router.post(
             representative: data.representative,
             businessAddress: data.businessAddress,
             businessCategory: data.businessCategory,
+          },
+        },
+        bankAccounts: {
+          create: data.bankAccounts.map((acct, index) => ({
+            currency: acct.currency,
+            bankName: acct.bankName.trim(),
+            accountNumber: acct.accountNumber.trim(),
+            accountHolder: acct.accountHolder.trim(),
+            branchName: acct.branchName?.trim() || null,
+            isDefault: index === 0,
+          })),
+        },
+        wallets: {
+          create: {
+            label: data.walletLabel?.trim() || '메인 USDT 지갑',
+            address: data.walletAddress.trim(),
+            network: data.walletNetwork?.trim() || 'TRC20',
+            isDefault: true,
+            fxFeePercent: hqFees.fxFeePercent,
+            gasFeeAmount: hqFees.gasFeeUsdt,
+            transferFeeAmount: hqFees.transferFeeUsdt,
+            otherFeeAmount: hqFees.otherFeeUsdt,
           },
         },
       },
@@ -470,10 +515,16 @@ router.get(
             where: {
               status: {
                 in: [
+                  TradeEscrowStatus.ESCROW_CREATED,
+                  TradeEscrowStatus.SELLER_ACCEPTED,
+                  TradeEscrowStatus.CONTRACT_CONFIRMED,
                   TradeEscrowStatus.BUYER_DEPOSIT_PROOF,
+                  TradeEscrowStatus.SHIPPING_STARTED,
                   TradeEscrowStatus.ADMIN_DEPOSIT_CONFIRMED,
                   TradeEscrowStatus.SELLER_FULFILLMENT_PROOF,
                   TradeEscrowStatus.BUYER_FINAL_APPROVAL,
+                  TradeEscrowStatus.PAYOUT_SCHEDULED,
+                  TradeEscrowStatus.DISPUTED,
                 ],
               },
             },
@@ -532,7 +583,7 @@ router.get(
     }
 
     if (user.role === UserRole.CUSTOMER && user.customerProfileId) {
-      const [usdtTickets, escrowTickets, wallets] = await Promise.all([
+      const [usdtTickets, escrowTickets, wallets, usdtCompleted, escrowCompleted] = await Promise.all([
         prisma.transactionTicket.count({
           where: { customerId: user.customerProfileId, type: 'USDT_PURCHASE' },
         }),
@@ -546,9 +597,28 @@ router.get(
           },
         }),
         prisma.wallet.count({ where: { userId: user.id, isActive: true } }),
+        prisma.usdtPurchaseDetail.count({
+          where: {
+            ticket: { customerId: user.customerProfileId },
+            status: UsdtPurchaseStatus.COMPLETED,
+          },
+        }),
+        prisma.tradeEscrowDetail.count({
+          where: {
+            status: TradeEscrowStatus.ESCROW_COMPLETED,
+            OR: [
+              { ticket: { customerId: user.customerProfileId } },
+              { buyerId: user.id },
+              { sellerId: user.id },
+            ],
+          },
+        }),
       ]);
 
-      res.json({ role: user.role, stats: { usdtTickets, escrowTickets, wallets } });
+      res.json({
+        role: user.role,
+        stats: { usdtTickets, escrowTickets, wallets, usdtCompleted, escrowCompleted },
+      });
       return;
     }
 

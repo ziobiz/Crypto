@@ -11,6 +11,9 @@ import {
 import { LOCALES } from '@/i18n/locales';
 import { DEFAULT_LOGIN_NOTICE_I18N } from '@/lib/login-notice';
 import { BrandAssetField, type BrandAssetKey } from '@/components/hq-policy/BrandAssetField';
+import { PolicyTableActions } from '@/components/policy/PolicyTableActions';
+import { PolicyCellValue } from '@/components/policy/PolicyCellValue';
+import { PolicyNumberInput } from '@/components/policy/PolicyNumberInput';
 
 function afterAssetUpload(
   key: BrandAssetKey,
@@ -45,6 +48,8 @@ export default function HqPlatformPage() {
   const [uploadOk, setUploadOk] = useState<Partial<Record<BrandAssetKey, boolean>>>({});
   const [msg, setMsg] = useState('');
   const [emailMsg, setEmailMsg] = useState('');
+  const [editingEmailNumeric, setEditingEmailNumeric] = useState(false);
+  const [emailNumericDraft, setEmailNumericDraft] = useState({ otpExpireMinutes: 5, smtpPort: 587 });
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -77,6 +82,10 @@ export default function HqPlatformPage() {
 
   async function saveEmail() {
     if (!email) return;
+    if (editingEmailNumeric) {
+      setEmailMsg(t('hq.commission.tierFinishEditFirst'));
+      return;
+    }
     setSavingEmail(true);
     setEmailMsg('');
     try {
@@ -190,23 +199,22 @@ export default function HqPlatformPage() {
   }
 
   if (error) {
-    return <p className="text-sm text-red-600">{error} ??{t('hq.backendHint')}</p>;
+    return <p className="text-red-600">{error} — {t('hq.backendHint')}</p>;
   }
 
-  if (!data || !config || !email) return <p className="text-sm text-gray-500">{t('hq.loading')}</p>;
+  if (!data || !config || !email) return <p className="pg-hint">{t('hq.loading')}</p>;
 
   const ssl = data.ssl;
 
   return (
     <div className="space-y-6">
-      <section className="pg-section pg-section-pad space-y-3">
-        <div>
-          <h2 className="font-semibold text-gray-900">{t('hq.platform.brandCardTitle')}</h2>
-          <p className="mt-1 text-sm text-gray-500">{t('hq.platform.brandCardDesc')}</p>
-        </div>
+      <section className="pg-section">
+        <div className="pg-section-head">{t('hq.platform.brandCardTitle')}</div>
+        <div className="pg-section-pad space-y-3">
+        <p className="pg-hint">{t('hq.platform.brandCardDesc')}</p>
 
-        <label className="block text-sm">
-          <span className="text-gray-600">{t('hq.platform.siteName')}</span>
+        <label className="block">
+          <span className="pg-label">{t('hq.platform.siteName')}</span>
           <input
             value={config.siteName ?? ''}
             onChange={(e) => setConfig({ ...config, siteName: e.target.value })}
@@ -261,6 +269,18 @@ export default function HqPlatformPage() {
           />
           <span className="mt-1 block text-xs text-gray-500">{t('hq.platform.authMainTextDesc')}</span>
         </label>
+
+        <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50/80 p-4">
+          <label className="flex items-center gap-2 text-[11px] font-medium">
+            <input
+              type="checkbox"
+              checked={config.customerRegistrationEnabled === true}
+              onChange={(e) => setConfig({ ...config, customerRegistrationEnabled: e.target.checked })}
+            />
+            {t('hq.platform.customerRegistration')}
+          </label>
+          <p className="text-xs text-slate-600">{t('hq.platform.customerRegistrationDesc')}</p>
+        </div>
 
         <div className="space-y-3 rounded-lg border border-amber-100 bg-amber-50/60 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -350,6 +370,67 @@ export default function HqPlatformPage() {
           />
         </label>
 
+        <div className="space-y-4 rounded-lg border border-slate-200 bg-slate-50/80 p-4">
+          <div>
+            <p className="text-sm font-semibold text-slate-800">{t('hq.platform.depositAccounts')}</p>
+            <p className="mt-1 text-xs text-slate-600">{t('hq.platform.depositAccountsDesc')}</p>
+          </div>
+          {(['KRW', 'JPY', 'THB', 'CNY'] as const).map((cur) => {
+            const acct = config.depositReceivingAccounts?.[cur] ?? {
+              bankName: '',
+              accountNumber: '',
+              accountHolder: '',
+            };
+            return (
+              <div key={cur} className="rounded border bg-white p-3 space-y-2">
+                <p className="text-xs font-bold text-gray-700">{cur}</p>
+                <input
+                  value={acct.bankName}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      depositReceivingAccounts: {
+                        ...config.depositReceivingAccounts,
+                        [cur]: { ...acct, bankName: e.target.value },
+                      },
+                    })
+                  }
+                  className="pg-input"
+                  placeholder={t('users.bankName')}
+                />
+                <input
+                  value={acct.accountNumber}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      depositReceivingAccounts: {
+                        ...config.depositReceivingAccounts,
+                        [cur]: { ...acct, accountNumber: e.target.value },
+                      },
+                    })
+                  }
+                  className="pg-input"
+                  placeholder={t('users.accountNumber')}
+                />
+                <input
+                  value={acct.accountHolder}
+                  onChange={(e) =>
+                    setConfig({
+                      ...config,
+                      depositReceivingAccounts: {
+                        ...config.depositReceivingAccounts,
+                        [cur]: { ...acct, accountHolder: e.target.value },
+                      },
+                    })
+                  }
+                  className="pg-input"
+                  placeholder={t('users.accountHolder')}
+                />
+              </div>
+            );
+          })}
+        </div>
+
         <button
           type="button"
           onClick={saveBrand}
@@ -358,31 +439,33 @@ export default function HqPlatformPage() {
         >
           {savingBrand ? t('hq.saving') : t('hq.platform.saveBrand')}
         </button>
-        {msg && <p className="text-sm text-gray-600">{msg}</p>}
+        {msg && <p className="pg-hint">{msg}</p>}
+        </div>
       </section>
 
-      <section className="pg-section pg-section-pad space-y-3">
-        <h2 className="font-semibold text-gray-900">{t('hq.platform.title')}</h2>
-        <p className="text-sm text-gray-500">{t('hq.platform.desc')}</p>
+      <section className="pg-section">
+        <div className="pg-section-head">{t('hq.platform.title')}</div>
+        <div className="pg-section-pad space-y-3">
+        <p className="pg-hint">{t('hq.platform.desc')}</p>
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block text-sm">
-            <span className="text-gray-600">{t('hq.platform.mainDomain')}</span>
+          <label className="block">
+            <span className="pg-label">{t('hq.platform.mainDomain')}</span>
             <input
               value={config.primaryDomain}
               onChange={(e) => setConfig({ ...config, primaryDomain: e.target.value })}
               className="pg-input mt-1"
             />
           </label>
-          <label className="block text-sm">
-            <span className="text-gray-600">{t('hq.platform.apiUrl')}</span>
+          <label className="block">
+            <span className="pg-label">{t('hq.platform.apiUrl')}</span>
             <input
               value={config.apiPublicUrl}
               onChange={(e) => setConfig({ ...config, apiPublicUrl: e.target.value })}
               className="pg-input mt-1"
             />
           </label>
-          <label className="block text-sm sm:col-span-2">
-            <span className="text-gray-600">{t('hq.platform.cors')}</span>
+          <label className="block sm:col-span-2">
+            <span className="pg-label">{t('hq.platform.cors')}</span>
             <input
               value={config.corsOrigins.join(', ')}
               onChange={(e) =>
@@ -394,8 +477,8 @@ export default function HqPlatformPage() {
               className="pg-input mt-1"
             />
           </label>
-          <label className="block text-sm sm:col-span-2">
-            <span className="text-gray-600">{t('hq.platform.sslPath')}</span>
+          <label className="block sm:col-span-2">
+            <span className="pg-label">{t('hq.platform.sslPath')}</span>
             <input
               value={config.sslCertPath ?? ''}
               onChange={(e) => setConfig({ ...config, sslCertPath: e.target.value })}
@@ -403,13 +486,13 @@ export default function HqPlatformPage() {
             />
           </label>
         </div>
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-2">
           <input
             type="checkbox"
             checked={config.redirectRootToPrimary}
             onChange={(e) => setConfig({ ...config, redirectRootToPrimary: e.target.checked })}
           />
-          {t('hq.platform.redirect')}
+          <span className="pg-label">{t('hq.platform.redirect')}</span>
         </label>
         <button
           type="button"
@@ -419,14 +502,16 @@ export default function HqPlatformPage() {
         >
           {saving ? t('hq.saving') : t('hq.platform.save')}
         </button>
-        {msg && <p className="text-sm text-gray-600">{msg}</p>}
+        {msg && <p className="pg-hint">{msg}</p>}
+        </div>
       </section>
 
-      <section className="pg-section pg-section-pad space-y-3">
-        <h2 className="font-semibold text-gray-900">{t('hq.platform.emailTitle')}</h2>
-        <p className="text-sm text-gray-500">{t('hq.platform.emailDesc')}</p>
+      <section className="pg-section">
+        <div className="pg-section-head">{t('hq.platform.emailTitle')}</div>
+        <div className="pg-section-pad space-y-3">
+        <p className="pg-hint">{t('hq.platform.emailDesc')}</p>
 
-        <div className="flex flex-wrap gap-4 text-sm">
+        <div className="flex flex-wrap gap-4">
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -474,19 +559,108 @@ export default function HqPlatformPage() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block text-sm">
-            <span className="text-gray-600">{t('hq.platform.otpExpire')}</span>
-            <input
-              type="number"
-              min={1}
-              max={30}
-              value={email.otpExpireMinutes}
-              onChange={(e) =>
-                setEmail({ ...email, otpExpireMinutes: Number(e.target.value) || 5 })
-              }
-              className="pg-input mt-1"
-            />
-          </label>
+          <div className="sm:col-span-2">
+            <p className="pg-hint mb-2">{t('hq.commission.tierEditHint')}</p>
+            <div className="overflow-x-auto">
+              <table className="pg-table">
+                <thead>
+                  <tr>
+                    <th>{t('hq.platform.numericSetting')}</th>
+                    <th>{t('hq.platform.numericValue')}</th>
+                    <th>{t('hq.commission.tierActions')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className={editingEmailNumeric ? 'bg-amber-50/60' : undefined}>
+                    <td>{t('hq.platform.otpExpire')}</td>
+                    <td>
+                      {editingEmailNumeric ? (
+                        <PolicyNumberInput
+                          min={1}
+                          max={30}
+                          step="1"
+                          value={emailNumericDraft.otpExpireMinutes}
+                          onChange={(otpExpireMinutes) =>
+                            setEmailNumericDraft((prev) => ({ ...prev, otpExpireMinutes }))
+                          }
+                          className="pg-input w-24"
+                        />
+                      ) : (
+                        <PolicyCellValue>{email.otpExpireMinutes}</PolicyCellValue>
+                      )}
+                    </td>
+                    <td rowSpan={2}>
+                      <PolicyTableActions>
+                        {editingEmailNumeric ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEmail({
+                                  ...email,
+                                  otpExpireMinutes: emailNumericDraft.otpExpireMinutes,
+                                  smtpPort: emailNumericDraft.smtpPort,
+                                });
+                                setEditingEmailNumeric(false);
+                                setEmailMsg('');
+                              }}
+                              className="pg-btn pg-btn-primary text-xs"
+                            >
+                              {t('hq.commission.tierSaveRow')}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingEmailNumeric(false);
+                                setEmailMsg('');
+                              }}
+                              className="pg-btn pg-btn-secondary text-xs"
+                            >
+                              {t('hq.commission.tierCancelEdit')}
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEmailNumericDraft({
+                                otpExpireMinutes: email.otpExpireMinutes,
+                                smtpPort: email.smtpPort,
+                              });
+                              setEditingEmailNumeric(true);
+                              setEmailMsg('');
+                            }}
+                            className="pg-btn pg-btn-secondary text-xs"
+                          >
+                            {t('hq.commission.tierEdit')}
+                          </button>
+                        )}
+                      </PolicyTableActions>
+                    </td>
+                  </tr>
+                  <tr className={editingEmailNumeric ? 'bg-amber-50/60' : undefined}>
+                    <td>{t('hq.platform.smtpPort')}</td>
+                    <td>
+                      {editingEmailNumeric ? (
+                        <PolicyNumberInput
+                          min={1}
+                          max={65535}
+                          step="1"
+                          value={emailNumericDraft.smtpPort}
+                          onChange={(smtpPort) =>
+                            setEmailNumericDraft((prev) => ({ ...prev, smtpPort }))
+                          }
+                          className="pg-input w-24"
+                        />
+                      ) : (
+                        <PolicyCellValue>{email.smtpPort}</PolicyCellValue>
+                      )}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
           <label className="block text-sm sm:col-span-2">
             <span className="text-gray-600">{t('hq.platform.otpSubject')}</span>
             <input
@@ -509,15 +683,6 @@ export default function HqPlatformPage() {
             <input
               value={email.smtpHost}
               onChange={(e) => setEmail({ ...email, smtpHost: e.target.value })}
-              className="pg-input mt-1"
-            />
-          </label>
-          <label className="block text-sm">
-            <span className="text-gray-600">{t('hq.platform.smtpPort')}</span>
-            <input
-              type="number"
-              value={email.smtpPort}
-              onChange={(e) => setEmail({ ...email, smtpPort: Number(e.target.value) || 587 })}
               className="pg-input mt-1"
             />
           </label>
@@ -593,58 +758,70 @@ export default function HqPlatformPage() {
             {sendingTest ? t('hq.saving') : t('hq.platform.sendTest')}
           </button>
         </div>
-        {emailMsg && <p className="text-sm text-gray-600">{emailMsg}</p>}
+        {emailMsg && <p className="pg-hint">{emailMsg}</p>}
+        </div>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2">
-        <div className="pg-card pg-card-body">
-          <h3 className="font-medium text-gray-900">{t('hq.platform.sslStatus')}</h3>
-          <dl className="mt-2 space-y-1 text-sm">
-            <div className="flex justify-between">
-              <dt className="text-gray-500">{t('hq.platform.status')}</dt>
-              <dd className="font-medium">{ssl.status}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-gray-500">{t('hq.platform.expiry')}</dt>
-              <dd>{ssl.detail}</dd>
-            </div>
-            {ssl.daysRemaining != null && (
-              <div className="flex justify-between">
-                <dt className="text-gray-500">{t('hq.platform.daysLeft')}</dt>
-                <dd className={ssl.daysRemaining < 30 ? 'text-amber-600 font-medium' : ''}>
-                  {t('hq.platform.days', { n: ssl.daysRemaining })}
-                </dd>
+      <section className="pg-section">
+        <div className="pg-section-head">{t('hq.platform.sslStatus')}</div>
+        <div className="pg-section-pad">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="pg-card">
+              <div className="pg-card-head">{t('hq.platform.sslStatus')}</div>
+              <div className="pg-card-body">
+                <dl className="space-y-1">
+                  <div className="flex justify-between">
+                    <dt className="text-gray-500">{t('hq.platform.status')}</dt>
+                    <dd className="font-medium">{ssl.status}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-gray-500">{t('hq.platform.expiry')}</dt>
+                    <dd>{ssl.detail}</dd>
+                  </div>
+                  {ssl.daysRemaining != null && (
+                    <div className="flex justify-between">
+                      <dt className="text-gray-500">{t('hq.platform.daysLeft')}</dt>
+                      <dd className={ssl.daysRemaining < 30 ? 'text-amber-600 font-medium' : ''}>
+                        {t('hq.platform.days', { n: ssl.daysRemaining })}
+                      </dd>
+                    </div>
+                  )}
+                </dl>
               </div>
-            )}
-          </dl>
-        </div>
-        <div className="pg-card pg-card-body">
-          <h3 className="font-medium text-gray-900">{t('hq.platform.server')}</h3>
-          <dl className="mt-2 space-y-1 text-sm">
-            <div className="flex justify-between">
-              <dt className="text-gray-500">{t('hq.platform.host')}</dt>
-              <dd>{data.server.hostname}</dd>
             </div>
-            <div className="flex justify-between">
-              <dt className="text-gray-500">{t('hq.platform.memory')}</dt>
-              <dd>
-                {data.server.memFreeMb} / {data.server.memTotalMb} MB free
-              </dd>
+            <div className="pg-card">
+              <div className="pg-card-head">{t('hq.platform.server')}</div>
+              <div className="pg-card-body">
+                <dl className="space-y-1">
+                  <div className="flex justify-between">
+                    <dt className="text-gray-500">{t('hq.platform.host')}</dt>
+                    <dd>{data.server.hostname}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-gray-500">{t('hq.platform.memory')}</dt>
+                    <dd>
+                      {data.server.memFreeMb} / {data.server.memTotalMb} MB free
+                    </dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-gray-500">{t('hq.platform.load')}</dt>
+                    <dd>{data.server.loadAvg.map((n) => n.toFixed(2)).join(', ')}</dd>
+                  </div>
+                </dl>
+              </div>
             </div>
-            <div className="flex justify-between">
-              <dt className="text-gray-500">{t('hq.platform.load')}</dt>
-              <dd>{data.server.loadAvg.map((n) => n.toFixed(2)).join(', ')}</dd>
-            </div>
-          </dl>
+          </div>
         </div>
       </section>
 
-      <section className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-600">
-        <p className="font-medium text-gray-800">{t('hq.platform.leGuide')}</p>
-        <pre className="mt-2 overflow-x-auto rounded bg-white p-3 text-xs">
+      <section className="pg-section">
+        <div className="pg-section-head">{t('hq.platform.leGuide')}</div>
+        <div className="pg-section-pad">
+        <pre className="overflow-x-auto rounded bg-gray-50 p-3 text-xs">
 {`apt-get install -y certbot python3-certbot-nginx
 sudo bash deploy/cafe24-business/setup-ssl-tinpass.sh`}
         </pre>
+        </div>
       </section>
     </div>
   );

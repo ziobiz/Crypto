@@ -75,7 +75,9 @@ export function UserMenu() {
         aria-haspopup="menu"
       >
         <UserGlyph />
-        <span className="truncate text-xs font-medium text-gray-800">{identityLine}</span>
+        <span className="truncate text-xs font-medium" style={{ color: 'var(--shell-session-text)' }}>
+          {identityLine}
+        </span>
         <svg className="h-3.5 w-3.5 shrink-0 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>

@@ -16,7 +16,6 @@ export default function HqUserSettingsLayout({ children }: { children: React.Rea
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-gray-600">{t('hq.hub.accessDesc')}</p>
       <nav className="flex flex-wrap gap-2.5">
         {SUB_TABS.map((tab) => {
           const active = pathname === tab.href;

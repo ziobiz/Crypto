@@ -26,7 +26,7 @@ export default function UsdtListPage() {
           </Link>
         )}
       </div>
-      <div className="pg-card overflow-x-auto">
+      <div className="pg-card pg-table-wrap">
         <table className="pg-table">
           <thead>
             <tr>
@@ -41,7 +41,7 @@ export default function UsdtListPage() {
             {tickets.map((ticket) => (
               <tr key={ticket.id}>
                 <td>
-                  <Link href={`/dashboard/usdt/${ticket.id}`} className="font-medium text-blue-600 hover:underline">
+                  <Link href={`/dashboard/usdt/${ticket.id}`} className="pg-link">
                     {ticket.ticketNo}
                   </Link>
                 </td>
@@ -50,12 +50,12 @@ export default function UsdtListPage() {
                 <td>
                   <StatusBadge status={ticket.status} />
                 </td>
-                <td className="text-gray-500">{formatDate(ticket.createdAt)}</td>
+                <td className="pg-muted">{formatDate(ticket.createdAt)}</td>
               </tr>
             ))}
             {tickets.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-6 text-center text-gray-500">
+                <td colSpan={5} className="pg-empty">
                   {t('usdt.empty')}
                 </td>
               </tr>

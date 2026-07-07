@@ -7,12 +7,15 @@ import { authenticate, requireRoles } from '../middleware/auth';
 import {
   getAllExchangeRatesDisplay,
   getExchangeRateDisplay,
+  SUPPORTED_FIAT_CURRENCIES,
   type FiatCurrency,
 } from '../services/exchange-rate.service';
 import {
   createUsdtPurchaseTicket,
+  getUsdtDepositContext,
   getUsdtPurchaseTicket,
   listUsdtPurchaseTickets,
+  previewUsdtTransactionFees,
   saveDepositProofMetadata,
   transitionUsdtPurchaseStatus,
 } from '../services/usdt-purchase.service';
@@ -43,9 +46,39 @@ router.get(
       res.json(await getAllExchangeRatesDisplay());
       return;
     }
-    const currency = (req.query.currency as FiatCurrency) || 'KRW';
+    const currency = (req.query.currency as FiatCurrency) || 'JPY';
     const rate = await getExchangeRateDisplay(currency);
     res.json(rate);
+  }),
+);
+
+router.get(
+  '/fees',
+  requireRoles(UserRole.CUSTOMER),
+  asyncHandler(async (req, res) => {
+    const currency = (req.query.currency as FiatCurrency) || 'JPY';
+    const walletId = String(req.query.walletId ?? '');
+    const fiatAmount = req.query.fiatAmount != null ? Number(req.query.fiatAmount) : undefined;
+    const targetUsdtAmount =
+      req.query.targetUsdtAmount != null ? Number(req.query.targetUsdtAmount) : undefined;
+    if (!walletId) {
+      throw new AppError(400, 'walletId required', 'VALIDATION_ERROR');
+    }
+    res.json(
+      await previewUsdtTransactionFees(req.user!, {
+        walletId,
+        fiatCurrency: currency,
+        fiatAmount,
+        targetUsdtAmount,
+      }),
+    );
+  }),
+);
+
+router.get(
+  '/deposit-context',
+  asyncHandler(async (req, res) => {
+    res.json(await getUsdtDepositContext(req.user!));
   }),
 );
 
@@ -65,17 +98,28 @@ router.get(
   }),
 );
 
+const createSchema = z
+  .object({
+    fiatAmount: z.number().positive().optional(),
+    targetUsdtAmount: z.number().positive().optional(),
+    fiatCurrency: z.enum(SUPPORTED_FIAT_CURRENCIES as unknown as [string, ...string[]]).optional(),
+    walletId: z.string().min(1),
+  })
+  .refine((d) => d.fiatAmount != null || d.targetUsdtAmount != null, {
+    message: 'fiatAmount or targetUsdtAmount required',
+  });
+
 router.post(
   '/',
   requireRoles(UserRole.CUSTOMER),
   asyncHandler(async (req, res) => {
-    const schema = z.object({
-      fiatAmount: z.number().positive(),
-      fiatCurrency: z.enum(['KRW', 'USD', 'JPY']).optional(),
-      walletId: z.string().min(1),
+    const body = createSchema.parse(req.body);
+    const ticket = await createUsdtPurchaseTicket(req.user!, {
+      fiatAmount: body.fiatAmount,
+      targetUsdtAmount: body.targetUsdtAmount,
+      fiatCurrency: body.fiatCurrency as FiatCurrency | undefined,
+      walletId: body.walletId,
     });
-    const body = schema.parse(req.body);
-    const ticket = await createUsdtPurchaseTicket(req.user!, body);
     res.status(201).json(ticket);
   }),
 );
@@ -85,6 +129,7 @@ const statusSchema = z.object({
   usdtTxId: z.string().optional(),
   actualUsdtAmount: z.number().positive().optional(),
   adminNote: z.string().optional(),
+  cancelReason: z.string().optional(),
 });
 
 router.patch(
@@ -97,6 +142,7 @@ router.patch(
       UsdtPurchaseStatus.ADMIN_REVIEWING,
       UsdtPurchaseStatus.TRANSFER_IN_PROGRESS,
       UsdtPurchaseStatus.COMPLETED,
+      UsdtPurchaseStatus.CANCELLED,
     ];
 
     if (adminOnlyStatuses.includes(body.status) && !canOperateUsdtTicket(user)) {
@@ -107,6 +153,7 @@ router.patch(
       usdtTxId: body.usdtTxId ?? undefined,
       actualUsdtAmount: body.actualUsdtAmount ?? undefined,
       adminNote: body.adminNote ?? undefined,
+      cancelReason: body.cancelReason ?? undefined,
     });
     res.json(ticket);
   }),
@@ -133,7 +180,7 @@ router.post(
 
     const meta = depositProofSchema.parse(req.body);
 
-    await saveDepositProofMetadata(req.user!, ticketId, {
+    const { bankMismatch } = await saveDepositProofMetadata(req.user!, ticketId, {
       depositAmount: meta.depositAmount,
       depositorName: meta.depositorName,
       depositTransferredAt: meta.depositTransferredAt,
@@ -151,9 +198,12 @@ router.post(
       req.user!,
       ticketId,
       UsdtPurchaseStatus.ADMIN_REVIEWING,
+      bankMismatch
+        ? { adminNote: '등록 통장과 입금자명 불일치 — 관리자 확인 필요' }
+        : undefined,
     );
 
-    res.json(ticket);
+    res.json({ ...ticket, bankMismatch });
   }),
 );
 

@@ -28,14 +28,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  const logout = useCallback(() => {
+  const idleMinutes = user?.sessionPolicy?.idleTimeoutMinutes ?? 30;
+
+  const logout = useCallback((reason?: 'idle') => {
     clearToken();
     setUser(null);
+    if (reason === 'idle') {
+      sessionStorage.setItem('crypto_idle_minutes', String(idleMinutes));
+    }
     sessionStorage.removeItem('crypto_last_activity');
-    router.push('/login');
-  }, [router]);
+    router.push(reason === 'idle' ? '/login?idle=1' : '/login');
+  }, [router, idleMinutes]);
 
-  useIdleTimeout(logout, Boolean(user));
+  useIdleTimeout(() => logout('idle'), Boolean(user), idleMinutes);
 
   const refresh = useCallback(async () => {
     try {
