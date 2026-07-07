@@ -1,5 +1,10 @@
 import type { TransactionFees } from '../constants/hq-policy';
 import {
+  computeFeeAmounts,
+  fixedFeeSum,
+  percentMultiplierSum,
+} from '../lib/fee-component';
+import {
   getLocalMarketPremiumAnalysis,
   isLocalPremiumCurrency,
   localPremiumFeeUsdt,
@@ -50,16 +55,16 @@ function withLocalPremium(
   premium: LocalMarketPremiumAnalysis,
   grossUsdt: number,
 ): ResolvedTransactionFees {
+  const amounts = computeFeeAmounts(grossUsdt, base);
   const premiumFee = localPremiumFeeUsdt(grossUsdt, premium.premiumPercent);
   return {
     ...base,
-    baseOtherFeeUsdt: base.otherFeeUsdt,
+    baseOtherFeeUsdt: amounts.otherFeeUsdt,
     localPremiumPercent: premium.premiumPercent,
     localPremiumFeeUsdt: premiumFee,
     localPremiumCurrency: premium.currency,
     kimchiPremiumPercent: premium.premiumPercent,
     kimchiPremiumFeeUsdt: premiumFee,
-    otherFeeUsdt: Number((base.otherFeeUsdt + premiumFee).toFixed(8)),
     fairExchangeRate: premium.fairRate,
     domesticExchangeRate: premium.domesticRate,
   };
@@ -71,8 +76,8 @@ export function breakdownFromFiat(
   fees: ResolvedTransactionFees,
 ): UsdtFeeBreakdownDetail {
   const grossUsdt = exchangeRate > 0 ? fiatAmount / exchangeRate : 0;
-  const fxFeeUsdt = (grossUsdt * fees.fxFeePercent) / 100;
-  const baseOther = fees.baseOtherFeeUsdt ?? fees.otherFeeUsdt;
+  const amounts = computeFeeAmounts(grossUsdt, fees);
+  const baseOther = fees.baseOtherFeeUsdt ?? amounts.otherFeeUsdt;
   const premiumPct = fees.localPremiumPercent ?? fees.kimchiPremiumPercent ?? 0;
   const premiumFee =
     fees.localPremiumFeeUsdt ??
@@ -81,14 +86,16 @@ export function breakdownFromFiat(
   const otherTotal = baseOther + premiumFee;
   const netUsdt = Math.max(
     0,
-    Number((grossUsdt - fxFeeUsdt - fees.gasFeeUsdt - fees.transferFeeUsdt - otherTotal).toFixed(8)),
+    Number(
+      (grossUsdt - amounts.fxFeeUsdt - amounts.gasFeeUsdt - amounts.transferFeeUsdt - otherTotal).toFixed(8),
+    ),
   );
   return {
     targetUsdt: netUsdt,
     grossUsdt: Number(grossUsdt.toFixed(8)),
-    fxFeeUsdt: Number(fxFeeUsdt.toFixed(8)),
-    gasFeeUsdt: fees.gasFeeUsdt,
-    transferFeeUsdt: fees.transferFeeUsdt,
+    fxFeeUsdt: amounts.fxFeeUsdt,
+    gasFeeUsdt: amounts.gasFeeUsdt,
+    transferFeeUsdt: amounts.transferFeeUsdt,
     otherFeeUsdt: Number(otherTotal.toFixed(8)),
     baseOtherFeeUsdt: baseOther,
     localPremiumFeeUsdt: premiumFee,
@@ -107,33 +114,15 @@ export function breakdownFromTarget(
   exchangeRate: number,
   fees: ResolvedTransactionFees,
 ): UsdtFeeBreakdownDetail {
-  const baseOther = fees.baseOtherFeeUsdt ?? fees.otherFeeUsdt;
   const premiumPct = fees.localPremiumPercent ?? fees.kimchiPremiumPercent ?? 0;
-  const premiumMult = premiumPct / 100;
-  const fxMult = fees.fxFeePercent / 100;
-  const fixed = fees.gasFeeUsdt + fees.transferFeeUsdt + baseOther;
-  const denom = 1 - fxMult - premiumMult;
+  const pctSum = percentMultiplierSum(fees, premiumPct);
+  const fixed = fixedFeeSum(fees);
+  const denom = 1 - pctSum / 100;
   const grossUsdt = denom > 0 ? (targetUsdt + fixed) / denom : targetUsdt + fixed;
-  const fxFeeUsdt = grossUsdt * fxMult;
-  const premiumFee = localPremiumFeeUsdt(grossUsdt, premiumPct);
-  const otherTotal = baseOther + premiumFee;
-  return {
-    targetUsdt: Number(targetUsdt.toFixed(8)),
-    grossUsdt: Number(grossUsdt.toFixed(8)),
-    fxFeeUsdt: Number(fxFeeUsdt.toFixed(8)),
-    gasFeeUsdt: fees.gasFeeUsdt,
-    transferFeeUsdt: fees.transferFeeUsdt,
-    otherFeeUsdt: Number(otherTotal.toFixed(8)),
-    baseOtherFeeUsdt: baseOther,
-    localPremiumFeeUsdt: premiumFee,
-    localPremiumPercent: premiumPct,
-    kimchiPremiumFeeUsdt: premiumFee,
-    kimchiPremiumPercent: premiumPct,
-    netUsdt: Number(targetUsdt.toFixed(8)),
-    requiredFiat: Number((grossUsdt * exchangeRate).toFixed(2)),
-    fairExchangeRate: fees.fairExchangeRate,
-    localPremiumCurrency: fees.localPremiumCurrency,
-  };
+  return breakdownFromFiat(grossUsdt * exchangeRate, exchangeRate, {
+    ...fees,
+    baseOtherFeeUsdt: computeFeeAmounts(grossUsdt, fees).otherFeeUsdt,
+  });
 }
 
 export async function resolveFeesForPurchase(

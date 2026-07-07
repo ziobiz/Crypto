@@ -1,6 +1,12 @@
 import { CurrencyCode } from '@prisma/client';
 import { AppError } from '../lib/errors';
 import type { SymbolFeeCurrency, TransactionFees } from '../constants/hq-policy';
+import {
+  computeFeeAmounts,
+  fixedFeeSum,
+  normalizeTransactionFees,
+  percentMultiplierSum,
+} from '../lib/fee-component';
 import { fetchUsdtFiatRateWithPolicy } from './exchange-rate-policy.service';
 
 /** 고객 매입 통화 (fiat per 1 USDT) */
@@ -58,14 +64,20 @@ export async function getExchangeRateDisplay(currency: FiatCurrency = 'KRW') {
 export function calculateExpectedUsdt(
   fiatAmount: number,
   exchangeRate: number,
-  fees: TransactionFees,
+  feesInput: TransactionFees,
 ): number {
   if (exchangeRate <= 0) {
     throw new AppError(400, 'Invalid exchange rate', 'INVALID_RATE');
   }
+  const fees = normalizeTransactionFees(feesInput);
   const grossUsdt = fiatAmount / exchangeRate;
-  const fxFee = (grossUsdt * fees.fxFeePercent) / 100;
-  const net = grossUsdt - fxFee - fees.gasFeeUsdt - fees.transferFeeUsdt - fees.otherFeeUsdt;
+  const amounts = computeFeeAmounts(grossUsdt, fees);
+  const net =
+    grossUsdt -
+    amounts.fxFeeUsdt -
+    amounts.gasFeeUsdt -
+    amounts.transferFeeUsdt -
+    amounts.otherFeeUsdt;
   return Math.max(0, Number(net.toFixed(8)));
 }
 
@@ -73,10 +85,13 @@ export function calculateExpectedUsdt(
 export function calculateExpectedUsdtRange(
   fiatAmount: number,
   exchangeRate: number,
-  fees: TransactionFees,
+  feesInput: TransactionFees,
 ): { expected: number; min: number; max: number } {
+  const fees = normalizeTransactionFees(feesInput);
   const expected = calculateExpectedUsdt(fiatAmount, exchangeRate, fees);
-  const gasVariance = fees.gasFeeUsdt * 0.2;
+  const grossUsdt = fiatAmount / exchangeRate;
+  const gasAmount = computeFeeAmounts(grossUsdt, fees).gasFeeUsdt;
+  const gasVariance = gasAmount * 0.2;
   const min = Math.max(0, Number((expected - gasVariance).toFixed(8)));
   const max = Math.max(0, Number((expected + gasVariance).toFixed(8)));
   return { expected, min, max };
@@ -97,23 +112,25 @@ export type UsdtFeeBreakdown = {
 export function calculateFromTargetUsdt(
   targetUsdt: number,
   exchangeRate: number,
-  fees: TransactionFees,
+  feesInput: TransactionFees,
 ): UsdtFeeBreakdown {
   if (exchangeRate <= 0 || targetUsdt <= 0) {
     throw new AppError(400, 'Invalid amount or rate', 'VALIDATION');
   }
-  const fixed = fees.gasFeeUsdt + fees.transferFeeUsdt + fees.otherFeeUsdt;
-  const fxMult = 1 - fees.fxFeePercent / 100;
-  const grossUsdt = fxMult > 0 ? (targetUsdt + fixed) / fxMult : targetUsdt + fixed;
-  const fxFeeUsdt = (grossUsdt * fees.fxFeePercent) / 100;
+  const fees = normalizeTransactionFees(feesInput);
+  const pctSum = percentMultiplierSum(fees);
+  const fixed = fixedFeeSum(fees);
+  const denom = 1 - pctSum / 100;
+  const grossUsdt = denom > 0 ? (targetUsdt + fixed) / denom : targetUsdt + fixed;
+  const amounts = computeFeeAmounts(grossUsdt, fees);
   const requiredFiat = grossUsdt * exchangeRate;
   return {
     targetUsdt,
     grossUsdt: Number(grossUsdt.toFixed(8)),
-    fxFeeUsdt: Number(fxFeeUsdt.toFixed(8)),
-    gasFeeUsdt: fees.gasFeeUsdt,
-    transferFeeUsdt: fees.transferFeeUsdt,
-    otherFeeUsdt: fees.otherFeeUsdt,
+    fxFeeUsdt: amounts.fxFeeUsdt,
+    gasFeeUsdt: amounts.gasFeeUsdt,
+    transferFeeUsdt: amounts.transferFeeUsdt,
+    otherFeeUsdt: amounts.otherFeeUsdt,
     netUsdt: Number(targetUsdt.toFixed(8)),
     requiredFiat: Number(requiredFiat.toFixed(2)),
   };
@@ -131,5 +148,5 @@ export function toPrismaCurrency(currency: string): CurrencyCode {
   ) {
     return upper as CurrencyCode;
   }
-  throw new AppError(400, 'Unsupported currency', 'VALIDATION');
+  throw new AppError(400, `Unsupported currency: ${currency}`, 'VALIDATION');
 }

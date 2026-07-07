@@ -15,6 +15,7 @@ import {
   commissionPoolFromSnapshots,
   getFeeDiagramDisplay,
 } from './transaction-fee.service';
+import { buildFeeSnapshotFields } from '../lib/fee-component';
 import {
   applyLocalPremiumToBaseFees,
   breakdownFromFiat,
@@ -66,6 +67,7 @@ const ADMIN_TRANSITIONS: Record<UsdtPurchaseStatus, UsdtPurchaseStatus[]> = {
     UsdtPurchaseStatus.DEPOSIT_PROOF_PENDING,
     UsdtPurchaseStatus.CANCELLED,
   ],
+  [UsdtPurchaseStatus.CARD_PAYMENT_PENDING]: [UsdtPurchaseStatus.ADMIN_REVIEWING, UsdtPurchaseStatus.CANCELLED],
   [UsdtPurchaseStatus.DEPOSIT_PROOF_PENDING]: [
     UsdtPurchaseStatus.ADMIN_REVIEWING,
     UsdtPurchaseStatus.CANCELLED,
@@ -86,6 +88,7 @@ const ADMIN_TRANSITIONS: Record<UsdtPurchaseStatus, UsdtPurchaseStatus[]> = {
 /** 고객: 입금 증빙 제출 시 전환 */
 const CUSTOMER_TRANSITIONS: Record<UsdtPurchaseStatus, UsdtPurchaseStatus[]> = {
   [UsdtPurchaseStatus.APPLICATION_COMPLETED]: [UsdtPurchaseStatus.DEPOSIT_PROOF_PENDING],
+  [UsdtPurchaseStatus.CARD_PAYMENT_PENDING]: [],
   [UsdtPurchaseStatus.DEPOSIT_PROOF_PENDING]: [UsdtPurchaseStatus.ADMIN_REVIEWING],
   [UsdtPurchaseStatus.ADMIN_REVIEWING]: [],
   [UsdtPurchaseStatus.TRANSFER_IN_PROGRESS]: [],
@@ -382,6 +385,12 @@ export async function createUsdtPurchaseTicket(
   });
 
   const depositDeadlineAt = new Date(Date.now() + DEPOSIT_WINDOW_MS);
+  const feeSnapshots = buildFeeSnapshotFields(fees, {
+    fxFeeUsdt: feeBreakdown?.fxFeeUsdt ?? 0,
+    gasFeeUsdt: feeBreakdown?.gasFeeUsdt ?? 0,
+    transferFeeUsdt: feeBreakdown?.transferFeeUsdt ?? 0,
+    otherFeeUsdt: feeBreakdown?.baseOtherFeeUsdt ?? feeBreakdown?.otherFeeUsdt ?? 0,
+  });
 
   const ticket = await prisma.$transaction(async (tx) => {
     const created = await tx.transactionTicket.create({
@@ -405,11 +414,7 @@ export async function createUsdtPurchaseTicket(
             expectedUsdtMax: max,
             targetUsdtAmount: targetUsdt,
             depositDeadlineAt,
-            fxFeePercentSnapshot: fees.fxFeePercent,
-            gasFeeSnapshot: fees.gasFeeUsdt,
-            transferFeeSnapshot: fees.transferFeeUsdt,
-            otherFeeSnapshot: fees.otherFeeUsdt,
-            platformFeeSnapshot: 0,
+            ...feeSnapshots,
             walletId: wallet.id,
           },
         },
@@ -721,6 +726,7 @@ function serializeTicket(ticket: Prisma.TransactionTicketGetPayload<{
         }
       : undefined,
     status: detail.status,
+    paymentMethod: detail.paymentMethod,
     fiatAmount: Number(detail.fiatAmount),
     fiatCurrency: detail.fiatCurrency,
     exchangeRate: Number(detail.exchangeRate),
@@ -750,6 +756,16 @@ function serializeTicket(ticket: Prisma.TransactionTicketGetPayload<{
     transferFeeSnapshot: Number(detail.transferFeeSnapshot),
     otherFeeSnapshot: Number(detail.otherFeeSnapshot),
     platformFeeSnapshot: Number(detail.platformFeeSnapshot),
+    feePolicySnapshot: detail.feePolicySnapshot ?? null,
+    cardFeePercentSnapshot: detail.cardFeePercentSnapshot
+      ? Number(detail.cardFeePercentSnapshot)
+      : null,
+    cardFeeFiatSnapshot: detail.cardFeeFiatSnapshot ? Number(detail.cardFeeFiatSnapshot) : null,
+    cardChargeFiat: detail.cardChargeFiat ? Number(detail.cardChargeFiat) : null,
+    cardPaymentStatus: detail.cardPaymentStatus,
+    cardLast4: detail.cardLast4,
+    icopayOrderId: detail.icopayOrderId,
+    icopayTransactionId: detail.icopayTransactionId,
     usdtTxId: detail.usdtTxId,
     actualUsdtAmount: detail.actualUsdtAmount
       ? Number(detail.actualUsdtAmount)
@@ -768,4 +784,4 @@ function serializeTicket(ticket: Prisma.TransactionTicketGetPayload<{
   };
 }
 
-export { USDT_PURCHASE_INCLUDE };
+export { USDT_PURCHASE_INCLUDE, serializeTicket };

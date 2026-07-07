@@ -16,6 +16,8 @@ import {
   type HqPermissionLevel,
   type HqPlatformConfig,
   type HqEmailOtpConfig,
+  type HqCardPaymentConfig,
+  type HqIcopayConfig,
   type HqExchangeRateSourcePolicy,
   type IdleTimeoutMinutes,
   IDLE_TIMEOUT_MINUTES_OPTIONS,
@@ -27,6 +29,13 @@ import {
   saveEmailOtpConfig,
 } from '../services/otp.service';
 import { sendTestEmail } from '../services/email.service';
+import {
+  getCardPaymentConfig,
+  getIcopayConfig,
+  getIcopayConfigMasked,
+  saveCardPaymentConfig,
+  saveIcopayConfig,
+} from './card-payment-policy.service';
 import {
   defaultTransactionFees,
   getSymbolFeeTiers,
@@ -668,6 +677,43 @@ export const hqPolicyService = {
   async getDepositReceivingAccounts() {
     const config = await getConfig(HQ_CONFIG_KEYS.platform, defaultPlatform());
     return config.depositReceivingAccounts ?? {};
+  },
+
+  async saveCardPayment(audit: AuditContext, config: HqCardPaymentConfig) {
+    const before = await getCardPaymentConfig();
+    const after = await saveCardPaymentConfig(config);
+    await logAdminChange({
+      actor: audit.actor,
+      action: AdminChangeAction.UPDATE,
+      entityType: 'HQ_CARD_PAYMENT',
+      entityId: HQ_CONFIG_KEYS.cardPayment,
+      entityLabel: '카드 결제 정책',
+      summary: `카드 결제 정책 저장 (관리자: ${audit.actor.email})`,
+      before,
+      after,
+      ipAddress: audit.ipAddress,
+      userAgent: audit.userAgent,
+    });
+    return { config: after };
+  },
+
+  async saveIcopay(audit: AuditContext, config: HqIcopayConfig) {
+    const before = await getIcopayConfigMasked();
+    const current = await getIcopayConfig();
+    const after = await saveIcopayConfig(config, current.bracketSecret);
+    await logAdminChange({
+      actor: audit.actor,
+      action: AdminChangeAction.UPDATE,
+      entityType: 'HQ_ICOPAY',
+      entityId: HQ_CONFIG_KEYS.icopay,
+      entityLabel: 'ICOPAY 연동',
+      summary: `ICOPAY 연동 설정 저장 (관리자: ${audit.actor.email})`,
+      before,
+      after,
+      ipAddress: audit.ipAddress,
+      userAgent: audit.userAgent,
+    });
+    return { config: after };
   },
 
   getLogoFilePath(): string | null {

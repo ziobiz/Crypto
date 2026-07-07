@@ -2,18 +2,17 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthProvider';
-import { useT } from '@/context/LocaleProvider';
+import { useLocale, useT } from '@/context/LocaleProvider';
 import { useBranding } from '@/hooks/useBranding';
 import type { MessageKey } from '@/i18n/messages';
+import {
+  resolveOrgDisplayName,
+  resolveUserDisplayName,
+  sessionRoleKey,
+} from '@/lib/session-display';
 
 function roleKey(role: string): MessageKey {
   return `role.${role}` as MessageKey;
-}
-
-function sessionRoleKey(role: string): MessageKey {
-  if (role === 'SUPER_ADMIN') return 'session.roleAdmin';
-  if (role === 'ORG_STAFF') return 'session.roleStaff';
-  return 'session.roleCustomer';
 }
 
 function UserGlyph() {
@@ -29,6 +28,7 @@ function UserGlyph() {
 /** PG/ICOPAY — 조직 | 역할 한 줄 + 드롭다운 */
 export function UserMenu() {
   const { user, logout } = useAuth();
+  const { locale } = useLocale();
   const t = useT();
   const branding = useBranding();
   const [open, setOpen] = useState(false);
@@ -48,12 +48,16 @@ export function UserMenu() {
 
   if (!user) return null;
 
+  const rawOrg =
+    user.organization ??
+    user.customerProfile?.recruitingOrg ??
+    null;
   const orgLine =
-    user.organization?.name ??
-    user.customerProfile?.recruitingOrg?.name ??
-    branding?.siteName ??
-    'HQ';
+    resolveOrgDisplayName(rawOrg, t, user.role) ||
+    branding?.siteName ||
+    t('org.rootHq');
 
+  const displayName = resolveUserDisplayName(user, t);
   const identityLine = `${orgLine} | ${t(sessionRoleKey(user.role))}`;
 
   function handleLogout() {
@@ -88,8 +92,8 @@ export function UserMenu() {
           className="absolute right-0 z-50 mt-1 w-[min(100vw-2rem,17rem)] rounded-lg border border-gray-200 bg-white py-1 shadow-lg"
           role="menu"
         >
-          <div className="border-b border-gray-100 px-3 py-2.5">
-            <p className="truncate text-xs font-semibold text-gray-900">{user.name}</p>
+          <div className="border-b border-gray-100 px-3 py-2.5" key={locale}>
+            <p className="truncate text-xs font-semibold text-gray-900">{displayName}</p>
             <p className="mt-0.5 truncate text-[11px] text-gray-500">{user.email}</p>
             <p className="mt-1 text-[11px] text-gray-600">{t(roleKey(user.role))}</p>
             {orgLine && <p className="mt-0.5 truncate text-[11px] text-gray-500">{orgLine}</p>}

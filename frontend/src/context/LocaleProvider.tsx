@@ -36,19 +36,14 @@ function readStoredLocale(): Locale {
 }
 
 export function LocaleProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>('KR');
-  const [ready, setReady] = useState(false);
+  const [locale, setLocaleState] = useState<Locale>(() =>
+    typeof window === 'undefined' ? 'KR' : readStoredLocale(),
+  );
 
   useEffect(() => {
-    setLocaleState(readStoredLocale());
-    setReady(true);
-  }, []);
-
-  useEffect(() => {
-    if (!ready) return;
     document.documentElement.lang = LOCALE_HTML_LANG[locale];
     localStorage.setItem(LOCALE_STORAGE_KEY, locale);
-  }, [locale, ready]);
+  }, [locale]);
 
   const setLocale = useCallback((next: Locale) => {
     setLocaleState(next);

@@ -184,25 +184,35 @@ export const api = {
     get: (id: string) => request<UsdtTicket>(`/api/tickets/usdt-purchase/${id}`),
     depositContext: () =>
       request<UsdtDepositContext>('/api/tickets/usdt-purchase/deposit-context'),
+    cardContext: () =>
+      request<UsdtCardPaymentContext>('/api/tickets/usdt-purchase/card-context'),
     fees: (params: {
       walletId: string;
       fiatCurrency: string;
       fiatAmount?: number;
       targetUsdtAmount?: number;
+      cardChargeFiat?: number;
+      paymentMethod?: 'BANK' | 'CARD';
     }) => {
       const q = new URLSearchParams({
         walletId: params.walletId,
         currency: params.fiatCurrency,
       });
+      if (params.paymentMethod === 'CARD') q.set('paymentMethod', 'CARD');
       if (params.fiatAmount != null) q.set('fiatAmount', String(params.fiatAmount));
       if (params.targetUsdtAmount != null) q.set('targetUsdtAmount', String(params.targetUsdtAmount));
+      if (params.cardChargeFiat != null) q.set('cardChargeFiat', String(params.cardChargeFiat));
       return request<UsdtFeePreview>(`/api/tickets/usdt-purchase/fees?${q}`);
     },
     create: (data: {
       fiatAmount?: number;
       targetUsdtAmount?: number;
+      cardChargeFiat?: number;
       walletId: string;
       fiatCurrency?: string;
+      paymentMethod?: 'BANK_TRANSFER' | 'CARD';
+      cardWaiverAccepted?: true;
+      card?: CardPaymentInput;
     }) =>
       request<UsdtTicket>('/api/tickets/usdt-purchase', {
         method: 'POST',
@@ -382,7 +392,8 @@ export interface RegisterInput {
   email: string;
   emailCode: string;
   name: string;
-  phone?: string;
+  phone: string;
+  phoneCountryCode: string;
   customerType: 'INDIVIDUAL' | 'CORPORATE';
   recruitingOrgId: string;
   businessName?: string;
@@ -624,6 +635,33 @@ export interface UsdtFeePreview {
   kimchiPremium?: KimchiPremiumInfo;
   transactionLimits?: TransactionLimitSummary;
   feeDiagramDisplay?: FeeDiagramDisplayConfig;
+  paymentMethod?: 'CARD';
+  cardFeePercent?: number;
+  cardFeeFiat?: number;
+  cardChargeFiat?: number;
+  fiatForConversion?: number;
+}
+
+export interface UsdtCardPaymentContext {
+  cardPaymentEnabled: boolean;
+  enabled: boolean;
+  cardFeePercent: number;
+  limits: Record<SymbolFeeCurrency, { min: number; max: number }>;
+  icopayConfigured: boolean;
+  userPhone: string | null;
+  userPhoneCountryCode: string | null;
+  userEmail: string | null;
+  userName: string | null;
+}
+
+export interface CardPaymentInput {
+  cardNumber: string;
+  cardExpiry: string;
+  cardCvv: string;
+  cardholderName: string;
+  email: string;
+  phone: string;
+  phoneCountryCode: string;
 }
 
 export interface TransactionLimitSummary {
@@ -650,6 +688,7 @@ export interface UsdtTicket {
   ticketNo: string;
   type: string;
   status: string;
+  paymentMethod?: 'BANK_TRANSFER' | 'CARD';
   fiatAmount: number;
   fiatCurrency: string;
   exchangeRate: number;
@@ -672,6 +711,14 @@ export interface UsdtTicket {
   transferFeeSnapshot: number;
   otherFeeSnapshot: number;
   platformFeeSnapshot: number;
+  feePolicySnapshot?: TransactionFees | null;
+  cardFeePercentSnapshot?: number | null;
+  cardFeeFiatSnapshot?: number | null;
+  cardChargeFiat?: number | null;
+  cardPaymentStatus?: string | null;
+  cardLast4?: string | null;
+  icopayOrderId?: string | null;
+  icopayTransactionId?: string | null;
   usdtTxId?: string;
   actualUsdtAmount?: number;
   adminNote?: string;
@@ -954,6 +1001,18 @@ export const hqPolicyApi = {
       body: form,
     });
   },
+  getCardPayment: () => request<{ config: HqCardPaymentConfig }>('/api/hq-policy/payment/card'),
+  saveCardPayment: (config: HqCardPaymentConfig) =>
+    request<{ config: HqCardPaymentConfig }>('/api/hq-policy/payment/card', {
+      method: 'PUT',
+      body: JSON.stringify({ config }),
+    }),
+  getIcopay: () => request<{ config: HqIcopayConfig }>('/api/hq-policy/payment/icopay'),
+  saveIcopay: (config: HqIcopayConfig) =>
+    request<{ config: HqIcopayConfig }>('/api/hq-policy/payment/icopay', {
+      method: 'PUT',
+      body: JSON.stringify({ config }),
+    }),
   listChangeLogs: (query?: {
     page?: number;
     limit?: number;
@@ -1079,11 +1138,36 @@ export type CustomerTransactionLimitsPolicy = {
   CORPORATE: Record<SymbolFeeCurrency, CurrencyTransactionLimits>;
 };
 
+export type FeeMode = 'percent' | 'fixed';
+
+export type TransactionFees = {
+  fxFeeMode: FeeMode;
+  fxFeePercent: number;
+  fxFeeUsdt: number;
+  gasFeeMode: FeeMode;
+  gasFeePercent: number;
+  gasFeeUsdt: number;
+  transferFeeMode: FeeMode;
+  transferFeePercent: number;
+  transferFeeUsdt: number;
+  otherFeeMode: FeeMode;
+  otherFeePercent: number;
+  otherFeeUsdt: number;
+};
+
 export interface HqCommissionRiskConfig {
   defaultFxFeePercent: number;
+  defaultFxFeeUsdt?: number;
+  defaultFxFeeMode?: FeeMode;
   defaultGasFeeUsdt: number;
+  defaultGasFeePercent?: number;
+  defaultGasFeeMode?: FeeMode;
   defaultTransferFeeUsdt: number;
+  defaultTransferFeePercent?: number;
+  defaultTransferFeeMode?: FeeMode;
   defaultOtherFeeUsdt: number;
+  defaultOtherFeePercent?: number;
+  defaultOtherFeeMode?: FeeMode;
   feeDiagramDisplay?: FeeDiagramDisplayConfig;
   maxTicketAmountKrw: number;
   riskEnabled: boolean;
@@ -1095,14 +1179,10 @@ export interface HqCommissionRiskConfig {
 
 export type SymbolFeeCurrency = 'KRW' | 'JPY' | 'THB' | 'CNY' | 'USD';
 
-export interface SymbolFeeTierRow {
+export interface SymbolFeeTierRow extends TransactionFees {
   id: string;
   currency: SymbolFeeCurrency;
   maxAmount: number;
-  fxFeePercent: number;
-  gasFeeUsdt: number;
-  transferFeeUsdt: number;
-  otherFeeUsdt: number;
 }
 
 export type ExchangeRateSourceId =
@@ -1237,4 +1317,20 @@ export interface HqEmailOtpConfig {
   fromAddress: string;
   fromName: string;
   tradeReceiptEmailEnabled: boolean;
+}
+
+export interface HqIcopayConfig {
+  enabled: boolean;
+  mid: string;
+  bracketSecret: string;
+  apiBaseUrl?: string;
+  sandbox?: boolean;
+}
+
+export type CardCurrencyLimits = { min: number; max: number };
+
+export interface HqCardPaymentConfig {
+  enabled: boolean;
+  cardFeePercent: number;
+  limits: Record<SymbolFeeCurrency, CardCurrencyLimits>;
 }

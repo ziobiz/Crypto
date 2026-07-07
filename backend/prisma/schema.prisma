@@ -48,9 +48,23 @@ enum TicketType {
   TRADE_ESCROW  // 워크플로우 2: 무역 에스크로
 }
 
+/// USDT 매입 결제 수단
+enum UsdtPaymentMethod {
+  BANK_TRANSFER
+  CARD
+}
+
+/// ICOPAY 카드 결제 상태
+enum CardPaymentStatus {
+  PENDING
+  APPROVED
+  DECLINED
+}
+
 /// USDT 매입 5단계 상태
 enum UsdtPurchaseStatus {
   APPLICATION_COMPLETED   // 1) 신청 완료
+  CARD_PAYMENT_PENDING    // 카드 결제 처리 중
   DEPOSIT_PROOF_PENDING   // 2) 입금 증빙 대기
   ADMIN_REVIEWING         // 3) 관리자 확인 중
   TRANSFER_IN_PROGRESS    // 4) 송금 처리 중
@@ -146,6 +160,7 @@ model User {
   passwordHash String
   name         String
   phone        String?
+  phoneCountryCode String?
   role         UserRole
   isActive     Boolean   @default(true)
   lastLoginAt  DateTime?
@@ -329,6 +344,8 @@ model UsdtPurchaseDetail {
 
   status UsdtPurchaseStatus @default(APPLICATION_COMPLETED)
 
+  paymentMethod UsdtPaymentMethod @default(BANK_TRANSFER)
+
   // 신청 금액
   fiatAmount   Decimal      @db.Decimal(18, 2)
   fiatCurrency CurrencyCode @default(KRW)
@@ -368,6 +385,17 @@ model UsdtPurchaseDetail {
   transferFeeSnapshot   Decimal @default(0) @db.Decimal(18, 8)
   otherFeeSnapshot      Decimal @default(0) @db.Decimal(18, 8)
   platformFeeSnapshot   Decimal @default(0) @db.Decimal(18, 8)
+  feePolicySnapshot     Json?
+
+  /// 카드 결제 — 수수료·청구 스냅샷
+  cardFeePercentSnapshot Decimal? @db.Decimal(5, 4)
+  cardFeeFiatSnapshot    Decimal? @db.Decimal(18, 2)
+  cardChargeFiat         Decimal? @db.Decimal(18, 2)
+  cardPaymentStatus      CardPaymentStatus?
+  cardWaiverAcceptedAt   DateTime?
+  icopayOrderId          String?
+  icopayTransactionId    String?
+  cardLast4              String?
 
   // 수령 지갑
   walletId String?

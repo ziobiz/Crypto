@@ -62,6 +62,7 @@ if [ -f "$ZIP" ]; then
   DEPLOY_SIZE_MB=$(awk "BEGIN {printf \"%.1f\", $(stat -c%s "$ZIP" 2>/dev/null || stat -f%z "$ZIP") / 1048576}")
 fi
 if [ -f backend/.env ]; then
+  sed -i 's/\r$//' backend/.env
   set -a
   # shellcheck disable=SC1091
   source backend/.env

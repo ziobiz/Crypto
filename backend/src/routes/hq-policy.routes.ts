@@ -7,7 +7,13 @@ import { authenticate, requireRoles } from '../middleware/auth';
 import { auditFromRequest, listAdminChangeLogs } from '../services/admin-change-log.service';
 import { hqPolicyService } from '../services/hq-policy.service';
 import { createPlatformRelease, listPlatformReleases } from '../services/platform-release.service';
-import type { HqAccessMatrix, HqCommissionRiskConfig, HqExchangeRateSourcePolicy, HqOrgColumnConfig, HqPlatformConfig, HqEmailOtpConfig, SymbolFeeTierPolicy } from '../constants/hq-policy';
+import type { HqAccessMatrix, HqCommissionRiskConfig, HqExchangeRateSourcePolicy, HqOrgColumnConfig, HqPlatformConfig, HqEmailOtpConfig, HqCardPaymentConfig, HqIcopayConfig, SymbolFeeTierPolicy } from '../constants/hq-policy';
+import {
+  getCardPaymentConfig,
+  getIcopayConfigMasked,
+  saveCardPaymentConfig,
+  saveIcopayConfig,
+} from '../services/card-payment-policy.service';
 
 const router = Router();
 const logoUpload = multer({
@@ -268,6 +274,46 @@ router.post(
   asyncHandler(async (req, res) => {
     const body = createReleaseSchema.parse(req.body);
     res.status(201).json(await createPlatformRelease(req.user!, body));
+  }),
+);
+
+router.get(
+  '/payment/card',
+  asyncHandler(async (_req, res) => {
+    res.json({ config: await getCardPaymentConfig() });
+  }),
+);
+
+router.put(
+  '/payment/card',
+  asyncHandler(async (req, res) => {
+    const body = req.body as { config?: HqCardPaymentConfig };
+    if (!body.config) {
+      res.status(400).json({ error: 'config required' });
+      return;
+    }
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await hqPolicyService.saveCardPayment(audit, body.config));
+  }),
+);
+
+router.get(
+  '/payment/icopay',
+  asyncHandler(async (_req, res) => {
+    res.json({ config: await getIcopayConfigMasked() });
+  }),
+);
+
+router.put(
+  '/payment/icopay',
+  asyncHandler(async (req, res) => {
+    const body = req.body as { config?: HqIcopayConfig };
+    if (!body.config) {
+      res.status(400).json({ error: 'config required' });
+      return;
+    }
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await hqPolicyService.saveIcopay(audit, body.config));
   }),
 );
 

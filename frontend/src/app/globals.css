@@ -477,6 +477,13 @@
     @apply ring-1 ring-blue-600;
   }
 
+  .pg-choice-idle {
+    @apply cursor-not-allowed opacity-55;
+    border-color: #e5e7eb;
+    background-color: #f3f4f6;
+    color: #9ca3af;
+  }
+
   .pg-field {
     @apply block text-xs;
   }

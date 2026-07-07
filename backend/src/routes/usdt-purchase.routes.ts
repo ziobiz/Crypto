@@ -19,6 +19,11 @@ import {
   saveDepositProofMetadata,
   transitionUsdtPurchaseStatus,
 } from '../services/usdt-purchase.service';
+import {
+  createUsdtCardPurchase,
+  getUsdtCardPaymentContext,
+  previewUsdtCardFees,
+} from '../services/usdt-card-purchase.service';
 import { assertTicketAccess, canOperateUsdtTicket } from '../services/ticket-access.service';
 import { saveAttachment } from '../services/attachment.service';
 import { AppError } from '../lib/errors';
@@ -53,6 +58,14 @@ router.get(
 );
 
 router.get(
+  '/card-context',
+  requireRoles(UserRole.CUSTOMER),
+  asyncHandler(async (req, res) => {
+    res.json(await getUsdtCardPaymentContext(req.user!));
+  }),
+);
+
+router.get(
   '/fees',
   requireRoles(UserRole.CUSTOMER),
   asyncHandler(async (req, res) => {
@@ -61,8 +74,22 @@ router.get(
     const fiatAmount = req.query.fiatAmount != null ? Number(req.query.fiatAmount) : undefined;
     const targetUsdtAmount =
       req.query.targetUsdtAmount != null ? Number(req.query.targetUsdtAmount) : undefined;
+    const cardChargeFiat =
+      req.query.cardChargeFiat != null ? Number(req.query.cardChargeFiat) : undefined;
+    const paymentMethod = String(req.query.paymentMethod ?? 'BANK');
     if (!walletId) {
       throw new AppError(400, 'walletId required', 'VALIDATION_ERROR');
+    }
+    if (paymentMethod === 'CARD') {
+      res.json(
+        await previewUsdtCardFees(req.user!, {
+          walletId,
+          fiatCurrency: currency,
+          targetUsdtAmount,
+          cardChargeFiat,
+        }),
+      );
+      return;
     }
     res.json(
       await previewUsdtTransactionFees(req.user!, {
@@ -98,15 +125,29 @@ router.get(
   }),
 );
 
+const cardSchema = z.object({
+  cardNumber: z.string().min(13),
+  cardExpiry: z.string().min(4),
+  cardCvv: z.string().min(3).max(4),
+  cardholderName: z.string().min(1),
+  email: z.string().email(),
+  phone: z.string().min(6),
+  phoneCountryCode: z.string().min(1),
+});
+
 const createSchema = z
   .object({
     fiatAmount: z.number().positive().optional(),
     targetUsdtAmount: z.number().positive().optional(),
+    cardChargeFiat: z.number().positive().optional(),
     fiatCurrency: z.enum(SUPPORTED_FIAT_CURRENCIES as unknown as [string, ...string[]]).optional(),
     walletId: z.string().min(1),
+    paymentMethod: z.enum(['BANK_TRANSFER', 'CARD']).optional(),
+    cardWaiverAccepted: z.literal(true).optional(),
+    card: cardSchema.optional(),
   })
-  .refine((d) => d.fiatAmount != null || d.targetUsdtAmount != null, {
-    message: 'fiatAmount or targetUsdtAmount required',
+  .refine((d) => d.fiatAmount != null || d.targetUsdtAmount != null || d.cardChargeFiat != null, {
+    message: 'fiatAmount, targetUsdtAmount, or cardChargeFiat required',
   });
 
 router.post(
@@ -114,6 +155,21 @@ router.post(
   requireRoles(UserRole.CUSTOMER),
   asyncHandler(async (req, res) => {
     const body = createSchema.parse(req.body);
+    if (body.paymentMethod === 'CARD') {
+      if (!body.card || !body.cardWaiverAccepted) {
+        throw new AppError(400, 'Card details and waiver required', 'VALIDATION_ERROR');
+      }
+      const ticket = await createUsdtCardPurchase(req.user!, {
+        walletId: body.walletId,
+        fiatCurrency: body.fiatCurrency as FiatCurrency | undefined,
+        targetUsdtAmount: body.targetUsdtAmount,
+        cardChargeFiat: body.cardChargeFiat,
+        card: body.card,
+        cardWaiverAccepted: true,
+      });
+      res.status(201).json(ticket);
+      return;
+    }
     const ticket = await createUsdtPurchaseTicket(req.user!, {
       fiatAmount: body.fiatAmount,
       targetUsdtAmount: body.targetUsdtAmount,

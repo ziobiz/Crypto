@@ -11,16 +11,12 @@ import {
   HQ_CONFIG_KEYS,
   SYMBOL_FEE_CURRENCIES,
 } from '../constants/hq-policy';
+import { computeFeeAmounts, normalizeTransactionFees } from '../lib/fee-component';
 import { prisma } from '../lib/prisma';
 import { normalizeTransactionLimits } from '../lib/transaction-limit-policy';
 
 export function defaultTransactionFees(): TransactionFees {
-  return {
-    fxFeePercent: 0.5,
-    gasFeeUsdt: 1,
-    transferFeeUsdt: 3,
-    otherFeeUsdt: 2,
-  };
+  return normalizeTransactionFees();
 }
 
 const DEFAULT_THRESHOLDS: Record<SymbolFeeCurrency, number[]> = {
@@ -41,10 +37,8 @@ export function defaultSymbolFeeTiers(): SymbolFeeTierPolicy {
         id: `default-${currency}-${i}`,
         currency,
         maxAmount,
+        ...base,
         fxFeePercent: Math.max(0, Number((base.fxFeePercent - i * 0.05).toFixed(4))),
-        gasFeeUsdt: base.gasFeeUsdt,
-        transferFeeUsdt: base.transferFeeUsdt,
-        otherFeeUsdt: base.otherFeeUsdt,
       });
       seq += 1;
       void seq;
@@ -74,10 +68,7 @@ export function normalizeSymbolFeeTiers(raw: unknown): SymbolFeeTierPolicy {
       id: String(row.id ?? `tier-${currency}-${maxAmount}`),
       currency,
       maxAmount,
-      fxFeePercent: Math.min(100, Math.max(0, Number(row.fxFeePercent) || 0)),
-      gasFeeUsdt: Math.max(0, Number(row.gasFeeUsdt) || 0),
-      transferFeeUsdt: Math.max(0, Number(row.transferFeeUsdt) || 0),
-      otherFeeUsdt: Math.max(0, Number(row.otherFeeUsdt) || 0),
+      ...normalizeTransactionFees(row),
     });
   }
 
@@ -103,12 +94,7 @@ export function pickFeeTier(
 }
 
 export function tierToTransactionFees(tier: SymbolFeeTierRow): TransactionFees {
-  return {
-    fxFeePercent: tier.fxFeePercent,
-    gasFeeUsdt: tier.gasFeeUsdt,
-    transferFeeUsdt: tier.transferFeeUsdt,
-    otherFeeUsdt: tier.otherFeeUsdt,
-  };
+  return normalizeTransactionFees(tier);
 }
 
 export function normalizeFeeDiagramDisplay(
@@ -127,9 +113,17 @@ export function normalizeCommissionRisk(raw: Partial<HqCommissionRiskConfig>): H
 
   return {
     defaultFxFeePercent: raw.defaultFxFeePercent ?? defaults.fxFeePercent,
+    defaultFxFeeUsdt: raw.defaultFxFeeUsdt ?? defaults.fxFeeUsdt,
+    defaultFxFeeMode: raw.defaultFxFeeMode ?? defaults.fxFeeMode,
     defaultGasFeeUsdt: raw.defaultGasFeeUsdt ?? defaults.gasFeeUsdt,
+    defaultGasFeePercent: raw.defaultGasFeePercent ?? defaults.gasFeePercent,
+    defaultGasFeeMode: raw.defaultGasFeeMode ?? defaults.gasFeeMode,
     defaultTransferFeeUsdt: transfer,
+    defaultTransferFeePercent: raw.defaultTransferFeePercent ?? defaults.transferFeePercent,
+    defaultTransferFeeMode: raw.defaultTransferFeeMode ?? defaults.transferFeeMode,
     defaultOtherFeeUsdt: raw.defaultOtherFeeUsdt ?? defaults.otherFeeUsdt,
+    defaultOtherFeePercent: raw.defaultOtherFeePercent ?? defaults.otherFeePercent,
+    defaultOtherFeeMode: raw.defaultOtherFeeMode ?? defaults.otherFeeMode,
     feeDiagramDisplay: normalizeFeeDiagramDisplay(raw.feeDiagramDisplay),
     maxTicketAmountKrw: raw.maxTicketAmountKrw ?? 100_000_000,
     riskEnabled: raw.riskEnabled ?? true,
@@ -162,16 +156,21 @@ export async function getFeeDiagramDisplay(): Promise<FeeDiagramDisplayConfig> {
 }
 
 export async function getHqTransactionFees(): Promise<TransactionFees> {
-  const row = await prisma.systemConfig.findUnique({
-    where: { key: HQ_CONFIG_KEYS.commissionRisk },
-  });
-  const risk = normalizeCommissionRisk((row?.value ?? {}) as Partial<HqCommissionRiskConfig>);
-  return {
+  const risk = await getCommissionRiskConfig();
+  return normalizeTransactionFees({
+    fxFeeMode: risk.defaultFxFeeMode,
     fxFeePercent: risk.defaultFxFeePercent,
+    fxFeeUsdt: risk.defaultFxFeeUsdt,
+    gasFeeMode: risk.defaultGasFeeMode,
+    gasFeePercent: risk.defaultGasFeePercent,
     gasFeeUsdt: risk.defaultGasFeeUsdt,
+    transferFeeMode: risk.defaultTransferFeeMode,
+    transferFeePercent: risk.defaultTransferFeePercent,
     transferFeeUsdt: risk.defaultTransferFeeUsdt,
+    otherFeeMode: risk.defaultOtherFeeMode,
+    otherFeePercent: risk.defaultOtherFeePercent,
     otherFeeUsdt: risk.defaultOtherFeeUsdt,
-  };
+  });
 }
 
 type WalletFeeSource = {
@@ -181,6 +180,25 @@ type WalletFeeSource = {
   otherFeeAmount?: unknown;
   platformFeeAmount?: unknown;
 };
+
+function overrideFeeComponent(
+  hq: TransactionFees,
+  key: 'fx' | 'gas' | 'transfer' | 'other',
+  walletPercent: number,
+  walletFixed: number,
+): TransactionFees {
+  const modeKey = `${key}FeeMode` as keyof TransactionFees;
+  const percentKey = `${key}FeePercent` as keyof TransactionFees;
+  const fixedKey = `${key}FeeUsdt` as keyof TransactionFees;
+  const mode = hq[modeKey] as TransactionFees[typeof modeKey];
+  if (mode === 'percent' && walletPercent > 0) {
+    return { ...hq, [percentKey]: walletPercent };
+  }
+  if (mode === 'fixed' && walletFixed > 0) {
+    return { ...hq, [fixedKey]: walletFixed };
+  }
+  return hq;
+}
 
 /** 지갑 개별값 우선, 0이면 본사 기본값 */
 export function resolveTransactionFees(
@@ -195,12 +213,12 @@ export function resolveTransactionFees(
     0;
   const walletOther = Number(wallet.otherFeeAmount);
 
-  return {
-    fxFeePercent: walletFx > 0 ? walletFx : hq.fxFeePercent,
-    gasFeeUsdt: walletGas > 0 ? walletGas : hq.gasFeeUsdt,
-    transferFeeUsdt: walletTransfer > 0 ? walletTransfer : hq.transferFeeUsdt,
-    otherFeeUsdt: walletOther > 0 ? walletOther : hq.otherFeeUsdt,
-  };
+  let fees = hq;
+  fees = overrideFeeComponent(fees, 'fx', walletFx, walletFx);
+  fees = overrideFeeComponent(fees, 'gas', walletGas, walletGas);
+  fees = overrideFeeComponent(fees, 'transfer', walletTransfer, walletTransfer);
+  fees = overrideFeeComponent(fees, 'other', walletOther, walletOther);
+  return fees;
 }
 
 /** 통화·금액 구간 수수료 → 지갑 오버라이드 적용 */
@@ -215,14 +233,16 @@ export async function resolveFeesForAmount(
   return resolveTransactionFees(wallet, hq);
 }
 
-export function totalFixedFeesUsdt(fees: TransactionFees): number {
-  return fees.gasFeeUsdt + fees.transferFeeUsdt + fees.otherFeeUsdt;
+export function totalFixedFeesUsdt(grossUsdt: number, fees: TransactionFees): number {
+  const amounts = computeFeeAmounts(grossUsdt, fees);
+  return amounts.gasFeeUsdt + amounts.transferFeeUsdt + amounts.otherFeeUsdt;
 }
 
 /** 티켓 스냅샷 기준 총 수수료 풀 (USDT) */
 export function commissionPoolFromSnapshots(detail: {
   fiatAmount: unknown;
   exchangeRate: unknown;
+  feePolicySnapshot?: unknown;
   fxFeePercentSnapshot?: unknown;
   gasFeeSnapshot: unknown;
   transferFeeSnapshot?: unknown;
@@ -231,6 +251,15 @@ export function commissionPoolFromSnapshots(detail: {
 }): number {
   const rate = Number(detail.exchangeRate);
   const gross = rate > 0 ? Number(detail.fiatAmount) / rate : 0;
+  if (detail.feePolicySnapshot && typeof detail.feePolicySnapshot === 'object') {
+    const amounts = computeFeeAmounts(
+      gross,
+      normalizeTransactionFees(detail.feePolicySnapshot as TransactionFees),
+    );
+    return Number(
+      (amounts.fxFeeUsdt + amounts.gasFeeUsdt + amounts.transferFeeUsdt + amounts.otherFeeUsdt).toFixed(8),
+    );
+  }
   const fxPct = Number(detail.fxFeePercentSnapshot ?? 0);
   const fxFee = (gross * fxPct) / 100;
   const gas = Number(detail.gasFeeSnapshot) || 0;

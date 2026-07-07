@@ -8,11 +8,45 @@ import { api, UsdtDepositContext, UsdtTicket } from '@/lib/api';
 import { StatusBadge } from '@/components/StatusBadge';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { AttachmentLink } from '@/components/AttachmentLink';
+import { formatFeeComponentLabel } from '@/lib/fee-component';
+import type { TransactionFees } from '@/lib/api';
 
 const LOCAL_PREMIUM_CURRENCIES = ['KRW', 'THB', 'JPY'] as const;
 
 function hasLocalPremium(currency: string) {
   return (LOCAL_PREMIUM_CURRENCIES as readonly string[]).includes(currency);
+}
+
+function feeSummaryLabel(ticket: UsdtTicket, t: ReturnType<typeof useT>) {
+  const policy = ticket.feePolicySnapshot;
+  if (policy) {
+    return [
+      `${t('usdt.fxFee')} ${formatFeeComponentLabel(policy, 'fx')}`,
+      `${t('usdt.gasFee')} ${formatFeeComponentLabel(policy, 'gas')}`,
+      `${t('usdt.transferFee')} ${formatFeeComponentLabel(policy, 'transfer')}`,
+      `${t('usdt.otherFee')} ${formatFeeComponentLabel(policy, 'other')}`,
+    ].join(' · ');
+  }
+  const legacyPolicy = {
+    fxFeeMode: 'percent' as const,
+    fxFeePercent: ticket.fxFeePercentSnapshot,
+    fxFeeUsdt: 0,
+    gasFeeMode: 'fixed' as const,
+    gasFeePercent: 0,
+    gasFeeUsdt: ticket.gasFeeSnapshot,
+    transferFeeMode: 'fixed' as const,
+    transferFeePercent: 0,
+    transferFeeUsdt: ticket.transferFeeSnapshot,
+    otherFeeMode: 'fixed' as const,
+    otherFeePercent: 0,
+    otherFeeUsdt: ticket.otherFeeSnapshot,
+  } satisfies TransactionFees;
+  return [
+    `${t('usdt.fxFee')} ${formatFeeComponentLabel(legacyPolicy, 'fx')}`,
+    `${t('usdt.gasFee')} ${formatFeeComponentLabel(legacyPolicy, 'gas')}`,
+    `${t('usdt.transferFee')} ${formatFeeComponentLabel(legacyPolicy, 'transfer')}`,
+    `${t('usdt.otherFee')} ${formatFeeComponentLabel(legacyPolicy, 'other')}`,
+  ].join(' · ');
 }
 
 function useCountdown(deadline: string | null | undefined) {
@@ -114,17 +148,20 @@ export default function UsdtDetailPage() {
     new Date(ticket.depositDeadlineAt) < new Date() &&
     ticket.status === 'DEPOSIT_PROOF_PENDING';
 
+  const isCard = ticket.paymentMethod === 'CARD';
+
   return (
     <div className="pg-stack">
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-xs font-semibold">{ticket.ticketNo}</p>
         <StatusBadge status={ticket.status} />
+        {isCard && <span className="pg-badge pg-badge-info">{t('usdt.paymentCard')}</span>}
         {ticket.bankMismatch && (
           <span className="pg-badge pg-badge-error">{t('usdt.bankMismatch')}</span>
         )}
       </div>
 
-      {ticket.status === 'DEPOSIT_PROOF_PENDING' && ticket.depositDeadlineAt && (
+      {ticket.status === 'DEPOSIT_PROOF_PENDING' && ticket.depositDeadlineAt && !isCard && (
         <div className="pg-card">
           <div className={`pg-card-body pg-callout ${depositExpired ? 'pg-callout-error' : 'pg-callout-warn'}`}>
             <p className="font-medium">{t('usdt.depositDeadline')}</p>
@@ -136,7 +173,30 @@ export default function UsdtDetailPage() {
         </div>
       )}
 
-      {receiving && (
+      {isCard && (
+        <div className="pg-card">
+          <div className="pg-card-body pg-callout pg-callout-info">
+            <p className="font-semibold">{t('usdt.detail.cardPayment')}</p>
+            {ticket.cardChargeFiat != null && (
+              <p className="mt-1">
+                {t('usdt.detail.cardCharged')}: {formatCurrency(ticket.cardChargeFiat, ticket.fiatCurrency)}
+              </p>
+            )}
+            {ticket.cardFeeFiatSnapshot != null && (
+              <p>{t('usdt.detail.cardFeePaid')}: {formatCurrency(ticket.cardFeeFiatSnapshot, ticket.fiatCurrency)}</p>
+            )}
+            {ticket.cardLast4 && <p>{t('usdt.detail.cardLast4', { last4: ticket.cardLast4 })}</p>}
+            {ticket.icopayTransactionId && (
+              <p className="font-mono text-xs">{t('usdt.detail.icopayTx')}: {ticket.icopayTransactionId}</p>
+            )}
+            {ticket.cardPaymentStatus === 'DECLINED' && (
+              <p className="mt-2 text-red-700">{t('usdt.detail.cardDeclined')}</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {receiving && !isCard && (
         <div className="pg-card">
           <div className="pg-card-body pg-callout pg-callout-info">
             <p className="font-semibold">{t('usdt.companyAccount')}</p>
@@ -170,7 +230,7 @@ export default function UsdtDetailPage() {
           label={t('usdt.detail.fees')}
           value={
             hasLocalPremium(ticket.fiatCurrency) && ticket.kimchiPremiumPercent != null
-              ? `FX ${ticket.fxFeePercentSnapshot}% · ${t('usdt.gasFee')} ${ticket.gasFeeSnapshot} · ${t('usdt.transferFee')} ${ticket.transferFeeSnapshot} · ${t('usdt.otherFee')} ${ticket.otherFeeSnapshot} USDT (${
+              ? `${feeSummaryLabel(ticket, t)} (${
                   ticket.fiatCurrency === 'KRW'
                     ? t('usdt.kimchiPremiumFee', { pct: ticket.kimchiPremiumPercent.toFixed(2) })
                     : t('usdt.localPremiumFee', {
@@ -178,7 +238,7 @@ export default function UsdtDetailPage() {
                         pct: ticket.kimchiPremiumPercent.toFixed(2),
                       })
                 } ${ticket.kimchiPremiumFeeUsdt ?? 0})`
-              : `FX ${ticket.fxFeePercentSnapshot}% · ${t('usdt.gasFee')} ${ticket.gasFeeSnapshot} · ${t('usdt.transferFee')} ${ticket.transferFeeSnapshot} · ${t('usdt.otherFee')} ${ticket.otherFeeSnapshot} USDT`
+              : feeSummaryLabel(ticket, t)
           }
         />
         {hasLocalPremium(ticket.fiatCurrency) && ticket.fairExchangeRate != null && ticket.kimchiPremiumPercent != null && (
@@ -225,7 +285,7 @@ export default function UsdtDetailPage() {
         </div>
       )}
 
-      {isCustomer && ticket.status === 'DEPOSIT_PROOF_PENDING' && !depositExpired && (
+      {isCustomer && ticket.status === 'DEPOSIT_PROOF_PENDING' && !depositExpired && !isCard && (
         <div className="pg-section">
           <div className="pg-section-head">{t('usdt.detail.depositInfo')}</div>
           <div className="pg-section-pad">

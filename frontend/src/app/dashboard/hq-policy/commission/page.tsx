@@ -20,6 +20,7 @@ import type { MessageKey } from '@/i18n/messages';
 import { FormattedAmountInput } from '@/components/FormattedAmountInput';
 import { formatAmountInput } from '@/lib/format';
 import { PolicyTableActions } from '@/components/policy/PolicyTableActions';
+import { FeeDualInput } from '@/components/policy/FeeDualInput';
 import { PolicyCellValue } from '@/components/policy/PolicyCellValue';
 import { PolicyNumberInput } from '@/components/policy/PolicyNumberInput';
 
@@ -46,7 +47,6 @@ const FEE_DIAGRAM_KEYS: Array<{ key: keyof FeeDiagramDisplayConfig; labelKey: Me
   { key: 'localPremium', labelKey: 'hq.commission.feeDiagram.localPremium' },
   { key: 'net', labelKey: 'hq.commission.feeDiagram.net' },
   { key: 'requiredFiat', labelKey: 'hq.commission.feeDiagram.requiredFiat' },
-  { key: 'showRates', labelKey: 'hq.commission.feeDiagram.showRates' },
 ];
 
 const DEFAULT_FEE_DIAGRAM: FeeDiagramDisplayConfig = {
@@ -133,9 +133,17 @@ function defaultTierForCurrency(currency: SymbolFeeCurrency, risk: HqCommissionR
     id: newTierId(),
     currency,
     maxAmount: currency === 'KRW' ? 1_000_000 : currency === 'JPY' ? 100_000 : 10_000,
+    fxFeeMode: risk.defaultFxFeeMode ?? 'percent',
     fxFeePercent: risk.defaultFxFeePercent,
+    fxFeeUsdt: risk.defaultFxFeeUsdt ?? 0,
+    gasFeeMode: risk.defaultGasFeeMode ?? 'fixed',
+    gasFeePercent: risk.defaultGasFeePercent ?? 0,
     gasFeeUsdt: risk.defaultGasFeeUsdt,
+    transferFeeMode: risk.defaultTransferFeeMode ?? 'fixed',
+    transferFeePercent: risk.defaultTransferFeePercent ?? 0,
     transferFeeUsdt: risk.defaultTransferFeeUsdt,
+    otherFeeMode: risk.defaultOtherFeeMode ?? 'fixed',
+    otherFeePercent: risk.defaultOtherFeePercent ?? 0,
     otherFeeUsdt: risk.defaultOtherFeeUsdt,
   };
 }
@@ -674,6 +682,60 @@ export default function HqCommissionPage() {
         <p className="pg-hint">{t('hq.commission.symbolDesc')}</p>
 
         <div className="pg-card">
+          <div className="pg-card-head">{t('hq.commission.showFeeRatesTitle')}</div>
+          <div className="pg-card-body space-y-2">
+            <p className="pg-hint text-xs">{t('hq.commission.showFeeRatesDesc')}</p>
+            <div className="flex flex-wrap gap-4">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="showFeeRates"
+                  checked={(risk.feeDiagramDisplay?.showRates ?? DEFAULT_FEE_DIAGRAM.showRates) === true}
+                  onChange={() =>
+                    setRisk((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            feeDiagramDisplay: {
+                              ...DEFAULT_FEE_DIAGRAM,
+                              ...prev.feeDiagramDisplay,
+                              showRates: true,
+                            },
+                          }
+                        : prev,
+                    )
+                  }
+                />
+                {t('hq.commission.showFeeRatesOn')}
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="showFeeRates"
+                  checked={(risk.feeDiagramDisplay?.showRates ?? DEFAULT_FEE_DIAGRAM.showRates) === false}
+                  onChange={() =>
+                    setRisk((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            feeDiagramDisplay: {
+                              ...DEFAULT_FEE_DIAGRAM,
+                              ...prev.feeDiagramDisplay,
+                              showRates: false,
+                            },
+                          }
+                        : prev,
+                    )
+                  }
+                />
+                {t('hq.commission.showFeeRatesOff')}
+              </label>
+            </div>
+            <p className="pg-hint text-[10px]">{t('hq.commission.feeDiagramSaveHint')}</p>
+          </div>
+        </div>
+
+        <div className="pg-card">
           <div className="pg-card-head">{t('hq.commission.feeDiagramTitle')}</div>
           <div className="pg-card-body space-y-3">
             <p className="pg-hint text-xs">{t('hq.commission.feeDiagramDesc')}</p>
@@ -723,6 +785,7 @@ export default function HqCommissionPage() {
         </div>
 
         <p className="pg-hint">{t('hq.commission.tierTableDesc')}</p>
+        <p className="pg-callout pg-callout-muted">{t('hq.commission.feeDualHint')}</p>
         <p className="pg-callout pg-callout-muted">{t('hq.commission.tierEditHint')}</p>
 
         <div className="pg-card pg-table-wrap">
@@ -762,53 +825,36 @@ export default function HqCommissionPage() {
                     )}
                   </td>
                   <td>
-                    {isEditing ? (
-                      <PolicyNumberInput
-                        min={0}
-                        max={100}
-                        value={row.fxFeePercent}
-                        onChange={(fxFeePercent) => updateTierDraft({ fxFeePercent })}
-                        className="pg-input w-24"
-                      />
-                    ) : (
-                      <PolicyCellValue>{row.fxFeePercent}</PolicyCellValue>
-                    )}
+                    <FeeDualInput
+                      feeKey="fx"
+                      fees={row}
+                      editing={isEditing}
+                      onChange={(patch) => updateTierDraft(patch)}
+                    />
                   </td>
                   <td>
-                    {isEditing ? (
-                      <PolicyNumberInput
-                        min={0}
-                        value={row.gasFeeUsdt}
-                        onChange={(gasFeeUsdt) => updateTierDraft({ gasFeeUsdt })}
-                        className="pg-input w-24"
-                      />
-                    ) : (
-                      <PolicyCellValue>{row.gasFeeUsdt}</PolicyCellValue>
-                    )}
+                    <FeeDualInput
+                      feeKey="gas"
+                      fees={row}
+                      editing={isEditing}
+                      onChange={(patch) => updateTierDraft(patch)}
+                    />
                   </td>
                   <td>
-                    {isEditing ? (
-                      <PolicyNumberInput
-                        min={0}
-                        value={row.transferFeeUsdt}
-                        onChange={(transferFeeUsdt) => updateTierDraft({ transferFeeUsdt })}
-                        className="pg-input w-24"
-                      />
-                    ) : (
-                      <PolicyCellValue>{row.transferFeeUsdt}</PolicyCellValue>
-                    )}
+                    <FeeDualInput
+                      feeKey="transfer"
+                      fees={row}
+                      editing={isEditing}
+                      onChange={(patch) => updateTierDraft(patch)}
+                    />
                   </td>
                   <td>
-                    {isEditing ? (
-                      <PolicyNumberInput
-                        min={0}
-                        value={row.otherFeeUsdt}
-                        onChange={(otherFeeUsdt) => updateTierDraft({ otherFeeUsdt })}
-                        className="pg-input w-24"
-                      />
-                    ) : (
-                      <PolicyCellValue>{row.otherFeeUsdt}</PolicyCellValue>
-                    )}
+                    <FeeDualInput
+                      feeKey="other"
+                      fees={row}
+                      editing={isEditing}
+                      onChange={(patch) => updateTierDraft(patch)}
+                    />
                   </td>
                   <td>
                     <PolicyTableActions>

@@ -9,6 +9,7 @@ import { UsdtRatePanel } from '@/components/UsdtRatePanel';
 import { DashboardCharts } from '@/components/DashboardCharts';
 import { ContentCard } from '@/components/layout/ContentCard';
 import { useBranding } from '@/hooks/useBranding';
+import { resolveOrgDisplayName } from '@/lib/session-display';
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -23,9 +24,12 @@ export default function DashboardPage() {
   const stats = data?.stats ?? {};
 
   const orgLine =
-    user?.organization?.name ??
-    user?.customerProfile?.recruitingOrg?.name ??
-    branding?.siteName ??
+    resolveOrgDisplayName(
+      user?.organization ?? user?.customerProfile?.recruitingOrg ?? null,
+      t,
+      user?.role,
+    ) ||
+    branding?.siteName ||
     '';
 
   return (

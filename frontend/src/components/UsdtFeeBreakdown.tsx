@@ -1,7 +1,8 @@
 'use client';
 
 import { useT } from '@/context/LocaleProvider';
-import type { FeeDiagramDisplayConfig } from '@/lib/api';
+import type { FeeDiagramDisplayConfig, TransactionFees } from '@/lib/api';
+import { formatFeeComponentLabel } from '@/lib/fee-component';
 
 const LOCAL_PREMIUM_CURRENCIES = ['KRW', 'THB', 'JPY'] as const;
 
@@ -22,11 +23,7 @@ export type UsdtFeeBreakdown = {
   fairExchangeRate?: number;
 };
 
-type FeeRates = {
-  fxFeePercent: number;
-  gasFeeUsdt: number;
-  transferFeeUsdt: number;
-  otherFeeUsdt: number;
+type FeeRates = Partial<TransactionFees> & {
   baseOtherFeeUsdt?: number;
   localPremiumPercent?: number;
   kimchiPremiumPercent?: number;
@@ -63,6 +60,10 @@ export function UsdtFeeBreakdownPanel({
   source,
   fees,
   display = DEFAULT_DISPLAY,
+  cardFeeFiat,
+  cardChargeFiat,
+  cardFeePercent,
+  isCardPayment,
 }: {
   breakdown: UsdtFeeBreakdown;
   currency: string;
@@ -70,6 +71,10 @@ export function UsdtFeeBreakdownPanel({
   source?: string;
   fees?: FeeRates;
   display?: FeeDiagramDisplayConfig;
+  cardFeeFiat?: number;
+  cardChargeFiat?: number;
+  cardFeePercent?: number;
+  isCardPayment?: boolean;
 }) {
   const t = useT();
   const cfg = { ...DEFAULT_DISPLAY, ...display };
@@ -94,21 +99,21 @@ export function UsdtFeeBreakdownPanel({
     {
       key: 'fxFee',
       label: t('usdt.fxFee'),
-      rate: fees ? `${fees.fxFeePercent}%` : '—',
+      rate: fees ? formatFeeComponentLabel(fees, 'fx') : '—',
       value: `− ${breakdown.fxFeeUsdt.toFixed(4)} USDT`,
       tone: 'bg-amber-50',
     },
     {
       key: 'gasFee',
       label: t('usdt.gasFee'),
-      rate: fees ? `${fees.gasFeeUsdt} USDT` : '—',
+      rate: fees ? formatFeeComponentLabel(fees, 'gas') : '—',
       value: `− ${breakdown.gasFeeUsdt.toFixed(4)} USDT`,
       tone: 'bg-orange-50',
     },
     {
       key: 'transferFee',
       label: t('usdt.transferFee'),
-      rate: fees ? `${fees.transferFeeUsdt} USDT` : '—',
+      rate: fees ? formatFeeComponentLabel(fees, 'transfer') : '—',
       value: `− ${breakdown.transferFeeUsdt.toFixed(4)} USDT`,
       tone: 'bg-orange-50',
     },
@@ -117,7 +122,7 @@ export function UsdtFeeBreakdownPanel({
           {
             key: 'otherFeeBase',
             label: t('usdt.otherFeeBase'),
-            rate: fees ? `${baseOther} USDT` : '—',
+            rate: fees ? formatFeeComponentLabel(fees, 'other') : '—',
             value: `− ${baseOther.toFixed(4)} USDT`,
             tone: 'bg-orange-50',
           },
@@ -133,7 +138,7 @@ export function UsdtFeeBreakdownPanel({
           {
             key: 'otherFee',
             label: t('usdt.otherFee'),
-            rate: fees ? `${fees.otherFeeUsdt} USDT` : '—',
+            rate: fees ? formatFeeComponentLabel(fees, 'other') : '—',
             value: `− ${breakdown.otherFeeUsdt.toFixed(4)} USDT`,
             tone: 'bg-orange-50',
           },
@@ -193,7 +198,7 @@ export function UsdtFeeBreakdownPanel({
       {steps.length > 0 && (
         <div className="mt-3 space-y-1.5">
           {cfg.showRates && (
-            <div className="grid grid-cols-[1fr_auto_1fr] gap-2 px-3 text-[10px] font-medium text-gray-500">
+            <div className="grid grid-cols-[1fr_auto_1fr] gap-2 px-3 text-[11px] font-medium text-gray-500">
               <span>{t('usdt.fee.colItem')}</span>
               <span className="text-center min-w-[5rem]">{t('usdt.fee.colRate')}</span>
               <span className="text-right">{t('usdt.fee.colAmount')}</span>
@@ -208,26 +213,50 @@ export function UsdtFeeBreakdownPanel({
                   : 'flex items-center justify-between'
               }`}
             >
-              <span className="text-gray-600">{s.label}</span>
+              <span className="text-[11px] text-gray-600">{s.label}</span>
               {cfg.showRates && (
-                <span className="text-center text-xs text-gray-500 tabular-nums min-w-[5rem]">
+                <span className="text-center text-[11px] text-gray-500 tabular-nums min-w-[5rem]">
                   {s.rate}
                 </span>
               )}
-              <span className="font-medium tabular-nums text-right">{s.value}</span>
+              <span className="text-[11px] font-medium tabular-nums text-right">{s.value}</span>
             </div>
           ))}
         </div>
       )}
       {cfg.requiredFiat && (
         <div className="mt-3 rounded border border-blue-100 bg-blue-50/60 px-3 py-2">
-          <p className="text-gray-600">{t('usdt.fee.requiredFiat')}</p>
+          <p className="text-gray-600">
+            {isCardPayment ? t('usdt.fee.fiatForConversion') : t('usdt.fee.requiredFiat')}
+          </p>
           <p className="text-lg font-bold text-blue-800 tabular-nums text-center">
             {breakdown.requiredFiat.toLocaleString()} {currency}
           </p>
         </div>
       )}
-      <p className="mt-2 text-[10px] text-gray-500">{t('usdt.fee.manualNote')}</p>
+      {isCardPayment && cardChargeFiat != null && cardChargeFiat > 0 && (
+        <div className="mt-3 space-y-2">
+          {cardFeeFiat != null && cardFeeFiat > 0 && (
+            <div className="rounded border border-violet-100 bg-violet-50/60 px-3 py-2">
+              <p className="text-gray-600">
+                {t('usdt.cardFee', { pct: (cardFeePercent ?? 0).toFixed(2) })}
+              </p>
+              <p className="text-base font-semibold text-violet-900 tabular-nums text-center">
+                + {cardFeeFiat.toLocaleString()} {currency}
+              </p>
+            </div>
+          )}
+          <div className="rounded border border-indigo-200 bg-indigo-50 px-3 py-2">
+            <p className="text-gray-700 font-medium">{t('usdt.fee.cardChargeTotal')}</p>
+            <p className="text-xl font-bold text-indigo-900 tabular-nums text-center">
+              {cardChargeFiat.toLocaleString()} {currency}
+            </p>
+          </div>
+        </div>
+      )}
+      <p className="mt-2 text-[10px] text-gray-500">
+        {isCardPayment ? t('usdt.fee.cardNote') : t('usdt.fee.manualNote')}
+      </p>
     </div>
   );
 }

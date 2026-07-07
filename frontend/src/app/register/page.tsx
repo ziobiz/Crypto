@@ -12,6 +12,7 @@ import {
   emptyBankAccounts,
   filledBankAccounts,
 } from '@/components/CustomerBankAccountsForm';
+import { PHONE_COUNTRY_CODES } from '@/constants/phone-country-codes';
 import { WALLET_NETWORKS } from '@/constants/wallet-networks';
 
 export default function RegisterPage() {
@@ -28,6 +29,7 @@ export default function RegisterPage() {
     emailCode: '',
     name: '',
     phone: '',
+    phoneCountryCode: '+82',
     customerType: 'INDIVIDUAL' as 'INDIVIDUAL' | 'CORPORATE',
     recruitingOrgId: '',
     businessName: '',
@@ -73,6 +75,10 @@ export default function RegisterPage() {
       setError(t('register.bankRequired'));
       return;
     }
+    if (!form.phone.trim() || !form.phoneCountryCode.trim()) {
+      setError(t('register.phoneRequired'));
+      return;
+    }
     if (!form.walletAddress.trim()) {
       setError(t('register.walletRequired'));
       return;
@@ -83,7 +89,8 @@ export default function RegisterPage() {
         email: form.email,
         emailCode: form.emailCode,
         name: form.name,
-        phone: form.phone || undefined,
+        phone: form.phone,
+        phoneCountryCode: form.phoneCountryCode,
         customerType: form.customerType,
         recruitingOrgId: form.recruitingOrgId,
         businessName: form.businessName || undefined,
@@ -118,7 +125,22 @@ export default function RegisterPage() {
           </div>
           {codeSent && <p className="text-sm text-green-700">{info}</p>}
           <Field label={t('auth.name')} value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
-          <Field label={t('auth.phone')} value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} optional />
+          <div className="grid grid-cols-[7rem_1fr] gap-2">
+            <div>
+              <label className="block text-sm font-medium">{t('usdt.phoneCountryCode')}</label>
+              <select
+                value={form.phoneCountryCode}
+                onChange={(e) => setForm({ ...form, phoneCountryCode: e.target.value })}
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                required
+              >
+                {PHONE_COUNTRY_CODES.map((c) => (
+                  <option key={c.code} value={c.code}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+            <Field label={t('auth.phone')} value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} />
+          </div>
           <div>
             <label className="block text-sm font-medium">{t('auth.customerType')}</label>
             <select

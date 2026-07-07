@@ -8,6 +8,7 @@ import type { MessageKey } from '@/i18n/messages';
 const SUB_TABS: { href: string; labelKey: MessageKey }[] = [
   { href: '/dashboard/hq-policy/ops/change-history', labelKey: 'hq.ops.changeHistory' },
   { href: '/dashboard/hq-policy/ops/release-history', labelKey: 'hq.ops.releaseHistory' },
+  { href: '/dashboard/hq-policy/ops/payment', labelKey: 'hq.ops.paymentManagement' },
 ];
 
 export default function HqOpsLayout({ children }: { children: React.ReactNode }) {

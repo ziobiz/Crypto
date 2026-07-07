@@ -68,6 +68,8 @@ export const HQ_CONFIG_KEYS = {
   exchangeRateSources: 'hq.commission.exchange_rate_sources',
   platform: 'hq.platform.domains',
   emailOtp: 'hq.platform.email_otp',
+  icopay: 'hq.platform.icopay',
+  cardPayment: 'hq.payment.card',
 } as const;
 
 export type HqAccessMatrix = Record<HqOrgLevel, Record<string, HqPermissionLevel>>;
@@ -99,15 +101,25 @@ export type CustomerTransactionLimitsPolicy = Record<
   Record<SymbolFeeCurrency, CurrencyTransactionLimits>
 >;
 
+export type FeeMode = 'percent' | 'fixed';
+
 export type HqCommissionRiskConfig = {
   /** FX 환전 수수료 (% — gross USDT 대비) */
   defaultFxFeePercent: number;
+  defaultFxFeeUsdt?: number;
+  defaultFxFeeMode?: FeeMode;
   /** 가스피 (USDT) */
   defaultGasFeeUsdt: number;
+  defaultGasFeePercent?: number;
+  defaultGasFeeMode?: FeeMode;
   /** 송금 수수료 (USDT) */
   defaultTransferFeeUsdt: number;
+  defaultTransferFeePercent?: number;
+  defaultTransferFeeMode?: FeeMode;
   /** 기타 수수료 (USDT) */
   defaultOtherFeeUsdt: number;
+  defaultOtherFeePercent?: number;
+  defaultOtherFeeMode?: FeeMode;
   /** USDT 매입 수수료·비용 도식 표시 항목 */
   feeDiagramDisplay?: FeeDiagramDisplayConfig;
   /** @deprecated — transactionLimits 로 이전 */
@@ -122,9 +134,17 @@ export type HqCommissionRiskConfig = {
 };
 
 export type TransactionFees = {
+  fxFeeMode: FeeMode;
   fxFeePercent: number;
+  fxFeeUsdt: number;
+  gasFeeMode: FeeMode;
+  gasFeePercent: number;
   gasFeeUsdt: number;
+  transferFeeMode: FeeMode;
+  transferFeePercent: number;
   transferFeeUsdt: number;
+  otherFeeMode: FeeMode;
+  otherFeePercent: number;
   otherFeeUsdt: number;
 };
 
@@ -166,9 +186,17 @@ export type SymbolFeeTierRow = {
   currency: SymbolFeeCurrency;
   /** 해당 통화 기준 금액 이하 구간 */
   maxAmount: number;
+  fxFeeMode: FeeMode;
   fxFeePercent: number;
+  fxFeeUsdt: number;
+  gasFeeMode: FeeMode;
+  gasFeePercent: number;
   gasFeeUsdt: number;
+  transferFeeMode: FeeMode;
+  transferFeePercent: number;
   transferFeeUsdt: number;
+  otherFeeMode: FeeMode;
+  otherFeePercent: number;
   otherFeeUsdt: number;
 };
 
@@ -230,6 +258,46 @@ export type HqPlatformConfig = {
     >
   >;
 };
+
+/** ICOPAY 카드 결제 연동 (ziobiz/PG) */
+export type HqIcopayConfig = {
+  enabled: boolean;
+  mid: string;
+  bracketSecret: string;
+  apiBaseUrl?: string;
+  sandbox?: boolean;
+};
+
+export type CardCurrencyLimits = {
+  min: number;
+  max: number;
+};
+
+/** 운영관리 — 카드 결제 정책 */
+export type HqCardPaymentConfig = {
+  enabled: boolean;
+  cardFeePercent: number;
+  limits: Record<SymbolFeeCurrency, CardCurrencyLimits>;
+};
+
+export const DEFAULT_CARD_PAYMENT_CONFIG = (): HqCardPaymentConfig => ({
+  enabled: false,
+  cardFeePercent: 3.5,
+  limits: {
+    KRW: { min: 10_000, max: 5_000_000 },
+    JPY: { min: 1_000, max: 500_000 },
+    THB: { min: 500, max: 200_000 },
+    CNY: { min: 100, max: 50_000 },
+    USD: { min: 10, max: 10_000 },
+  },
+});
+
+export const DEFAULT_ICOPAY_CONFIG = (): HqIcopayConfig => ({
+  enabled: false,
+  mid: '',
+  bracketSecret: '',
+  sandbox: true,
+});
 
 /** PG 본사정책 → 플랫폼 → 이메일·OTP */
 export type HqEmailOtpConfig = {
