@@ -5,6 +5,7 @@ import { getManualDoc } from './content';
 export type ManualBrand = {
   siteName: string;
   logoUrl: string;
+  faviconUrl?: string;
   footerText?: string;
 };
 
@@ -13,6 +14,47 @@ function esc(s: string) {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/"/g, '&quot;');
+}
+
+/** blob: 창에서는 상대 경로가 깨지므로 origin 기준 절대 URL로 변환 */
+export function toAbsoluteAssetUrl(url: string): string {
+  const raw = String(url ?? '').trim();
+  if (!raw) return '';
+  if (/^(data:|blob:|https?:)/i.test(raw)) return raw;
+  if (typeof window === 'undefined') return raw;
+  try {
+    return new URL(raw, window.location.origin).href;
+  } catch {
+    return raw;
+  }
+}
+
+/** blob 문서용: 이미지를 data URL로 임베드 (로고/파비콘 안정 표시) */
+export async function embedAssetAsDataUrl(url: string): Promise<string> {
+  const abs = toAbsoluteAssetUrl(url);
+  if (!abs) return '';
+  if (abs.startsWith('data:')) return abs;
+  try {
+    const res = await fetch(abs, { credentials: 'same-origin', cache: 'force-cache' });
+    if (!res.ok) return abs;
+    const blob = await res.blob();
+    return await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : abs);
+      reader.onerror = () => resolve(abs);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return abs;
+  }
+}
+
+export async function resolveManualBrandAssets(brand: ManualBrand): Promise<ManualBrand> {
+  const [logoUrl, faviconUrl] = await Promise.all([
+    brand.logoUrl ? embedAssetAsDataUrl(brand.logoUrl) : Promise.resolve(''),
+    brand.faviconUrl ? embedAssetAsDataUrl(brand.faviconUrl) : Promise.resolve(''),
+  ]);
+  return { ...brand, logoUrl, faviconUrl: faviconUrl || undefined };
 }
 
 const CSS = `
@@ -75,8 +117,13 @@ export function buildManualHtml(
   const subtitle = pick(doc.coverSubtitle);
   const site = brand.siteName || 'TINPASS';
   const ver = docVersion.replace(/^V/i, '');
-  const logo = brand.logoUrl
-    ? `<img src="${esc(brand.logoUrl)}" alt="${esc(site)}" />`
+  const logoSrc = brand.logoUrl ? toAbsoluteAssetUrl(brand.logoUrl) : '';
+  const faviconSrc = brand.faviconUrl ? toAbsoluteAssetUrl(brand.faviconUrl) : '';
+  const logo = logoSrc
+    ? `<img src="${esc(logoSrc)}" alt="${esc(site)}" />`
+    : '';
+  const faviconLink = faviconSrc
+    ? `<link rel="icon" href="${esc(faviconSrc)}" />`
     : '';
 
   const tocLabel =
@@ -102,7 +149,8 @@ export function buildManualHtml(
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>${esc(title)} V${esc(ver)}</title>
+<title>${esc(title)}</title>
+${faviconLink}
 <style>${CSS}</style>
 </head>
 <body>
@@ -127,13 +175,21 @@ export function buildManualHtml(
 </html>`;
 }
 
-export function openManualWindow(html: string) {
+export function openManualWindow(html: string, existingWin?: Window | null) {
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
   const url = URL.createObjectURL(blob);
-  const win = window.open(url, '_blank');
+  const win = existingWin ?? window.open(url, '_blank');
   if (!win) {
     URL.revokeObjectURL(url);
     throw new Error('POPUP_BLOCKED');
+  }
+  if (existingWin) {
+    try {
+      existingWin.location.href = url;
+    } catch {
+      URL.revokeObjectURL(url);
+      throw new Error('POPUP_BLOCKED');
+    }
   }
   setTimeout(() => {
     try {
@@ -142,4 +198,19 @@ export function openManualWindow(html: string) {
       /* ignore */
     }
   }, 180_000);
+}
+
+/** 클릭 직후 동기 호출 — 팝업 차단 방지 */
+export function openManualPlaceholderWindow(): Window {
+  const win = window.open('about:blank', '_blank');
+  if (!win) throw new Error('POPUP_BLOCKED');
+  try {
+    win.document.write(
+      '<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>…</title></head><body style="font-family:sans-serif;padding:24px;color:#555">Loading…</body></html>',
+    );
+    win.document.close();
+  } catch {
+    /* ignore */
+  }
+  return win;
 }

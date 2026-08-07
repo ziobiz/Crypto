@@ -15,16 +15,14 @@ export type NavItem = {
   labelKey: MessageKey;
   shortKey?: MessageKey;
   icon: NavIconId;
-  /** 사이드바 하단 고정 (이용메뉴얼 등) */
-  footer?: boolean;
 };
 
+/** 총본사: 본사정책 아래 / 고객: 내 지갑 아래 */
 const MANUAL_ITEM: NavItem = {
   href: '/dashboard/manuals',
   labelKey: 'nav.manuals',
   shortKey: 'nav.short.manuals',
   icon: 'manuals',
-  footer: true,
 };
 
 export const NAV_ITEMS: Record<string, NavItem[]> = {
@@ -53,13 +51,6 @@ export const NAV_ITEMS: Record<string, NavItem[]> = {
     MANUAL_ITEM,
   ],
 };
-
-export function splitNavItems(items: NavItem[]) {
-  return {
-    main: items.filter((i) => !i.footer),
-    footer: items.filter((i) => i.footer),
-  };
-}
 
 /** 경로 → 탭 라벨 (가장 긴 prefix 매칭) */
 export function resolveNavItem(pathname: string, items: NavItem[]): NavItem | undefined {

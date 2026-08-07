@@ -11,4 +11,10 @@ export {
   type AppRole,
 } from './catalog';
 export { getManualDoc } from './content';
-export { buildManualHtml, openManualWindow, type ManualBrand } from './build-html';
+export {
+  buildManualHtml,
+  openManualWindow,
+  openManualPlaceholderWindow,
+  resolveManualBrandAssets,
+  type ManualBrand,
+} from './build-html';

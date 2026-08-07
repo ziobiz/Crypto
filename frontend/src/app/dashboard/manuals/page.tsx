@@ -10,7 +10,9 @@ import {
   buildManualHtml,
   localeFromApp,
   manualsForRole,
+  openManualPlaceholderWindow,
   openManualWindow,
+  resolveManualBrandAssets,
   type AppRole,
 } from '@/lib/manuals';
 
@@ -40,21 +42,26 @@ export default function ManualsPage() {
       .filter((g) => g.rows.length > 0);
   }, [items]);
 
-  function openManual(id: string, docVersion: string) {
+  async function openManual(id: string, docVersion: string) {
     setError('');
+    let win: Window | null = null;
     try {
-      const html = buildManualHtml(
-        id,
-        localeFromApp(locale),
-        {
-          siteName: branding?.siteName ?? t('app.title'),
-          logoUrl: branding?.logoUrl ?? branding?.authLogoUrl ?? '',
-          footerText: branding?.footerText ?? undefined,
-        },
-        docVersion,
-      );
-      openManualWindow(html);
+      win = openManualPlaceholderWindow();
+      const brand = await resolveManualBrandAssets({
+        siteName: branding?.siteName ?? t('app.title'),
+        // 메뉴얼 커버: 로그인 패널(첫화면) 로고 — 사이드바 로고는 글자가 잘 안 보임
+        logoUrl: branding?.authLogoUrl ?? branding?.logoUrl ?? '',
+        faviconUrl: branding?.faviconUrl ?? branding?.authLogoUrl ?? branding?.logoUrl ?? '',
+        footerText: branding?.footerText ?? undefined,
+      });
+      const html = buildManualHtml(id, localeFromApp(locale), brand, docVersion);
+      openManualWindow(html, win);
     } catch {
+      try {
+        win?.close();
+      } catch {
+        /* ignore */
+      }
       setError(t('manual.popupBlocked'));
     }
   }

@@ -9,7 +9,7 @@ import { ShellThemeProvider } from '@/context/ShellThemeContext';
 import { SideNav } from './SideNav';
 import { NavTabBar } from './NavTabBar';
 import { SessionMetaBar } from './SessionMetaBar';
-import { NAV_ITEMS, splitNavItems } from './nav-config';
+import { NAV_ITEMS } from './nav-config';
 import { useBranding } from '@/hooks/useBranding';
 
 const SIDEBAR_KEY = 'crypto-sidebar-collapsed';
@@ -40,7 +40,6 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
   if (!user) return null;
 
   const items = NAV_ITEMS[user.role] ?? [];
-  const { main: mainItems, footer: footerItems } = splitNavItems(items);
 
   const toggleCollapsed = () => {
     setCollapsed((c) => {
@@ -76,8 +75,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
             )}
           </div>
           <SideNav
-            items={mainItems}
-            footerItems={footerItems}
+            items={items}
             collapsed={collapsed}
             onCollapse={toggleCollapsed}
           />
@@ -102,8 +100,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
                 </button>
               </div>
               <SideNav
-                items={mainItems}
-                footerItems={footerItems}
+                items={items}
                 onNavigate={() => setDrawerOpen(false)}
               />
             </aside>
