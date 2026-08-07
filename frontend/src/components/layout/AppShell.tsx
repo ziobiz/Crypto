@@ -9,7 +9,7 @@ import { ShellThemeProvider } from '@/context/ShellThemeContext';
 import { SideNav } from './SideNav';
 import { NavTabBar } from './NavTabBar';
 import { SessionMetaBar } from './SessionMetaBar';
-import { NAV_ITEMS } from './nav-config';
+import { NAV_ITEMS, splitNavItems } from './nav-config';
 import { useBranding } from '@/hooks/useBranding';
 
 const SIDEBAR_KEY = 'crypto-sidebar-collapsed';
@@ -40,6 +40,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
   if (!user) return null;
 
   const items = NAV_ITEMS[user.role] ?? [];
+  const { main: mainItems, footer: footerItems } = splitNavItems(items);
 
   const toggleCollapsed = () => {
     setCollapsed((c) => {
@@ -74,7 +75,12 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
               </span>
             )}
           </div>
-          <SideNav items={items} collapsed={collapsed} onCollapse={toggleCollapsed} />
+          <SideNav
+            items={mainItems}
+            footerItems={footerItems}
+            collapsed={collapsed}
+            onCollapse={toggleCollapsed}
+          />
         </aside>
 
         {/* 모바일 드로어 */}
@@ -95,7 +101,11 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
                   ✕
                 </button>
               </div>
-              <SideNav items={items} onNavigate={() => setDrawerOpen(false)} />
+              <SideNav
+                items={mainItems}
+                footerItems={footerItems}
+                onNavigate={() => setDrawerOpen(false)}
+              />
             </aside>
           </div>
         )}
