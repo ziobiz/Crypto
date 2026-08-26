@@ -9,6 +9,7 @@ import { api, EscrowDepositContext, EscrowTicket } from '@/lib/api';
 import { StatusBadge } from '@/components/StatusBadge';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { AttachmentLink } from '@/components/AttachmentLink';
+import { LocalizedFileInput } from '@/components/LocalizedFileInput';
 
 const PENDING = ['ESCROW_CREATED', 'SELLER_ACCEPTED'];
 
@@ -89,7 +90,7 @@ export default function EscrowDetailPage() {
     <div className="pg-stack">
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-sm font-semibold">{ticket.ticketNo}</p>
-        <StatusBadge status={ticket.status} />
+        <StatusBadge status={ticket.status} kind="escrow" />
         <span className="pg-badge pg-badge-muted">{t(`escrow.tier.${ticket.tradeTier}` as 'escrow.tier.PREMIUM')}</span>
       </div>
 
@@ -128,6 +129,9 @@ export default function EscrowDetailPage() {
             )}
             {ticket.payoutScheduledAt && ticket.status === 'PAYOUT_SCHEDULED' && (
               <Item label={t('escrow.detail.payoutScheduled')} value={formatDate(ticket.payoutScheduledAt)} />
+            )}
+            {ticket.status === 'ESCROW_COMPLETED' && ticket.expectedCompleteAt && (
+              <Item label={t('usdt.col.expectedComplete')} value={formatDate(ticket.expectedCompleteAt)} />
             )}
           </dl>
         </div>
@@ -169,7 +173,13 @@ export default function EscrowDetailPage() {
               {depositCtx.isUsdtEscrow && <p className="mt-2 text-amber-800">{t('escrow.detail.usdtDepositNote')}</p>}
             </div>
           )}
-          <input type="file" accept="image/*,.pdf" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="mb-3 text-sm" />
+          <div className="mb-3">
+            <LocalizedFileInput
+              accept="image/*,.pdf"
+              files={file ? [file] : []}
+              onFiles={(next) => setFile(next[0] ?? null)}
+            />
+          </div>
           <button
             onClick={() => runAction(async () => {
               if (!file) return;
@@ -190,7 +200,13 @@ export default function EscrowDetailPage() {
 
       {isSeller && ticket.status === 'BUYER_DEPOSIT_PROOF' && hasDepositProof && (
         <ActionBox title={t('escrow.detail.startShipping')}>
-          <input type="file" accept="image/*,.pdf" onChange={(e) => setShipFile(e.target.files?.[0] ?? null)} className="mb-3 text-sm" />
+          <div className="mb-3">
+            <LocalizedFileInput
+              accept="image/*,.pdf"
+              files={shipFile ? [shipFile] : []}
+              onFiles={(next) => setShipFile(next[0] ?? null)}
+            />
+          </div>
           <button onClick={() => runAction(() => api.escrow.startShipping(id, shipFile ?? undefined))} disabled={loading} className="pg-btn pg-btn-primary disabled:opacity-50">
             {t('escrow.detail.startShipping')}
           </button>
@@ -230,7 +246,7 @@ export default function EscrowDetailPage() {
           <ol className="space-y-3">
             {ticket.statusHistory.map((h) => (
               <li key={h.id} className="border-l-2 border-blue-200 pl-4 text-sm">
-                <StatusBadge status={h.toStatus} />
+                <StatusBadge status={h.toStatus} kind="escrow" />
                 <p className="mt-1 text-gray-500">{h.changedBy.name} · {formatDate(h.createdAt)}</p>
               </li>
             ))}

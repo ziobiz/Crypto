@@ -32,8 +32,22 @@ export function computeFeeUsdt(
   return Number(fixedUsdt.toFixed(8));
 }
 
+/** Other fee: charge % and fixed together when both are set */
+export function computeOtherFeeUsdt(grossUsdt: number, percent: number, fixedUsdt: number): number {
+  const fromPct = percent > 0 ? (grossUsdt * percent) / 100 : 0;
+  const fromFixed = fixedUsdt > 0 ? fixedUsdt : 0;
+  return Number((fromPct + fromFixed).toFixed(8));
+}
+
 export function formatFeeRateLabel(mode: FeeMode, percent: number, fixedUsdt: number): string {
   return mode === 'percent' ? `${percent}%` : `${fixedUsdt} USDT`;
+}
+
+export function formatOtherFeeRateLabel(percent: number, fixedUsdt: number): string {
+  const parts: string[] = [];
+  if (percent > 0) parts.push(`${percent}%`);
+  if (fixedUsdt > 0) parts.push(`${fixedUsdt} USDT`);
+  return parts.length ? parts.join(' + ') : '0';
 }
 
 export function readFeeComponent(fees: Partial<TransactionFees>, key: FeeComponentKey) {
@@ -46,6 +60,9 @@ export function readFeeComponent(fees: Partial<TransactionFees>, key: FeeCompone
 
 export function formatFeeComponentLabel(fees: Partial<TransactionFees>, key: FeeComponentKey): string {
   const { mode, percent, fixedUsdt } = readFeeComponent(fees, key);
+  if (key === 'other') {
+    return formatOtherFeeRateLabel(percent, fixedUsdt);
+  }
   return formatFeeRateLabel(mode, percent, fixedUsdt);
 }
 
@@ -53,7 +70,7 @@ export function percentMultiplierSum(fees: Partial<TransactionFees>, extraPercen
   let sum = extraPercent;
   for (const key of FEE_KEYS) {
     const { mode, percent } = readFeeComponent(fees, key);
-    if (mode === 'percent') sum += percent;
+    if (key === 'other' || mode === 'percent') sum += percent;
   }
   return sum;
 }
@@ -62,7 +79,7 @@ export function fixedFeeSum(fees: Partial<TransactionFees>): number {
   let sum = 0;
   for (const key of FEE_KEYS) {
     const { mode, fixedUsdt } = readFeeComponent(fees, key);
-    if (mode === 'fixed') sum += fixedUsdt;
+    if (key === 'other' || mode === 'fixed') sum += fixedUsdt;
   }
   return sum;
 }

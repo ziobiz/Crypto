@@ -31,6 +31,7 @@ export default function ManualsPage() {
 
   const role = (user?.role ?? 'CUSTOMER') as AppRole;
   const items = useMemo(() => manualsForRole(role), [role]);
+  const templateLocale = localeFromApp(locale);
 
   const grouped = useMemo(() => {
     const order = ['hq', 'org', 'customer'] as const;
@@ -106,6 +107,29 @@ export default function ManualsPage() {
           </div>
         ))
       )}
+
+      <div className="pg-card">
+        <div className="pg-card-head">{t('manual.docs.title')}</div>
+        <div className="pg-card-body space-y-3">
+          <p className="pg-hint">{t('manual.docs.hint')}</p>
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <a
+              href={`/templates/${templateLocale}/TINPASS_JP_6month_funding_forecast.xlsx`}
+              className="pg-btn pg-btn-secondary text-sm"
+              download
+            >
+              {t('manual.docs.forecast')}
+            </a>
+            <a
+              href={`/templates/${templateLocale}/TINPASS_JP_USDT_application_checklist.xlsx`}
+              className="pg-btn pg-btn-secondary text-sm"
+              download
+            >
+              {t('manual.docs.checklist')}
+            </a>
+          </div>
+        </div>
+      </div>
 
       <p className="text-[11px] text-gray-500">{t('manual.openHint')}</p>
     </div>

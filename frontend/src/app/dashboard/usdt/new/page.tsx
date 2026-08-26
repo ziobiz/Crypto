@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthProvider';
 import { useT } from '@/context/LocaleProvider';
 import {
   api,
+  ApiError,
   ExchangeRateResponse,
   UsdtCardPaymentContext,
   UsdtFeePreview,
@@ -16,9 +17,18 @@ import { UsdtFeeBreakdownPanel } from '@/components/UsdtFeeBreakdown';
 import { FormattedAmountInput } from '@/components/FormattedAmountInput';
 import { ContentCard } from '@/components/layout/ContentCard';
 import { CardPaymentForm, emptyCardForm, type CardFormState } from '@/components/CardPaymentForm';
+import { LocalizedFileInput } from '@/components/LocalizedFileInput';
+import { displayWalletLabel } from '@/lib/wallet-label';
+import { isKycApproved } from '@/lib/kyc';
 
 const FIAT_CURRENCIES = ['KRW', 'JPY', 'THB', 'CNY'] as const;
 type FiatCurrency = (typeof FIAT_CURRENCIES)[number];
+const ALL_CURRENCY_TRADE: Record<FiatCurrency, { transfer: boolean; card: boolean }> = {
+  KRW: { transfer: true, card: true },
+  JPY: { transfer: true, card: true },
+  THB: { transfer: true, card: true },
+  CNY: { transfer: true, card: true },
+};
 type PaymentMethod = 'BANK_TRANSFER' | 'CARD';
 type InputMode = 'target' | 'fiat' | 'cardCharge';
 
@@ -26,6 +36,7 @@ export default function UsdtNewPage() {
   const router = useRouter();
   const { user } = useAuth();
   const t = useT();
+  const kycOk = isKycApproved(user);
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [rate, setRate] = useState<ExchangeRateResponse | null>(null);
   const [cardContext, setCardContext] = useState<UsdtCardPaymentContext | null>(null);
@@ -40,6 +51,8 @@ export default function UsdtNewPage() {
   const [error, setError] = useState('');
   const [feePreview, setFeePreview] = useState<UsdtFeePreview | null>(null);
   const [cardForm, setCardForm] = useState<CardFormState>(emptyCardForm());
+  const [sourceFiles, setSourceFiles] = useState<File[]>([]);
+  const [depositFiles, setDepositFiles] = useState<File[]>([]);
 
   useEffect(() => {
     const def = user?.sessionPolicy?.defaultUsdtFiatCurrency;
@@ -64,22 +77,56 @@ export default function UsdtNewPage() {
           cardholderName: ctx.userName ?? '',
         }),
       );
-    }).catch(() => setCardContext({ cardPaymentEnabled: false, enabled: false, cardFeePercent: 0, limits: {} as UsdtCardPaymentContext['limits'], icopayConfigured: false, userPhone: null, userPhoneCountryCode: null, userEmail: null, userName: null }));
+    }).catch(() => setCardContext({
+      cardPaymentEnabled: false,
+      enabled: false,
+      cardFeePercent: 0,
+      limits: {} as UsdtCardPaymentContext['limits'],
+      currencyTrade: ALL_CURRENCY_TRADE,
+      icopayConfigured: false,
+      userPhone: null,
+      userPhoneCountryCode: null,
+      userEmail: null,
+      userName: null,
+    }));
   }, []);
 
+  const isCard = paymentMethod === 'CARD';
+  const trade = { ...ALL_CURRENCY_TRADE, ...(cardContext?.currencyTrade ?? {}) };
+  const transferFiats = FIAT_CURRENCIES.filter((c) => trade[c].transfer);
+  const cardFiats = FIAT_CURRENCIES.filter((c) => trade[c].card);
+  const cardPaymentEnabled = cardContext?.cardPaymentEnabled === true;
+  const cardOperational = cardContext?.enabled === true;
+  const cardMethodAvailable = cardPaymentEnabled && cardFiats.length > 0;
+  const bankMethodAvailable = transferFiats.length > 0;
+  const methodFiats = isCard ? cardFiats : transferFiats;
+
   useEffect(() => {
-    if (cardContext && !cardContext.cardPaymentEnabled && paymentMethod === 'CARD') {
+    if (cardContext && !cardMethodAvailable && paymentMethod === 'CARD') {
       setPaymentMethod('BANK_TRANSFER');
       setInputMode('target');
     }
-  }, [cardContext, paymentMethod]);
+  }, [cardContext, cardMethodAvailable, paymentMethod]);
+
+  useEffect(() => {
+    if (!bankMethodAvailable && cardMethodAvailable && paymentMethod === 'BANK_TRANSFER') {
+      setPaymentMethod('CARD');
+      setInputMode('target');
+    }
+  }, [bankMethodAvailable, cardMethodAvailable, paymentMethod]);
+
+  useEffect(() => {
+    const list = isCard ? cardFiats : transferFiats;
+    if (list.length > 0 && !list.includes(fiatCurrency)) {
+      setFiatCurrency(list[0]);
+    }
+  }, [isCard, fiatCurrency, transferFiats.join('|'), cardFiats.join('|')]);
 
   useEffect(() => {
     api.exchangeRateFor(fiatCurrency).then(setRate).catch(console.error);
   }, [fiatCurrency]);
 
   const usdtAmount = parseFloat(targetUsdt) || 0;
-  const isCard = paymentMethod === 'CARD';
   const canPreview =
     walletId &&
     (inputMode === 'target'
@@ -105,12 +152,18 @@ export default function UsdtNewPage() {
 
   const fiatRate = rate?.usdtFiatRate ?? rate?.usdtKrwRate ?? 0;
   const breakdown = feePreview?.breakdown ?? null;
-  const cardPaymentEnabled = cardContext?.cardPaymentEnabled === true;
-  const cardOperational = cardContext?.enabled === true;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (isCard && !cardMethodAvailable) {
+      setError(t('usdt.fiatCardDisabled', { currency: fiatCurrency }));
+      return;
+    }
+    if (!isCard && !bankMethodAvailable) {
+      setError(t('usdt.fiatTransferDisabled', { currency: fiatCurrency }));
+      return;
+    }
     if (isCard && !cardPaymentEnabled) {
       setError(t('usdt.paymentCardDisabled'));
       return;
@@ -121,6 +174,20 @@ export default function UsdtNewPage() {
     }
     if (isCard && !cardForm.waiverAccepted) {
       setError(t('usdt.cardWaiverRequired'));
+      return;
+    }
+    if (!isCard) {
+      if (sourceFiles.length === 0) {
+        setError(t('usdt.funding.sourceRequired'));
+        return;
+      }
+      if (depositFiles.length === 0) {
+        setError(t('usdt.funding.depositRequired'));
+        return;
+      }
+    }
+    if (!kycOk) {
+      setError(t('kyc.requiredToTrade'));
       return;
     }
     setLoading(true);
@@ -151,9 +218,19 @@ export default function UsdtNewPage() {
           ? { targetUsdtAmount: usdtAmount, walletId, fiatCurrency }
           : { fiatAmount, walletId, fiatCurrency },
       );
+      await api.usdt.uploadApplicationDocs(ticket.id, {
+        sourceOfFunds: sourceFiles,
+        depositReceipt: depositFiles,
+      });
       router.push(`/dashboard/usdt/${ticket.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('usdt.submitFailed'));
+      if (err instanceof ApiError && err.code === 'FIAT_TRANSFER_DISABLED') {
+        setError(t('usdt.fiatTransferDisabled', { currency: fiatCurrency }));
+      } else if (err instanceof ApiError && err.code === 'FIAT_CARD_DISABLED') {
+        setError(t('usdt.fiatCardDisabled', { currency: fiatCurrency }));
+      } else {
+        setError(err instanceof Error ? err.message : t('usdt.submitFailed'));
+      }
     } finally {
       setLoading(false);
     }
@@ -164,6 +241,12 @@ export default function UsdtNewPage() {
       <p className="pg-hint">
         {isCard ? t('usdt.cardFlowHint') : t('usdt.manualFlowHint')}
       </p>
+      {!kycOk && (
+        <div className="pg-callout pg-callout-warn text-sm">
+          {t('kyc.requiredToTrade')}{' '}
+          <a href="/dashboard/kyc" className="pg-link">{t('nav.kyc')}</a>
+        </div>
+      )}
 
       <ContentCard>
         <UsdtRatePanel compact />
@@ -177,47 +260,61 @@ export default function UsdtNewPage() {
               <div className="mt-2 grid grid-cols-2 gap-2">
                 <button
                   type="button"
+                  disabled={!bankMethodAvailable}
                   onClick={() => {
+                    if (!bankMethodAvailable) return;
                     setPaymentMethod('BANK_TRANSFER');
                     setInputMode('target');
                   }}
-                  className={`pg-choice ${paymentMethod === 'BANK_TRANSFER' ? 'pg-choice-active' : ''}`}
+                  className={`pg-choice ${
+                    !bankMethodAvailable
+                      ? 'pg-choice-idle'
+                      : paymentMethod === 'BANK_TRANSFER'
+                        ? 'pg-choice-active'
+                        : ''
+                  }`}
                 >
                   {t('usdt.paymentBank')}
                 </button>
                 <button
                   type="button"
-                  disabled={!cardPaymentEnabled}
+                  disabled={!cardMethodAvailable}
                   onClick={() => {
-                    if (!cardPaymentEnabled) return;
+                    if (!cardMethodAvailable) return;
                     setPaymentMethod('CARD');
                     setInputMode('target');
                   }}
                   className={`pg-choice ${
-                    !cardPaymentEnabled
+                    !cardMethodAvailable
                       ? 'pg-choice-idle'
                       : paymentMethod === 'CARD'
                         ? 'pg-choice-active'
                         : ''
                   }`}
-                  title={!cardPaymentEnabled ? t('usdt.paymentCardDisabledHint') : undefined}
+                  title={!cardMethodAvailable ? t('usdt.paymentCardDisabledHint') : undefined}
                 >
                   {t('usdt.paymentCard')}
                 </button>
               </div>
-              {!cardPaymentEnabled && (
-                <p className="mt-1.5 text-[11px] text-gray-500">{t('usdt.paymentCardDisabledHint')}</p>
+              {!cardMethodAvailable && (
+                <p className="mt-1.5 text-[11px] text-gray-500">
+                  {cardPaymentEnabled ? t('usdt.noEnabledFiatCard') : t('usdt.paymentCardDisabledHint')}
+                </p>
+              )}
+              {!bankMethodAvailable && (
+                <p className="mt-1.5 text-[11px] text-gray-500">{t('usdt.noEnabledFiatTransfer')}</p>
               )}
             </div>
 
             <div>
               <label className="pg-label">{t('usdt.fiatCurrency')}</label>
               <select
-                value={fiatCurrency}
+                value={methodFiats.includes(fiatCurrency) ? fiatCurrency : (methodFiats[0] ?? fiatCurrency)}
                 onChange={(e) => setFiatCurrency(e.target.value as FiatCurrency)}
                 className="pg-input mt-1 w-full"
+                disabled={methodFiats.length === 0}
               >
-                {FIAT_CURRENCIES.map((c) => (
+                {methodFiats.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
@@ -307,7 +404,9 @@ export default function UsdtNewPage() {
                 required
               >
                 {wallets.map((w) => (
-                  <option key={w.id} value={w.id}>{w.label ?? w.address} ({w.network})</option>
+                  <option key={w.id} value={w.id}>
+                    {displayWalletLabel(w.label, t)} ({w.network})
+                  </option>
                 ))}
               </select>
               {wallets.length === 0 && (
@@ -317,11 +416,40 @@ export default function UsdtNewPage() {
 
             {isCard && cardPaymentEnabled && <CardPaymentForm value={cardForm} onChange={setCardForm} />}
 
+            {!isCard && (
+              <div className="mt-6 space-y-3 border-t border-slate-200 pt-5">
+                <p className="pg-label">{t('usdt.funding.applyTitle')}</p>
+                <p className="pg-hint">{t('usdt.funding.applyHint')}</p>
+                <div>
+                  <label className="pg-label">{t('usdt.funding.sourceFiles')}</label>
+                  <div className="mt-1">
+                    <LocalizedFileInput
+                      accept=".xlsx,.xls,.pdf,image/*"
+                      multiple
+                      files={sourceFiles}
+                      onFiles={setSourceFiles}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="pg-label">{t('usdt.funding.depositReceipt')}</label>
+                  <div className="mt-1">
+                    <LocalizedFileInput
+                      accept="image/*,.pdf"
+                      multiple
+                      files={depositFiles}
+                      onFiles={setDepositFiles}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
             {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
 
             <button
               type="submit"
-              disabled={loading || wallets.length === 0 || !breakdown}
+              disabled={loading || wallets.length === 0 || !breakdown || !kycOk}
               className="pg-btn pg-btn-primary mt-5 w-full disabled:opacity-50"
             >
               {loading ? t('usdt.processing') : isCard ? t('usdt.submitCard') : t('usdt.submit')}

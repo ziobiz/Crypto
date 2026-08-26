@@ -5,7 +5,7 @@ import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { authenticate, requireRoles } from '../middleware/auth';
-import { getHqTransactionFees, resolveTransactionFees } from '../services/transaction-fee.service';
+import { getGasNetworkPolicy, getHqTransactionFees, resolveTransactionFees, withNetworkGasFee } from '../services/transaction-fee.service';
 
 const router = Router();
 
@@ -55,10 +55,11 @@ function serializeWallet(w: {
 function serializeWalletWithFees(
   w: Parameters<typeof serializeWallet>[0],
   hq: Awaited<ReturnType<typeof getHqTransactionFees>>,
+  gasPolicy: Awaited<ReturnType<typeof getGasNetworkPolicy>>,
 ) {
   return {
     ...serializeWallet(w),
-    effectiveFees: resolveTransactionFees(w, hq),
+    effectiveFees: resolveTransactionFees(w, withNetworkGasFee(hq, w.network, gasPolicy)),
   };
 }
 
@@ -68,15 +69,16 @@ router.use(requireRoles(UserRole.CUSTOMER));
 router.get(
   '/',
   asyncHandler(async (req, res) => {
-    const [wallets, hq] = await Promise.all([
+    const [wallets, hq, gasPolicy] = await Promise.all([
       prisma.wallet.findMany({
         where: { userId: req.user!.id, isActive: true },
         orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
       }),
       getHqTransactionFees(),
+      getGasNetworkPolicy(),
     ]);
 
-    res.json(wallets.map((w) => serializeWalletWithFees(w, hq)));
+    res.json(wallets.map((w) => serializeWalletWithFees(w, hq, gasPolicy)));
   }),
 );
 

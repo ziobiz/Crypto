@@ -3,7 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useT } from '@/context/LocaleProvider';
+import { useAuth } from '@/context/AuthProvider';
 import { api, EscrowFeePreview } from '@/lib/api';
+import { isKycApproved } from '@/lib/kyc';
 import { ContentCard } from '@/components/layout/ContentCard';
 import { formatCurrency } from '@/lib/format';
 
@@ -14,6 +16,8 @@ export default function EscrowNewPage() {
   const searchParams = useSearchParams();
   const retryParentId = searchParams.get('retry');
   const t = useT();
+  const { user } = useAuth();
+  const kycOk = isKycApproved(user);
   const [form, setForm] = useState({
     myRole: 'BUYER' as 'BUYER' | 'SELLER',
     counterpartyEmail: '',
@@ -89,6 +93,11 @@ export default function EscrowNewPage() {
   return (
     <div className="pg-stack">
       <p className="pg-hint">{t('escrow.flowHint')}</p>
+      {!kycOk && (
+        <div className="pg-callout pg-callout-warn text-sm">
+          {t('kyc.requiredToTrade')} <a href="/dashboard/kyc" className="pg-link">{t('nav.kyc')}</a>
+        </div>
+      )}
       {retryParentId && <p className="text-sm text-amber-800">{t('escrow.detail.retry')}</p>}
 
       <div className="pg-callout pg-callout-warn">
@@ -175,7 +184,7 @@ export default function EscrowNewPage() {
               {error && <p className="sm:col-span-2 text-sm text-red-600">{error}</p>}
 
               <div className="sm:col-span-2">
-                <button type="submit" disabled={loading || !disclaimerAccepted || amount <= 0} className="pg-btn pg-btn-primary disabled:opacity-50">
+                <button type="submit" disabled={loading || !disclaimerAccepted || amount <= 0 || !kycOk} className="pg-btn pg-btn-primary disabled:opacity-50">
                   {loading ? t('escrow.creating') : t('escrow.createSubmit')}
                 </button>
               </div>

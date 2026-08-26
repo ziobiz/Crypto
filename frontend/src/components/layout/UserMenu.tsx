@@ -26,7 +26,7 @@ function UserGlyph() {
 }
 
 /** PG/ICOPAY — 조직 | 역할 한 줄 + 드롭다운 */
-export function UserMenu() {
+export function UserMenu({ compact = false }: { compact?: boolean }) {
   const { user, logout } = useAuth();
   const { locale } = useLocale();
   const t = useT();
@@ -74,17 +74,21 @@ export function UserMenu() {
           setOpen((v) => !v);
           setConfirmLogout(false);
         }}
-        className="pg-session-user"
+        className={`pg-session-user ${compact ? 'h-9 max-w-none justify-center px-1' : ''}`}
         aria-expanded={open}
         aria-haspopup="menu"
       >
         <UserGlyph />
-        <span className="truncate text-xs font-medium" style={{ color: 'var(--shell-session-text)' }}>
-          {identityLine}
-        </span>
-        <svg className="h-3.5 w-3.5 shrink-0 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
+        {!compact && (
+          <span className="truncate text-xs font-medium" style={{ color: 'var(--shell-session-text)' }}>
+            {identityLine}
+          </span>
+        )}
+        {!compact && (
+          <svg className="h-3.5 w-3.5 shrink-0 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        )}
       </button>
 
       {open && (

@@ -8,6 +8,7 @@ import { api, UsdtDepositContext, UsdtTicket } from '@/lib/api';
 import { StatusBadge } from '@/components/StatusBadge';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { AttachmentLink } from '@/components/AttachmentLink';
+import { LocalizedFileInput } from '@/components/LocalizedFileInput';
 import { formatFeeComponentLabel } from '@/lib/fee-component';
 import type { TransactionFees } from '@/lib/api';
 
@@ -108,8 +109,13 @@ export default function UsdtDetailPage() {
 
   const isOperator = user?.role === 'SUPER_ADMIN' || user?.role === 'ORG_STAFF';
   const isCustomer = user?.role === 'CUSTOMER';
-  const receiving =
+  const receivingFixed =
     depositCtx?.receivingAccounts?.[ticket.fiatCurrency as 'KRW' | 'JPY' | 'THB' | 'CNY'];
+  const receiving =
+    ticket.collectionProvider === 'CURFEX' && ticket.collectionAccount
+      ? ticket.collectionAccount
+      : receivingFixed;
+  const isCurfexAccount = ticket.collectionProvider === 'CURFEX' && !!ticket.collectionAccount;
 
   const handleUpload = async () => {
     if (!file) return;
@@ -154,7 +160,7 @@ export default function UsdtDetailPage() {
     <div className="pg-stack">
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-xs font-semibold">{ticket.ticketNo}</p>
-        <StatusBadge status={ticket.status} />
+        <StatusBadge status={ticket.status} kind="usdt" />
         {isCard && <span className="pg-badge pg-badge-info">{t('usdt.paymentCard')}</span>}
         {ticket.bankMismatch && (
           <span className="pg-badge pg-badge-error">{t('usdt.bankMismatch')}</span>
@@ -199,9 +205,19 @@ export default function UsdtDetailPage() {
       {receiving && !isCard && (
         <div className="pg-card">
           <div className="pg-card-body pg-callout pg-callout-info">
-            <p className="font-semibold">{t('usdt.companyAccount')}</p>
+            <p className="font-semibold">
+              {isCurfexAccount ? t('usdt.curfexAccount') : t('usdt.companyAccount')}
+            </p>
             <p className="mt-1">{receiving.bankName} · {receiving.accountNumber}</p>
             <p className="pg-muted">{receiving.accountHolder}</p>
+            {isCurfexAccount && ticket.curfexRefNo && (
+              <p className="mt-1 font-mono text-[11px] text-slate-600">
+                {t('usdt.curfexRef')}: {ticket.curfexRefNo}
+              </p>
+            )}
+            {isCurfexAccount && (
+              <p className="mt-1 pg-hint">{t('usdt.curfexAccountHint')}</p>
+            )}
           </div>
         </div>
       )}
@@ -226,6 +242,12 @@ export default function UsdtDetailPage() {
         )}
         <Item label={t('usdt.detail.rate')} value={rateLabel} />
         <Item label={t('usdt.detail.expected')} value={expectedRange} />
+        {(user?.role === 'SUPER_ADMIN' || user?.role === 'ORGANIZER') && (
+          <Item
+            label={t('usdt.brokerUsdt')}
+            value={`${ticket.brokerUsdtAmount != null ? ticket.brokerUsdtAmount.toFixed(4) : '—'} USDT`}
+          />
+        )}
         <Item
           label={t('usdt.detail.fees')}
           value={
@@ -273,6 +295,9 @@ export default function UsdtDetailPage() {
         {ticket.cancelReason && <Item label={t('usdt.cancelReason')} value={ticket.cancelReason} />}
         {ticket.wallet && <Item label={t('usdt.wallet')} value={`${ticket.wallet.address} (${ticket.wallet.network})`} />}
         <Item label={t('usdt.col.date')} value={formatDate(ticket.createdAt)} />
+        {ticket.expectedCompleteAt && (
+          <Item label={t('usdt.col.expectedComplete')} value={formatDate(ticket.expectedCompleteAt)} />
+        )}
           </dl>
         </div>
       </div>
@@ -310,7 +335,13 @@ export default function UsdtDetailPage() {
               onChange={(e) => setDepositTime(e.target.value)}
               className="pg-input"
             />
-            <input type="file" accept="image/*,.pdf" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="text-sm sm:col-span-2" />
+            <div className="sm:col-span-2">
+              <LocalizedFileInput
+                accept="image/*,.pdf"
+                files={file ? [file] : []}
+                onFiles={(next) => setFile(next[0] ?? null)}
+              />
+            </div>
             </div>
             <button
               onClick={handleUpload}
@@ -414,7 +445,7 @@ export default function UsdtDetailPage() {
           <ol className="space-y-3">
           {ticket.statusHistory.map((h) => (
             <li key={h.id} className="border-l-2 pl-4 text-xs" style={{ borderColor: 'var(--shell-card-border)' }}>
-              <StatusBadge status={h.toStatus} />
+              <StatusBadge status={h.toStatus} kind="usdt" />
               {h.note && <p className="mt-0.5">{h.note}</p>}
               <p className="mt-1 pg-hint">{h.changedBy.name} · {formatDate(h.createdAt)}</p>
             </li>

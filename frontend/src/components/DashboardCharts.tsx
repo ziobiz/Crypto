@@ -79,6 +79,11 @@ export function DashboardCharts() {
     [data, t],
   );
 
+  const flowYAxisWidth = useMemo(() => {
+    const maxPx = flowData.reduce((m, row) => Math.max(m, labelPixelWidth(row.status)), 80);
+    return Math.min(220, Math.max(128, Math.ceil(maxPx + 16)));
+  }, [flowData]);
+
   const rateSeries = useMemo(() => {
     if (!data) return [];
     const dates = new Set<string>();
@@ -134,13 +139,23 @@ export function DashboardCharts() {
         <div className="pg-card-head">
           {isCustomer ? t('dashboard.chart.myUsdtFlow') : t('dashboard.chart.usdtFlow')}
         </div>
-          <div className="pg-card-body grid gap-4 lg:grid-cols-2">
-            <div className="h-56">
+          <div className="pg-card-body grid gap-4 xl:grid-cols-[minmax(340px,1.25fr)_minmax(0,1fr)]">
+            <div className="h-64 min-w-0">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={flowData} layout="vertical" margin={{ left: 8, right: 8 }}>
+                <BarChart
+                  data={flowData}
+                  layout="vertical"
+                  margin={{ left: 4, right: 12, top: 8, bottom: 8 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis type="number" allowDecimals={false} />
-                  <YAxis type="category" dataKey="status" width={96} tick={{ fontSize: 10 }} />
+                  <YAxis
+                    type="category"
+                    dataKey="status"
+                    width={flowYAxisWidth}
+                    interval={0}
+                    tick={<FlowStatusTick />}
+                  />
                   <Tooltip />
                   <Bar dataKey="count" fill="#3b82f6" radius={[0, 4, 4, 0]} />
                 </BarChart>
@@ -289,6 +304,23 @@ export function DashboardCharts() {
         <p className="pg-hint text-center text-xs">{t('dashboard.chart.customerMarketNote')}</p>
       )}
     </div>
+  );
+}
+
+/** CJK 문자는 라틴보다 넓어 Y축 너비를 라벨 길이에 맞춘다 */
+function labelPixelWidth(label: string) {
+  let width = 0;
+  for (const ch of label) {
+    width += /[\u1100-\u11FF\u3130-\u318F\uAC00-\uD7AF\u3040-\u30FF\u4E00-\u9FFF]/.test(ch) ? 13 : 7.2;
+  }
+  return width;
+}
+
+function FlowStatusTick({ x = 0, y = 0, payload }: { x?: number; y?: number; payload?: { value?: string } }) {
+  return (
+    <text x={x} y={y} dy={4} textAnchor="end" fontSize={11} fill="#374151">
+      {payload?.value ?? ''}
+    </text>
   );
 }
 

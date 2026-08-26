@@ -26,9 +26,11 @@ enum OrgType {
 }
 
 enum UserRole {
-  SUPER_ADMIN // 총본사 관리자 — 전체 상태 변경·최종 승인
-  ORG_STAFF   // 본사~영업점 직원 — 하위 조회·수수료 조회만
-  CUSTOMER    // 고객 — 본인 거래·증빙·지갑 관리
+  SUPER_ADMIN       // 총본사 관리자
+  ORG_STAFF         // 일반관리자 (본사~영업점)
+  CUSTOMER          // 고객
+  ORGANIZER         // Organizer — 원가·수익 분석 (총본사 admin만 부여)
+  SETTLEMENT_ADMIN  // 정산관리자
 }
 
 enum CustomerType {
@@ -94,6 +96,9 @@ enum AttachmentPurpose {
   USDT_TRANSFER_PROOF    // USDT 송금 TXID/스크린샷
   SHIPPING_PROOF         // 물품 발송 증빙
   CONTRACT_DOCUMENT      // 계약/거래 명세
+  FUNDING_FORECAST_REPORT // 6개월 거래 예정 보고서
+  SOURCE_OF_FUNDS_DOC    // 자금 성격·원천 증빙
+  JP_TAX_SUPPORT_DOC     // 일본 세무·법인 증빙
   OTHER
 }
 
@@ -122,6 +127,8 @@ model Organization {
   name      String
   type      OrgType
   isActive  Boolean  @default(true)
+  deletedAt DateTime?
+  purgeAt   DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -141,6 +148,8 @@ model Organization {
   @@index([parentId])
   @@index([type])
   @@index([path])
+  @@index([deletedAt])
+  @@index([purgeAt])
   @@map("organizations")
 }
 
@@ -152,6 +161,7 @@ enum UserManagementAction {
   REGISTER
   ACTIVATE
   DEACTIVATE
+  DELETE
 }
 
 model User {
@@ -164,6 +174,8 @@ model User {
   role         UserRole
   isActive     Boolean   @default(true)
   lastLoginAt  DateTime?
+  deletedAt    DateTime?
+  purgeAt      DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -199,9 +211,15 @@ model User {
   // 에스크로 거래에서의 역할
   escrowAsBuyer  TradeEscrowDetail[] @relation("EscrowBuyer")
   escrowAsSeller TradeEscrowDetail[] @relation("EscrowSeller")
+  kyc            CustomerKyc?
+  reviewedKyc    CustomerKyc[] @relation("KycReviewedBy")
+  simulatorRuns  SimulatorRun[]
+  costAnalyses   CostAnalysis[]
 
   @@index([organizationId])
   @@index([role])
+  @@index([deletedAt])
+  @@index([purgeAt])
   @@map("users")
 }
 
@@ -238,6 +256,9 @@ model CustomerProfile {
   recruitingOrgId String
   recruitingOrg   Organization @relation("RecruitingOrg", fields: [recruitingOrgId], references: [id])
 
+  /// 고객별 수수료 배분 (총본사 기본값을 복사 후 고객마다 수정)
+  feeShare Json?
+
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -249,6 +270,49 @@ model CustomerProfile {
   @@index([recruitingOrgId])
   @@index([businessNumber])
   @@map("customer_profiles")
+}
+
+enum KycStatus {
+  NOT_SUBMITTED
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// 고객 1회 KYC — 6개월 거래예정 보고서 + (법인) 세무·등기 증빙
+model CustomerKyc {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status        KycStatus @default(NOT_SUBMITTED)
+  submittedAt   DateTime?
+  reviewedAt    DateTime?
+  reviewedById  String?
+  reviewedBy    User?     @relation("KycReviewedBy", fields: [reviewedById], references: [id])
+  rejectReason  String?
+  hqNote        String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  attachments   CustomerKycAttachment[]
+
+  @@index([status])
+  @@map("customer_kyc")
+}
+
+model CustomerKycAttachment {
+  id           String             @id @default(cuid())
+  kycId        String
+  kyc          CustomerKyc        @relation(fields: [kycId], references: [id], onDelete: Cascade)
+  purpose      AttachmentPurpose
+  fileName     String
+  mimeType     String
+  fileSize     Int
+  storageKey   String
+  uploadedById String?
+  createdAt    DateTime           @default(now())
+
+  @@index([kycId])
+  @@map("customer_kyc_attachments")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -397,6 +461,14 @@ model UsdtPurchaseDetail {
   icopayTransactionId    String?
   cardLast4              String?
 
+  /// 입금 수취: FIXED(기존 고정계좌) | CURFEX(건별 Collection)
+  collectionProvider     String?
+  /// CURFEX Collection 참조번호
+  curfexRefNo            String?
+  curfexStatusCode       String?
+  /// CURFEX 수취 계좌 스냅샷 { bankName, branchCode, branchName, accountType, accountNo, accountName }
+  collectionAccountJson  Json?
+
   // 수령 지갑
   walletId String?
   wallet   Wallet? @relation(fields: [walletId], references: [id])
@@ -404,6 +476,8 @@ model UsdtPurchaseDetail {
   // 완료 시 TXID
   usdtTxId        String?
   actualUsdtAmount Decimal? @db.Decimal(18, 8)
+  /// 중계업체로부터 실제 수령한 USDT (수익 산출)
+  brokerUsdtAmount Decimal? @db.Decimal(18, 8)
 
   adminNote String?
 
@@ -548,8 +622,14 @@ model CommissionRate {
 
   ticketType TicketType // USDT_PURCHASE | TRADE_ESCROW 별 요율
 
-  /// 해당 조직이 가져가는 비율 (%). 예: 영업점 0.5%, 지사 0.3% ...
-  ratePercent Decimal @db.Decimal(5, 4)
+  /// 수수료 풀에서 해당 조직이 가져가는 비율 (%). 본사 기본값을 쓰면 useDefault=true
+  ratePercent Decimal @db.Decimal(8, 4)
+
+  /// 건당 고정 배분 (USDT)
+  perTicketUsdt Decimal @default(0) @db.Decimal(18, 8)
+
+  /// true면 본사 단계별 기본 배분을 사용 (조직 개별 요율 무시)
+  useDefault Boolean @default(true)
 
   effectiveFrom DateTime  @default(now())
   effectiveTo   DateTime? // null = 현재 유효
@@ -582,7 +662,7 @@ model LedgerEntry {
   currency CurrencyCode @default(KRW)
 
   // 적용된 요율 스냅샷
-  ratePercent Decimal @db.Decimal(5, 4)
+  ratePercent Decimal @db.Decimal(8, 4)
 
   // 정산 기준 금액 (수수료 풀)
   baseAmount Decimal @db.Decimal(18, 2)
@@ -735,4 +815,47 @@ model ExchangeMarketSnapshot {
 
   @@index([currency, capturedAt])
   @@map("exchange_market_snapshots")
+}
+
+/// 고객 USDT 시뮬레이터 실행 기록 (본사 조회·분석)
+model SimulatorRun {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mode         String
+  currency     String
+  network      String
+  inputAmount  Decimal  @db.Decimal(20, 8)
+  requiredFiat Decimal  @db.Decimal(20, 2)
+  netUsdt      Decimal  @db.Decimal(20, 8)
+  totalFeeUsdt Decimal  @db.Decimal(20, 8)
+  exchangeRate Decimal  @db.Decimal(20, 8)
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
+  @@map("simulator_runs")
+}
+
+/// 본사 거래분석 — 중계 입금 대비 지갑 수령 USDT 역산
+model CostAnalysis {
+  id              String       @id @default(cuid())
+  currency        CurrencyCode
+  depositFiat     Decimal      @db.Decimal(18, 2)
+  receivedUsdt    Decimal      @db.Decimal(18, 8)
+  exchangeRate    Decimal      @db.Decimal(18, 8)
+  exchangeRateAt  DateTime
+  exchangeSource  String
+  correctionUsdt  Decimal      @default(0) @db.Decimal(18, 8)
+  gasFeeUsdt      Decimal      @default(0) @db.Decimal(18, 8)
+  feeUsdt         Decimal      @db.Decimal(18, 8)
+  grossUsdt       Decimal      @db.Decimal(18, 8)
+  note            String?
+  createdById     String
+  createdBy       User         @relation(fields: [createdById], references: [id])
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([createdAt])
+  @@map("cost_analyses")
 }

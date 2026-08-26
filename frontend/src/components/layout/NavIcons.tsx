@@ -11,6 +11,13 @@ export function NavIcon({ id, className = iconClass }: { id: NavIconId; classNam
           <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h10M4 18h16" />
         </svg>
       );
+    case 'simulator':
+      return (
+        <svg {...props}>
+          <rect x="4" y="3" width="16" height="18" rx="2" />
+          <path strokeLinecap="round" d="M8 7h8M8 12h3M13 12h3M8 16h3M13 16h3" />
+        </svg>
+      );
     case 'usdt':
       return (
         <svg {...props}>
@@ -36,6 +43,12 @@ export function NavIcon({ id, className = iconClass }: { id: NavIconId; classNam
           <path strokeLinecap="round" d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM22 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
         </svg>
       );
+    case 'orgs':
+      return (
+        <svg {...props}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3 7h6v4H3V7zm12-2h6v4h-6V5zM9 15h6v4H9v-4zM6 11v4m9-8v8" />
+        </svg>
+      );
     case 'hq':
       return (
         <svg {...props}>
@@ -47,6 +60,12 @@ export function NavIcon({ id, className = iconClass }: { id: NavIconId; classNam
       return (
         <svg {...props}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1M5 6h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2z" />
+        </svg>
+      );
+    case 'kyc':
+      return (
+        <svg {...props}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M12 3l7 4v5c0 5-3 8-7 9-4-1-7-4-7-9V7l7-4z" />
         </svg>
       );
     case 'manuals':

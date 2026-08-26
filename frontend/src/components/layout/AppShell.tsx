@@ -6,10 +6,15 @@ import { useT } from '@/context/LocaleProvider';
 import { NavTabsProvider } from '@/context/NavTabsContext';
 import { TabletModeProvider, useTabletMode } from '@/context/TabletModeContext';
 import { ShellThemeProvider } from '@/context/ShellThemeContext';
+import Link from 'next/link';
 import { SideNav } from './SideNav';
 import { NavTabBar } from './NavTabBar';
 import { SessionMetaBar } from './SessionMetaBar';
-import { NAV_ITEMS } from './nav-config';
+import { MobileBottomNav } from './MobileBottomNav';
+import { NavIcon } from './NavIcons';
+import { NAV_ITEMS, filterNavByPageAccess } from './nav-config';
+import { LocaleDropdown } from './LocaleDropdown';
+import { UserMenu } from './UserMenu';
 import { useBranding } from '@/hooks/useBranding';
 
 const SIDEBAR_KEY = 'crypto-sidebar-collapsed';
@@ -37,9 +42,18 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
     if (stored === '1') setCollapsed(true);
   }, []);
 
+  const isCustomer = user?.role === 'CUSTOMER';
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (isCustomer) root.setAttribute('data-customer-app', '1');
+    else root.removeAttribute('data-customer-app');
+    return () => root.removeAttribute('data-customer-app');
+  }, [isCustomer]);
+
   if (!user) return null;
 
-  const items = NAV_ITEMS[user.role] ?? [];
+  const items = filterNavByPageAccess(NAV_ITEMS[user.role] ?? [], user.pageAccess);
 
   const toggleCollapsed = () => {
     setCollapsed((c) => {
@@ -81,8 +95,8 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
           />
         </aside>
 
-        {/* 모바일 드로어 */}
-        {drawerOpen && !tablet && (
+        {/* 모바일 드로어 — 고객은 하단 탭으로 대체 */}
+        {drawerOpen && !tablet && !isCustomer && (
           <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal>
             <button
               type="button"
@@ -108,7 +122,11 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
         )}
 
         <div className="tablet-shell flex min-w-0 flex-1 flex-col bg-white">
-          <div className={`pg-sidebar flex items-center gap-2 border-b px-3 py-2 md:hidden ${tablet ? 'hidden' : ''}`}>
+          <div
+            className={`pg-sidebar flex items-center gap-2 border-b px-3 py-2 md:hidden ${
+              tablet || isCustomer ? 'hidden' : ''
+            }`}
+          >
             <button
               type="button"
               className="touch-target rounded p-2 text-gray-200"
@@ -126,12 +144,49 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
             )}
           </div>
 
-          <SessionMetaBar />
-          <NavTabBar items={items} />
+          {isCustomer && (
+            <div
+              className="flex items-center gap-2 border-b px-3 py-2 md:hidden"
+              style={{ background: 'var(--shell-session-bg)', borderColor: 'var(--shell-session-border)' }}
+            >
+              {branding?.logoUrl ? (
+                <img src={branding.logoUrl} alt="" className="h-7 min-w-0 max-w-[28%] object-contain" />
+              ) : (
+                <span className="min-w-0 truncate text-sm font-bold" style={{ color: 'var(--shell-session-text)' }}>
+                  {branding?.siteName ?? t('app.title')}
+                </span>
+              )}
+              <div className="ml-auto flex shrink-0 items-center gap-1.5">
+                <LocaleDropdown variant="session" />
+                <Link
+                  href="/dashboard/manuals"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg"
+                  style={{ color: 'var(--shell-session-text)' }}
+                  aria-label={t('nav.manuals')}
+                  title={t('nav.short.manuals')}
+                >
+                  <NavIcon id="manuals" className="h-5 w-5" />
+                </Link>
+                <UserMenu compact />
+              </div>
+            </div>
+          )}
 
-          <main className="pg-admin pg-main min-h-0 flex-1 overflow-auto px-4 py-4">
+          <div className={isCustomer ? 'hidden md:block' : undefined}>
+            <SessionMetaBar compact={false} />
+          </div>
+          <div className={isCustomer ? 'hidden md:block' : undefined}>
+            <NavTabBar items={items} />
+          </div>
+
+          <main
+            className={`pg-admin pg-main min-h-0 flex-1 overflow-auto px-3 py-3 sm:px-4 sm:py-4 ${
+              isCustomer ? 'customer-main pb-[calc(4.25rem+env(safe-area-inset-bottom))] md:pb-4' : ''
+            }`}
+          >
             {children}
           </main>
+          {isCustomer && <MobileBottomNav />}
         </div>
       </div>
     </NavTabsProvider>

@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthProvider';
 import { useT } from '@/context/LocaleProvider';
 import { AppShell } from '@/components/layout/AppShell';
 import { PageFrame } from '@/components/layout/PageFrame';
+import { WorkflowDisplayProvider } from '@/context/WorkflowDisplayProvider';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -29,8 +30,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!user) return null;
 
   return (
-    <AppShell>
-      <PageFrame>{children}</PageFrame>
-    </AppShell>
+    <WorkflowDisplayProvider>
+      <AppShell>
+        <PageFrame>{children}</PageFrame>
+      </AppShell>
+    </WorkflowDisplayProvider>
   );
 }

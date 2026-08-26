@@ -2,14 +2,17 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { execSync } from 'child_process';
-import { AdminChangeAction, TicketType } from '@prisma/client';
+import { AdminChangeAction, Prisma, TicketType } from '@prisma/client';
 import { prisma } from '../lib/prisma';
+import { AppError } from '../lib/errors';
 import {
   HQ_CONFIG_KEYS,
+  HQ_ACCESS_ACTORS,
   HQ_ORG_LEVELS,
   HQ_PAGE_CATALOG,
   HQ_PERMISSION_LEVELS,
   HQ_VIEW_COLUMN_CATALOG,
+  type HqAccessActor,
   type HqAccessMatrix,
   type HqCommissionRiskConfig,
   type HqOrgColumnConfig,
@@ -18,10 +21,22 @@ import {
   type HqEmailOtpConfig,
   type HqCardPaymentConfig,
   type HqIcopayConfig,
+  type HqCurfexConfig,
   type HqExchangeRateSourcePolicy,
   type IdleTimeoutMinutes,
   IDLE_TIMEOUT_MINUTES_OPTIONS,
   type SymbolFeeTierPolicy,
+  type HqOrgSharePolicy,
+  defaultOrgSharePolicy,
+  normalizeOrgSharePolicy,
+  persistableCustomerFeeShare,
+  assertEscrowShareTotals,
+  defaultGasNetworkPolicy,
+  normalizeGasNetworkPolicy,
+  type HqGasNetworkPolicy,
+  type HqWorkflowDisplayConfig,
+  defaultWorkflowDisplay,
+  normalizeWorkflowDisplay,
 } from '../constants/hq-policy';
 import {
   defaultEmailOtpConfig,
@@ -36,6 +51,11 @@ import {
   saveCardPaymentConfig,
   saveIcopayConfig,
 } from './card-payment-policy.service';
+import {
+  getCurfexConfig,
+  getCurfexConfigMasked,
+  saveCurfexConfig,
+} from './curfex.service';
 import {
   defaultTransactionFees,
   getSymbolFeeTiers,
@@ -105,19 +125,32 @@ async function putConfig<T>(key: string, value: T, description?: string): Promis
   return value;
 }
 
+const CUSTOMER_DEFAULT_VIEW_PATHS = new Set([
+  '/dashboard',
+  '/dashboard/simulator',
+  '/dashboard/usdt',
+  '/dashboard/escrow',
+  '/dashboard/wallets',
+  '/dashboard/kyc',
+]);
+
 function defaultAccessMatrix(): HqAccessMatrix {
   const matrix = {} as HqAccessMatrix;
-  for (const org of HQ_ORG_LEVELS) {
-    matrix[org] = {};
+  for (const actor of HQ_ACCESS_ACTORS) {
+    matrix[actor] = {};
     for (const page of HQ_PAGE_CATALOG) {
+      if (actor === 'CUSTOMER') {
+        matrix[actor][page.path] = CUSTOMER_DEFAULT_VIEW_PATHS.has(page.path) ? 'VIEW' : 'NONE';
+        continue;
+      }
       if (page.group === '본사정책') {
-        matrix[org][page.path] = org === 'HEAD_OFFICE' ? 'MODIFY' : 'NONE';
-      } else if (org === 'HEAD_OFFICE') {
-        matrix[org][page.path] = 'DELETE';
-      } else if (org === 'SALES_OFFICE' && page.path === '/dashboard/wallets') {
-        matrix[org][page.path] = 'NONE';
+        matrix[actor][page.path] = actor === 'HEAD_OFFICE' ? 'MODIFY' : 'NONE';
+      } else if (actor === 'HEAD_OFFICE') {
+        matrix[actor][page.path] = 'DELETE';
+      } else if (actor === 'SALES_OFFICE' && page.path === '/dashboard/wallets') {
+        matrix[actor][page.path] = 'NONE';
       } else {
-        matrix[org][page.path] = 'VIEW';
+        matrix[actor][page.path] = 'VIEW';
       }
     }
   }
@@ -172,6 +205,13 @@ function normalizeIdleTimeoutMinutes(value?: number): IdleTimeoutMinutes {
     : 30;
 }
 
+function clampSimulatorRetention(value?: number): number {
+  const n = Math.floor(Number(value ?? 3));
+  if (!Number.isFinite(n) || n < 1) return 3;
+  if (n > 36) return 36;
+  return n;
+}
+
 function normalizePlatformConfig(raw: Partial<HqPlatformConfig>): HqPlatformConfig {
   const base = defaultPlatform();
   const merged = { ...base, ...raw };
@@ -179,7 +219,38 @@ function normalizePlatformConfig(raw: Partial<HqPlatformConfig>): HqPlatformConf
     ...merged,
     idleTimeoutMinutes: normalizeIdleTimeoutMinutes(merged.idleTimeoutMinutes),
     defaultUsdtFiatCurrency: merged.defaultUsdtFiatCurrency ?? 'JPY',
+    simulatorRetentionMonths: clampSimulatorRetention(merged.simulatorRetentionMonths),
     loginNoticeI18n: mergeLoginNoticeI18n(merged.loginNoticeI18n),
+    depositReceivingAccounts: normalizeDepositReceivingAccounts(merged.depositReceivingAccounts),
+  };
+}
+
+function normalizeDepositReceivingAccounts(
+  raw?: HqPlatformConfig['depositReceivingAccounts'],
+): HqPlatformConfig['depositReceivingAccounts'] {
+  const out: NonNullable<HqPlatformConfig['depositReceivingAccounts']> = {};
+  for (const cur of ['KRW', 'JPY', 'THB', 'CNY'] as const) {
+    const a = raw?.[cur];
+    if (!a) continue;
+    out[cur] = {
+      bankName: a.bankName ?? '',
+      accountNumber: a.accountNumber ?? '',
+      accountHolder: a.accountHolder ?? '',
+      transferEnabled: a.transferEnabled !== false,
+      cardEnabled: a.cardEnabled !== false,
+    };
+  }
+  return out;
+}
+
+export function resolveUsdtCurrencyTradePolicy(
+  accounts?: HqPlatformConfig['depositReceivingAccounts'],
+): Record<'KRW' | 'JPY' | 'THB' | 'CNY', { transfer: boolean; card: boolean }> {
+  return {
+    KRW: { transfer: accounts?.KRW?.transferEnabled !== false, card: accounts?.KRW?.cardEnabled !== false },
+    JPY: { transfer: accounts?.JPY?.transferEnabled !== false, card: accounts?.JPY?.cardEnabled !== false },
+    THB: { transfer: accounts?.THB?.transferEnabled !== false, card: accounts?.THB?.cardEnabled !== false },
+    CNY: { transfer: accounts?.CNY?.transferEnabled !== false, card: accounts?.CNY?.cardEnabled !== false },
   };
 }
 
@@ -195,6 +266,7 @@ function defaultPlatform(): HqPlatformConfig {
     sslCertPath: '/etc/letsencrypt/live/api.tinpass.com/fullchain.pem',
     redirectRootToPrimary: false,
     siteName: 'Crypto Workflow',
+    tabTitle: '',
     footerText: '',
     authMainText: '',
     loginNoticeEnabled: true,
@@ -202,6 +274,7 @@ function defaultPlatform(): HqPlatformConfig {
     customerRegistrationEnabled: false,
     idleTimeoutMinutes: 30,
     defaultUsdtFiatCurrency: 'JPY',
+    simulatorRetentionMonths: 3,
     depositReceivingAccounts: {},
   };
 }
@@ -326,22 +399,27 @@ function readSslInfo(certPath?: string) {
 
 export const hqPolicyService = {
   async getAccessPayload() {
-    const matrix = await getConfig(HQ_CONFIG_KEYS.accessMatrix, defaultAccessMatrix());
+    const stored = await getConfig(HQ_CONFIG_KEYS.accessMatrix, defaultAccessMatrix());
+    const defaults = defaultAccessMatrix();
+    const matrix = { ...defaults };
+    for (const actor of HQ_ACCESS_ACTORS) {
+      matrix[actor] = { ...defaults[actor], ...(stored[actor] ?? {}) };
+    }
     return {
       pages: HQ_PAGE_CATALOG,
-      orgLevels: HQ_ORG_LEVELS,
+      orgLevels: HQ_ACCESS_ACTORS,
       permissionLevels: HQ_PERMISSION_LEVELS,
       matrix,
     };
   },
 
   async saveAccessMatrix(audit: AuditContext, matrix: HqAccessMatrix) {
-    for (const org of HQ_ORG_LEVELS) {
-      if (!matrix[org]) throw new Error(`조직 단계 누락: ${org}`);
+    for (const actor of HQ_ACCESS_ACTORS) {
+      if (!matrix[actor]) throw new Error(`조직 단계 누락: ${actor}`);
       for (const page of HQ_PAGE_CATALOG) {
-        const level = matrix[org][page.path];
+        const level = matrix[actor][page.path];
         if (!HQ_PERMISSION_LEVELS.includes(level as HqPermissionLevel)) {
-          throw new Error(`잘못된 권한: ${org} / ${page.path}`);
+          throw new Error(`잘못된 권한: ${actor} / ${page.path}`);
         }
       }
     }
@@ -401,6 +479,21 @@ export const hqPolicyService = {
       include: { organization: { select: { id: true, code: true, name: true, type: true } } },
       orderBy: [{ ticketType: 'asc' }, { organization: { code: 'asc' } }],
     });
+    const orgShareRaw = await getConfig(HQ_CONFIG_KEYS.orgShare, defaultOrgSharePolicy());
+    const orgShare = normalizeOrgSharePolicy(orgShareRaw);
+    const profiles = await prisma.customerProfile.findMany({
+      where: { feeShare: { not: Prisma.JsonNull }, user: { deletedAt: null } },
+      select: {
+        feeShare: true,
+        user: { select: { id: true, email: true, name: true } },
+      },
+      take: 500,
+    });
+    const customerFeeShareOverrides = profiles.flatMap((p) => {
+      const share = persistableCustomerFeeShare(p.feeShare, orgShare);
+      if (!share) return [];
+      return [{ userId: p.user.id, email: p.user.email, name: p.user.name, feeShare: share }];
+    });
     return {
       risk,
       feeTiers,
@@ -409,6 +502,11 @@ export const hqPolicyService = {
       localPremiums,
       kimchiPremium,
       rates,
+      orgShare,
+      customerFeeShareOverrides,
+      gasNetworks: normalizeGasNetworkPolicy(
+        await getConfig(HQ_CONFIG_KEYS.gasNetworks, defaultGasNetworkPolicy()),
+      ),
     };
   },
 
@@ -420,6 +518,18 @@ export const hqPolicyService = {
       description: '수수료·리스크 정책',
       entityType: 'HQ_COMMISSION_RISK',
       summary: '수수료·리스크 정책 저장',
+    });
+    return this.getCommissionPayload();
+  },
+
+  async saveGasNetworks(audit: AuditContext, policy: HqGasNetworkPolicy) {
+    const normalized = normalizeGasNetworkPolicy(policy);
+    await putConfigWithAudit(audit, {
+      key: HQ_CONFIG_KEYS.gasNetworks,
+      value: normalized,
+      description: '네트워크별 가스피',
+      entityType: 'HQ_GAS_NETWORKS',
+      summary: 'USDT 출금 네트워크별 가스피 저장',
     });
     return this.getCommissionPayload();
   },
@@ -458,9 +568,32 @@ export const hqPolicyService = {
     return this.getCommissionPayload();
   },
 
+  async saveOrgSharePolicy(audit: AuditContext, policy: HqOrgSharePolicy) {
+    const normalized = normalizeOrgSharePolicy(policy);
+    try {
+      assertEscrowShareTotals(normalized);
+    } catch (e) {
+      throw new AppError(400, e instanceof Error ? e.message : 'ESCROW_SHARE_MISMATCH', 'ESCROW_SHARE_MISMATCH');
+    }
+    await putConfigWithAudit(audit, {
+      key: HQ_CONFIG_KEYS.orgShare,
+      value: normalized,
+      description: '단계별 수수료 배분',
+      entityType: 'HQ_ORG_SHARE',
+      summary: '조직 단계별 수수료 배분 저장',
+    });
+    return this.getCommissionPayload();
+  },
+
   async saveCommissionRates(
     audit: AuditContext,
-    rates: Array<{ organizationId: string; ticketType: TicketType; ratePercent: number }>,
+    rates: Array<{
+      organizationId: string;
+      ticketType: TicketType;
+      ratePercent: number;
+      perTicketUsdt?: number;
+      useDefault?: boolean;
+    }>,
   ) {
     if (!rates.length) {
       throw new Error('수수료 요율이 비어 있습니다.');
@@ -478,6 +611,9 @@ export const hqPolicyService = {
       }
       if (item.ratePercent < 0 || item.ratePercent > 100) {
         throw new Error('요율은 0~100% 사이여야 합니다.');
+      }
+      if ((item.perTicketUsdt ?? 0) < 0) {
+        throw new Error('건당 수수료는 0 이상이어야 합니다.');
       }
     }
 
@@ -498,7 +634,16 @@ export const hqPolicyService = {
         });
 
         const nextRate = Number(item.ratePercent.toFixed(4));
-        if (existing && Number(existing.ratePercent) === nextRate) continue;
+        const nextPer = Number((item.perTicketUsdt ?? 0).toFixed(8));
+        const nextDefault = item.useDefault !== false;
+        if (
+          existing &&
+          Number(existing.ratePercent) === nextRate &&
+          Number(existing.perTicketUsdt) === nextPer &&
+          existing.useDefault === nextDefault
+        ) {
+          continue;
+        }
 
         if (existing) {
           await tx.commissionRate.update({
@@ -512,6 +657,8 @@ export const hqPolicyService = {
             organizationId: item.organizationId,
             ticketType: item.ticketType,
             ratePercent: nextRate,
+            perTicketUsdt: nextPer,
+            useDefault: nextDefault,
           },
         });
       }
@@ -656,6 +803,7 @@ export const hqPolicyService = {
     );
     return {
       siteName: config.siteName || 'Crypto Workflow',
+      tabTitle: (config.tabTitle || config.siteName || '').trim() || config.siteName || 'Crypto Workflow',
       logoUrl: withBrandingCacheBust(config.logoUrl, 'logo'),
       authLogoUrl: withBrandingCacheBust(config.authLogoUrl, 'auth-logo'),
       faviconUrl: withBrandingCacheBust(config.faviconUrl, 'favicon'),
@@ -675,8 +823,31 @@ export const hqPolicyService = {
   },
 
   async getDepositReceivingAccounts() {
-    const config = await getConfig(HQ_CONFIG_KEYS.platform, defaultPlatform());
+    const config = normalizePlatformConfig({
+      ...defaultPlatform(),
+      ...(await getConfig(HQ_CONFIG_KEYS.platform, defaultPlatform())),
+    });
     return config.depositReceivingAccounts ?? {};
+  },
+
+  async getUsdtCurrencyTradePolicy() {
+    return resolveUsdtCurrencyTradePolicy(await this.getDepositReceivingAccounts());
+  },
+
+  async assertUsdtFiatMethodEnabled(currency: string, method: 'TRANSFER' | 'CARD') {
+    const policy = await this.getUsdtCurrencyTradePolicy();
+    const flags = policy[currency as keyof typeof policy];
+    if (!flags) return;
+    const ok = method === 'CARD' ? flags.card : flags.transfer;
+    if (!ok) {
+      throw new AppError(
+        400,
+        method === 'CARD'
+          ? `Card payment is disabled for ${currency}`
+          : `Bank transfer is disabled for ${currency}`,
+        method === 'CARD' ? 'FIAT_CARD_DISABLED' : 'FIAT_TRANSFER_DISABLED',
+      );
+    }
   },
 
   async saveCardPayment(audit: AuditContext, config: HqCardPaymentConfig) {
@@ -716,6 +887,25 @@ export const hqPolicyService = {
     return { config: after };
   },
 
+  async saveCurfex(audit: AuditContext, config: HqCurfexConfig) {
+    const before = await getCurfexConfigMasked();
+    const current = await getCurfexConfig();
+    const after = await saveCurfexConfig(config, current.clientSecret);
+    await logAdminChange({
+      actor: audit.actor,
+      action: AdminChangeAction.UPDATE,
+      entityType: 'HQ_CURFEX',
+      entityId: HQ_CONFIG_KEYS.curfex,
+      entityLabel: 'CURFEX Collection',
+      summary: `CURFEX Collection 설정 저장 enabled=${after.enabled} (관리자: ${audit.actor.email})`,
+      before,
+      after,
+      ipAddress: audit.ipAddress,
+      userAgent: audit.userAgent,
+    });
+    return { config: after };
+  },
+
   getLogoFilePath(): string | null {
     return getBrandingAssetPath('logo');
   },
@@ -733,12 +923,73 @@ export const hqPolicyService = {
   },
 
   /** 저장된 매트릭스 기준 페이지 접근 가능 여부 */
-  async canAccessPage(orgType: string, pagePath: string, minLevel: HqPermissionLevel): Promise<boolean> {
-    const matrix = await getConfig(HQ_CONFIG_KEYS.accessMatrix, defaultAccessMatrix());
-    const org = matrix[orgType as keyof HqAccessMatrix];
+  async canAccessPage(actor: string, pagePath: string, minLevel: HqPermissionLevel): Promise<boolean> {
+    if (actor === 'SUPER_ADMIN') return true;
+    const payload = await this.getAccessPayload();
+    const org = payload.matrix[actor as HqAccessActor];
     if (!org) return false;
     const level = org[pagePath] ?? 'NONE';
     const order = HQ_PERMISSION_LEVELS;
     return order.indexOf(level as HqPermissionLevel) >= order.indexOf(minLevel);
+  },
+
+  accessActorForUser(user: { role: string; organizationType?: string | null }): HqAccessActor | 'SUPER_ADMIN' {
+    if (user.role === 'SUPER_ADMIN') return 'SUPER_ADMIN';
+    if (user.role === 'CUSTOMER') return 'CUSTOMER';
+    return (user.organizationType as HqAccessActor) || 'SALES_OFFICE';
+  },
+
+  async getPageAccessForUser(user: { role: string; organizationType?: string | null }) {
+    const payload = await this.getAccessPayload();
+    const actor = this.accessActorForUser(user);
+    if (actor === 'SUPER_ADMIN') {
+      const levels: Record<string, HqPermissionLevel> = {};
+      for (const page of HQ_PAGE_CATALOG) levels[page.path] = 'DELETE';
+      return levels;
+    }
+    if (user.role === 'ORGANIZER') {
+      const levels: Record<string, HqPermissionLevel> = {};
+      for (const page of HQ_PAGE_CATALOG) levels[page.path] = 'NONE';
+      const allow: Array<[string, HqPermissionLevel]> = [
+        ['/dashboard', 'VIEW'],
+        ['/dashboard/simulator', 'MODIFY'],
+        ['/dashboard/usdt', 'MODIFY'],
+        ['/dashboard/escrow', 'MODIFY'],
+        ['/dashboard/ledger', 'VIEW'],
+        ['/dashboard/users', 'MODIFY'],
+        ['/dashboard/customers', 'MODIFY'],
+        ['/dashboard/simulator-logs', 'VIEW'],
+        ['/dashboard/hq-policy/cost-analysis', 'MODIFY'],
+        ['/dashboard/hq-policy/profit-analysis', 'MODIFY'],
+      ];
+      for (const [path, level] of allow) levels[path] = level;
+      return levels;
+    }
+    if (user.role === 'SETTLEMENT_ADMIN') {
+      const levels: Record<string, HqPermissionLevel> = {};
+      for (const page of HQ_PAGE_CATALOG) levels[page.path] = 'NONE';
+      levels['/dashboard'] = 'VIEW';
+      levels['/dashboard/ledger'] = 'VIEW';
+      levels['/dashboard/users'] = 'MODIFY';
+      return levels;
+    }
+    return { ...payload.matrix[actor] };
+  },
+
+  async getWorkflowDisplay(): Promise<HqWorkflowDisplayConfig> {
+    const raw = await getConfig(HQ_CONFIG_KEYS.workflowDisplay, defaultWorkflowDisplay());
+    return normalizeWorkflowDisplay(raw);
+  },
+
+  async saveWorkflowDisplay(audit: AuditContext, config: HqWorkflowDisplayConfig) {
+    const normalized = normalizeWorkflowDisplay(config);
+    await putConfigWithAudit(audit, {
+      key: HQ_CONFIG_KEYS.workflowDisplay,
+      value: normalized,
+      description: '진행상태·처리시한',
+      entityType: 'HQ_WORKFLOW_DISPLAY',
+      summary: '진행상태 문구·예상완료 시한 저장',
+    });
+    return normalized;
   },
 };

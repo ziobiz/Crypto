@@ -1,19 +1,31 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { z } from 'zod';
-import { TicketType } from '@prisma/client';
+import { AdminChangeAction, TicketType } from '@prisma/client';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { authenticate, requireRoles } from '../middleware/auth';
-import { auditFromRequest, listAdminChangeLogs } from '../services/admin-change-log.service';
+import { auditFromRequest, listAdminChangeLogs, logAdminChange } from '../services/admin-change-log.service';
 import { hqPolicyService } from '../services/hq-policy.service';
 import { createPlatformRelease, listPlatformReleases } from '../services/platform-release.service';
-import type { HqAccessMatrix, HqCommissionRiskConfig, HqExchangeRateSourcePolicy, HqOrgColumnConfig, HqPlatformConfig, HqEmailOtpConfig, HqCardPaymentConfig, HqIcopayConfig, SymbolFeeTierPolicy } from '../constants/hq-policy';
+import type { HqAccessMatrix, HqCommissionRiskConfig, HqExchangeRateSourcePolicy, HqOrgColumnConfig, HqPlatformConfig, HqEmailOtpConfig, HqCardPaymentConfig, HqIcopayConfig, HqCurfexConfig, SymbolFeeTierPolicy, HqDeletionPolicy, HqOrgSharePolicy, HqWorkflowDisplayConfig, HqGasNetworkPolicy } from '../constants/hq-policy';
+import {
+  getDeletionPolicy,
+  hardDeleteOrganization,
+  hardDeleteUser,
+  saveDeletionPolicy,
+} from '../services/deletion.service';
+import { organizationService } from '../services/organization.service';
+import { userService } from '../services/user.service';
 import {
   getCardPaymentConfig,
   getIcopayConfigMasked,
   saveCardPaymentConfig,
   saveIcopayConfig,
 } from '../services/card-payment-policy.service';
+import {
+  getCurfexConfigMasked,
+  saveCurfexConfig,
+} from '../services/curfex.service';
 
 const router = Router();
 const logoUpload = multer({
@@ -84,6 +96,19 @@ router.put(
 );
 
 router.put(
+  '/commission/gas-networks',
+  asyncHandler(async (req, res) => {
+    const body = req.body as { gasNetworks?: HqGasNetworkPolicy };
+    if (!body.gasNetworks) {
+      res.status(400).json({ error: 'gasNetworks required' });
+      return;
+    }
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await hqPolicyService.saveGasNetworks(audit, body.gasNetworks));
+  }),
+);
+
+router.put(
   '/commission/fee-tiers',
   asyncHandler(async (req, res) => {
     const body = req.body as { feeTiers?: SymbolFeeTierPolicy };
@@ -110,10 +135,29 @@ router.put(
 );
 
 router.put(
+  '/commission/org-share',
+  asyncHandler(async (req, res) => {
+    const body = req.body as { orgShare?: HqOrgSharePolicy };
+    if (!body.orgShare) {
+      res.status(400).json({ error: 'orgShare required' });
+      return;
+    }
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await hqPolicyService.saveOrgSharePolicy(audit, body.orgShare));
+  }),
+);
+
+router.put(
   '/commission/rates',
   asyncHandler(async (req, res) => {
     const body = req.body as {
-      rates?: Array<{ organizationId: string; ticketType: TicketType; ratePercent: number }>;
+      rates?: Array<{
+        organizationId: string;
+        ticketType: TicketType;
+        ratePercent: number;
+        perTicketUsdt?: number;
+        useDefault?: boolean;
+      }>;
     };
     if (!body.rates?.length) {
       res.status(400).json({ error: 'rates required' });
@@ -314,6 +358,111 @@ router.put(
     }
     const audit = auditFromRequest(req.user!, req);
     res.json(await hqPolicyService.saveIcopay(audit, body.config));
+  }),
+);
+
+router.get(
+  '/payment/curfex',
+  asyncHandler(async (_req, res) => {
+    res.json({ config: await getCurfexConfigMasked() });
+  }),
+);
+
+router.put(
+  '/payment/curfex',
+  asyncHandler(async (req, res) => {
+    const body = req.body as { config?: HqCurfexConfig };
+    if (!body.config) {
+      res.status(400).json({ error: 'config required' });
+      return;
+    }
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await hqPolicyService.saveCurfex(audit, body.config));
+  }),
+);
+
+router.get(
+  '/deletion',
+  asyncHandler(async (_req, res) => {
+    const [policy, users, orgs] = await Promise.all([
+      getDeletionPolicy(),
+      userService.listDeleted(),
+      organizationService.listDeleted(),
+    ]);
+    res.json({ policy, users, orgs });
+  }),
+);
+
+router.put(
+  '/deletion',
+  asyncHandler(async (req, res) => {
+    const body = req.body as { policy?: HqDeletionPolicy };
+    if (!body.policy) {
+      res.status(400).json({ error: 'policy required' });
+      return;
+    }
+    const before = await getDeletionPolicy();
+    const after = await saveDeletionPolicy(body.policy);
+    const audit = auditFromRequest(req.user!, req);
+    await logAdminChange({
+      actor: audit.actor,
+      action: AdminChangeAction.UPDATE,
+      entityType: 'HQ_DELETION_POLICY',
+      entityId: 'hq.deletion.policy',
+      entityLabel: '삭제관리',
+      summary: `삭제 자동 보관기간 저장 사용자 ${after.userRetentionMonths}개월 / 조직 ${after.orgRetentionMonths}개월 (관리자: ${audit.actor.email})`,
+      before,
+      after,
+      ipAddress: audit.ipAddress,
+      userAgent: audit.userAgent,
+    });
+    const [users, orgs] = await Promise.all([userService.listDeleted(), organizationService.listDeleted()]);
+    res.json({ policy: after, users, orgs });
+  }),
+);
+
+router.delete(
+  '/deletion/users/:id',
+  asyncHandler(async (req, res) => {
+    await hardDeleteUser(req.params.id);
+    res.json({ ok: true });
+  }),
+);
+
+router.post(
+  '/deletion/users/:id/restore',
+  asyncHandler(async (req, res) => {
+    const audit = auditFromRequest(req.user!, req);
+    await userService.restoreDeleted(req.user!, req.params.id, audit);
+    res.json({ ok: true });
+  }),
+);
+
+router.delete(
+  '/deletion/orgs/:id',
+  asyncHandler(async (req, res) => {
+    await hardDeleteOrganization(req.params.id);
+    res.json({ ok: true });
+  }),
+);
+
+router.get(
+  '/workflow-display',
+  asyncHandler(async (_req, res) => {
+    res.json(await hqPolicyService.getWorkflowDisplay());
+  }),
+);
+
+router.put(
+  '/workflow-display',
+  asyncHandler(async (req, res) => {
+    const body = req.body as { config?: HqWorkflowDisplayConfig };
+    if (!body.config) {
+      res.status(400).json({ error: 'config required' });
+      return;
+    }
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await hqPolicyService.saveWorkflowDisplay(audit, body.config));
   }),
 );
 

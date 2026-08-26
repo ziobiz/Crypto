@@ -1,6 +1,6 @@
 import { Prisma, TicketType, UsdtPurchaseStatus, UserRole } from '@prisma/client';
 import { prisma } from '../lib/prisma';
-import { AppError } from '../lib/errors';
+import { AppError, isAppError } from '../lib/errors';
 import { AuthUser } from '../types/auth';
 import {
   calculateExpectedUsdtRange,
@@ -10,6 +10,15 @@ import {
 import { settleCommission } from './commission.service';
 import { sendTradeReceiptEmail } from './trade-email.service';
 import { hqPolicyService } from './hq-policy.service';
+import { getWorkflowDisplay } from './workflow-display.service';
+import { assertCustomerKycApproved } from './kyc.service';
+import {
+  collectionAccountToDisplay,
+  createCurfexCollection,
+  getCurfexConfig,
+  isCurfexCurrencyEnabled,
+} from './curfex.service';
+import { computeExpectedCompleteAt, type HqSlaConfig } from '../constants/hq-policy';
 import {
   resolveFeesForAmount,
   commissionPoolFromSnapshots,
@@ -162,7 +171,7 @@ function toLocalPremiumInfo(premium: LocalMarketPremiumAnalysis) {
 }
 
 async function quoteFromTarget(
-  wallet: { id: string } & Parameters<typeof resolveFeesForAmount>[0],
+  wallet: Parameters<typeof resolveFeesForAmount>[0],
   currency: FiatCurrency,
   targetUsdt: number,
   rate: number,
@@ -173,17 +182,26 @@ async function quoteFromTarget(
   localPremium?: ReturnType<typeof toLocalPremiumInfo>;
 }> {
   const hasLocalPremium = isLocalPremiumCurrency(currency);
-  let localPremium = hasLocalPremium
-    ? await getLocalPremiumContext(currency as LocalPremiumCurrency)
-    : null;
+  let localPremium: LocalMarketPremiumAnalysis | null = null;
+  if (hasLocalPremium) {
+    try {
+      localPremium = await getLocalPremiumContext(currency as LocalPremiumCurrency);
+    } catch {
+      localPremium = null;
+    }
+  }
   let baseFees = await resolveFeesForAmount(wallet, currency, 0);
   let fees: ResolvedTransactionFees =
     localPremium != null ? applyLocalPremiumToBaseFees(baseFees, localPremium, 0) : baseFees;
   let breakdown = breakdownFromTarget(targetUsdt, rate, fees);
 
   baseFees = await resolveFeesForAmount(wallet, currency, breakdown.requiredFiat);
-  if (hasLocalPremium) {
-    localPremium = await getLocalPremiumContext(currency as LocalPremiumCurrency);
+  if (hasLocalPremium && localPremium) {
+    try {
+      localPremium = await getLocalPremiumContext(currency as LocalPremiumCurrency);
+    } catch {
+      /* keep previous premium */
+    }
     fees = applyLocalPremiumToBaseFees(baseFees, localPremium, breakdown.grossUsdt);
   } else {
     fees = baseFees;
@@ -301,6 +319,84 @@ export async function previewUsdtTransactionFees(
   };
 }
 
+const HQ_SIM_WALLET = {
+  fxFeePercent: 0,
+  gasFeeAmount: 0,
+  transferFeeAmount: 0,
+  otherFeeAmount: 0,
+  platformFeeAmount: 0,
+  network: 'TRC20',
+};
+
+/** 본사 수수료 정책 기준 견적 (지갑 없음) */
+export async function simulateHqUsdtQuote(input: {
+  fiatCurrency?: FiatCurrency;
+  fiatAmount?: number;
+  targetUsdtAmount?: number;
+  network?: string;
+}) {
+  const sessionPolicy = await hqPolicyService.getSessionPolicy();
+  const currency = input.fiatCurrency ?? sessionPolicy.defaultUsdtFiatCurrency ?? 'JPY';
+  const feeDiagramDisplay = await getFeeDiagramDisplay();
+  const { rate, source, fetchedAt } = await fetchUsdtFiatRate(currency);
+  const network = input.network?.trim();
+  if (!network) {
+    throw new AppError(400, 'Withdrawal network is required', 'NETWORK_REQUIRED');
+  }
+  const wallet = { ...HQ_SIM_WALLET, network };
+
+  try {
+    if (input.targetUsdtAmount != null && Number(input.targetUsdtAmount) > 0) {
+      const quoted = await quoteFromTarget(wallet, currency, Number(input.targetUsdtAmount), rate);
+      return {
+        fees: quoted.fees,
+        fiatAmount: quoted.fiatAmount,
+        exchangeRate: rate,
+        rateSource: source,
+        rateFetchedAt: fetchedAt,
+        breakdown: quoted.breakdown,
+        localPremium: quoted.localPremium,
+        kimchiPremium: quoted.localPremium?.currency === 'KRW' ? quoted.localPremium : undefined,
+        feeDiagramDisplay,
+        policyBasis: 'HQ' as const,
+      };
+    }
+
+    const fiatAmount = input.fiatAmount ?? 0;
+    const fees = await resolveFeesForPurchase(wallet, currency, fiatAmount, rate);
+    const breakdown = fiatAmount > 0 ? breakdownFromFiat(fiatAmount, rate, fees) : undefined;
+    let localPremiumInfo;
+    if (isLocalPremiumCurrency(currency) && fiatAmount > 0) {
+      try {
+        const localPremium = await getLocalPremiumContext(currency);
+        localPremiumInfo = toLocalPremiumInfo(localPremium);
+      } catch {
+        localPremiumInfo = undefined;
+      }
+    }
+
+    return {
+      fees,
+      fiatAmount,
+      exchangeRate: rate,
+      rateSource: source,
+      rateFetchedAt: fetchedAt,
+      breakdown,
+      localPremium: localPremiumInfo,
+      kimchiPremium: localPremiumInfo?.currency === 'KRW' ? localPremiumInfo : undefined,
+      feeDiagramDisplay,
+      policyBasis: 'HQ' as const,
+    };
+  } catch (e) {
+    if (isAppError(e)) throw e;
+    throw new AppError(
+      400,
+      e instanceof Error ? e.message : 'Simulation failed',
+      'SIMULATE_FAILED',
+    );
+  }
+}
+
 export async function createUsdtPurchaseTicket(
   user: AuthUser,
   input: {
@@ -313,6 +409,7 @@ export async function createUsdtPurchaseTicket(
   if (user.role !== UserRole.CUSTOMER || !user.customerProfileId) {
     throw new AppError(403, 'Only customers can create purchase tickets', 'FORBIDDEN');
   }
+  await assertCustomerKycApproved(user.id);
 
   if (!input.fiatAmount && !input.targetUsdtAmount) {
     throw new AppError(400, 'fiatAmount or targetUsdtAmount is required', 'VALIDATION');
@@ -332,6 +429,7 @@ export async function createUsdtPurchaseTicket(
 
   const sessionPolicy = await hqPolicyService.getSessionPolicy();
   const currency = input.fiatCurrency ?? sessionPolicy.defaultUsdtFiatCurrency ?? 'JPY';
+  await hqPolicyService.assertUsdtFiatMethodEnabled(currency, 'TRANSFER');
   const { rate, source, fetchedAt } = await fetchUsdtFiatRate(currency);
 
   let fiatAmount: number;
@@ -392,10 +490,44 @@ export async function createUsdtPurchaseTicket(
     otherFeeUsdt: feeBreakdown?.baseOtherFeeUsdt ?? feeBreakdown?.otherFeeUsdt ?? 0,
   });
 
+  const ticketNo = generateTicketNo();
+  const dbUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { name: true, email: true },
+  });
+
+  let collectionFields: {
+    collectionProvider: string;
+    curfexRefNo?: string;
+    curfexStatusCode?: string;
+    collectionAccountJson?: object;
+  } = { collectionProvider: 'FIXED' };
+
+  const curfexCfg = await getCurfexConfig();
+  if (isCurfexCurrencyEnabled(curfexCfg, currency)) {
+    const collection = await createCurfexCollection({
+      sendAmount: fiatAmount,
+      currency,
+      merchantReference: ticketNo,
+      customerName: dbUser?.name || user.email,
+      customerEmail: dbUser?.email || user.email,
+      customerType: customerProfile.customerType === 'CORPORATE' ? 'CORPORATE' : 'INDIVIDUAL',
+      description: `TINPASS USDT ${ticketNo}`,
+      paymentDueDateTime: depositDeadlineAt.toISOString(),
+      requestExpiryDateTime: depositDeadlineAt.toISOString(),
+    });
+    collectionFields = {
+      collectionProvider: 'CURFEX',
+      curfexRefNo: collection.refNo,
+      curfexStatusCode: collection.statusCode,
+      collectionAccountJson: collection.collectionAccount as object,
+    };
+  }
+
   const ticket = await prisma.$transaction(async (tx) => {
     const created = await tx.transactionTicket.create({
       data: {
-        ticketNo: generateTicketNo(),
+        ticketNo,
         type: TicketType.USDT_PURCHASE,
         customerId: user.customerProfileId!,
         usdtPurchase: {
@@ -416,6 +548,7 @@ export async function createUsdtPurchaseTicket(
             depositDeadlineAt,
             ...feeSnapshots,
             walletId: wallet.id,
+            ...collectionFields,
           },
         },
       },
@@ -453,7 +586,7 @@ export async function createUsdtPurchaseTicket(
     });
   });
 
-  return serializeTicket(ticket);
+  return serializeTicket(ticket, (await getWorkflowDisplay()).sla);
 }
 
 export async function listUsdtPurchaseTickets(user: AuthUser) {
@@ -478,7 +611,8 @@ export async function listUsdtPurchaseTickets(user: AuthUser) {
     orderBy: { createdAt: 'desc' },
   });
 
-  return refreshed.map(serializeTicket);
+  const sla = (await getWorkflowDisplay()).sla;
+  return refreshed.map((row) => serializeTicket(row, sla));
 }
 
 export async function getUsdtPurchaseTicket(user: AuthUser, ticketId: string) {
@@ -508,7 +642,7 @@ export async function getUsdtPurchaseTicket(user: AuthUser, ticketId: string) {
     }
   }
 
-  return serializeTicket(ticket);
+  return serializeTicket(ticket, (await getWorkflowDisplay()).sla);
 }
 
 export async function saveDepositProofMetadata(
@@ -677,20 +811,26 @@ export async function transitionUsdtPurchaseStatus(
     }).catch((err) => console.error('[trade-email]', err));
   }
 
-  return serializeTicket(updated);
+  return serializeTicket(updated, (await getWorkflowDisplay()).sla);
 }
 
 export async function getUsdtDepositContext(user: AuthUser) {
-  const [receivingAccounts, registeredBank] = await Promise.all([
+  const [receivingAccounts, registeredBank, curfexCfg, currencyTrade] = await Promise.all([
     hqPolicyService.getDepositReceivingAccounts(),
     user.role === UserRole.CUSTOMER
       ? prisma.bankAccount.findFirst({
           where: { userId: user.id, isActive: true, isDefault: true },
         })
       : Promise.resolve(null),
+    getCurfexConfig(),
+    hqPolicyService.getUsdtCurrencyTradePolicy(),
   ]);
   return {
     receivingAccounts,
+    currencyTrade,
+    curfexEnabledCurrencies: (curfexCfg.currencies ?? ['JPY']).filter((c) =>
+      isCurfexCurrencyEnabled(curfexCfg, c),
+    ),
     registeredBank: registeredBank
       ? {
           bankName: registeredBank.bankName,
@@ -702,9 +842,12 @@ export async function getUsdtDepositContext(user: AuthUser) {
   };
 }
 
-function serializeTicket(ticket: Prisma.TransactionTicketGetPayload<{
+function serializeTicket(
+  ticket: Prisma.TransactionTicketGetPayload<{
   include: typeof USDT_PURCHASE_INCLUDE;
-}>) {
+}>,
+  sla: HqSlaConfig,
+) {
   const detail = ticket.usdtPurchase!;
   const registeredBank = ticket.customer?.user.bankAccounts?.[0] ?? null;
   return {
@@ -715,6 +858,7 @@ function serializeTicket(ticket: Prisma.TransactionTicketGetPayload<{
     commissionSettledAt: ticket.commissionSettledAt,
     createdAt: ticket.createdAt,
     updatedAt: ticket.updatedAt,
+    expectedCompleteAt: computeExpectedCompleteAt(ticket.createdAt, sla).toISOString(),
     customer: ticket.customer
       ? {
           ...ticket.customer,
@@ -766,10 +910,30 @@ function serializeTicket(ticket: Prisma.TransactionTicketGetPayload<{
     cardLast4: detail.cardLast4,
     icopayOrderId: detail.icopayOrderId,
     icopayTransactionId: detail.icopayTransactionId,
+    collectionProvider: detail.collectionProvider ?? 'FIXED',
+    curfexRefNo: detail.curfexRefNo ?? null,
+    curfexStatusCode: detail.curfexStatusCode ?? null,
+    collectionAccount: (() => {
+      const raw = detail.collectionAccountJson as Record<string, unknown> | null;
+      if (!raw || detail.collectionProvider !== 'CURFEX') return null;
+      try {
+        return collectionAccountToDisplay({
+          bankName: String(raw.bankName ?? ''),
+          branchCode: raw.branchCode != null ? String(raw.branchCode) : undefined,
+          branchName: raw.branchName != null ? String(raw.branchName) : undefined,
+          accountType: raw.accountType != null ? String(raw.accountType) : undefined,
+          accountNo: String(raw.accountNo ?? ''),
+          accountName: String(raw.accountName ?? ''),
+        });
+      } catch {
+        return null;
+      }
+    })(),
     usdtTxId: detail.usdtTxId,
     actualUsdtAmount: detail.actualUsdtAmount
       ? Number(detail.actualUsdtAmount)
       : null,
+    brokerUsdtAmount: detail.brokerUsdtAmount != null ? Number(detail.brokerUsdtAmount) : null,
     adminNote: detail.adminNote,
     wallet: detail.wallet,
     registeredBank: registeredBank

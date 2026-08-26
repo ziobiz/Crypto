@@ -277,20 +277,29 @@
     background-color: var(--shell-table-head-bg);
   }
 
-  .pg-table th {
-    @apply px-3 py-2.5 text-center align-middle font-medium;
+  .pg-table th,
+  .pg-table td {
+    @apply px-3 py-2.5 align-middle;
+    text-align: center !important;
+    vertical-align: middle;
     border: 1px solid var(--shell-table-border);
+  }
+
+  .pg-table th {
+    @apply font-medium;
     color: var(--shell-content-text-muted);
   }
 
   .pg-table td {
-    @apply px-3 py-2.5 text-center align-middle;
-    border: 1px solid var(--shell-table-border);
     color: var(--shell-content-text);
   }
 
   .pg-table tbody tr:nth-child(even) {
     background-color: rgba(248, 250, 252, 0.65);
+  }
+
+  .pg-table tbody tr.pg-row-detail {
+    cursor: pointer;
   }
 
   .pg-table tbody tr:hover {
@@ -316,11 +325,47 @@
 
   .pg-table td > span,
   .pg-table td > .policy-cell-value {
-    @apply mx-auto;
+    display: block;
+    text-align: center;
+    margin-left: auto;
+    margin-right: auto;
   }
 
   .pg-table-wrap {
     @apply overflow-x-auto;
+  }
+
+  .pg-mobile-card {
+    display: block;
+    border-radius: 0.5rem;
+    padding: 0.875rem 1rem;
+    background-color: var(--shell-card-bg);
+    border: 1px solid var(--shell-card-border);
+    color: var(--shell-content-text);
+  }
+
+  .pg-mobile-stack-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem 0.75rem;
+    margin-top: 0.5rem;
+    text-align: left;
+  }
+
+  .pg-mobile-stack-label {
+    display: block;
+    font-size: 11px;
+    line-height: 1.3;
+    color: var(--shell-content-text-muted);
+  }
+
+  .pg-mobile-stack-value {
+    display: block;
+    margin-top: 0.125rem;
+    font-size: 13px;
+    line-height: 1.4;
+    word-break: break-word;
+    overflow-wrap: anywhere;
   }
 
   .pg-toolbar {
@@ -350,6 +395,30 @@
 
   .pg-link-danger {
     @apply text-rose-700 hover:underline;
+  }
+
+  .pg-action-chip {
+    @apply inline-flex items-center justify-center rounded-full px-2.5 py-1 text-[10px] font-semibold leading-none;
+  }
+
+  .pg-action-chip-edit {
+    background-color: #dbeafe;
+    color: #1e40af;
+  }
+
+  .pg-action-chip-warn {
+    background-color: #fef3c7;
+    color: #92400e;
+  }
+
+  .pg-action-chip-otp {
+    background-color: #ede9fe;
+    color: #5b21b6;
+  }
+
+  .pg-action-chip-danger {
+    background-color: #fee2e2;
+    color: #991b1b;
   }
 
   .pg-row-edit {
@@ -422,6 +491,14 @@
   .pg-badge-error {
     background-color: #fee2e2;
     color: #991b1b;
+  }
+
+  /** 고객관리 — 인증패스 표시 (빨간 메뉴) */
+  .pg-badge-kyc-pass {
+    background-color: #dc2626;
+    color: #ffffff;
+    font-weight: 700;
+    letter-spacing: 0.02em;
   }
 
   .pg-modal-overlay {
@@ -714,6 +791,66 @@
   .pg-admin textarea,
   .pg-admin button {
     font-size: 12px;
+  }
+
+  html[data-customer-app] .pg-admin input,
+  html[data-customer-app] .pg-admin select,
+  html[data-customer-app] .pg-admin textarea,
+  html[data-customer-app] .pg-admin button {
+    font-size: 16px;
+  }
+
+  html[data-customer-app] .pg-session-inner-compact {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+    gap: 0.5rem;
+  }
+
+  .auth-chrome input,
+  .auth-chrome select,
+  .auth-chrome textarea {
+    font-size: 16px;
+  }
+
+  @media (max-width: 767px) {
+    html[data-customer-app] .pg-frame-title {
+      font-size: 16px;
+    }
+
+    html[data-customer-app] .pg-frame-path {
+      font-size: 12px;
+      word-break: break-word;
+      white-space: normal;
+    }
+
+    html[data-customer-app] .pg-frame-body {
+      padding: 0.75rem;
+    }
+
+    html[data-customer-app] .pg-btn {
+      min-height: 44px;
+      padding: 0.75rem 1rem;
+      font-size: 14px;
+    }
+
+    html[data-customer-app] .pg-input,
+    html[data-customer-app] .pg-select,
+    html[data-customer-app] .pg-textarea {
+      font-size: 16px;
+      min-height: 44px;
+    }
+
+    html[data-customer-app] .pg-table-wrap {
+      -webkit-overflow-scrolling: touch;
+    }
+
+    html[data-customer-app] .pg-table {
+      font-size: 13px;
+    }
+
+    html[data-customer-app] .pg-stat-value {
+      font-size: 1.25rem;
+    }
   }
 }
 

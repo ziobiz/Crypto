@@ -195,11 +195,11 @@ export default function LoginPage() {
             <form onSubmit={handleCredentials} className="mt-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">{t('auth.email')}</label>
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 w-full rounded-lg border border-gray-200 bg-sky-50 px-3 py-3" required />
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="auth-field mt-1 w-full rounded-lg border border-gray-200 bg-sky-50 px-3 py-3 text-base" required autoComplete="username" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">{t('auth.password')}</label>
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 w-full rounded-lg border border-gray-200 bg-sky-50 px-3 py-3" required />
+                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="auth-field mt-1 w-full rounded-lg border border-gray-200 bg-sky-50 px-3 py-3 text-base" required autoComplete="current-password" />
               </div>
               {error && <p className="text-sm text-red-600">{error}</p>}
               <button type="submit" disabled={loading} className="w-full rounded-lg bg-blue-600 py-3 text-white disabled:opacity-50">
@@ -222,8 +222,8 @@ export default function LoginPage() {
             <h2 className="text-xl font-bold">{t('auth.changePasswordTitle')}</h2>
             <p className="mt-2 text-sm text-gray-600">{t('auth.changePasswordDesc')}</p>
             <form onSubmit={handleChangePassword} className="mt-6 space-y-4">
-              <input type="password" placeholder={t('auth.newPassword')} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full rounded-lg border px-3 py-3" required minLength={8} />
-              <input type="password" placeholder={t('auth.confirmPassword')} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full rounded-lg border px-3 py-3" required minLength={8} />
+              <input type="password" placeholder={t('auth.newPassword')} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="auth-field w-full rounded-lg border px-3 py-3 text-base" required minLength={8} />
+              <input type="password" placeholder={t('auth.confirmPassword')} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="auth-field w-full rounded-lg border px-3 py-3 text-base" required minLength={8} />
               {error && <p className="text-sm text-red-600">{error}</p>}
               <button type="submit" disabled={loading} className="w-full rounded-lg bg-blue-600 py-3 text-white">{t('auth.changePasswordSubmit')}</button>
             </form>

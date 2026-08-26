@@ -7,9 +7,11 @@ import { useT } from '@/context/LocaleProvider';
 import { api, DashboardResponse } from '@/lib/api';
 import { UsdtRatePanel } from '@/components/UsdtRatePanel';
 import { DashboardCharts } from '@/components/DashboardCharts';
+import { DashboardSimulatorPreview } from '@/components/DashboardSimulatorPreview';
 import { ContentCard } from '@/components/layout/ContentCard';
 import { useBranding } from '@/hooks/useBranding';
 import { resolveOrgDisplayName } from '@/lib/session-display';
+import { isKycApproved } from '@/lib/kyc';
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -40,6 +42,10 @@ export default function DashboardPage() {
         <UsdtRatePanel compact />
       </ContentCard>
 
+      {user && user.role !== 'SUPER_ADMIN' && user.organization?.type !== 'HEAD_OFFICE' && (
+        <DashboardSimulatorPreview />
+      )}
+
       <ContentCard title={t('dashboard.chart.sectionTitle')}>
         <DashboardCharts />
       </ContentCard>
@@ -62,6 +68,11 @@ export default function DashboardPage() {
               value={stats.totalCommission ?? 0}
               suffix="USDT"
             />
+            <StatCard
+              label={t('dashboard.pendingCommission')}
+              value={stats.pendingCommission ?? 0}
+              suffix="USDT"
+            />
             <StatCard label={t('dashboard.commissionCount')} value={stats.commissionCount ?? 0} />
           </>
         )}
@@ -77,13 +88,23 @@ export default function DashboardPage() {
 
       {user?.role === 'CUSTOMER' && (
         <ContentCard title={t('dashboard.quickActions')}>
-          <div className="flex flex-wrap gap-2">
-            <Link href="/dashboard/usdt/new" className="pg-btn pg-btn-primary">
-              {t('dashboard.newUsdt')}
-            </Link>
-            <Link href="/dashboard/escrow/new" className="pg-btn pg-btn-secondary">
-              {t('dashboard.newEscrow')}
-            </Link>
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            {isKycApproved(user) ? (
+              <>
+                <Link href="/dashboard/usdt/new" className="pg-btn pg-btn-primary w-full sm:w-auto">
+                  {t('dashboard.newUsdt')}
+                </Link>
+                <Link href="/dashboard/escrow/new" className="pg-btn pg-btn-secondary w-full sm:w-auto">
+                  {t('dashboard.newEscrow')}
+                </Link>
+              </>
+            ) : (
+              <>
+                <span className="pg-btn pg-btn-primary w-full cursor-not-allowed opacity-50 sm:w-auto">{t('dashboard.newUsdt')}</span>
+                <span className="pg-btn pg-btn-secondary w-full cursor-not-allowed opacity-50 sm:w-auto">{t('dashboard.newEscrow')}</span>
+                <Link href="/dashboard/kyc" className="pg-link self-center text-sm">{t('kyc.requiredToTrade')}</Link>
+              </>
+            )}
           </div>
         </ContentCard>
       )}

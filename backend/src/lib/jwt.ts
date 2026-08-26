@@ -15,7 +15,7 @@ export interface JwtPayload {
 
 export interface OtpJwtPayload {
   sub: string;
-  purpose: 'otp_login';
+  purpose: 'otp_login' | 'step_up';
   method: 'totp';
 }
 
@@ -31,6 +31,12 @@ export function signToken(payload: JwtPayload): string {
 export function signOtpToken(userId: string): string {
   return jwt.sign({ sub: userId, purpose: 'otp_login', method: 'totp' }, JWT_SECRET, {
     expiresIn: OTP_EXPIRES_IN,
+  });
+}
+
+export function signStepUpToken(userId: string): string {
+  return jwt.sign({ sub: userId, purpose: 'step_up', method: 'totp' }, JWT_SECRET, {
+    expiresIn: '30m',
   });
 }
 
@@ -61,6 +67,18 @@ export function verifyOtpToken(token: string): OtpJwtPayload {
   } catch (e) {
     if (e instanceof AppError) throw e;
     throw new AppError(401, 'Invalid or expired OTP session', 'INVALID_OTP_TOKEN');
+  }
+}
+
+export function verifyStepUpToken(token: string, userId: string): void {
+  try {
+    const payload = jwt.verify(token, JWT_SECRET) as OtpJwtPayload;
+    if (payload.purpose !== 'step_up' || payload.method !== 'totp' || payload.sub !== userId) {
+      throw new AppError(401, 'Sensitive OTP required', 'SENSITIVE_OTP_REQUIRED');
+    }
+  } catch (e) {
+    if (e instanceof AppError) throw e;
+    throw new AppError(401, 'Sensitive OTP required', 'SENSITIVE_OTP_REQUIRED');
   }
 }
 

@@ -8,7 +8,7 @@ import { AppError } from '../lib/errors';
 const router = Router();
 
 router.use(authenticate);
-router.use(requireRoles(UserRole.SUPER_ADMIN, UserRole.ORG_STAFF));
+router.use(requireRoles(UserRole.SUPER_ADMIN, UserRole.ORG_STAFF, UserRole.ORGANIZER, UserRole.SETTLEMENT_ADMIN));
 
 router.get(
   '/',

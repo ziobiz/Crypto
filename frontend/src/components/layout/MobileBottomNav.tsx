@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthProvider';
 import { useT } from '@/context/LocaleProvider';
-import { NAV_ITEMS } from './nav-config';
+import { NAV_ITEMS, filterNavByPageAccess } from './nav-config';
 import { NavIcon } from './NavIcons';
 
 export function MobileBottomNav() {
@@ -14,14 +14,17 @@ export function MobileBottomNav() {
 
   if (!user || user.role !== 'CUSTOMER') return null;
 
-  const items = NAV_ITEMS.CUSTOMER;
+  const items = filterNavByPageAccess(NAV_ITEMS.CUSTOMER, user.pageAccess).filter(
+    (item) => item.href !== '/dashboard/manuals',
+  );
+  const cols = Math.min(Math.max(items.length, 1), 6);
 
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden"
       aria-label={t('nav.menu')}
     >
-      <ul className="grid grid-cols-4">
+      <ul style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
         {items.map((item) => {
           const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
           const label = item.shortKey ? t(item.shortKey) : t(item.labelKey);

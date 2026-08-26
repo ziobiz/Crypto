@@ -5,8 +5,20 @@ import { AppError } from '../lib/errors';
 import { initialPasswordFromEmail, normalizeEmail } from '../lib/password-policy';
 import { clearUserTotp } from './otp.service';
 import { getHqTransactionFees } from './transaction-fee.service';
+import { getOrgSharePolicyCached } from './commission.service';
+import { persistableCustomerFeeShare, normalizeCustomerFeeShare, assertEscrowShareTotals } from '../constants/hq-policy';
 import type { AuthUser } from '../types/auth';
 import { logAdminChange, sanitizeUserSnapshot, type AuditContext } from './admin-change-log.service';
+import { isHqChiefAdmin, isHqRootAdminEmail, isStaffManagerRole } from '../constants/hq-admin';
+import { nextUserPurgeAt } from './deletion.service';
+
+function requireEscrowShareTotals(raw: unknown, policy: Awaited<ReturnType<typeof getOrgSharePolicyCached>>) {
+  try {
+    assertEscrowShareTotals(normalizeCustomerFeeShare(raw, policy));
+  } catch (e) {
+    throw new AppError(400, e instanceof Error ? e.message : 'ESCROW_SHARE_MISMATCH', 'ESCROW_SHARE_MISMATCH');
+  }
+}
 
 const CUSTOMER_REGISTER_ORG_TYPES: OrgType[] = [
   OrgType.HEAD_OFFICE,
@@ -25,6 +37,7 @@ const userSelect = {
   lastLoginAt: true,
   totpEnabled: true,
   createdAt: true,
+  deletedAt: true,
   registerReason: true,
   createdBy: { select: adminBriefSelect },
   organization: { select: { id: true, code: true, name: true, type: true, path: true } },
@@ -34,6 +47,7 @@ const userSelect = {
       customerType: true,
       businessName: true,
       recruitingOrg: { select: { id: true, code: true, name: true, path: true } },
+      feeShare: true,
     },
   },
   wallets: {
@@ -47,6 +61,9 @@ const userSelect = {
     orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
     take: 1,
     select: { id: true, bankName: true, accountNumber: true, accountHolder: true, isDefault: true },
+  },
+  kyc: {
+    select: { id: true, status: true, submittedAt: true, rejectReason: true },
   },
 } satisfies Prisma.UserSelect;
 
@@ -87,10 +104,12 @@ export type UserListQuery = {
   isActive?: boolean;
   page?: number;
   limit?: number;
+  staffOnly?: boolean;
+  kycStatus?: string;
 };
 
 function assertCanManageUsers(actor: AuthUser): void {
-  if (actor.role !== UserRole.SUPER_ADMIN && actor.role !== UserRole.ORG_STAFF) {
+  if (!isStaffManagerRole(actor.role)) {
     throw new AppError(403, '사용자 관리 권한이 없습니다', 'FORBIDDEN');
   }
 }
@@ -104,19 +123,23 @@ function orgSubtreeFilter(orgPath: string): Prisma.UserWhereInput {
   };
 }
 
-function listScope(actor: AuthUser): Prisma.UserWhereInput {
+function listScope(actor: AuthUser, staffOnly?: boolean): Prisma.UserWhereInput {
   if (actor.role === UserRole.SUPER_ADMIN) return {};
-  if (actor.role === UserRole.ORG_STAFF && actor.organizationPath) {
+  if (staffOnly && isStaffManagerRole(actor.role)) return {};
+  if (actor.role === UserRole.ORGANIZER) return {};
+  if ((actor.role === UserRole.ORG_STAFF || actor.role === UserRole.SETTLEMENT_ADMIN) && actor.organizationPath) {
     return orgSubtreeFilter(actor.organizationPath);
   }
   throw new AppError(403, '조직 정보가 없어 사용자를 조회할 수 없습니다', 'FORBIDDEN');
 }
 
 function assertTargetInScope(actor: AuthUser, target: {
+  role?: UserRole;
   organization?: { path: string } | null;
   customerProfile?: { recruitingOrg: { path: string } } | null;
 }): void {
   if (actor.role === UserRole.SUPER_ADMIN) return;
+  if (target.role && target.role !== UserRole.CUSTOMER && isStaffManagerRole(actor.role)) return;
   const path = actor.organizationPath;
   if (!path) throw new AppError(403, '권한이 없습니다', 'FORBIDDEN');
 
@@ -129,17 +152,41 @@ function assertTargetInScope(actor: AuthUser, target: {
 }
 
 function assertCanAssignRole(actor: AuthUser, role: UserRole): void {
-  if (actor.role === UserRole.SUPER_ADMIN) return;
-  if (actor.role === UserRole.ORG_STAFF && role === UserRole.ORG_STAFF) return;
-  if (actor.role === UserRole.ORG_STAFF && role === UserRole.CUSTOMER) {
+  if (role === UserRole.SUPER_ADMIN) {
+    throw new AppError(403, '총괄관리자는 추가로 생성할 수 없습니다', 'FORBIDDEN');
+  }
+  if (role === UserRole.ORGANIZER) {
+    if (!isHqChiefAdmin(actor)) {
+      throw new AppError(403, 'Organizer는 총괄관리자만 부여할 수 있습니다', 'FORBIDDEN');
+    }
+    return;
+  }
+  if (role === UserRole.ORG_STAFF || role === UserRole.SETTLEMENT_ADMIN) {
+    if (isStaffManagerRole(actor.role)) return;
+    throw new AppError(403, '이 역할의 사용자를 생성·수정할 권한이 없습니다', 'FORBIDDEN');
+  }
+  if (role === UserRole.CUSTOMER) {
     assertCanRegisterCustomer(actor);
     return;
   }
   throw new AppError(403, '이 역할의 사용자를 생성·수정할 권한이 없습니다', 'FORBIDDEN');
 }
 
+async function assertStaffOrganization(role: UserRole, organizationId: string | undefined | null): Promise<void> {
+  if (!organizationId) {
+    throw new AppError(400, '소속 조직이 필요합니다', 'VALIDATION');
+  }
+  const org = await prisma.organization.findFirst({
+    where: { id: organizationId, deletedAt: null },
+  });
+  if (!org) throw new AppError(404, '조직을 찾을 수 없습니다', 'NOT_FOUND');
+  if (role === UserRole.ORGANIZER && org.type !== OrgType.HEAD_OFFICE) {
+    throw new AppError(400, 'Organizer는 총본사 조직에만 소속될 수 있습니다', 'VALIDATION');
+  }
+}
+
 function assertCanRegisterCustomer(actor: AuthUser): void {
-  if (actor.role === UserRole.SUPER_ADMIN) return;
+  if (actor.role === UserRole.SUPER_ADMIN || actor.role === UserRole.ORGANIZER) return;
   if (
     actor.role === UserRole.ORG_STAFF &&
     actor.organizationType &&
@@ -154,7 +201,7 @@ async function assertOrgInScope(actor: AuthUser, organizationId: string | null |
   if (!organizationId) return;
   const org = await prisma.organization.findUnique({ where: { id: organizationId } });
   if (!org) throw new AppError(404, '조직을 찾을 수 없습니다', 'NOT_FOUND');
-  if (actor.role === UserRole.SUPER_ADMIN) return;
+  if (isStaffManagerRole(actor.role)) return;
   const path = actor.organizationPath;
   if (!path || !org.path.startsWith(path)) {
     throw new AppError(403, '소속 조직 범위를 벗어났습니다', 'FORBIDDEN');
@@ -169,11 +216,27 @@ export const userService = {
     const limit = Math.min(100, Math.max(1, query.limit ?? 20));
     const skip = (page - 1) * limit;
 
-    const scope = listScope(actor);
-    const and: Prisma.UserWhereInput[] = [];
+    const scope = listScope(actor, query.staffOnly);
+    const and: Prisma.UserWhereInput[] = [{ deletedAt: null }];
     if (Object.keys(scope).length > 0) and.push(scope);
 
-    if (query.role) and.push({ role: query.role });
+    if (query.staffOnly) {
+      and.push({
+        role: { in: [UserRole.SUPER_ADMIN, UserRole.ORG_STAFF, UserRole.ORGANIZER, UserRole.SETTLEMENT_ADMIN] },
+      });
+    }
+    if (query.role) {
+      and.push({ role: query.role });
+    }
+    if (query.kycStatus) {
+      if (query.kycStatus === 'NOT_SUBMITTED') {
+        and.push({
+          OR: [{ kyc: { is: null } }, { kyc: { status: 'NOT_SUBMITTED' } }],
+        });
+      } else {
+        and.push({ kyc: { status: query.kycStatus as never } });
+      }
+    }
     if (query.isActive !== undefined) and.push({ isActive: query.isActive });
     if (query.organizationId) {
       and.push({
@@ -223,7 +286,7 @@ export const userService = {
         },
       },
     });
-    if (!user) throw new AppError(404, '사용자를 찾을 수 없습니다', 'NOT_FOUND');
+    if (!user || user.deletedAt) throw new AppError(404, '사용자를 찾을 수 없습니다', 'NOT_FOUND');
     assertTargetInScope(actor, user);
     return user;
   },
@@ -248,6 +311,7 @@ export const userService = {
       walletNetwork?: string;
       walletLabel?: string;
       reason: string;
+      feeShare?: unknown;
     },
     audit?: AuditContext,
   ) {
@@ -259,14 +323,16 @@ export const userService = {
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) throw new AppError(409, '이미 등록된 이메일입니다', 'CONFLICT');
 
-    if (data.role === UserRole.SUPER_ADMIN && actor.role !== UserRole.SUPER_ADMIN) {
-      throw new AppError(403, '총본사 관리자는 총본사만 생성할 수 있습니다', 'FORBIDDEN');
+    if (data.role === UserRole.SUPER_ADMIN) {
+      throw new AppError(403, '총괄관리자는 추가로 생성할 수 없습니다', 'FORBIDDEN');
     }
 
-    if (data.role === UserRole.ORG_STAFF) {
-      if (!data.organizationId) {
-        throw new AppError(400, '조직 직원은 소속 조직이 필요합니다', 'VALIDATION');
-      }
+    if (
+      data.role === UserRole.ORG_STAFF ||
+      data.role === UserRole.SETTLEMENT_ADMIN ||
+      data.role === UserRole.ORGANIZER
+    ) {
+      await assertStaffOrganization(data.role, data.organizationId);
       await assertOrgInScope(actor, data.organizationId);
     }
 
@@ -291,6 +357,10 @@ export const userService = {
     let created;
     if (data.role === UserRole.CUSTOMER) {
       const hqFees = await getHqTransactionFees();
+      const network = data.walletNetwork?.trim() || 'TRC20';
+      const policy = await getOrgSharePolicyCached();
+      requireEscrowShareTotals(data.feeShare, policy);
+      const feeShare = persistableCustomerFeeShare(data.feeShare, policy);
       created = await prisma.user.create({
         data: {
           email,
@@ -309,6 +379,7 @@ export const userService = {
               recruitingOrgId: data.recruitingOrgId!,
               businessName: data.businessName,
               businessNumber: data.businessNumber,
+              ...(feeShare ? { feeShare } : {}),
             },
           },
           bankAccounts: {
@@ -324,10 +395,10 @@ export const userService = {
             create: {
               label: data.walletLabel?.trim() || '메인 USDT 지갑',
               address: data.walletAddress!.trim(),
-              network: data.walletNetwork?.trim() || 'TRC20',
+              network,
               isDefault: true,
               fxFeePercent: hqFees.fxFeePercent,
-              gasFeeAmount: hqFees.gasFeeUsdt,
+              gasFeeAmount: 0,
               transferFeeAmount: hqFees.transferFeeUsdt,
               otherFeeAmount: hqFees.otherFeeUsdt,
             },
@@ -401,6 +472,7 @@ export const userService = {
       isActive?: boolean;
       recruitingOrgId?: string;
       statusReason?: string;
+      feeShare?: unknown;
     },
     audit?: AuditContext,
   ) {
@@ -410,20 +482,41 @@ export const userService = {
       where: { id },
       select: userSelect,
     });
-    if (!existing) throw new AppError(404, '사용자를 찾을 수 없습니다', 'NOT_FOUND');
+    if (!existing || existing.deletedAt) throw new AppError(404, '사용자를 찾을 수 없습니다', 'NOT_FOUND');
     assertTargetInScope(actor, existing);
 
+    if (isHqRootAdminEmail(existing.email) || existing.role === UserRole.SUPER_ADMIN) {
+      if (data.role && data.role !== UserRole.SUPER_ADMIN) {
+        throw new AppError(403, '총괄관리자 역할은 변경할 수 없습니다', 'FORBIDDEN');
+      }
+      data.role = undefined;
+    }
+
     if (data.role) assertCanAssignRole(actor, data.role);
-    if (data.role === UserRole.SUPER_ADMIN && actor.role !== UserRole.SUPER_ADMIN) {
-      throw new AppError(403, '총본사 관리자 역할은 총본사만 지정할 수 있습니다', 'FORBIDDEN');
+    if (data.role === UserRole.SUPER_ADMIN) {
+      throw new AppError(403, '총괄관리자 역할은 지정할 수 없습니다', 'FORBIDDEN');
+    }
+
+    const nextRole = data.role ?? existing.role;
+    if (
+      nextRole === UserRole.ORG_STAFF ||
+      nextRole === UserRole.SETTLEMENT_ADMIN ||
+      nextRole === UserRole.ORGANIZER
+    ) {
+      const orgId = data.organizationId !== undefined ? data.organizationId : existing.organization?.id;
+      await assertStaffOrganization(nextRole, orgId);
     }
 
     if (data.organizationId) await assertOrgInScope(actor, data.organizationId);
     if (data.recruitingOrgId) await assertOrgInScope(actor, data.recruitingOrgId);
 
+    if (isHqRootAdminEmail(existing.email) && data.isActive === false) {
+      throw new AppError(400, '총괄관리자 계정은 비활성화할 수 없습니다', 'VALIDATION');
+    }
+
     if (existing.role === UserRole.SUPER_ADMIN && data.isActive === false) {
       const activeAdmins = await prisma.user.count({
-        where: { role: UserRole.SUPER_ADMIN, isActive: true, id: { not: id } },
+        where: { role: UserRole.SUPER_ADMIN, isActive: true, deletedAt: null, id: { not: id } },
       });
       if (activeAdmins === 0) {
         throw new AppError(400, '활성 총본사 관리자가 최소 1명 필요합니다', 'VALIDATION');
@@ -440,6 +533,17 @@ export const userService = {
       );
     }
 
+    const customerProfileUpdate: { recruitingOrgId?: string; feeShare?: Prisma.InputJsonValue } = {};
+    if (data.recruitingOrgId && existing.customerProfile) {
+      customerProfileUpdate.recruitingOrgId = data.recruitingOrgId;
+    }
+    if (data.feeShare !== undefined && existing.customerProfile) {
+      const policy = await getOrgSharePolicyCached();
+      requireEscrowShareTotals(data.feeShare, policy);
+      const feeShare = persistableCustomerFeeShare(data.feeShare, policy);
+      customerProfileUpdate.feeShare = (feeShare ?? Prisma.JsonNull) as Prisma.InputJsonValue;
+    }
+
     const user = await prisma.user.update({
       where: { id },
       data: {
@@ -448,12 +552,8 @@ export const userService = {
         role: data.role,
         organizationId: data.role === UserRole.CUSTOMER ? null : data.organizationId,
         isActive: data.isActive,
-        ...(data.recruitingOrgId && existing.customerProfile
-          ? {
-              customerProfile: {
-                update: { recruitingOrgId: data.recruitingOrgId },
-              },
-            }
+        ...(Object.keys(customerProfileUpdate).length > 0
+          ? { customerProfile: { update: customerProfileUpdate } }
           : {}),
       },
       select: userSelect,
@@ -572,5 +672,120 @@ export const userService = {
     }
 
     return { ok: true, totpEnabled: false };
+  },
+
+  async softDelete(actor: AuthUser, id: string, audit?: AuditContext) {
+    assertCanManageUsers(actor);
+    if (actor.id === id) throw new AppError(403, '본인 계정은 삭제할 수 없습니다', 'FORBIDDEN');
+
+    const existing = await prisma.user.findUnique({
+      where: { id },
+      select: userSelect,
+    });
+    if (!existing || existing.deletedAt) throw new AppError(404, '사용자를 찾을 수 없습니다', 'NOT_FOUND');
+    assertTargetInScope(actor, existing);
+
+    if (existing.isActive) {
+      throw new AppError(400, '비활성 사용자만 삭제할 수 있습니다', 'VALIDATION');
+    }
+    if (existing.role === UserRole.SUPER_ADMIN || isHqRootAdminEmail(existing.email)) {
+      throw new AppError(403, '총괄관리자 계정은 삭제할 수 없습니다', 'FORBIDDEN');
+    }
+
+    const deletedAt = new Date();
+    const updated = await prisma.user.update({
+      where: { id },
+      data: {
+        isActive: false,
+        deletedAt,
+        purgeAt: await nextUserPurgeAt(deletedAt),
+      },
+      select: userSelect,
+    });
+
+    await logUserManagement({
+      userId: id,
+      action: UserManagementAction.DELETE,
+      reason: '삭제 처리',
+      changedById: actor.id,
+    });
+
+    if (audit) {
+      await logAdminChange({
+        actor: audit.actor,
+        action: AdminChangeAction.DELETE,
+        entityType: 'USER',
+        entityId: id,
+        entityLabel: existing.email,
+        summary: `사용자 삭제 처리: ${existing.email} (관리자: ${audit.actor.email})`,
+        before: sanitizeUserSnapshot(existing as unknown as Record<string, unknown>),
+        ipAddress: audit.ipAddress,
+        userAgent: audit.userAgent,
+      });
+    }
+
+    return updated;
+  },
+
+  async listDeleted() {
+    return prisma.user.findMany({
+      where: { deletedAt: { not: null } },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        deletedAt: true,
+        purgeAt: true,
+        organization: { select: { id: true, name: true, code: true, type: true } },
+      },
+      orderBy: { deletedAt: 'desc' },
+    });
+  },
+
+  async restoreDeleted(actor: AuthUser, id: string, audit?: AuditContext) {
+    assertCanManageUsers(actor);
+    const existing = await prisma.user.findUnique({
+      where: { id },
+      select: { ...userSelect, deletedAt: true, purgeAt: true },
+    });
+    if (!existing) throw new AppError(404, '사용자를 찾을 수 없습니다', 'NOT_FOUND');
+    if (!existing.deletedAt) {
+      throw new AppError(400, '삭제 처리된 사용자만 복원할 수 있습니다', 'VALIDATION');
+    }
+
+    const restored = await prisma.user.update({
+      where: { id },
+      data: {
+        deletedAt: null,
+        purgeAt: null,
+        isActive: false,
+      },
+      select: userSelect,
+    });
+
+    await logUserManagement({
+      userId: id,
+      action: UserManagementAction.ACTIVATE,
+      reason: '삭제 처리 복원',
+      changedById: actor.id,
+    });
+
+    if (audit) {
+      await logAdminChange({
+        actor: audit.actor,
+        action: AdminChangeAction.UPDATE,
+        entityType: 'USER',
+        entityId: id,
+        entityLabel: existing.email,
+        summary: `사용자 복원: ${existing.email} (관리자: ${audit.actor.email})`,
+        before: sanitizeUserSnapshot(existing as unknown as Record<string, unknown>),
+        after: sanitizeUserSnapshot(restored as unknown as Record<string, unknown>),
+        ipAddress: audit.ipAddress,
+        userAgent: audit.userAgent,
+      });
+    }
+
+    return restored;
   },
 };

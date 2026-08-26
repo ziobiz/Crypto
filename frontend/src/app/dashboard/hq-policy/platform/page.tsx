@@ -219,8 +219,18 @@ export default function HqPlatformPage() {
             value={config.siteName ?? ''}
             onChange={(e) => setConfig({ ...config, siteName: e.target.value })}
             className="pg-input mt-1"
-            placeholder="Crypto Workflow"
+            placeholder="TINPASS"
           />
+        </label>
+        <label className="block">
+          <span className="pg-label">{t('hq.platform.tabTitle')}</span>
+          <input
+            value={config.tabTitle ?? ''}
+            onChange={(e) => setConfig({ ...config, tabTitle: e.target.value })}
+            className="pg-input mt-1"
+            placeholder={config.siteName || 'TINPASS'}
+          />
+          <span className="mt-1 block text-xs text-gray-500">{t('hq.platform.tabTitleHint')}</span>
         </label>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -380,49 +390,55 @@ export default function HqPlatformPage() {
               bankName: '',
               accountNumber: '',
               accountHolder: '',
+              transferEnabled: true,
+              cardEnabled: true,
             };
+            const patchAcct = (next: typeof acct) =>
+              setConfig({
+                ...config,
+                depositReceivingAccounts: {
+                  ...config.depositReceivingAccounts,
+                  [cur]: next,
+                },
+              });
             return (
               <div key={cur} className="rounded border bg-white p-3 space-y-2">
-                <p className="text-xs font-bold text-gray-700">{cur}</p>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-bold text-gray-700">{cur}</p>
+                  <div className="flex flex-wrap gap-3 text-xs text-slate-700">
+                    <label className="inline-flex items-center gap-1.5">
+                      <input
+                        type="checkbox"
+                        checked={acct.transferEnabled !== false}
+                        onChange={(e) => patchAcct({ ...acct, transferEnabled: e.target.checked })}
+                      />
+                      {t('hq.platform.depositTransferEnabled')}
+                    </label>
+                    <label className="inline-flex items-center gap-1.5">
+                      <input
+                        type="checkbox"
+                        checked={acct.cardEnabled !== false}
+                        onChange={(e) => patchAcct({ ...acct, cardEnabled: e.target.checked })}
+                      />
+                      {t('hq.platform.depositCardEnabled')}
+                    </label>
+                  </div>
+                </div>
                 <input
                   value={acct.bankName}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      depositReceivingAccounts: {
-                        ...config.depositReceivingAccounts,
-                        [cur]: { ...acct, bankName: e.target.value },
-                      },
-                    })
-                  }
+                  onChange={(e) => patchAcct({ ...acct, bankName: e.target.value })}
                   className="pg-input"
                   placeholder={t('users.bankName')}
                 />
                 <input
                   value={acct.accountNumber}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      depositReceivingAccounts: {
-                        ...config.depositReceivingAccounts,
-                        [cur]: { ...acct, accountNumber: e.target.value },
-                      },
-                    })
-                  }
+                  onChange={(e) => patchAcct({ ...acct, accountNumber: e.target.value })}
                   className="pg-input"
                   placeholder={t('users.accountNumber')}
                 />
                 <input
                   value={acct.accountHolder}
-                  onChange={(e) =>
-                    setConfig({
-                      ...config,
-                      depositReceivingAccounts: {
-                        ...config.depositReceivingAccounts,
-                        [cur]: { ...acct, accountHolder: e.target.value },
-                      },
-                    })
-                  }
+                  onChange={(e) => patchAcct({ ...acct, accountHolder: e.target.value })}
                   className="pg-input"
                   placeholder={t('users.accountHolder')}
                 />
@@ -486,6 +502,18 @@ export default function HqPlatformPage() {
             />
           </label>
         </div>
+        <label className="block">
+          <span className="pg-label">{t('hq.platform.simRetention')}</span>
+          <PolicyNumberInput
+            min={1}
+            max={36}
+            step="1"
+            value={config.simulatorRetentionMonths ?? 3}
+            onChange={(n) => setConfig({ ...config, simulatorRetentionMonths: n })}
+            className="pg-input mt-1 w-32"
+          />
+          <span className="pg-hint mt-1 block">{t('hq.platform.simRetentionDesc')}</span>
+        </label>
         <label className="flex items-center gap-2">
           <input
             type="checkbox"

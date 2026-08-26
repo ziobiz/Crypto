@@ -12,9 +12,10 @@ import {
   type UserRoleType,
 } from '@/lib/api';
 import type { MessageKey } from '@/i18n/messages';
-import { WALLET_NETWORKS } from '@/constants/wallet-networks';
-
-const CUSTOMER_REGISTER_ORG_TYPES = ['HEAD_OFFICE', 'MASTER_DISTRIBUTOR'] as const;
+import { OrgCreateFields } from '@/components/orgs/OrgCreateFields';
+import { DoubleConfirmDialog } from '@/components/DoubleConfirmDialog';
+import { type OrgTypeCode } from '@/lib/org-types';
+import { detailRowProps } from '@/lib/table-row-detail';
 
 const emptyCreate: CreateUserInput = {
   email: '',
@@ -36,11 +37,8 @@ export default function UsersPage() {
   const { user: me } = useAuth();
   const t = useT();
   const isSuperAdmin = me?.role === 'SUPER_ADMIN';
-  const canRegisterCustomer =
-    isSuperAdmin ||
-    CUSTOMER_REGISTER_ORG_TYPES.includes(
-      (me?.organization?.type ?? '') as (typeof CUSTOMER_REGISTER_ORG_TYPES)[number],
-    );
+  const canAssignOrganizer = (me?.email ?? '').toLowerCase() === 'ziobizm@gmail.com' && isSuperAdmin;
+  const [passwordConfirm, setPasswordConfirm] = useState('');
 
   const roleLabel = (role: UserRoleType) => t(`role.${role}` as MessageKey);
   const orgTypeLabel = (type: string) => t(`org.${type}` as MessageKey);
@@ -59,10 +57,15 @@ export default function UsersPage() {
   const [modal, setModal] = useState<'create' | 'edit' | null>(null);
   const [editing, setEditing] = useState<ManagedUser | null>(null);
   const [form, setForm] = useState<CreateUserInput>(emptyCreate);
+  const [orgMode, setOrgMode] = useState<'existing' | 'new'>('existing');
+  const [newOrgType, setNewOrgType] = useState<OrgTypeCode>('MASTER_DISTRIBUTOR');
+  const [newOrgParentId, setNewOrgParentId] = useState('');
+  const [newOrgName, setNewOrgName] = useState('');
   const [editForm, setEditForm] = useState<UpdateUserInput>({});
   const [newPassword, setNewPassword] = useState('');
   const [statusReason, setStatusReason] = useState('');
   const [initialIsActive, setInitialIsActive] = useState(true);
+  const [deleting, setDeleting] = useState<ManagedUser | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -73,6 +76,7 @@ export default function UsersPage() {
         search: search || undefined,
         role: roleFilter || undefined,
         isActive: activeFilter === '' ? undefined : activeFilter === 'true',
+        staffOnly: true,
       });
       setUsers(res.items);
       setTotal(res.total);
@@ -92,7 +96,12 @@ export default function UsersPage() {
   }, [load]);
 
   function openCreate() {
-    setForm({ ...emptyCreate, role: isSuperAdmin ? 'ORG_STAFF' : 'ORG_STAFF' });
+    setForm({ ...emptyCreate, role: 'ORG_STAFF' });
+    setPasswordConfirm('');
+    setOrgMode(orgs.length === 0 ? 'new' : 'existing');
+    setNewOrgType(isSuperAdmin ? 'HEAD_OFFICE' : 'REGIONAL_BRANCH');
+    setNewOrgParentId('');
+    setNewOrgName('');
     setModal('create');
     setMsg('');
   }
@@ -122,8 +131,38 @@ export default function UsersPage() {
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setMsg('');
+    if (form.password !== passwordConfirm) {
+      setMsg(t('users.passwordMismatch'));
+      return;
+    }
+    const needsOrg = form.role === 'ORG_STAFF' || form.role === 'SETTLEMENT_ADMIN' || form.role === 'ORGANIZER';
     try {
-      await api.users.create(form);
+      let organizationId = form.organizationId;
+      if (needsOrg && form.role !== 'ORGANIZER' && orgMode === 'new') {
+        const createdOrg = await api.createOrganization({
+          name: newOrgName,
+          type: newOrgType,
+          parentId: newOrgParentId || null,
+        });
+        organizationId = createdOrg.id;
+        setOrgs((prev) => [...prev, createdOrg]);
+      }
+      if (needsOrg && form.role === 'ORGANIZER' && !organizationId) {
+        organizationId = orgs.find((o) => o.type === 'HEAD_OFFICE')?.id ?? '';
+      }
+      if (needsOrg && !organizationId) {
+        setMsg(t('users.orgRequiredForStaff'));
+        return;
+      }
+      await api.users.create({
+        email: form.email.trim(),
+        password: form.password,
+        name: form.name.trim(),
+        phone: form.phone?.trim() || undefined,
+        role: form.role,
+        organizationId: organizationId || undefined,
+        reason: form.reason.trim(),
+      });
       setModal(null);
       setMsg(t('users.created'));
       load();
@@ -183,13 +222,18 @@ export default function UsersPage() {
     }
   }
 
-  function salesOfficesForActor() {
-    const path = me?.organization?.path;
-    return orgs.filter(
-      (o) =>
-        o.type === 'SALES_OFFICE' &&
-        (isSuperAdmin || !path || (o.path && o.path.startsWith(path))),
-    );
+  async function confirmDeleteUser() {
+    if (!deleting) return;
+    setMsg('');
+    try {
+      await api.users.remove(deleting.id);
+      setDeleting(null);
+      setMsg(t('users.deleted'));
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('users.deleteFailed'));
+      setDeleting(null);
+    }
   }
 
   function orgLabel(u: ManagedUser) {
@@ -243,7 +287,8 @@ export default function UsersPage() {
           <option value="">{t('users.filter.role')}</option>
           {isSuperAdmin && <option value="SUPER_ADMIN">{roleLabel('SUPER_ADMIN')}</option>}
           <option value="ORG_STAFF">{roleLabel('ORG_STAFF')}</option>
-          <option value="CUSTOMER">{roleLabel('CUSTOMER')}</option>
+          <option value="ORGANIZER">{roleLabel('ORGANIZER')}</option>
+          <option value="SETTLEMENT_ADMIN">{roleLabel('SETTLEMENT_ADMIN')}</option>
         </select>
         <select
           value={activeFilter}
@@ -274,24 +319,25 @@ export default function UsersPage() {
               <th>{t('users.col.createdBy')}</th>
               <th>{t('users.col.lastLogin')}</th>
               <th>{t('users.col.actions')}</th>
+              <th>{t('users.col.note')}</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={8} className="pg-empty">
+                <td colSpan={9} className="pg-empty">
                   {t('common.loading')}
                 </td>
               </tr>
             ) : users.length === 0 ? (
               <tr>
-                <td colSpan={8} className="pg-empty">
+                <td colSpan={9} className="pg-empty">
                   {t('users.empty')}
                 </td>
               </tr>
             ) : (
               users.map((u) => (
-                <tr key={u.id}>
+                <tr key={u.id} {...detailRowProps(t('table.dblclickHint'), () => void openEdit(u))}>
                   <td>{u.email}</td>
                   <td>{u.name}</td>
                   <td>{roleLabel(u.role)}</td>
@@ -307,18 +353,25 @@ export default function UsersPage() {
                   </td>
                   <td>
                     <div className="pg-table-actions">
-                      <button type="button" onClick={() => openEdit(u)} className="pg-link">
+                      <button type="button" onClick={() => openEdit(u)} className="pg-action-chip pg-action-chip-edit">
                         {t('users.edit')}
                       </button>
-                      <span className="pg-muted">|</span>
-                      <button type="button" onClick={() => handleResetPassword(u)} className="pg-link-warn">
+                      <button type="button" onClick={() => handleResetPassword(u)} className="pg-action-chip pg-action-chip-warn">
                         {t('users.resetPasswordBtn')}
                       </button>
-                      <span className="pg-muted">|</span>
-                      <button type="button" onClick={() => handleResetOtp(u)} className="pg-link-danger">
+                      <button type="button" onClick={() => handleResetOtp(u)} className="pg-action-chip pg-action-chip-otp">
                         {t('users.resetOtpBtn')}
                       </button>
                     </div>
+                  </td>
+                  <td>
+                    {!u.isActive ? (
+                      <button type="button" onClick={() => setDeleting(u)} className="pg-action-chip pg-action-chip-danger">
+                        {t('users.delete')}
+                      </button>
+                    ) : (
+                      '—'
+                    )}
                   </td>
                 </tr>
               ))
@@ -331,15 +384,23 @@ export default function UsersPage() {
 
       {modal === 'create' && (
         <div className="pg-modal-overlay">
-          <form onSubmit={handleCreate} className="pg-modal">
+          <form onSubmit={handleCreate} className="pg-modal" autoComplete="off">
             <div className="pg-modal-head">
               <h2 className="pg-modal-title">{t('users.createTitle')}</h2>
             </div>
             <div className="pg-modal-body">
+              <div className="sr-only" aria-hidden>
+                <input type="text" name="prevent_autofill_user" autoComplete="username" tabIndex={-1} />
+                <input type="password" name="prevent_autofill_pass" autoComplete="current-password" tabIndex={-1} />
+              </div>
               <Field label={t('auth.email')} required>
                 <input
                   type="email"
+                  name="new_staff_email"
                   required
+                  autoComplete="off"
+                  readOnly
+                  onFocus={(e) => e.currentTarget.removeAttribute('readOnly')}
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                   className="pg-input"
@@ -348,12 +409,31 @@ export default function UsersPage() {
               <Field label={t('auth.password')} required>
                 <input
                   type="password"
+                  name="new_staff_password"
                   required
                   minLength={6}
+                  autoComplete="new-password"
+                  readOnly
+                  onFocus={(e) => e.currentTarget.removeAttribute('readOnly')}
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
                   className="pg-input"
                 />
+              </Field>
+              <Field label={t('auth.confirmPassword')} required>
+                <input
+                  type="password"
+                  name="new_staff_password_confirm"
+                  required
+                  minLength={6}
+                  autoComplete="new-password"
+                  value={passwordConfirm}
+                  onChange={(e) => setPasswordConfirm(e.target.value)}
+                  className="pg-input"
+                />
+                {passwordConfirm.length > 0 && form.password !== passwordConfirm && (
+                  <p className="mt-1 text-xs text-red-600">{t('users.passwordMismatch')}</p>
+                )}
               </Field>
               <Field label={t('auth.name')} required>
                 <input
@@ -373,124 +453,78 @@ export default function UsersPage() {
               <Field label={t('users.col.role')} required>
                 <select
                   value={form.role}
-                  onChange={(e) => setForm({ ...form, role: e.target.value as UserRoleType })}
+                  onChange={(e) => {
+                    const role = e.target.value as UserRoleType;
+                    const hq = orgs.find((o) => o.type === 'HEAD_OFFICE');
+                    setForm({
+                      ...form,
+                      role,
+                      organizationId:
+                        role === 'ORGANIZER' ? (hq?.id ?? '') : form.organizationId,
+                    });
+                    if (role === 'ORGANIZER') setOrgMode('existing');
+                  }}
                   className="pg-input"
                 >
-                  {isSuperAdmin && <option value="SUPER_ADMIN">{roleLabel('SUPER_ADMIN')}</option>}
                   <option value="ORG_STAFF">{roleLabel('ORG_STAFF')}</option>
-                  {canRegisterCustomer && <option value="CUSTOMER">{roleLabel('CUSTOMER')}</option>}
+                  <option value="SETTLEMENT_ADMIN">{roleLabel('SETTLEMENT_ADMIN')}</option>
+                  {canAssignOrganizer && <option value="ORGANIZER">{roleLabel('ORGANIZER')}</option>}
                 </select>
               </Field>
-              {form.role === 'ORG_STAFF' && (
-                <Field label={t('users.orgStaff')} required>
-                  <select
-                    required
-                    value={form.organizationId}
-                    onChange={(e) => setForm({ ...form, organizationId: e.target.value })}
-                    className="pg-input"
-                  >
-                    <option value="">{t('users.select')}</option>
-                    {orgs.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.name} ({o.code})
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-              )}
-              {form.role === 'CUSTOMER' && (
+              {form.role === 'ORGANIZER' ? (
+                <p className="pg-hint">{t('users.organizerHqOnly')}</p>
+              ) : null}
+              {(form.role === 'ORG_STAFF' ||
+                form.role === 'SETTLEMENT_ADMIN' ||
+                form.role === 'ORGANIZER') && (
                 <>
-                  <Field label={t('users.recruitOrg')} required>
-                    <select
-                      required
-                      value={form.recruitingOrgId}
-                      onChange={(e) => setForm({ ...form, recruitingOrgId: e.target.value })}
-                      className="pg-input"
-                    >
-                      <option value="">{t('users.select')}</option>
-                      {salesOfficesForActor().map((o) => (
-                        <option key={o.id} value={o.id}>
-                          {o.name}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                  <Field label={t('auth.customerType')}>
-                    <select
-                      value={form.customerType ?? 'INDIVIDUAL'}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          customerType: e.target.value as 'INDIVIDUAL' | 'CORPORATE',
-                        })
-                      }
-                      className="pg-input"
-                    >
-                      <option value="INDIVIDUAL">{t('auth.individual')}</option>
-                      <option value="CORPORATE">{t('auth.corporate')}</option>
-                    </select>
-                  </Field>
-                  <div className="pg-inset-panel">
-                    <p className="pg-inset-title">{t('users.bankSection')}</p>
-                    <Field label={t('users.bankName')} required>
-                      <input
-                        required
-                        value={form.bankName ?? ''}
-                        onChange={(e) => setForm({ ...form, bankName: e.target.value })}
-                        className="pg-input"
-                        placeholder={t('users.bankNamePlaceholder')}
-                      />
-                    </Field>
-                    <Field label={t('users.accountNumber')} required>
-                      <input
-                        required
-                        value={form.accountNumber ?? ''}
-                        onChange={(e) => setForm({ ...form, accountNumber: e.target.value })}
-                        className="pg-input"
-                      />
-                    </Field>
-                    <Field label={t('users.accountHolder')} required>
-                      <input
-                        required
-                        value={form.accountHolder ?? ''}
-                        onChange={(e) => setForm({ ...form, accountHolder: e.target.value })}
-                        className="pg-input"
-                      />
-                    </Field>
-                  </div>
-                  <div className="pg-inset-panel">
-                    <p className="pg-inset-title">{t('users.walletSection')}</p>
-                    <Field label={t('wallets.label')}>
-                      <input
-                        value={form.walletLabel ?? ''}
-                        onChange={(e) => setForm({ ...form, walletLabel: e.target.value })}
-                        className="pg-input"
-                        placeholder={t('wallets.defaultLabel')}
-                      />
-                    </Field>
-                    <Field label={t('wallets.address')} required>
-                      <input
-                        required
-                        value={form.walletAddress ?? ''}
-                        onChange={(e) => setForm({ ...form, walletAddress: e.target.value })}
-                        className="pg-input"
-                      />
-                    </Field>
-                    <Field label={t('users.walletNetwork')} required>
+                  {form.role !== 'ORGANIZER' && (isSuperAdmin || me?.role === 'ORG_STAFF') && (
+                    <Field label={t('users.orgStaff')} required>
                       <select
-                        required
-                        value={form.walletNetwork ?? 'TRC20'}
-                        onChange={(e) => setForm({ ...form, walletNetwork: e.target.value })}
+                        value={orgMode}
+                        onChange={(e) => setOrgMode(e.target.value as 'existing' | 'new')}
                         className="pg-input"
                       >
-                        {WALLET_NETWORKS.map((n) => (
-                          <option key={n.value} value={n.value}>
-                            {n.label}
+                        <option value="existing">{t('users.orgExisting')}</option>
+                        <option value="new">{t('users.orgNew')}</option>
+                      </select>
+                    </Field>
+                  )}
+                  {orgMode === 'existing' || form.role === 'ORGANIZER' ? (
+                    <Field label={t('users.orgSelect')} required>
+                      <select
+                        required
+                        value={form.organizationId}
+                        onChange={(e) => setForm({ ...form, organizationId: e.target.value })}
+                        className="pg-input"
+                      >
+                        <option value="">{t('users.select')}</option>
+                        {(form.role === 'ORGANIZER'
+                          ? orgs.filter((o) => o.type === 'HEAD_OFFICE')
+                          : orgs
+                        ).map((o) => (
+                          <option key={o.id} value={o.id}>
+                            {o.name} ({o.code}) · {orgTypeLabel(o.type)}
                           </option>
                         ))}
                       </select>
                     </Field>
-                  </div>
+                  ) : (
+                    <div className="pg-inset-panel">
+                      <p className="pg-inset-title">{t('orgs.createTitle')}</p>
+                      <p className="pg-hint mt-1 mb-2">{t('orgs.hierarchyHint')}</p>
+                      <OrgCreateFields
+                        orgs={orgs}
+                        type={newOrgType}
+                        parentId={newOrgParentId}
+                        name={newOrgName}
+                        onType={setNewOrgType}
+                        onParentId={setNewOrgParentId}
+                        onName={setNewOrgName}
+                        allowRootHq={isSuperAdmin}
+                      />
+                    </div>
+                  )}
                 </>
               )}
               <Field label={t('users.registerReason')} required>
@@ -509,7 +543,11 @@ export default function UsersPage() {
               <button type="button" onClick={() => setModal(null)} className="pg-btn pg-btn-secondary">
                 {t('common.cancel')}
               </button>
-              <button type="submit" className="pg-btn pg-btn-primary">
+              <button
+                type="submit"
+                className="pg-btn pg-btn-primary"
+                disabled={form.password !== passwordConfirm}
+              >
                 {t('common.register')}
               </button>
             </div>
@@ -555,7 +593,7 @@ export default function UsersPage() {
                   className="pg-input"
                 />
               </Field>
-              {isSuperAdmin && (
+              {editing.role !== 'SUPER_ADMIN' && (
                 <Field label={t('users.col.role')}>
                   <select
                     value={editForm.role}
@@ -564,14 +602,17 @@ export default function UsersPage() {
                     }
                     className="pg-input"
                   >
-                    <option value="SUPER_ADMIN">{roleLabel('SUPER_ADMIN')}</option>
                     <option value="ORG_STAFF">{roleLabel('ORG_STAFF')}</option>
-                    <option value="CUSTOMER">{roleLabel('CUSTOMER')}</option>
+                    <option value="SETTLEMENT_ADMIN">{roleLabel('SETTLEMENT_ADMIN')}</option>
+                    {canAssignOrganizer && <option value="ORGANIZER">{roleLabel('ORGANIZER')}</option>}
                   </select>
                 </Field>
               )}
-              {editForm.role === 'ORG_STAFF' && (
-                <Field label={t('users.orgStaff')}>
+              {editing.role === 'SUPER_ADMIN' && (
+                <p className="pg-hint">{t('users.cannotCreateSuperAdmin')}</p>
+              )}
+              {editForm.role !== 'CUSTOMER' && editForm.role !== 'SUPER_ADMIN' && (
+                <Field label={t('users.orgSelect')}>
                   <select
                     value={editForm.organizationId ?? ''}
                     onChange={(e) =>
@@ -580,48 +621,16 @@ export default function UsersPage() {
                     className="pg-input"
                   >
                     <option value="">{t('users.select')}</option>
-                    {orgs.map((o) => (
+                    {(editForm.role === 'ORGANIZER'
+                      ? orgs.filter((o) => o.type === 'HEAD_OFFICE')
+                      : orgs
+                    ).map((o) => (
                       <option key={o.id} value={o.id}>
-                        {o.name}
+                        {o.name} ({o.code}) · {orgTypeLabel(o.type)}
                       </option>
                     ))}
                   </select>
                 </Field>
-              )}
-              {editForm.role === 'CUSTOMER' && (
-                <>
-                  <Field label={t('users.recruitOrg')}>
-                    <select
-                      value={editForm.recruitingOrgId ?? ''}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, recruitingOrgId: e.target.value })
-                      }
-                      className="pg-input"
-                    >
-                      {salesOfficesForActor().map((o) => (
-                        <option key={o.id} value={o.id}>
-                          {o.name}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                  {editing.bankAccounts?.[0] && (
-                    <div className="pg-inset-panel">
-                      <p className="pg-inset-title">{t('users.bankSection')}</p>
-                      <p className="mt-1">
-                        {editing.bankAccounts[0].bankName} · {editing.bankAccounts[0].accountNumber}
-                      </p>
-                      <p className="pg-hint">{editing.bankAccounts[0].accountHolder}</p>
-                    </div>
-                  )}
-                  {editing.wallets?.[0] && (
-                    <div className="pg-inset-panel">
-                      <p className="pg-inset-title">{t('users.walletSection')}</p>
-                      <p className="mt-1 font-mono text-[11px]">{editing.wallets[0].address}</p>
-                      <p className="pg-hint">{editing.wallets[0].network}</p>
-                    </div>
-                  )}
-                </>
               )}
               <Field label={t('users.col.status')}>
                 <label className="flex items-center gap-2 text-xs">
@@ -689,6 +698,16 @@ export default function UsersPage() {
             </div>
           </form>
         </div>
+      )}
+
+      {deleting && (
+        <DoubleConfirmDialog
+          title={t('users.deleteTitle')}
+          step1={t('users.deleteStep1', { email: deleting.email })}
+          step2={t('users.deleteStep2', { email: deleting.email })}
+          onConfirm={confirmDeleteUser}
+          onClose={() => setDeleting(null)}
+        />
       )}
     </div>
   );

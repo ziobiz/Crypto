@@ -1,9 +1,24 @@
 import {
   CurrencyCode,
+  OrgType,
   Prisma,
   TicketType,
+  TradeEscrowStatus,
+  UsdtPurchaseStatus,
 } from '@prisma/client';
 import { AppError } from '../lib/errors';
+import {
+  defaultOrgSharePolicy,
+  HQ_CONFIG_KEYS,
+  HQ_ORG_LEVELS,
+  normalizeCustomerFeeShare,
+  normalizeOrgSharePolicy,
+  type HqOrgLevel,
+  type HqOrgShareByType,
+  type HqOrgSharePolicy,
+  type HqOrgShareSlice,
+} from '../constants/hq-policy';
+import { commissionPoolFromSnapshots } from './transaction-fee.service';
 
 export interface SettlementContext {
   ticketId: string;
@@ -13,6 +28,170 @@ export interface SettlementContext {
 }
 
 type TxClient = Prisma.TransactionClient;
+
+type ChainOrg = { id: string; name: string; type: OrgType; path: string };
+
+async function loadOrgSharePolicy(): Promise<HqOrgSharePolicy> {
+  const { prisma } = await import('../lib/prisma');
+  const row = await prisma.systemConfig.findUnique({
+    where: { key: HQ_CONFIG_KEYS.orgShare },
+  });
+  return normalizeOrgSharePolicy((row?.value as HqOrgSharePolicy | null) ?? null);
+}
+
+function sliceFor(
+  policy: HqOrgSharePolicy,
+  ticketType: TicketType,
+  orgType: OrgType,
+): HqOrgShareSlice {
+  const byType = ticketType === TicketType.TRADE_ESCROW ? policy.TRADE_ESCROW : policy.USDT_PURCHASE;
+  return byType[orgType as HqOrgLevel] ?? { poolPercent: 0, perTicketUsdt: 0 };
+}
+
+function shareTableFor(
+  policy: HqOrgSharePolicy,
+  ticketType: TicketType,
+  customerShare: ReturnType<typeof normalizeCustomerFeeShare>,
+): HqOrgShareByType {
+  return ticketType === TicketType.TRADE_ESCROW ? customerShare.TRADE_ESCROW : customerShare.USDT_PURCHASE;
+}
+
+function foldVacantLevelsToHq(byType: HqOrgShareByType, presentTypes: Set<string>): HqOrgShareSlice {
+  const hq = byType.HEAD_OFFICE ?? { poolPercent: 0, perTicketUsdt: 0 };
+  let poolPercent = hq.poolPercent;
+  let perTicketUsdt = hq.perTicketUsdt;
+  for (const level of HQ_ORG_LEVELS) {
+    if (level === 'HEAD_OFFICE') continue;
+    if (presentTypes.has(level)) continue;
+    const slice = byType[level] ?? { poolPercent: 0, perTicketUsdt: 0 };
+    poolPercent += slice.poolPercent;
+    perTicketUsdt += slice.perTicketUsdt;
+  }
+  return { poolPercent, perTicketUsdt };
+}
+
+async function resolveHeadOffice(
+  tx: TxClient,
+  chain: ChainOrg[],
+): Promise<ChainOrg | null> {
+  const fromChain = chain.find((o) => o.type === OrgType.HEAD_OFFICE);
+  if (fromChain) return fromChain;
+  const hq = await tx.organization.findFirst({
+    where: { type: OrgType.HEAD_OFFICE, deletedAt: null },
+    select: { id: true, name: true, type: true, path: true },
+    orderBy: { path: 'asc' },
+  });
+  return hq;
+}
+
+type AllocatedShare = {
+  org: ChainOrg;
+  slice: HqOrgShareSlice;
+  vacantFolded: boolean;
+};
+
+async function allocateCommissionShares(
+  tx: TxClient,
+  chain: ChainOrg[],
+  policy: HqOrgSharePolicy,
+  ticketType: TicketType,
+  customerShare: ReturnType<typeof normalizeCustomerFeeShare>,
+): Promise<AllocatedShare[]> {
+  const byType = shareTableFor(policy, ticketType, customerShare);
+  const present = new Set(chain.map((o) => String(o.type)));
+  const allocated: AllocatedShare[] = [];
+
+  for (const org of chain) {
+    if (org.type === OrgType.HEAD_OFFICE) continue;
+    const slice = byType[org.type as HqOrgLevel] ?? { poolPercent: 0, perTicketUsdt: 0 };
+    allocated.push({ org, slice, vacantFolded: false });
+  }
+
+  const hqOrg = await resolveHeadOffice(tx, chain);
+  if (hqOrg) {
+    allocated.push({
+      org: hqOrg,
+      slice: foldVacantLevelsToHq(byType, present),
+      vacantFolded: true,
+    });
+  }
+
+  return allocated;
+}
+
+function shareAmount(pool: number, slice: HqOrgShareSlice): number {
+  const fromPool = (pool * slice.poolPercent) / 100;
+  return Number((fromPool + slice.perTicketUsdt).toFixed(8));
+}
+
+function lineShareAmount(ticketType: TicketType, baseAmount: number, slice: HqOrgShareSlice): number {
+  if (ticketType === TicketType.TRADE_ESCROW) {
+    return Number(((baseAmount * slice.poolPercent) / 100 + slice.perTicketUsdt).toFixed(8));
+  }
+  return shareAmount(baseAmount, slice);
+}
+
+async function buildOrgChain(
+  tx: TxClient,
+  startOrgId: string,
+): Promise<ChainOrg[]> {
+  const chain: ChainOrg[] = [];
+  let currentId: string | null = startOrgId;
+
+  while (currentId) {
+    const org: ChainOrg & { parentId: string | null } | null = await tx.organization.findUnique({
+      where: { id: currentId },
+      select: { id: true, name: true, type: true, path: true, parentId: true },
+    });
+    if (!org) break;
+    chain.push({ id: org.id, name: org.name, type: org.type, path: org.path });
+    currentId = org.parentId;
+  }
+
+  return chain;
+}
+
+export interface CommissionPreviewLine {
+  organizationId: string;
+  organizationName: string;
+  organizationType: string;
+  ratePercent: number;
+  perTicketUsdt: number;
+  amount: number;
+  inherited: boolean;
+}
+
+async function previewLines(
+  recruitingOrgId: string,
+  ticketType: TicketType,
+  commissionPool: number,
+  feeShareRaw?: unknown,
+): Promise<{ totalRatePercent: number; commissionPool: number; lines: CommissionPreviewLine[] }> {
+  const { prisma } = await import('../lib/prisma');
+  const policy = await loadOrgSharePolicy();
+  const customerShare = feeShareRaw ? normalizeCustomerFeeShare(feeShareRaw, policy) : normalizeCustomerFeeShare(null, policy);
+  const chain = await buildOrgChain(prisma, recruitingOrgId);
+  const allocated = await allocateCommissionShares(prisma, chain, policy, ticketType, customerShare);
+  const lines: CommissionPreviewLine[] = [];
+  let totalRatePercent = 0;
+
+  for (const row of allocated) {
+    totalRatePercent += row.slice.poolPercent;
+    const amount = lineShareAmount(ticketType, commissionPool, row.slice);
+    if (row.slice.poolPercent === 0 && row.slice.perTicketUsdt === 0) continue;
+    lines.push({
+      organizationId: row.org.id,
+      organizationName: row.org.name,
+      organizationType: row.org.type,
+      ratePercent: row.slice.poolPercent,
+      perTicketUsdt: row.slice.perTicketUsdt,
+      amount,
+      inherited: !feeShareRaw,
+    });
+  }
+
+  return { totalRatePercent, commissionPool, lines };
+}
 
 /** 영업점 → 본사 상위 체인 순회하며 LedgerEntry 생성 */
 export async function settleCommission(
@@ -25,6 +204,7 @@ export async function settleCommission(
       customer: {
         include: { recruitingOrg: true },
       },
+      tradeEscrow: true,
     },
   });
 
@@ -44,35 +224,32 @@ export async function settleCommission(
     return;
   }
 
+  const policyRow = await tx.systemConfig.findUnique({
+    where: { key: HQ_CONFIG_KEYS.orgShare },
+  });
+  const policy = normalizeOrgSharePolicy((policyRow?.value as HqOrgSharePolicy | null) ?? null);
   const chain = await buildOrgChain(tx, ticket.customer.recruitingOrgId);
+  const customerShare = normalizeCustomerFeeShare(ticket.customer.feeShare, policy);
+  const allocated = await allocateCommissionShares(tx, chain, policy, ctx.ticketType, customerShare);
+  const escrowTradeAmount =
+    ctx.ticketType === TicketType.TRADE_ESCROW && ticket.tradeEscrow
+      ? Number(ticket.tradeEscrow.amount)
+      : ctx.commissionPool;
 
-  for (const org of chain) {
-    const rate = await tx.commissionRate.findFirst({
-      where: {
-        organizationId: org.id,
-        ticketType: ctx.ticketType,
-        effectiveTo: null,
-      },
-      orderBy: { effectiveFrom: 'desc' },
-    });
-
-    if (!rate) continue;
-
-    const ratePercent = Number(rate.ratePercent);
-    const amount = (ctx.commissionPool * ratePercent) / 100;
-
+  for (const row of allocated) {
+    const amount = lineShareAmount(ctx.ticketType, escrowTradeAmount, row.slice);
     if (amount <= 0) continue;
 
     await tx.ledgerEntry.create({
       data: {
-        organizationId: org.id,
+        organizationId: row.org.id,
         ticketId: ctx.ticketId,
         entryType: 'COMMISSION_EARNED',
         amount,
         currency: ctx.currency,
-        ratePercent,
+        ratePercent: row.slice.poolPercent,
         baseAmount: ctx.commissionPool,
-        description: `${ctx.ticketType} commission — ${org.name}`,
+        description: `${ctx.ticketType} commission — ${row.org.name}`,
       },
     });
   }
@@ -83,78 +260,42 @@ export async function settleCommission(
   });
 }
 
-async function buildOrgChain(
-  tx: TxClient,
-  startOrgId: string,
-): Promise<Array<{ id: string; name: string }>> {
-  const chain: Array<{ id: string; name: string }> = [];
-  let currentId: string | null = startOrgId;
-
-  while (currentId) {
-    const org: { id: string; name: string; parentId: string | null } | null =
-      await tx.organization.findUnique({
-        where: { id: currentId },
-        select: { id: true, name: true, parentId: true },
-      });
-    if (!org) break;
-    chain.push({ id: org.id, name: org.name });
-    currentId = org.parentId;
-  }
-
-  return chain;
-}
-
-export interface CommissionPreviewLine {
-  organizationId: string;
-  organizationName: string;
-  ratePercent: number;
-  amount: number;
-}
-
-/** 구매자 소속 조직 체인 기준 수수료 풀·배분 미리보기 */
+/** 에스크로: 본사 고객 수수료율로 풀을 만들고 조직 배분 미리보기 */
 export async function previewCommissionPool(
   recruitingOrgId: string,
   ticketType: TicketType,
   tradeAmount: number,
+  feeShareRaw?: unknown,
 ): Promise<{ totalRatePercent: number; commissionPool: number; lines: CommissionPreviewLine[] }> {
-  const { prisma } = await import('../lib/prisma');
-  const chain = await buildOrgChain(prisma, recruitingOrgId);
-  const lines: CommissionPreviewLine[] = [];
-  let totalRatePercent = 0;
-
-  for (const org of chain) {
-    const rate = await prisma.commissionRate.findFirst({
-      where: {
-        organizationId: org.id,
-        ticketType,
-        effectiveTo: null,
-      },
-      orderBy: { effectiveFrom: 'desc' },
-    });
-    if (!rate) continue;
-    const ratePercent = Number(rate.ratePercent);
-    totalRatePercent += ratePercent;
-    lines.push({
-      organizationId: org.id,
-      organizationName: org.name,
-      ratePercent,
-      amount: (tradeAmount * ratePercent) / 100,
-    });
-  }
-
-  return {
-    totalRatePercent,
-    commissionPool: (tradeAmount * totalRatePercent) / 100,
-    lines,
-  };
+  const policy = await loadOrgSharePolicy();
+  const share = normalizeCustomerFeeShare(feeShareRaw, policy);
+  const pool =
+    ticketType === TicketType.TRADE_ESCROW
+      ? Number(((tradeAmount * share.escrowFeePercent) / 100 + share.escrowPerTicketUsdt).toFixed(8))
+      : tradeAmount;
+  const linesBase = ticketType === TicketType.TRADE_ESCROW ? tradeAmount : pool;
+  const preview = await previewLines(recruitingOrgId, ticketType, linesBase, feeShareRaw);
+  return { ...preview, commissionPool: pool };
 }
 
-/** 조직별 누적 수수료 조회 */
+export async function getOrgSharePolicyCached(): Promise<HqOrgSharePolicy> {
+  return loadOrgSharePolicy();
+}
+
+export { defaultOrgSharePolicy };
+
+/** 조직별 누적 수수료 조회 + 미정산(수령 예정) */
 export async function getOrgLedgerSummary(
   organizationId: string,
   options?: { from?: Date; to?: Date },
 ) {
   const { prisma } = await import('../lib/prisma');
+
+  const org = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { id: true, path: true, name: true, type: true },
+  });
+  if (!org) throw new AppError(404, 'Organization not found', 'NOT_FOUND');
 
   const entries = await prisma.ledgerEntry.findMany({
     where: {
@@ -176,7 +317,6 @@ export async function getOrgLedgerSummary(
   });
 
   const totalAmount = entries.reduce((sum, e) => sum + Number(e.amount), 0);
-
   const totalsByCurrency: Record<string, number> = {};
   const byTicketType: Record<string, Record<string, number>> = {};
 
@@ -184,22 +324,27 @@ export async function getOrgLedgerSummary(
     const cur = e.currency;
     const amt = Number(e.amount);
     totalsByCurrency[cur] = (totalsByCurrency[cur] ?? 0) + amt;
-
     const tt = e.ticket.type;
     if (!byTicketType[tt]) byTicketType[tt] = {};
     byTicketType[tt][cur] = (byTicketType[tt][cur] ?? 0) + amt;
   }
 
+  const pending = await getPendingCommission(organizationId, org.path);
   const usdtTotal = totalsByCurrency[CurrencyCode.USDT] ?? 0;
 
   return {
     organizationId,
+    organizationName: org.name,
     totalAmount: usdtTotal,
     currency: CurrencyCode.USDT,
     totalAmountAll: totalAmount,
     totalsByCurrency,
     byTicketType,
     count: entries.length,
+    earnedUsdt: usdtTotal,
+    pendingUsdt: pending.totalUsdt,
+    pendingCount: pending.lines.length,
+    pendingLines: pending.lines,
     entries: entries.map((e) => ({
       id: e.id,
       amount: Number(e.amount),
@@ -212,4 +357,134 @@ export async function getOrgLedgerSummary(
       description: e.description,
     })),
   };
+}
+
+async function getPendingCommission(organizationId: string, orgPath: string) {
+  const { prisma } = await import('../lib/prisma');
+  const policy = await loadOrgSharePolicy();
+
+  const tickets = await prisma.transactionTicket.findMany({
+    where: {
+      commissionSettled: false,
+      customer: {
+        recruitingOrg: {
+          OR: [{ path: orgPath }, { path: { startsWith: `${orgPath}/` } }],
+        },
+      },
+      OR: [
+        {
+          type: TicketType.USDT_PURCHASE,
+          usdtPurchase: { status: { notIn: [UsdtPurchaseStatus.CANCELLED] } },
+        },
+        {
+          type: TicketType.TRADE_ESCROW,
+          tradeEscrow: {
+            status: { notIn: [TradeEscrowStatus.CANCELLED, TradeEscrowStatus.VOIDED] },
+          },
+        },
+      ],
+    },
+    include: {
+      usdtPurchase: true,
+      tradeEscrow: true,
+      customer: { select: { recruitingOrgId: true, feeShare: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 200,
+  });
+
+  const lines: Array<{
+    ticketNo: string;
+    ticketType: string;
+    amount: number;
+    currency: string;
+    ratePercent: number;
+    baseAmount: number;
+    status: string;
+  }> = [];
+  let totalUsdt = 0;
+
+  for (const ticket of tickets) {
+    let pool = 0;
+    let currency: CurrencyCode = CurrencyCode.USDT;
+    let status = '';
+    if (ticket.type === TicketType.USDT_PURCHASE && ticket.usdtPurchase) {
+      pool = commissionPoolFromSnapshots(ticket.usdtPurchase);
+      currency = CurrencyCode.USDT;
+      status = ticket.usdtPurchase.status;
+    } else if (ticket.type === TicketType.TRADE_ESCROW && ticket.tradeEscrow) {
+      pool = Number(ticket.tradeEscrow.amount);
+      currency = ticket.tradeEscrow.currency;
+      status = ticket.tradeEscrow.status;
+    }
+    if (pool <= 0) continue;
+
+    const chain = await buildOrgChain(prisma, ticket.customer.recruitingOrgId);
+    const customerShare = normalizeCustomerFeeShare(ticket.customer.feeShare, policy);
+    const allocated = await allocateCommissionShares(prisma, chain, policy, ticket.type, customerShare);
+    const mine = allocated.find((row) => row.org.id === organizationId);
+    if (!mine) continue;
+    const slice = mine.slice;
+    const amount = lineShareAmount(ticket.type, pool, slice);
+    if (amount <= 0) continue;
+    if (currency === CurrencyCode.USDT) totalUsdt += amount;
+    lines.push({
+      ticketNo: ticket.ticketNo,
+      ticketType: ticket.type,
+      amount,
+      currency,
+      ratePercent: slice.poolPercent,
+      baseAmount: pool,
+      status,
+    });
+  }
+
+  return { totalUsdt: Number(totalUsdt.toFixed(8)), lines };
+}
+
+export async function getCommissionGrid() {
+  const { prisma } = await import('../lib/prisma');
+  const policy = await loadOrgSharePolicy();
+  const orgs = await prisma.organization.findMany({
+    where: { deletedAt: null },
+    select: { id: true, code: true, name: true, type: true, path: true, isActive: true },
+    orderBy: { path: 'asc' },
+  });
+  const rates = await prisma.commissionRate.findMany({
+    where: { effectiveTo: null },
+  });
+  const byOrg = new Map<string, typeof rates>();
+  for (const r of rates) {
+    const list = byOrg.get(r.organizationId) ?? [];
+    list.push(r);
+    byOrg.set(r.organizationId, list);
+  }
+
+  const rows = orgs.map((org) => {
+    const list = byOrg.get(org.id) ?? [];
+    const pick = (ticketType: TicketType) => {
+      const row = list.find((x) => x.ticketType === ticketType);
+      const inherited = !row || row.useDefault;
+      const slice = inherited
+        ? sliceFor(policy, ticketType, org.type)
+        : { poolPercent: Number(row.ratePercent), perTicketUsdt: Number(row.perTicketUsdt) };
+      return {
+        useDefault: inherited,
+        poolPercent: slice.poolPercent,
+        perTicketUsdt: slice.perTicketUsdt,
+      };
+    };
+    return {
+      organizationId: org.id,
+      code: org.code,
+      name: org.name,
+      type: org.type,
+      path: org.path,
+      isActive: org.isActive,
+      USDT_PURCHASE: pick(TicketType.USDT_PURCHASE),
+      TRADE_ESCROW: pick(TicketType.TRADE_ESCROW),
+    };
+  });
+
+  return { policy, rows };
 }

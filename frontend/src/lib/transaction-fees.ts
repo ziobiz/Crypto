@@ -1,6 +1,7 @@
 import type { TransactionFees } from '@/lib/api';
 import {
   computeFeeUsdt,
+  computeOtherFeeUsdt,
   readFeeComponent,
   fixedFeeSum,
   percentMultiplierSum,
@@ -21,6 +22,7 @@ export type UsdtFeeBreakdown = {
 
 function feeAmount(grossUsdt: number, fees: TransactionFees, key: 'fx' | 'gas' | 'transfer' | 'other') {
   const { mode, percent, fixedUsdt } = readFeeComponent(fees, key);
+  if (key === 'other') return computeOtherFeeUsdt(grossUsdt, percent, fixedUsdt);
   return computeFeeUsdt(grossUsdt, mode, percent, fixedUsdt);
 }
 

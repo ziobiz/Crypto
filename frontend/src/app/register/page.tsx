@@ -119,7 +119,7 @@ export default function RegisterPage() {
             <div className="flex-1">
               <Field label={t('auth.registerEmailCode')} value={form.emailCode} onChange={(v) => setForm({ ...form, emailCode: v })} />
             </div>
-            <button type="button" onClick={sendCode} disabled={loading} className="mt-5 shrink-0 rounded-lg border border-blue-200 px-3 py-1.5 text-sm text-blue-700 hover:bg-blue-50">
+            <button type="button" onClick={sendCode} disabled={loading} className="mt-6 min-h-11 shrink-0 rounded-lg border border-blue-200 px-3 py-2 text-sm text-blue-700 hover:bg-blue-50">
               {t('auth.sendEmailCode')}
             </button>
           </div>
@@ -131,7 +131,7 @@ export default function RegisterPage() {
               <select
                 value={form.phoneCountryCode}
                 onChange={(e) => setForm({ ...form, phoneCountryCode: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                className="auth-field mt-1 w-full rounded-lg border border-gray-300 px-3 py-3 text-base"
                 required
               >
                 {PHONE_COUNTRY_CODES.map((c) => (
@@ -146,7 +146,7 @@ export default function RegisterPage() {
             <select
               value={form.customerType}
               onChange={(e) => setForm({ ...form, customerType: e.target.value as 'INDIVIDUAL' | 'CORPORATE' })}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              className="auth-field mt-1 w-full rounded-lg border border-gray-300 px-3 py-3 text-base"
             >
               <option value="INDIVIDUAL">{t('auth.individual')}</option>
               <option value="CORPORATE">{t('auth.corporateMerchant')}</option>
@@ -163,7 +163,7 @@ export default function RegisterPage() {
             <select
               value={form.recruitingOrgId}
               onChange={(e) => setForm({ ...form, recruitingOrgId: e.target.value })}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              className="auth-field mt-1 w-full rounded-lg border border-gray-300 px-3 py-3 text-base"
               required
             >
               <option value="">{t('users.select')}</option>
@@ -188,7 +188,7 @@ export default function RegisterPage() {
               <select
                 value={form.walletNetwork}
                 onChange={(e) => setForm({ ...form, walletNetwork: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                className="auth-field mt-1 w-full rounded-lg border border-gray-300 px-3 py-3 text-base"
                 required
               >
                 {WALLET_NETWORKS.map((n) => (
@@ -199,7 +199,7 @@ export default function RegisterPage() {
           </div>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
-          <button type="submit" disabled={loading} className="w-full rounded-lg bg-blue-600 py-2.5 text-sm text-white disabled:opacity-50">
+          <button type="submit" disabled={loading} className="w-full min-h-12 rounded-lg bg-blue-600 py-3 text-base text-white disabled:opacity-50">
             {loading ? t('auth.registering') : t('auth.registerSubmit')}
           </button>
         </form>
@@ -231,7 +231,7 @@ function Field({
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+        className="auth-field mt-1 w-full rounded-lg border border-gray-300 px-3 py-3 text-base"
         required={!optional}
       />
     </div>

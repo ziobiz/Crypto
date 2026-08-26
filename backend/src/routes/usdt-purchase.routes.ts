@@ -17,6 +17,7 @@ import {
   listUsdtPurchaseTickets,
   previewUsdtTransactionFees,
   saveDepositProofMetadata,
+  simulateHqUsdtQuote,
   transitionUsdtPurchaseStatus,
 } from '../services/usdt-purchase.service';
 import {
@@ -26,7 +27,10 @@ import {
 } from '../services/usdt-card-purchase.service';
 import { assertTicketAccess, canOperateUsdtTicket } from '../services/ticket-access.service';
 import { saveAttachment } from '../services/attachment.service';
+import { hqPolicyService } from '../services/hq-policy.service';
 import { AppError } from '../lib/errors';
+import { setBrokerUsdt } from '../services/profit-analysis.service';
+import { isCostAnalysisRole } from '../constants/hq-admin';
 
 const router = Router();
 const upload = multer({
@@ -41,7 +45,50 @@ const upload = multer({
   },
 });
 
+const APPLICATION_DOC_EXTS = new Set(['.pdf', '.png', '.jpg', '.jpeg', '.webp', '.xlsx', '.xls']);
+
+function isApplicationDocFile(file: Express.Multer.File): boolean {
+  const name = file.originalname.toLowerCase();
+  const ext = name.includes('.') ? name.slice(name.lastIndexOf('.')) : '';
+  if (APPLICATION_DOC_EXTS.has(ext)) return true;
+  return (
+    file.mimetype.startsWith('image/') ||
+    file.mimetype === 'application/pdf' ||
+    file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+    file.mimetype === 'application/vnd.ms-excel'
+  );
+}
+
+const applicationDocUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 15 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (isApplicationDocFile(file)) cb(null, true);
+    else cb(new Error('PDF, Excel, or image required'));
+  },
+});
+
 router.use(authenticate);
+
+router.get(
+  '/simulate',
+  asyncHandler(async (req, res) => {
+    const actor = hqPolicyService.accessActorForUser(req.user!);
+    const allowed = await hqPolicyService.canAccessPage(actor, '/dashboard/simulator', 'VIEW');
+    if (!allowed) {
+      throw new AppError(403, 'Simulator is not enabled for this account', 'FORBIDDEN');
+    }
+    const currency = (req.query.currency as FiatCurrency) || 'JPY';
+    const fiatAmount = req.query.fiatAmount != null ? Number(req.query.fiatAmount) : undefined;
+    const targetUsdtAmount =
+      req.query.targetUsdtAmount != null ? Number(req.query.targetUsdtAmount) : undefined;
+    const network = String(req.query.network ?? '').trim();
+    if (!network) {
+      throw new AppError(400, 'Withdrawal network is required', 'NETWORK_REQUIRED');
+    }
+    res.json(await simulateHqUsdtQuote({ fiatCurrency: currency, fiatAmount, targetUsdtAmount, network }));
+  }),
+);
 
 router.get(
   '/exchange-rate',
@@ -91,6 +138,7 @@ router.get(
       );
       return;
     }
+    await hqPolicyService.assertUsdtFiatMethodEnabled(currency, 'TRANSFER');
     res.json(
       await previewUsdtTransactionFees(req.user!, {
         walletId,
@@ -215,6 +263,18 @@ router.patch(
   }),
 );
 
+router.patch(
+  '/:id/broker-usdt',
+  asyncHandler(async (req, res) => {
+    if (!isCostAnalysisRole(req.user!.role)) {
+      throw new AppError(403, 'Forbidden', 'FORBIDDEN');
+    }
+    const amount = Number((req.body as { brokerUsdtAmount?: number }).brokerUsdtAmount);
+    await setBrokerUsdt(req.user!, req.params.id, amount);
+    res.json(await getUsdtPurchaseTicket(req.user!, req.params.id));
+  }),
+);
+
 const depositProofSchema = z.object({
   depositAmount: z.coerce.number().positive().optional(),
   depositorName: z.string().min(1).optional(),
@@ -260,6 +320,44 @@ router.post(
     );
 
     res.json({ ...ticket, bankMismatch });
+  }),
+);
+
+router.post(
+  '/:id/application-docs',
+  requireRoles(UserRole.CUSTOMER),
+  applicationDocUpload.fields([
+    { name: 'sourceOfFunds', maxCount: 10 },
+    { name: 'depositReceipt', maxCount: 5 },
+  ]),
+  asyncHandler(async (req, res) => {
+    const ticketId = req.params.id;
+    await assertTicketAccess(req.user!, ticketId);
+
+    const files = req.files as Record<string, Express.Multer.File[]> | undefined;
+    const sourceOfFunds = files?.sourceOfFunds ?? [];
+    const depositReceipt = files?.depositReceipt ?? [];
+
+    if (sourceOfFunds.length === 0) {
+      throw new AppError(400, 'Source of funds document is required', 'VALIDATION_ERROR');
+    }
+    if (depositReceipt.length === 0) {
+      throw new AppError(400, 'Deposit receipt is required', 'VALIDATION_ERROR');
+    }
+
+    for (const file of sourceOfFunds) {
+      await saveAttachment(req.user!, ticketId, file, AttachmentPurpose.SOURCE_OF_FUNDS_DOC);
+    }
+    for (const file of depositReceipt) {
+      await saveAttachment(req.user!, ticketId, file, AttachmentPurpose.FIAT_DEPOSIT_RECEIPT);
+    }
+
+    const ticket = await transitionUsdtPurchaseStatus(
+      req.user!,
+      ticketId,
+      UsdtPurchaseStatus.ADMIN_REVIEWING,
+    );
+    res.json(ticket);
   }),
 );
 

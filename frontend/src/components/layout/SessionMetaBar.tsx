@@ -7,6 +7,7 @@ import { useTabletMode } from '@/context/TabletModeContext';
 import { useNavTabs } from '@/context/NavTabsContext';
 import { api } from '@/lib/api';
 import { UserMenu } from './UserMenu';
+import { LocaleDropdown } from './LocaleDropdown';
 import { ThemeSelector } from './ThemeSelector';
 
 function intlLocale(locale: Locale): string {
@@ -40,7 +41,7 @@ function Pipe() {
   );
 }
 
-export function SessionMetaBar() {
+export function SessionMetaBar({ compact = false }: { compact?: boolean }) {
   const t = useT();
   const { locale, setLocale } = useLocale();
   const { tablet, setTablet } = useTabletMode();
@@ -59,62 +60,75 @@ export function SessionMetaBar() {
 
   return (
     <header className="pg-session-bar">
-      <div className="pg-session-inner">
+      <div className={`pg-session-inner ${compact ? 'pg-session-inner-compact' : ''}`}>
         <div className="flex min-w-0 items-center overflow-x-auto whitespace-nowrap">
-          <ThemeSelector />
-          <Pipe />
-          <label className="inline-flex cursor-pointer items-center gap-2">
-            <span className="pg-session-meta-label">{t('session.tablet')}</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={tablet}
-              onClick={() => setTablet((v) => !v)}
-              className={`relative h-4 w-8 shrink-0 rounded-full transition ${tablet ? 'bg-blue-600' : 'bg-gray-400'}`}
-            >
-              <span
-                className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition ${
-                  tablet ? 'left-4' : 'left-0.5'
-                }`}
-              />
-            </button>
-          </label>
+          {!compact && (
+            <>
+              <ThemeSelector />
+              <Pipe />
+              <label className="inline-flex cursor-pointer items-center gap-2">
+                <span className="pg-session-meta-label">{t('session.tablet')}</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={tablet}
+                  onClick={() => setTablet((v) => !v)}
+                  className={`relative h-4 w-8 shrink-0 rounded-full transition ${tablet ? 'bg-blue-600' : 'bg-gray-400'}`}
+                >
+                  <span
+                    className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition ${
+                      tablet ? 'left-4' : 'left-0.5'
+                    }`}
+                  />
+                </button>
+              </label>
+              <Pipe />
+            </>
+          )}
 
-          <Pipe />
+          {compact ? (
+            <LocaleDropdown variant="session" />
+          ) : (
+            <span className="pg-session-pill" aria-label={t('nav.language')}>
+              {LOCALES.map((code) => (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={() => setLocale(code as Locale)}
+                  className={`pg-session-lang ${
+                    locale === code ? 'pg-session-lang-active' : 'pg-session-lang-idle'
+                  }`}
+                >
+                  {LOCALE_SHORT[code]}
+                </button>
+              ))}
+            </span>
+          )}
 
-          <span className="pg-session-pill">
-            {LOCALES.map((code) => (
-              <button
-                key={code}
-                type="button"
-                onClick={() => setLocale(code as Locale)}
-                className={`pg-session-lang ${
-                  locale === code ? 'pg-session-lang-active' : 'pg-session-lang-idle'
-                }`}
-              >
-                {LOCALE_SHORT[code]}
-              </button>
-            ))}
-          </span>
-
-          <Pipe />
-          <MetaField label={t('session.accessIp')} value={ip} />
-          <Pipe />
-          <MetaField label={t('session.accessTime')} value={timeStr} />
+          {!compact && (
+            <>
+              <Pipe />
+              <MetaField label={t('session.accessIp')} value={ip} />
+              <Pipe />
+              <MetaField label={t('session.accessTime')} value={timeStr} />
+            </>
+          )}
         </div>
 
         <Pipe />
-        <UserMenu />
-        <button
-          type="button"
-          onClick={canCloseAll ? closeAll : undefined}
-          disabled={!canCloseAll}
-          aria-disabled={!canCloseAll}
-          className={`pg-session-close ${canCloseAll ? 'pg-session-close-active' : 'pg-session-close-idle'}`}
-        >
-          <span aria-hidden>✕</span>
-          <span className="hidden sm:inline">{t('nav.closeAllLabel')}</span>
-        </button>
+        <UserMenu compact={compact} />
+        {!compact && (
+          <button
+            type="button"
+            onClick={canCloseAll ? closeAll : undefined}
+            disabled={!canCloseAll}
+            aria-disabled={!canCloseAll}
+            className={`pg-session-close ${canCloseAll ? 'pg-session-close-active' : 'pg-session-close-idle'}`}
+          >
+            <span aria-hidden>✕</span>
+            <span className="hidden sm:inline">{t('nav.closeAllLabel')}</span>
+          </button>
+        )}
       </div>
     </header>
   );

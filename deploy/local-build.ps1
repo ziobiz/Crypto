@@ -3,18 +3,16 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 Set-Location $Root
 
-Write-Host "==> Backend (tsc)"
+Write-Host "==> Backend (prisma generate + tsc)"
 if (-not (Test-Path "backend\node_modules\.bin\tsc.cmd")) {
   npm ci --prefix backend
 }
-npm run build --prefix backend
 Push-Location backend
 if (Test-Path "node_modules\.bin\prisma.cmd") {
   npx prisma generate
-} else {
-  Write-Warn "prisma CLI missing — skip generate (server will run prisma generate)"
 }
 Pop-Location
+npm run build --prefix backend
 
 Write-Host "==> Frontend (next build)"
 if (-not (Test-Path "frontend\node_modules\.bin\next.cmd")) {

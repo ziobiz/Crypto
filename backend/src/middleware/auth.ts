@@ -26,7 +26,7 @@ export function authenticate(
       },
     });
 
-    if (!user || !user.isActive) {
+    if (!user || !user.isActive || user.deletedAt) {
       throw new AppError(401, 'User not found or inactive', 'UNAUTHORIZED');
     }
 

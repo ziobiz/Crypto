@@ -28,12 +28,13 @@ import {
   isInitialPassword,
   normalizeEmail,
 } from '../lib/password-policy';
-import { signFlowToken, signOtpToken, signToken, verifyFlowToken, verifyOtpToken } from '../lib/jwt';
+import { signFlowToken, signOtpToken, signStepUpToken, signToken, verifyFlowToken, verifyOtpToken } from '../lib/jwt';
 import { AppError } from '../lib/errors';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { authenticate } from '../middleware/auth';
 import { hqPolicyService } from '../services/hq-policy.service';
 import { findUserByLoginEmail } from '../services/user-lookup.service';
+import { isCostAnalysisRole } from '../constants/hq-admin';
 
 const router = Router();
 
@@ -336,6 +337,25 @@ router.get(
   }),
 );
 
+router.post(
+  '/step-up/otp',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    if (!isCostAnalysisRole(req.user!.role)) {
+      throw new AppError(403, 'Forbidden', 'FORBIDDEN');
+    }
+    const code = String((req.body as { code?: string }).code ?? '').trim();
+    const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
+    if (!user?.totpEnabled || !user.totpSecret) {
+      throw new AppError(400, 'Google OTP is not enabled', 'OTP_NOT_ENABLED');
+    }
+    if (!verifyTotpCode(user.totpSecret, code)) {
+      throw new AppError(401, 'Invalid OTP code', 'INVALID_OTP');
+    }
+    res.json({ sensitiveToken: signStepUpToken(user.id) });
+  }),
+);
+
 router.get(
   '/me',
   authenticate,
@@ -350,6 +370,7 @@ router.get(
           },
         },
         wallets: { where: { isActive: true }, orderBy: { isDefault: 'desc' } },
+        kyc: { select: { status: true } },
       },
     });
 
@@ -367,6 +388,11 @@ router.get(
       totpEnabled: user.totpEnabled,
       passwordMustChange: user.passwordMustChange,
       sessionPolicy: await hqPolicyService.getSessionPolicy(),
+      pageAccess: await hqPolicyService.getPageAccessForUser({
+        role: user.role,
+        organizationType: user.organization?.type ?? null,
+      }),
+      kycStatus: user.kyc?.status ?? (user.role === 'CUSTOMER' ? 'NOT_SUBMITTED' : 'APPROVED'),
       wallets: user.wallets.map((w) => ({
         ...w,
         fxFeePercent: Number(w.fxFeePercent),
@@ -478,7 +504,7 @@ router.post(
             network: data.walletNetwork?.trim() || 'TRC20',
             isDefault: true,
             fxFeePercent: hqFees.fxFeePercent,
-            gasFeeAmount: hqFees.gasFeeUsdt,
+            gasFeeAmount: 0,
             transferFeeAmount: hqFees.transferFeeUsdt,
             otherFeeAmount: hqFees.otherFeeUsdt,
           },
@@ -577,8 +603,10 @@ router.get(
         stats: {
           usdtTickets: usdtCount,
           escrowTickets: escrowCount,
-          totalCommission: ledger.totalAmount,
+          totalCommission: ledger.earnedUsdt ?? ledger.totalAmount,
+          pendingCommission: ledger.pendingUsdt ?? 0,
           commissionCount: ledger.count,
+          pendingCount: ledger.pendingCount ?? 0,
         },
       });
       return;

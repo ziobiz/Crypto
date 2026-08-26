@@ -24,7 +24,7 @@ export async function assertTicketAccess(user: AuthUser, ticketId: string): Prom
     throw new AppError(404, 'Ticket not found', 'NOT_FOUND');
   }
 
-  if (user.role === UserRole.SUPER_ADMIN) return;
+  if (user.role === UserRole.SUPER_ADMIN || user.role === UserRole.ORGANIZER) return;
 
   if (user.role === UserRole.CUSTOMER) {
     const isOwner = ticket.customer.userId === user.id;
@@ -55,7 +55,7 @@ export async function assertTicketAccess(user: AuthUser, ticketId: string): Prom
 export function buildTicketListFilter(user: AuthUser, type?: TicketType): Prisma.TransactionTicketWhereInput {
   const typeFilter = type ? { type } : {};
 
-  if (user.role === UserRole.SUPER_ADMIN) {
+  if (user.role === UserRole.SUPER_ADMIN || user.role === UserRole.ORGANIZER) {
     return typeFilter;
   }
 

@@ -3,16 +3,26 @@ import type { MessageKey } from './messages';
 /** HQ 접근·권한 화면 — API page.label 대신 i18n */
 export const HQ_PAGE_PATH_KEYS: Record<string, MessageKey> = {
   '/dashboard': 'hq.page.dashboard',
+  '/dashboard/simulator': 'nav.simulator',
+  '/dashboard/simulator-logs': 'nav.simulatorLogs',
   '/dashboard/usdt': 'hq.page.usdt',
   '/dashboard/escrow': 'hq.page.escrow',
   '/dashboard/ledger': 'hq.page.ledger',
   '/dashboard/wallets': 'hq.page.wallets',
   '/dashboard/users': 'hq.page.users',
+  '/dashboard/customers': 'nav.customers',
+  '/dashboard/organizations': 'hq.page.orgs',
+  '/dashboard/org-fees': 'hq.page.orgFees',
   '/dashboard/hq-policy/access': 'hq.page.access',
   '/dashboard/hq-policy/org-columns': 'hq.page.orgColumns',
   '/dashboard/hq-policy/commission': 'hq.page.commission',
   '/dashboard/hq-policy/platform': 'hq.page.platform',
   '/dashboard/hq-policy/ops': 'hq.page.ops',
+  '/dashboard/hq-policy/ops/workflow': 'hq.page.workflow',
+  '/dashboard/kyc': 'nav.kyc',
+  '/dashboard/hq-policy/deletion': 'hq.page.deletion',
+  '/dashboard/hq-policy/cost-analysis': 'nav.costAnalysis',
+  '/dashboard/hq-policy/profit-analysis': 'nav.profitAnalysis',
 };
 
 export function hqPageLabelKey(path: string): MessageKey | null {
@@ -31,6 +41,7 @@ const HQ_COLUMN_KEYS: Record<string, Record<string, MessageKey>> = {
     amount: 'usdt.col.amount',
     currency: 'usdt.col.currency',
     createdAt: 'usdt.col.date',
+    expectedComplete: 'usdt.col.expectedComplete',
     updatedAt: 'common.updatedAt',
   },
   '/dashboard/escrow': {
@@ -41,6 +52,7 @@ const HQ_COLUMN_KEYS: Record<string, Record<string, MessageKey>> = {
     amount: 'usdt.col.amount',
     commissionPool: 'escrow.detail.commissionPool',
     createdAt: 'escrow.col.createdAt',
+    expectedComplete: 'usdt.col.expectedComplete',
   },
   '/dashboard/ledger': {
     settledAt: 'ledger.col.settledAt',

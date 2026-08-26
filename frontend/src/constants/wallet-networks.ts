@@ -4,9 +4,11 @@ export const WALLET_NETWORKS = [
   { value: 'BEP20', label: 'BEP20 (BSC)' },
   { value: 'POLYGON', label: 'Polygon' },
   { value: 'ARBITRUM', label: 'Arbitrum' },
-  { value: 'OPTIMISM', label: 'Optimism' },
   { value: 'SOL', label: 'Solana (SPL)' },
+  { value: 'OPTIMISM', label: 'Optimism' },
   { value: 'AVAX', label: 'Avalanche C-Chain' },
 ] as const;
+
+export const GAS_FEE_NETWORKS = ['TRC20', 'ERC20', 'BEP20', 'POLYGON', 'ARBITRUM', 'SOL'] as const;
 
 export type WalletNetwork = (typeof WALLET_NETWORKS)[number]['value'];

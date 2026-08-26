@@ -42,6 +42,10 @@ async function request<T>(
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
+  if (typeof window !== 'undefined') {
+    const sensitive = sessionStorage.getItem('crypto-sensitive-token');
+    if (sensitive) headers['X-Sensitive-Token'] = sensitive;
+  }
 
   const res = await fetch(`${API_URL}${path}`, { ...options, headers });
 
@@ -72,6 +76,8 @@ export type LoginResponse =
 
 export const api = {
   branding: () => request<BrandingResponse>('/api/branding'),
+
+  workflowDisplay: () => request<HqWorkflowDisplayConfig>('/api/dashboard/workflow-display'),
 
   login: (email: string, password: string) =>
     request<LoginResponse>('/api/auth/login', {
@@ -109,6 +115,12 @@ export const api = {
       body: JSON.stringify({ enrollToken, code }),
     }),
 
+  stepUpOtp: (code: string) =>
+    request<{ sensitiveToken: string }>('/api/auth/step-up/otp', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }),
+
   registerSendCode: (email: string, name: string) =>
     request<{ ok: boolean }>('/api/auth/register/send-code', {
       method: 'POST',
@@ -133,7 +145,26 @@ export const api = {
   salesOffices: () =>
     request<SalesOffice[]>('/api/organizations/sales-offices'),
 
-  organizations: () => request<Organization[]>('/api/organizations'),
+  organizations: (includeInactive = false) =>
+    request<Organization[]>(
+      `/api/organizations${includeInactive ? '?includeInactive=true' : ''}`,
+    ),
+  commissionGrid: () => request<CommissionGridPayload>('/api/organizations/commission-grid'),
+
+  createOrganization: (data: CreateOrganizationInput) =>
+    request<Organization>('/api/organizations', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  updateOrganization: (id: string, data: UpdateOrganizationInput) =>
+    request<Organization>(`/api/organizations/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+
+  deleteOrganization: (id: string) =>
+    request<Organization>(`/api/organizations/${id}`, { method: 'DELETE' }),
 
   users: {
     list: (params?: UserListParams) => {
@@ -142,6 +173,8 @@ export const api = {
       if (params?.organizationId) q.set('organizationId', params.organizationId);
       if (params?.search) q.set('search', params.search);
       if (params?.isActive !== undefined) q.set('isActive', String(params.isActive));
+      if (params?.staffOnly) q.set('staffOnly', 'true');
+      if (params?.kycStatus) q.set('kycStatus', params.kycStatus);
       if (params?.page) q.set('page', String(params.page));
       const qs = q.toString();
       return request<UserListResponse>(`/api/users${qs ? `?${qs}` : ''}`);
@@ -160,6 +193,7 @@ export const api = {
       request<{ ok: boolean; totpEnabled: boolean }>(`/api/users/${id}/otp`, {
         method: 'PATCH',
       }),
+    remove: (id: string) => request<ManagedUser>(`/api/users/${id}`, { method: 'DELETE' }),
   },
 
   exchangeRate: () =>
@@ -177,6 +211,33 @@ export const api = {
       request<Wallet>('/api/wallets', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Partial<WalletInput>) =>
       request<Wallet>(`/api/wallets/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  },
+
+  kyc: {
+    me: () => request<KycCase>('/api/kyc/me'),
+    submit: (files: { forecast: File[]; taxSupport?: File[] }) => {
+      const form = new FormData();
+      for (const f of files.forecast) form.append('forecast', f);
+      for (const f of files.taxSupport ?? []) form.append('taxSupport', f);
+      return request<KycCase>('/api/kyc/me', { method: 'POST', body: form });
+    },
+    getByUser: (userId: string) => request<KycCase>(`/api/kyc/users/${userId}`),
+    reviewByUser: (
+      userId: string,
+      data: { action: 'APPROVE' | 'REJECT'; reason?: string; hqNote?: string },
+    ) =>
+      request<KycCase>(`/api/kyc/users/${userId}/review`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    list: (status?: string) =>
+      request<KycCase[]>(`/api/kyc/cases${status ? `?status=${encodeURIComponent(status)}` : ''}`),
+    get: (id: string) => request<KycCase>(`/api/kyc/cases/${id}`),
+    review: (id: string, data: { action: 'APPROVE' | 'REJECT'; reason?: string; hqNote?: string }) =>
+      request<KycCase>(`/api/kyc/cases/${id}/review`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
   },
 
   usdt: {
@@ -203,6 +264,18 @@ export const api = {
       if (params.targetUsdtAmount != null) q.set('targetUsdtAmount', String(params.targetUsdtAmount));
       if (params.cardChargeFiat != null) q.set('cardChargeFiat', String(params.cardChargeFiat));
       return request<UsdtFeePreview>(`/api/tickets/usdt-purchase/fees?${q}`);
+    },
+    simulate: (params: {
+      fiatCurrency: string;
+      fiatAmount?: number;
+      targetUsdtAmount?: number;
+      network?: string;
+    }) => {
+      const q = new URLSearchParams({ currency: params.fiatCurrency });
+      if (params.fiatAmount != null) q.set('fiatAmount', String(params.fiatAmount));
+      if (params.targetUsdtAmount != null) q.set('targetUsdtAmount', String(params.targetUsdtAmount));
+      if (params.network) q.set('network', params.network);
+      return request<UsdtFeePreview>(`/api/tickets/usdt-purchase/simulate?${q}`);
     },
     create: (data: {
       fiatAmount?: number;
@@ -232,6 +305,11 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify(data),
       }),
+    setBrokerUsdt: (id: string, brokerUsdtAmount: number) =>
+      request<UsdtTicket>(`/api/tickets/usdt-purchase/${id}/broker-usdt`, {
+        method: 'PATCH',
+        body: JSON.stringify({ brokerUsdtAmount }),
+      }),
     uploadDepositProof: (
       id: string,
       file: File,
@@ -243,6 +321,18 @@ export const api = {
       if (meta?.depositorName) form.append('depositorName', meta.depositorName);
       if (meta?.depositTransferredAt) form.append('depositTransferredAt', meta.depositTransferredAt);
       return request<UsdtTicket>(`/api/tickets/usdt-purchase/${id}/deposit-proof`, {
+        method: 'POST',
+        body: form,
+      });
+    },
+    uploadApplicationDocs: (
+      id: string,
+      files: { sourceOfFunds?: File[]; depositReceipt?: File[] },
+    ) => {
+      const form = new FormData();
+      for (const f of files.sourceOfFunds ?? []) form.append('sourceOfFunds', f);
+      for (const f of files.depositReceipt ?? []) form.append('depositReceipt', f);
+      return request<UsdtTicket>(`/api/tickets/usdt-purchase/${id}/application-docs`, {
         method: 'POST',
         body: form,
       });
@@ -340,13 +430,70 @@ export const api = {
     const token = getToken();
     return `${API_URL}/api/attachments/${id}/file?token=${token}`;
   },
+
+  simulator: {
+    log: (data: {
+      mode: 'fiat' | 'target';
+      currency: string;
+      network: string;
+      inputAmount: number;
+      requiredFiat: number;
+      netUsdt: number;
+      totalFeeUsdt: number;
+      exchangeRate: number;
+    }) =>
+      request<SimulatorRunRow | { skipped: true }>('/api/simulator/runs', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    mine: (limit = 2) => request<SimulatorRunRow[]>(`/api/simulator/mine?limit=${limit}`),
+    hqList: (page: number, pageSize: number | 'all') =>
+      request<SimulatorHqListResponse>(
+        `/api/simulator/hq?page=${page}&pageSize=${encodeURIComponent(String(pageSize))}`,
+      ),
+    analytics: (range: 'day' | 'week' | 'month') =>
+      request<SimulatorAnalytics>(`/api/simulator/hq/analytics?range=${range}`),
+  },
+
+  costAnalysis: {
+    list: () => request<CostAnalysisRow[]>('/api/cost-analysis/cost'),
+    preview: (data: {
+      currency: string;
+      depositFiat: number;
+      receivedUsdt: number;
+      correctionUsdt: number;
+      gasFeeUsdt: number;
+    }) =>
+      request<CostAnalysisPreview>('/api/cost-analysis/cost/preview', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    create: (data: {
+      currency: string;
+      depositFiat: number;
+      receivedUsdt: number;
+      correctionUsdt: number;
+      gasFeeUsdt: number;
+      note?: string;
+    }) =>
+      request<CostAnalysisRow>('/api/cost-analysis/cost', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    profitList: () => request<ProfitAnalysisRow[]>('/api/cost-analysis/profit'),
+    setBroker: (ticketId: string, brokerUsdtAmount: number) =>
+      request<ProfitAnalysisRow>(`/api/cost-analysis/profit/${ticketId}/broker`, {
+        method: 'PATCH',
+        body: JSON.stringify({ brokerUsdtAmount }),
+      }),
+  },
 };
 
 export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'SUPER_ADMIN' | 'ORG_STAFF' | 'CUSTOMER';
+  role: 'SUPER_ADMIN' | 'ORG_STAFF' | 'CUSTOMER' | 'ORGANIZER' | 'SETTLEMENT_ADMIN';
   organization?: { id: string; name: string; type: string; path: string };
   customerProfile?: { id: string; customerType: string };
 }
@@ -355,6 +502,8 @@ export interface MeResponse extends User {
   totpEnabled?: boolean;
   passwordMustChange?: boolean;
   sessionPolicy?: SessionPolicy;
+  pageAccess?: Record<string, string>;
+  kycStatus?: 'NOT_SUBMITTED' | 'PENDING' | 'APPROVED' | 'REJECTED';
   wallets: Wallet[];
   customerProfile?: {
     id: string;
@@ -367,6 +516,82 @@ export interface SessionPolicy {
   idleTimeoutMinutes: number;
   defaultUsdtFiatCurrency: 'KRW' | 'JPY' | 'THB' | 'CNY';
 }
+
+export type SimulatorRunRow = {
+  id: string;
+  mode: 'fiat' | 'target' | string;
+  currency: string;
+  network: string;
+  inputAmount: number;
+  requiredFiat: number;
+  netUsdt: number;
+  totalFeeUsdt: number;
+  exchangeRate: number;
+  createdAt: string;
+  customerName?: string;
+  customerEmail?: string;
+  userId?: string;
+};
+
+export type SimulatorHqListResponse = {
+  total: number;
+  page: number;
+  pageSize: number | 'all';
+  items: SimulatorRunRow[];
+  retentionMonths: number;
+};
+
+export type SimulatorAnalytics = {
+  range: 'day' | 'week' | 'month';
+  total: number;
+  avgNetUsdt: number;
+  peakHour: string | null;
+  topCurrency: string | null;
+  topNetwork: string | null;
+  byHour: Array<{ hour: string; count: number }>;
+  byDay: Array<{ date: string; count: number }>;
+  byCurrency: Array<{ currency: string; count: number }>;
+  byNetwork: Array<{ network: string; count: number }>;
+  byMode: Array<{ mode: string; count: number }>;
+  amountBuckets: { lt1k: number; k1to10: number; k10to100: number; over100k: number };
+  retentionMonths: number;
+};
+
+export type CostAnalysisPreview = {
+  currency: string;
+  depositFiat: number;
+  receivedUsdt: number;
+  exchangeRate: number;
+  exchangeRateAt: string;
+  exchangeSource: string;
+  correctionUsdt: number;
+  gasFeeUsdt: number;
+  feeUsdt: number;
+  grossUsdt: number;
+};
+
+export type CostAnalysisRow = CostAnalysisPreview & {
+  id: string;
+  note: string | null;
+  createdAt: string;
+  createdByName: string;
+  createdByEmail: string;
+};
+
+export type ProfitAnalysisRow = {
+  ticketId: string;
+  ticketNo: string;
+  status: string;
+  createdAt: string;
+  customerName: string;
+  customerEmail: string;
+  fiatAmount: number;
+  fiatCurrency: string;
+  exchangeRate: number;
+  expectedUsdtAmount: number;
+  brokerUsdtAmount: number | null;
+  profitUsdt: number | null;
+};
 
 export interface FeeDiagramDisplayConfig {
   gross: boolean;
@@ -419,9 +644,99 @@ export interface Organization {
   name: string;
   type: string;
   path?: string;
+  parentId?: string | null;
+  isActive?: boolean;
+  deletedAt?: string | null;
+  purgeAt?: string | null;
+  parent?: { id: string; code: string; name: string; type: string } | null;
 }
 
-export type UserRoleType = 'SUPER_ADMIN' | 'ORG_STAFF' | 'CUSTOMER';
+export interface CreateOrganizationInput {
+  name: string;
+  type: string;
+  parentId?: string | null;
+  code?: string;
+}
+
+export interface UpdateOrganizationInput {
+  name?: string;
+  isActive?: boolean;
+}
+
+export interface HqDeletionPolicy {
+  userRetentionMonths: number;
+  orgRetentionMonths: number;
+}
+
+export type KycStatus = 'NOT_SUBMITTED' | 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface KycAttachment {
+  id: string;
+  purpose: string;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+  createdAt: string;
+}
+
+export interface KycCase {
+  id: string;
+  userId: string;
+  status: KycStatus;
+  submittedAt?: string | null;
+  reviewedAt?: string | null;
+  rejectReason?: string | null;
+  hqNote?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  reviewedBy?: { id: string; name: string; email: string } | null;
+  user?: {
+    id: string;
+    email: string;
+    name: string;
+    isActive: boolean;
+    customerType?: string | null;
+    businessName?: string | null;
+  };
+  attachments: KycAttachment[];
+}
+
+export type WorkflowUiLocale = 'KR' | 'US' | 'JP' | 'CH' | 'TH';
+
+export type LocalizedStatusLabels = Record<WorkflowUiLocale, string>;
+
+export type HqSlaConfig = {
+  timezone: string;
+  businessDays: number[];
+  businessStart: string;
+  businessEnd: string;
+  hoursInBusiness: number;
+  hoursAfterHours: number;
+};
+
+export type HqWorkflowDisplayConfig = {
+  usdtStatusLabels: Record<string, LocalizedStatusLabels>;
+  escrowStatusLabels: Record<string, LocalizedStatusLabels>;
+  sla: HqSlaConfig;
+};
+
+export interface DeletedUserRow {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  deletedAt: string | null;
+  purgeAt: string | null;
+  organization?: { id: string; name: string; code: string; type: string } | null;
+}
+
+export interface HqDeletionPayload {
+  policy: HqDeletionPolicy;
+  users: DeletedUserRow[];
+  orgs: Organization[];
+}
+
+export type UserRoleType = 'SUPER_ADMIN' | 'ORG_STAFF' | 'CUSTOMER' | 'ORGANIZER' | 'SETTLEMENT_ADMIN';
 
 export interface ManagedUser {
   id: string;
@@ -442,6 +757,7 @@ export interface ManagedUser {
     customerType: string;
     businessName?: string | null;
     recruitingOrg?: { id: string; code: string; name: string };
+    feeShare?: CustomerFeeShare | null;
   } | null;
   wallets?: { id: string; label?: string | null; address: string; network: string; isDefault: boolean }[];
   bankAccounts?: {
@@ -451,6 +767,7 @@ export interface ManagedUser {
     accountHolder: string;
     isDefault: boolean;
   }[];
+  kyc?: { id: string; status: KycStatus; submittedAt?: string | null; rejectReason?: string | null } | null;
 }
 
 export interface UserListParams {
@@ -459,6 +776,8 @@ export interface UserListParams {
   search?: string;
   isActive?: boolean;
   page?: number;
+  staffOnly?: boolean;
+  kycStatus?: string;
 }
 
 export interface UserListResponse {
@@ -495,6 +814,7 @@ export interface CreateUserInput {
   walletAddress?: string;
   walletNetwork?: string;
   walletLabel?: string;
+  feeShare?: CustomerFeeShare;
 }
 
 export interface UpdateUserInput {
@@ -505,6 +825,7 @@ export interface UpdateUserInput {
   isActive?: boolean;
   recruitingOrgId?: string;
   statusReason?: string;
+  feeShare?: CustomerFeeShare;
 }
 
 export interface Wallet {
@@ -554,10 +875,26 @@ export interface AllExchangeRatesResponse {
   disclaimer: string;
 }
 
+export interface UsdtCurrencyTradeFlags {
+  transfer: boolean;
+  card: boolean;
+}
+
 export interface UsdtDepositContext {
   receivingAccounts: Partial<
-    Record<'KRW' | 'JPY' | 'THB' | 'CNY', { bankName: string; accountNumber: string; accountHolder: string }>
+    Record<
+      'KRW' | 'JPY' | 'THB' | 'CNY',
+      {
+        bankName: string;
+        accountNumber: string;
+        accountHolder: string;
+        transferEnabled?: boolean;
+        cardEnabled?: boolean;
+      }
+    >
   >;
+  currencyTrade?: Record<'KRW' | 'JPY' | 'THB' | 'CNY', UsdtCurrencyTradeFlags>;
+  curfexEnabledCurrencies?: Array<'JPY' | 'KRW' | 'THB' | 'CNY'>;
   registeredBank: { bankName: string; accountNumber: string; accountHolder: string } | null;
   depositWindowHours: number;
 }
@@ -647,6 +984,7 @@ export interface UsdtCardPaymentContext {
   enabled: boolean;
   cardFeePercent: number;
   limits: Record<SymbolFeeCurrency, { min: number; max: number }>;
+  currencyTrade?: Record<'KRW' | 'JPY' | 'THB' | 'CNY', UsdtCurrencyTradeFlags>;
   icopayConfigured: boolean;
   userPhone: string | null;
   userPhoneCountryCode: string | null;
@@ -719,11 +1057,23 @@ export interface UsdtTicket {
   cardLast4?: string | null;
   icopayOrderId?: string | null;
   icopayTransactionId?: string | null;
+  collectionProvider?: 'FIXED' | 'CURFEX' | string | null;
+  curfexRefNo?: string | null;
+  curfexStatusCode?: string | null;
+  collectionAccount?: {
+    bankName: string;
+    accountNumber: string;
+    accountHolder: string;
+    branchName?: string;
+    accountType?: string;
+  } | null;
   usdtTxId?: string;
   actualUsdtAmount?: number;
+  brokerUsdtAmount?: number | null;
   adminNote?: string;
   commissionSettled: boolean;
   createdAt: string;
+  expectedCompleteAt?: string | null;
   attachments: Attachment[];
   statusHistory: StatusHistory[];
   wallet?: Wallet;
@@ -767,6 +1117,8 @@ export interface EscrowTicket {
   depositTransferredAt?: string;
   commissionSettled: boolean;
   createdAt: string;
+  expectedCompleteAt?: string | null;
+  completedAt?: string | null;
   buyer: EscrowParty;
   seller: EscrowParty;
   attachments: Attachment[];
@@ -898,12 +1250,25 @@ export interface DashboardChartsResponse {
 
 export interface LedgerSummary {
   organizationId: string;
+  organizationName?: string;
   totalAmount: number;
   currency: string;
   totalAmountAll?: number;
   totalsByCurrency: Record<string, number>;
   byTicketType: Record<string, Record<string, number>>;
   count: number;
+  earnedUsdt?: number;
+  pendingUsdt?: number;
+  pendingCount?: number;
+  pendingLines?: Array<{
+    ticketNo: string;
+    ticketType: string;
+    amount: number;
+    currency: string;
+    ratePercent: number;
+    baseAmount: number;
+    status: string;
+  }>;
   entries: Array<{
     id: string;
     amount: number;
@@ -915,6 +1280,45 @@ export interface LedgerSummary {
     settledAt: string;
     description?: string;
   }>;
+}
+
+export type HqOrgLevel = 'HEAD_OFFICE' | 'MASTER_DISTRIBUTOR' | 'REGIONAL_BRANCH' | 'AGENCY' | 'SALES_OFFICE';
+
+export interface HqOrgShareSlice {
+  poolPercent: number;
+  perTicketUsdt: number;
+}
+
+export type HqOrgShareByType = Record<HqOrgLevel, HqOrgShareSlice>;
+
+export interface HqOrgSharePolicy {
+  escrowFeePercent: number;
+  escrowPerTicketUsdt: number;
+  USDT_PURCHASE: HqOrgShareByType;
+  TRADE_ESCROW: HqOrgShareByType;
+}
+
+export type CustomerFeeShare = {
+  escrowFeePercent: number;
+  escrowPerTicketUsdt: number;
+  USDT_PURCHASE: HqOrgShareByType;
+  TRADE_ESCROW: HqOrgShareByType;
+};
+
+export interface CommissionGridRow {
+  organizationId: string;
+  code: string;
+  name: string;
+  type: string;
+  path: string;
+  isActive: boolean;
+  USDT_PURCHASE: { useDefault: boolean; poolPercent: number; perTicketUsdt: number };
+  TRADE_ESCROW: { useDefault: boolean; poolPercent: number; perTicketUsdt: number };
+}
+
+export interface CommissionGridPayload {
+  policy: HqOrgSharePolicy;
+  rows: CommissionGridRow[];
 }
 
 export const hqPolicyApi = {
@@ -946,8 +1350,24 @@ export const hqPolicyApi = {
       method: 'PUT',
       body: JSON.stringify({ exchangeRateSources }),
     }),
+  saveOrgShare: (orgShare: HqOrgSharePolicy) =>
+    request<HqCommissionPayload>('/api/hq-policy/commission/org-share', {
+      method: 'PUT',
+      body: JSON.stringify({ orgShare }),
+    }),
+  saveGasNetworks: (gasNetworks: HqGasNetworkPolicy) =>
+    request<HqCommissionPayload>('/api/hq-policy/commission/gas-networks', {
+      method: 'PUT',
+      body: JSON.stringify({ gasNetworks }),
+    }),
   saveCommissionRates: (
-    rates: Array<{ organizationId: string; ticketType: string; ratePercent: number }>,
+    rates: Array<{
+      organizationId: string;
+      ticketType: string;
+      ratePercent: number;
+      perTicketUsdt?: number;
+      useDefault?: boolean;
+    }>,
   ) =>
     request<HqCommissionPayload>('/api/hq-policy/commission/rates', {
       method: 'PUT',
@@ -1013,6 +1433,30 @@ export const hqPolicyApi = {
       method: 'PUT',
       body: JSON.stringify({ config }),
     }),
+  getCurfex: () => request<{ config: HqCurfexConfig }>('/api/hq-policy/payment/curfex'),
+  saveCurfex: (config: HqCurfexConfig) =>
+    request<{ config: HqCurfexConfig }>('/api/hq-policy/payment/curfex', {
+      method: 'PUT',
+      body: JSON.stringify({ config }),
+    }),
+  getDeletion: () => request<HqDeletionPayload>('/api/hq-policy/deletion'),
+  getWorkflowDisplay: () => request<HqWorkflowDisplayConfig>('/api/hq-policy/workflow-display'),
+  saveWorkflowDisplay: (config: HqWorkflowDisplayConfig) =>
+    request<HqWorkflowDisplayConfig>('/api/hq-policy/workflow-display', {
+      method: 'PUT',
+      body: JSON.stringify({ config }),
+    }),
+  saveDeletion: (policy: HqDeletionPolicy) =>
+    request<HqDeletionPayload>('/api/hq-policy/deletion', {
+      method: 'PUT',
+      body: JSON.stringify({ policy }),
+    }),
+  purgeDeletedUser: (id: string) =>
+    request<{ ok: boolean }>(`/api/hq-policy/deletion/users/${id}`, { method: 'DELETE' }),
+  restoreDeletedUser: (id: string) =>
+    request<{ ok: boolean }>(`/api/hq-policy/deletion/users/${id}/restore`, { method: 'POST' }),
+  purgeDeletedOrg: (id: string) =>
+    request<{ ok: boolean }>(`/api/hq-policy/deletion/orgs/${id}`, { method: 'DELETE' }),
   listChangeLogs: (query?: {
     page?: number;
     limit?: number;
@@ -1231,6 +1675,17 @@ export interface ExchangeRatePreviewRow {
   error?: string;
 }
 
+export type GasNetworkCode = 'TRC20' | 'ERC20' | 'BEP20' | 'POLYGON' | 'ARBITRUM' | 'SOL';
+export type GasFeeGroupId = 'DEFAULT' | 'A' | 'B' | 'C';
+
+export type HqGasNetworkPolicy = {
+  activeGroup: GasFeeGroupId;
+  networks: Array<{
+    code: GasNetworkCode;
+    fees: Record<GasFeeGroupId, number>;
+  }>;
+};
+
 export interface HqCommissionPayload {
   risk: HqCommissionRiskConfig;
   feeTiers: SymbolFeeTierRow[];
@@ -1244,10 +1699,19 @@ export interface HqCommissionPayload {
     ratePercent: string;
     organization: { id: string; code: string; name: string; type: string };
   }>;
+  orgShare: HqOrgSharePolicy;
+  gasNetworks?: HqGasNetworkPolicy;
+  customerFeeShareOverrides?: Array<{
+    userId: string;
+    email: string;
+    name: string;
+    feeShare: CustomerFeeShare;
+  }>;
 }
 
 export interface BrandingResponse {
   siteName: string;
+  tabTitle?: string;
   logoUrl: string | null;
   authLogoUrl: string | null;
   faviconUrl: string | null;
@@ -1269,6 +1733,8 @@ export interface HqPlatformConfig {
   sslCertPath?: string;
   redirectRootToPrimary: boolean;
   siteName: string;
+  /** 브라우저 탭. 비우면 siteName */
+  tabTitle?: string;
   logoUrl?: string;
   authLogoUrl?: string;
   faviconUrl?: string;
@@ -1282,8 +1748,18 @@ export interface HqPlatformConfig {
   customerRegistrationEnabled?: boolean;
   idleTimeoutMinutes?: number;
   defaultUsdtFiatCurrency?: 'KRW' | 'JPY' | 'THB' | 'CNY';
+  simulatorRetentionMonths?: number;
   depositReceivingAccounts?: Partial<
-    Record<'KRW' | 'JPY' | 'THB' | 'CNY', { bankName: string; accountNumber: string; accountHolder: string }>
+    Record<
+      'KRW' | 'JPY' | 'THB' | 'CNY',
+      {
+        bankName: string;
+        accountNumber: string;
+        accountHolder: string;
+        transferEnabled?: boolean;
+        cardEnabled?: boolean;
+      }
+    >
   >;
 }
 
@@ -1324,6 +1800,16 @@ export interface HqIcopayConfig {
   mid: string;
   bracketSecret: string;
   apiBaseUrl?: string;
+  sandbox?: boolean;
+}
+
+export interface HqCurfexConfig {
+  enabled: boolean;
+  clientId: string;
+  clientSecret: string;
+  apiBaseUrl?: string;
+  walletName?: string;
+  currencies?: Array<'JPY'>;
   sandbox?: boolean;
 }
 

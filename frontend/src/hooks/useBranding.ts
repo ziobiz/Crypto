@@ -7,6 +7,7 @@ import type { Locale } from '@/i18n/locales';
 
 export type ResolvedBranding = {
   siteName: string;
+  tabTitle: string;
   logoUrl: string | null;
   authLogoUrl: string | null;
   faviconUrl: string | null;
@@ -22,6 +23,7 @@ function resolveUrls(b: BrandingResponse): ResolvedBranding {
   const base = getApiBaseUrl();
   return {
     siteName: b.siteName || 'Crypto Workflow',
+    tabTitle: (b.tabTitle || b.siteName || '').trim() || 'Crypto Workflow',
     logoUrl: b.logoUrl ? `${base}${b.logoUrl}` : null,
     authLogoUrl: b.authLogoUrl ? `${base}${b.authLogoUrl}` : null,
     faviconUrl: b.faviconUrl ? `${base}${b.faviconUrl}` : null,
@@ -36,6 +38,7 @@ function resolveUrls(b: BrandingResponse): ResolvedBranding {
 
 const FALLBACK: ResolvedBranding = {
   siteName: 'Crypto Workflow',
+  tabTitle: 'Crypto Workflow',
   logoUrl: null,
   authLogoUrl: null,
   faviconUrl: null,

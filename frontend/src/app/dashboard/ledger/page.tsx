@@ -23,10 +23,23 @@ export default function LedgerPage() {
   const { user } = useAuth();
   const t = useT();
   const [ledger, setLedger] = useState<LedgerSummary | null>(null);
+  const [orgs, setOrgs] = useState<Array<{ id: string; name: string; code: string }>>([]);
+  const [orgId, setOrgId] = useState(user?.organization?.id ?? '');
 
   useEffect(() => {
-    api.ledger(user?.organization?.id).then(setLedger).catch(console.error);
-  }, [user]);
+    if (user?.role === 'SUPER_ADMIN') {
+      api.organizations().then((list) => {
+        setOrgs(list);
+        if (!orgId && list[0]) setOrgId(list[0].id);
+      }).catch(console.error);
+    }
+  }, [user?.role]);
+
+  useEffect(() => {
+    const id = user?.role === 'SUPER_ADMIN' ? orgId : user?.organization?.id;
+    if (!id) return;
+    api.ledger(id).then(setLedger).catch(console.error);
+  }, [user, orgId]);
 
   if (!ledger) return <p className="pg-hint">{t('common.loading')}</p>;
 
@@ -46,6 +59,20 @@ export default function LedgerPage() {
 
   return (
     <div className="pg-stack">
+      {user?.role === 'SUPER_ADMIN' && orgs.length > 0 && (
+        <label className="block max-w-sm">
+          <span className="pg-label">{t('ledger.orgFilter')}</span>
+          <select
+            className="pg-input mt-1 w-full"
+            value={orgId}
+            onChange={(e) => setOrgId(e.target.value)}
+          >
+            {orgs.map((o) => (
+              <option key={o.id} value={o.id}>{o.code} {o.name}</option>
+            ))}
+          </select>
+        </label>
+      )}
       <div>
         <p className="mb-2 text-[13px] font-bold text-gray-700">{t('ledger.byCurrency')}</p>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -65,6 +92,10 @@ export default function LedgerPage() {
           <div className="pg-stat">
             <p className="pg-stat-label">{t('dashboard.commissionCount')}</p>
             <p className="pg-stat-value">{ledger.count}</p>
+          </div>
+          <div className="pg-stat">
+            <p className="pg-stat-label">{t('dashboard.pendingCommission')}</p>
+            <p className="pg-stat-value">{formatCurrency(ledger.pendingUsdt ?? 0, 'USDT')}</p>
           </div>
         </div>
       </div>
@@ -129,6 +160,39 @@ export default function LedgerPage() {
                 <td colSpan={6} className="pg-empty">
                   {t('ledger.empty')}
                 </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="pg-card pg-table-wrap">
+        <p className="border-b border-gray-200 px-3 py-2 text-[13px] font-bold text-gray-700">
+          {t('ledger.pendingTitle')}
+        </p>
+        <table className="pg-table">
+          <thead>
+            <tr>
+              <th>{t('ledger.col.ticket')}</th>
+              <th>{t('ledger.col.type')}</th>
+              <th>{t('usdt.col.status')}</th>
+              <th>{t('ledger.col.fee')}</th>
+              <th>{t('ledger.col.rate')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(ledger.pendingLines ?? []).map((e) => (
+              <tr key={`${e.ticketNo}-${e.ticketType}`}>
+                <td>{e.ticketNo}</td>
+                <td>{typeLabel(e.ticketType)}</td>
+                <td className="pg-muted">{e.status}</td>
+                <td>{formatCurrency(e.amount, e.currency)}</td>
+                <td>{e.ratePercent}%</td>
+              </tr>
+            ))}
+            {(ledger.pendingLines ?? []).length === 0 && (
+              <tr>
+                <td colSpan={5} className="pg-empty">{t('ledger.pendingEmpty')}</td>
               </tr>
             )}
           </tbody>

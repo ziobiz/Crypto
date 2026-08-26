@@ -8,7 +8,7 @@ import { userService } from '../services/user.service';
 
 const router = Router();
 
-router.use(authenticate, requireRoles('SUPER_ADMIN', 'ORG_STAFF'));
+router.use(authenticate, requireRoles('SUPER_ADMIN', 'ORG_STAFF', 'ORGANIZER', 'SETTLEMENT_ADMIN'));
 
 const listQuerySchema = z.object({
   role: z.nativeEnum(UserRole).optional(),
@@ -18,28 +18,41 @@ const listQuerySchema = z.object({
     .enum(['true', 'false'])
     .optional()
     .transform((v) => (v === undefined ? undefined : v === 'true')),
+  staffOnly: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => v === 'true'),
+  kycStatus: z.string().optional(),
   page: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().positive().optional(),
 });
 
+function emptyToUndef(value: unknown) {
+  if (value === '' || value === null) return undefined;
+  return value;
+}
+
+const optionalNonEmpty = z.preprocess(emptyToUndef, z.string().min(1).optional());
+
 const createSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(6).optional(),
+  password: z.preprocess(emptyToUndef, z.string().min(6).optional()),
   name: z.string().min(1),
-  phone: z.string().optional(),
+  phone: z.preprocess(emptyToUndef, z.string().optional()),
   role: z.nativeEnum(UserRole),
-  organizationId: z.string().optional(),
+  organizationId: z.preprocess(emptyToUndef, z.string().min(1).optional()),
   customerType: z.nativeEnum(CustomerType).optional(),
-  recruitingOrgId: z.string().optional(),
-  businessName: z.string().optional(),
-  businessNumber: z.string().optional(),
-  bankName: z.string().min(1).optional(),
-  accountNumber: z.string().min(1).optional(),
-  accountHolder: z.string().min(1).optional(),
-  walletAddress: z.string().min(10).optional(),
-  walletNetwork: z.string().optional(),
-  walletLabel: z.string().optional(),
+  recruitingOrgId: z.preprocess(emptyToUndef, z.string().optional()),
+  businessName: z.preprocess(emptyToUndef, z.string().optional()),
+  businessNumber: z.preprocess(emptyToUndef, z.string().optional()),
+  bankName: optionalNonEmpty,
+  accountNumber: optionalNonEmpty,
+  accountHolder: optionalNonEmpty,
+  walletAddress: z.preprocess(emptyToUndef, z.string().min(10).optional()),
+  walletNetwork: z.preprocess(emptyToUndef, z.string().optional()),
+  walletLabel: z.preprocess(emptyToUndef, z.string().optional()),
   reason: z.string().min(1, '등록 사유가 필요합니다'),
+  feeShare: z.unknown().optional(),
 });
 
 const updateSchema = z.object({
@@ -50,6 +63,7 @@ const updateSchema = z.object({
   isActive: z.boolean().optional(),
   recruitingOrgId: z.string().optional(),
   statusReason: z.string().optional(),
+  feeShare: z.unknown().optional(),
 });
 
 const passwordSchema = z.object({
@@ -104,6 +118,14 @@ router.patch(
   asyncHandler(async (req, res) => {
     const audit = auditFromRequest(req.user!, req);
     res.json(await userService.resetOtp(req.user!, req.params.id, audit));
+  }),
+);
+
+router.delete(
+  '/:id',
+  asyncHandler(async (req, res) => {
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await userService.softDelete(req.user!, req.params.id, audit));
   }),
 );
 

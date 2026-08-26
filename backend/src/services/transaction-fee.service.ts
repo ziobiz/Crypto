@@ -10,6 +10,9 @@ import {
   DEFAULT_FEE_DIAGRAM_DISPLAY,
   HQ_CONFIG_KEYS,
   SYMBOL_FEE_CURRENCIES,
+  defaultGasNetworkPolicy,
+  gasFeeUsdtForNetwork,
+  normalizeGasNetworkPolicy,
 } from '../constants/hq-policy';
 import { computeFeeAmounts, normalizeTransactionFees } from '../lib/fee-component';
 import { prisma } from '../lib/prisma';
@@ -155,6 +158,13 @@ export async function getFeeDiagramDisplay(): Promise<FeeDiagramDisplayConfig> {
   return risk.feeDiagramDisplay ?? normalizeFeeDiagramDisplay();
 }
 
+export async function getGasNetworkPolicy() {
+  const row = await prisma.systemConfig.findUnique({
+    where: { key: HQ_CONFIG_KEYS.gasNetworks },
+  });
+  return normalizeGasNetworkPolicy(row?.value ?? defaultGasNetworkPolicy());
+}
+
 export async function getHqTransactionFees(): Promise<TransactionFees> {
   const risk = await getCommissionRiskConfig();
   return normalizeTransactionFees({
@@ -179,6 +189,7 @@ type WalletFeeSource = {
   transferFeeAmount?: unknown;
   otherFeeAmount?: unknown;
   platformFeeAmount?: unknown;
+  network?: unknown;
 };
 
 function overrideFeeComponent(
@@ -190,6 +201,10 @@ function overrideFeeComponent(
   const modeKey = `${key}FeeMode` as keyof TransactionFees;
   const percentKey = `${key}FeePercent` as keyof TransactionFees;
   const fixedKey = `${key}FeeUsdt` as keyof TransactionFees;
+  if (key === 'other') {
+    if (walletFixed > 0) return { ...hq, [fixedKey]: walletFixed };
+    return hq;
+  }
   const mode = hq[modeKey] as TransactionFees[typeof modeKey];
   if (mode === 'percent' && walletPercent > 0) {
     return { ...hq, [percentKey]: walletPercent };
@@ -198,6 +213,19 @@ function overrideFeeComponent(
     return { ...hq, [fixedKey]: walletFixed };
   }
   return hq;
+}
+
+export function withNetworkGasFee(
+  hq: TransactionFees,
+  network: string | null | undefined,
+  gasPolicy: Awaited<ReturnType<typeof getGasNetworkPolicy>>,
+): TransactionFees {
+  return {
+    ...hq,
+    gasFeeMode: 'fixed',
+    gasFeePercent: 0,
+    gasFeeUsdt: gasFeeUsdtForNetwork(gasPolicy, network, hq.gasFeeUsdt),
+  };
 }
 
 /** 지갑 개별값 우선, 0이면 본사 기본값 */
@@ -227,10 +255,20 @@ export async function resolveFeesForAmount(
   currency: string,
   fiatAmount: number,
 ): Promise<TransactionFees> {
-  const [tiers, hqFlat] = await Promise.all([getSymbolFeeTiers(), getHqTransactionFees()]);
+  const [tiers, hqFlat, gasPolicy] = await Promise.all([
+    getSymbolFeeTiers(),
+    getHqTransactionFees(),
+    getGasNetworkPolicy(),
+  ]);
   const tier = pickFeeTier(tiers, currency, fiatAmount);
-  const hq = tier ? tierToTransactionFees(tier) : hqFlat;
+  let hq = tier ? tierToTransactionFees(tier) : hqFlat;
+  hq = withNetworkGasFee(hq, String(wallet.network ?? ''), gasPolicy);
   return resolveTransactionFees(wallet, hq);
+}
+
+export async function gasFeeUsdtForWalletNetwork(network: string | null | undefined): Promise<number> {
+  const [policy, hq] = await Promise.all([getGasNetworkPolicy(), getHqTransactionFees()]);
+  return gasFeeUsdtForNetwork(policy, network, hq.gasFeeUsdt);
 }
 
 export function totalFixedFeesUsdt(grossUsdt: number, fees: TransactionFees): number {

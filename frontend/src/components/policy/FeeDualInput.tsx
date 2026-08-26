@@ -1,7 +1,7 @@
 'use client';
 
 import { useT } from '@/context/LocaleProvider';
-import type { FeeMode, TransactionFees } from '@/lib/api';
+import type { TransactionFees } from '@/lib/api';
 import { PolicyNumberInput } from '@/components/policy/PolicyNumberInput';
 import { PolicyCellValue } from '@/components/policy/PolicyCellValue';
 import {
@@ -18,17 +18,44 @@ type FeeDualInputProps = {
   fees: Partial<TransactionFees>;
   editing: boolean;
   onChange: (patch: Partial<TransactionFees>) => void;
+  /** 기타 수수료: %와 고정을 동시에 과금 */
+  stackBoth?: boolean;
 };
 
-export function FeeDualInput({ feeKey, fees, editing, onChange }: FeeDualInputProps) {
+export function FeeDualInput({ feeKey, fees, editing, onChange, stackBoth }: FeeDualInputProps) {
   const t = useT();
   const component = readFeeComponent(fees, feeKey);
   const modeField = feeModeField(feeKey);
   const percentField = feePercentField(feeKey);
   const fixedField = feeFixedField(feeKey);
+  const both = stackBoth || feeKey === 'other';
 
   if (!editing) {
     return <PolicyCellValue>{formatFeeComponentLabel(fees, feeKey)}</PolicyCellValue>;
+  }
+
+  if (both) {
+    return (
+      <div className="min-w-[9rem] space-y-1">
+        <p className="text-[10px] font-semibold text-slate-500">{t('hq.commission.otherFeeBoth')}</p>
+        <div className="grid grid-cols-2 gap-1">
+          <PolicyNumberInput
+            min={0}
+            max={100}
+            value={component.percent}
+            onChange={(percent) => onChange({ [percentField]: percent })}
+            className="pg-input w-full text-xs"
+          />
+          <PolicyNumberInput
+            min={0}
+            value={component.fixedUsdt}
+            onChange={(fixedUsdt) => onChange({ [fixedField]: fixedUsdt })}
+            className="pg-input w-full text-xs"
+          />
+        </div>
+        <p className="text-[10px] text-slate-500">% / USDT</p>
+      </div>
+    );
   }
 
   return (

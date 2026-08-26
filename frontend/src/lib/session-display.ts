@@ -16,6 +16,7 @@ export type SessionUserRef = {
 
 const SYSTEM_USER_NAMES: Record<string, MessageKey> = {
   '총본사 관리자': 'role.SUPER_ADMIN',
+  '총괄관리자': 'role.SUPER_ADMIN',
   '영업점 직원': 'role.ORG_STAFF',
 };
 

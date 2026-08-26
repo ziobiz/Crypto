@@ -1,10 +1,12 @@
 'use client';
 
-import { useT } from '@/context/LocaleProvider';
+import { useT, useLocale } from '@/context/LocaleProvider';
+import { useWorkflowDisplay } from '@/context/WorkflowDisplayProvider';
 import type { MessageKey } from '@/i18n/messages';
 
 const STATUS_KEYS: Record<string, MessageKey> = {
   APPLICATION_COMPLETED: 'status.APPLICATION_COMPLETED',
+  CARD_PAYMENT_PENDING: 'status.CARD_PAYMENT_PENDING',
   DEPOSIT_PROOF_PENDING: 'status.DEPOSIT_PROOF_PENDING',
   ADMIN_REVIEWING: 'status.ADMIN_REVIEWING',
   TRANSFER_IN_PROGRESS: 'status.TRANSFER_IN_PROGRESS',
@@ -26,6 +28,7 @@ const STATUS_KEYS: Record<string, MessageKey> = {
 
 const STATUS_BADGE: Record<string, string> = {
   APPLICATION_COMPLETED: 'pg-badge-info',
+  CARD_PAYMENT_PENDING: 'pg-badge-warn',
   DEPOSIT_PROOF_PENDING: 'pg-badge-warn',
   ADMIN_REVIEWING: 'pg-badge-warn',
   TRANSFER_IN_PROGRESS: 'pg-badge-progress',
@@ -45,10 +48,18 @@ const STATUS_BADGE: Record<string, string> = {
   DISPUTED: 'pg-badge-error',
 };
 
-export function StatusBadge({ status }: { status: string }) {
+export function StatusBadge({ status, kind }: { status: string; kind?: 'usdt' | 'escrow' }) {
   const t = useT();
+  const { locale } = useLocale();
+  const wf = useWorkflowDisplay();
+  const fromHq =
+    kind === 'escrow'
+      ? wf?.escrowStatusLabels[status]?.[locale]
+      : kind === 'usdt'
+        ? wf?.usdtStatusLabels[status]?.[locale]
+        : wf?.usdtStatusLabels[status]?.[locale] ?? wf?.escrowStatusLabels[status]?.[locale];
   const key = STATUS_KEYS[status];
-  const label = key ? t(key) : status;
+  const label = (fromHq && fromHq.trim()) || (key ? t(key) : status);
   const tone = STATUS_BADGE[status] ?? 'pg-badge-muted';
 
   return <span className={`pg-badge ${tone}`}>{label}</span>;

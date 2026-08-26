@@ -10,6 +10,7 @@ const SUB_TABS: { href: string; labelKey: MessageKey }[] = [
   { href: '/dashboard/hq-policy/ops/updates', labelKey: 'hq.ops.updatesContent' },
   { href: '/dashboard/hq-policy/ops/release-history', labelKey: 'hq.ops.releaseHistory' },
   { href: '/dashboard/hq-policy/ops/payment', labelKey: 'hq.ops.paymentManagement' },
+  { href: '/dashboard/hq-policy/ops/workflow', labelKey: 'hq.ops.workflow' },
 ];
 
 export default function HqOpsLayout({ children }: { children: React.ReactNode }) {

@@ -10,6 +10,9 @@ import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
 import { AuthUser } from '../types/auth';
 import { previewCommissionPool, settleCommission } from './commission.service';
+import { getWorkflowDisplay } from './workflow-display.service';
+import { assertCustomerKycApproved } from './kyc.service';
+import { computeExpectedCompleteAt, type HqSlaConfig } from '../constants/hq-policy';
 import {
   acceptanceDeadlineKst,
   classifyEscrowTier,
@@ -177,11 +180,16 @@ export async function previewEscrowFees(user: AuthUser, amount: number, currency
   }
   const customer = await prisma.customerProfile.findUnique({
     where: { id: user.customerProfileId },
-    select: { recruitingOrgId: true },
+    select: { recruitingOrgId: true, feeShare: true },
   });
   if (!customer) throw new AppError(404, 'Customer profile not found', 'NOT_FOUND');
 
-  const preview = await previewCommissionPool(customer.recruitingOrgId, TicketType.TRADE_ESCROW, amount);
+  const preview = await previewCommissionPool(
+    customer.recruitingOrgId,
+    TicketType.TRADE_ESCROW,
+    amount,
+    customer.feeShare,
+  );
   return {
     amount,
     currency,
@@ -211,6 +219,7 @@ export async function createTradeEscrowTicket(
   if (user.role !== UserRole.CUSTOMER || !user.customerProfileId) {
     throw new AppError(403, 'Only customers can create escrow tickets', 'FORBIDDEN');
   }
+  await assertCustomerKycApproved(user.id);
   if (!input.disclaimerAccepted) {
     throw new AppError(400, 'Disclaimer must be accepted', 'VALIDATION_ERROR');
   }
@@ -222,6 +231,7 @@ export async function createTradeEscrowTicket(
   if (counterparty.id === user.id) {
     throw new AppError(400, 'Buyer and seller must be different', 'VALIDATION_ERROR');
   }
+  await assertCustomerKycApproved(counterparty.id);
 
   const buyerId = input.myRole === 'BUYER' ? user.id : counterparty.id;
   const sellerId = input.myRole === 'SELLER' ? user.id : counterparty.id;
@@ -251,12 +261,13 @@ export async function createTradeEscrowTicket(
 
   const applicantProfile = await prisma.customerProfile.findUniqueOrThrow({
     where: { id: user.customerProfileId },
-    select: { recruitingOrgId: true },
+    select: { recruitingOrgId: true, feeShare: true },
   });
   const feePreview = await previewCommissionPool(
     applicantProfile.recruitingOrgId,
     TicketType.TRADE_ESCROW,
     input.amount,
+    applicantProfile.feeShare,
   );
 
   const initiatorIsBuyer = input.myRole === 'BUYER';
@@ -316,7 +327,7 @@ export async function createTradeEscrowTicket(
     });
   });
 
-  return serializeEscrowTicket(ticket);
+  return serializeEscrowTicket(ticket, (await getWorkflowDisplay()).sla);
 }
 
 export async function acceptEscrowParty(
@@ -367,7 +378,7 @@ export async function acceptEscrowParty(
     });
   });
 
-  return serializeEscrowTicket(updated);
+  return serializeEscrowTicket(updated, (await getWorkflowDisplay()).sla);
 }
 
 export async function rejectEscrowParty(user: AuthUser, ticketId: string, reason?: string) {
@@ -404,7 +415,7 @@ export async function rejectEscrowParty(user: AuthUser, ticketId: string, reason
     });
   });
 
-  return serializeEscrowTicket(updated);
+  return serializeEscrowTicket(updated, (await getWorkflowDisplay()).sla);
 }
 
 export async function openEscrowDeposit(user: AuthUser, ticketId: string) {
@@ -439,7 +450,7 @@ export async function openEscrowDeposit(user: AuthUser, ticketId: string) {
       include: ESCROW_INCLUDE,
     });
   });
-  return serializeEscrowTicket(updated);
+  return serializeEscrowTicket(updated, (await getWorkflowDisplay()).sla);
 }
 
 export async function startEscrowShipping(user: AuthUser, ticketId: string) {
@@ -486,7 +497,7 @@ export async function startEscrowShipping(user: AuthUser, ticketId: string) {
       include: ESCROW_INCLUDE,
     });
   });
-  return serializeEscrowTicket(updated);
+  return serializeEscrowTicket(updated, (await getWorkflowDisplay()).sla);
 }
 
 export async function approveEscrowReceipt(
@@ -530,7 +541,7 @@ export async function approveEscrowReceipt(
       include: ESCROW_INCLUDE,
     });
   });
-  return serializeEscrowTicket(updated);
+  return serializeEscrowTicket(updated, (await getWorkflowDisplay()).sla);
 }
 
 export async function listTradeEscrowTickets(user: AuthUser) {
@@ -540,7 +551,8 @@ export async function listTradeEscrowTickets(user: AuthUser) {
     include: ESCROW_INCLUDE,
     orderBy: { createdAt: 'desc' },
   });
-  return tickets.map(serializeEscrowTicket);
+  const sla = (await getWorkflowDisplay()).sla;
+  return tickets.map((row) => serializeEscrowTicket(row, sla));
 }
 
 export async function getTradeEscrowTicket(user: AuthUser, ticketId: string) {
@@ -551,7 +563,7 @@ export async function getTradeEscrowTicket(user: AuthUser, ticketId: string) {
     include: ESCROW_INCLUDE,
   });
   if (!ticket) throw new AppError(404, 'Ticket not found', 'NOT_FOUND');
-  return serializeEscrowTicket(ticket);
+  return serializeEscrowTicket(ticket, (await getWorkflowDisplay()).sla);
 }
 
 export async function getEscrowDepositContext(user: AuthUser, ticketId: string) {
@@ -676,7 +688,7 @@ export async function transitionTradeEscrowStatus(
       include: ESCROW_INCLUDE,
     });
   });
-  return serializeEscrowTicket(updated);
+  return serializeEscrowTicket(updated, (await getWorkflowDisplay()).sla);
 }
 
 async function loadEscrowDetail(ticketId: string) {
@@ -702,8 +714,14 @@ function serializeParty(user: {
 
 function serializeEscrowTicket(
   ticket: Prisma.TransactionTicketGetPayload<{ include: typeof ESCROW_INCLUDE }>,
+  sla: HqSlaConfig,
 ) {
   const detail = ticket.tradeEscrow!;
+  const expectedCompleteAt = computeExpectedCompleteAt(ticket.createdAt, sla).toISOString();
+  const completed =
+    detail.status === TradeEscrowStatus.ESCROW_COMPLETED
+      ? (detail.payoutProcessedAt ?? ticket.commissionSettledAt ?? ticket.updatedAt)
+      : null;
   return {
     id: ticket.id,
     ticketNo: ticket.ticketNo,
@@ -712,6 +730,8 @@ function serializeEscrowTicket(
     commissionSettledAt: ticket.commissionSettledAt,
     createdAt: ticket.createdAt,
     updatedAt: ticket.updatedAt,
+    expectedCompleteAt,
+    completedAt: completed ? completed.toISOString() : null,
     customer: ticket.customer,
     status: detail.status,
     tradeTier: detail.tradeTier,

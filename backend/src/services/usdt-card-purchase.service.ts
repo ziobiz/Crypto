@@ -33,6 +33,8 @@ import {
   USDT_PURCHASE_INCLUDE,
   serializeTicket,
 } from './usdt-purchase.service';
+import { getWorkflowDisplay } from './workflow-display.service';
+import { assertCustomerKycApproved } from './kyc.service';
 
 function generateTicketNo(): string {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
@@ -43,9 +45,10 @@ function generateTicketNo(): string {
 }
 
 export async function getUsdtCardPaymentContext(user: AuthUser) {
-  const [card, icopay] = await Promise.all([
+  const [card, icopay, currencyTrade] = await Promise.all([
     getCardPaymentConfig(),
     import('./card-payment-policy.service').then((m) => m.getIcopayConfigMasked()),
+    hqPolicyService.getUsdtCurrencyTradePolicy(),
   ]);
   const dbUser =
     user.role === UserRole.CUSTOMER
@@ -59,6 +62,7 @@ export async function getUsdtCardPaymentContext(user: AuthUser) {
     enabled: card.enabled && icopay.enabled && Boolean(icopay.mid),
     cardFeePercent: card.cardFeePercent,
     limits: card.limits,
+    currencyTrade,
     icopayConfigured: Boolean(icopay.mid),
     userPhone: dbUser?.phone ?? null,
     userPhoneCountryCode: dbUser?.phoneCountryCode ?? null,
@@ -80,6 +84,8 @@ export async function previewUsdtCardFees(
   if (!cardConfig.enabled) {
     throw new AppError(503, 'Card payment is not enabled', 'CARD_DISABLED');
   }
+  const currencyForPolicy = input.fiatCurrency ?? 'JPY';
+  await hqPolicyService.assertUsdtFiatMethodEnabled(currencyForPolicy, 'CARD');
 
   if (input.cardChargeFiat != null && input.cardChargeFiat > 0) {
     const { cardFeeFiat, fiatForConversion } = splitCardCharge(
@@ -156,6 +162,7 @@ export async function createUsdtCardPurchase(
   if (user.role !== UserRole.CUSTOMER || !user.customerProfileId) {
     throw new AppError(403, 'Only customers can create purchase tickets', 'FORBIDDEN');
   }
+  await assertCustomerKycApproved(user.id);
   if (!input.cardWaiverAccepted) {
     throw new AppError(400, 'Card payment waiver must be accepted', 'WAIVER_REQUIRED');
   }
@@ -182,6 +189,7 @@ export async function createUsdtCardPurchase(
 
   const sessionPolicy = await hqPolicyService.getSessionPolicy();
   const currency = input.fiatCurrency ?? sessionPolicy.defaultUsdtFiatCurrency ?? 'JPY';
+  await hqPolicyService.assertUsdtFiatMethodEnabled(currency, 'CARD');
   const { rate, source, fetchedAt } = await fetchUsdtFiatRate(currency);
 
   let fiatAmount: number;
@@ -338,7 +346,7 @@ export async function createUsdtCardPurchase(
       });
     });
 
-    return serializeTicket(updated);
+    return serializeTicket(updated, (await getWorkflowDisplay()).sla);
   } catch (err) {
     const reason = err instanceof AppError ? err.message : 'Card payment failed';
     await prisma.$transaction(async (tx) => {

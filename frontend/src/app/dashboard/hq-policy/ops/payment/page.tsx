@@ -7,6 +7,7 @@ import { PolicyNumberInput } from '@/components/policy/PolicyNumberInput';
 import { FormattedAmountInput } from '@/components/FormattedAmountInput';
 import { PolicyTableActions } from '@/components/policy/PolicyTableActions';
 import { IcopayConfigPanel } from '@/components/hq-policy/IcopayConfigPanel';
+import { CurfexConfigPanel } from '@/components/hq-policy/CurfexConfigPanel';
 
 const CURRENCIES: SymbolFeeCurrency[] = ['KRW', 'JPY', 'THB', 'CNY', 'USD'];
 
@@ -167,6 +168,7 @@ export default function HqPaymentManagementPage() {
       </div>
 
       <IcopayConfigPanel />
+      <CurfexConfigPanel />
     </div>
   );
 }

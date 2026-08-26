@@ -33,5 +33,5 @@ export async function findUserByLoginEmail(email: string) {
     }
   }
 
-  return user;
+  return user && !user.deletedAt ? user : null;
 }

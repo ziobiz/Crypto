@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { formatAmountInput, parseAmountInput } from '@/lib/format';
+import { formatAmountInput, parseAmountInput, parseDecimalAmountInput } from '@/lib/format';
 
 type FormattedAmountInputProps = {
   value: number;
@@ -13,6 +13,7 @@ type FormattedAmountInputProps = {
   commitOnBlur?: boolean;
   disabled?: boolean;
   readOnly?: boolean;
+  allowDecimal?: boolean;
 };
 
 /** 천 단위 콤마 — number 스피너·휠 증감 없음 */
@@ -25,6 +26,7 @@ export function FormattedAmountInput({
   commitOnBlur = false,
   disabled = false,
   readOnly = false,
+  allowDecimal = false,
 }: FormattedAmountInputProps) {
   const [focused, setFocused] = useState(false);
   const [draft, setDraft] = useState('');
@@ -38,7 +40,7 @@ export function FormattedAmountInput({
   return (
     <input
       type="text"
-      inputMode="numeric"
+      inputMode={allowDecimal ? 'decimal' : 'numeric'}
       autoComplete="off"
       placeholder={placeholder}
       className={className}
@@ -53,12 +55,23 @@ export function FormattedAmountInput({
       onBlur={() => {
         if (disabled || readOnly) return;
         setFocused(false);
-        const next = Math.max(min, parseAmountInput(draft));
+        const next = Math.max(min, allowDecimal ? parseDecimalAmountInput(draft) : parseAmountInput(draft));
         onChange(next);
         setDraft(formatAmountInput(next));
       }}
       onChange={(e) => {
         if (disabled || readOnly) return;
+        if (allowDecimal) {
+          const raw = e.target.value.replace(/,/g, '').replace(/[^\d.]/g, '');
+          const parts = raw.split('.');
+          const normalized =
+            parts.length > 1 ? `${parts[0]}.${parts.slice(1).join('').slice(0, 8)}` : parts[0];
+          setDraft(normalized);
+          if (!commitOnBlur) {
+            onChange(Math.max(min, parseDecimalAmountInput(normalized)));
+          }
+          return;
+        }
         const digits = e.target.value.replace(/[^\d]/g, '');
         const formatted = digits ? formatAmountInput(Number(digits)) : '';
         setDraft(formatted);

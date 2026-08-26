@@ -6,6 +6,14 @@ import { api, Wallet } from '@/lib/api';
 import { WALLET_NETWORKS } from '@/constants/wallet-networks';
 import { ContentCard } from '@/components/layout/ContentCard';
 import { PolicyNumberInput } from '@/components/policy/PolicyNumberInput';
+import { displayWalletLabel } from '@/lib/wallet-label';
+import {
+  MobileStackCard,
+  MobileStackEmpty,
+  MobileStackField,
+  MobileStackFields,
+  MobileStackList,
+} from '@/components/layout/MobileStackList';
 
 const emptyForm = {
   label: '',
@@ -64,7 +72,29 @@ export default function WalletsPage() {
     <div className="pg-stack">
       <p className="pg-hint">{t('wallets.subtitle')}</p>
 
-      <div className="pg-card pg-table-wrap">
+      <MobileStackList>
+        {wallets.map((w) => (
+          <MobileStackCard key={w.id}>
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-left text-sm font-semibold">{displayWalletLabel(w.label, t)}</p>
+              {w.isDefault ? (
+                <span className="pg-badge pg-badge-info shrink-0">{t('wallets.default')}</span>
+              ) : null}
+            </div>
+            <MobileStackFields>
+              <MobileStackField label={t('wallets.address')} wide>
+                <span className="font-mono text-xs">{w.address}</span>
+              </MobileStackField>
+              <MobileStackField label={t('wallets.col.fees')} wide>
+                {feeSummary(w)}
+              </MobileStackField>
+            </MobileStackFields>
+          </MobileStackCard>
+        ))}
+        {wallets.length === 0 && <MobileStackEmpty>{t('wallets.empty')}</MobileStackEmpty>}
+      </MobileStackList>
+
+      <div className="pg-card pg-table-wrap hidden md:block">
         <table className="pg-table">
           <thead>
             <tr>
@@ -77,7 +107,7 @@ export default function WalletsPage() {
           <tbody>
             {wallets.map((w) => (
               <tr key={w.id}>
-                <td className="font-medium">{w.label ?? t('wallets.defaultLabel')}</td>
+                <td className="font-medium">{displayWalletLabel(w.label, t)}</td>
                 <td className="font-mono text-xs sm:text-sm">{w.address}</td>
                 <td className="pg-muted text-xs">{feeSummary(w)}</td>
                 <td>
@@ -156,6 +186,7 @@ export default function WalletsPage() {
                 onChange={(n) => setForm({ ...form, gasFeeAmount: String(n) })}
                 className="pg-input mt-1 w-full"
               />
+              <span className="pg-hint mt-1 block">{t('wallets.gasFeeHint')}</span>
             </label>
             <label className="block">
               <span className="pg-label">{t('wallets.transferFee')}</span>

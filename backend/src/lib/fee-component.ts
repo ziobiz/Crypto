@@ -32,8 +32,22 @@ export function computeFeeUsdt(
   return Number(fixedUsdt.toFixed(8));
 }
 
+/** 기타 수수료: %와 고정을 각각 있으면 둘 다 과금 */
+export function computeOtherFeeUsdt(grossUsdt: number, percent: number, fixedUsdt: number): number {
+  const fromPct = percent > 0 ? (grossUsdt * percent) / 100 : 0;
+  const fromFixed = fixedUsdt > 0 ? fixedUsdt : 0;
+  return Number((fromPct + fromFixed).toFixed(8));
+}
+
 export function formatFeeRateLabel(mode: FeeMode, percent: number, fixedUsdt: number): string {
   return mode === 'percent' ? `${percent}%` : `${fixedUsdt} USDT`;
+}
+
+export function formatOtherFeeRateLabel(percent: number, fixedUsdt: number): string {
+  const parts: string[] = [];
+  if (percent > 0) parts.push(`${percent}%`);
+  if (fixedUsdt > 0) parts.push(`${fixedUsdt} USDT`);
+  return parts.length ? parts.join(' + ') : '0';
 }
 
 export function readFeeComponent(fees: TransactionFees, key: FeeComponentKey) {
@@ -50,7 +64,10 @@ export function computeFeeAmounts(
   const out = {} as Record<`${FeeComponentKey}FeeUsdt`, number>;
   for (const key of FEE_KEYS) {
     const { mode, percent, fixedUsdt } = readFeeComponent(fees, key);
-    out[`${key}FeeUsdt`] = computeFeeUsdt(grossUsdt, mode, percent, fixedUsdt);
+    out[`${key}FeeUsdt`] =
+      key === 'other'
+        ? computeOtherFeeUsdt(grossUsdt, percent, fixedUsdt)
+        : computeFeeUsdt(grossUsdt, mode, percent, fixedUsdt);
   }
   return out;
 }
@@ -59,7 +76,7 @@ export function percentMultiplierSum(fees: TransactionFees, extraPercent = 0): n
   let sum = extraPercent;
   for (const key of FEE_KEYS) {
     const { mode, percent } = readFeeComponent(fees, key);
-    if (mode === 'percent') sum += percent;
+    if (key === 'other' || mode === 'percent') sum += percent;
   }
   return sum;
 }
@@ -68,7 +85,7 @@ export function fixedFeeSum(fees: TransactionFees): number {
   let sum = 0;
   for (const key of FEE_KEYS) {
     const { mode, fixedUsdt } = readFeeComponent(fees, key);
-    if (mode === 'fixed') sum += fixedUsdt;
+    if (key === 'other' || mode === 'fixed') sum += fixedUsdt;
   }
   return sum;
 }

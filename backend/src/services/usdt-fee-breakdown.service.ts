@@ -19,6 +19,7 @@ type WalletFeeSource = {
   transferFeeAmount?: unknown;
   otherFeeAmount?: unknown;
   platformFeeAmount?: unknown;
+  network?: unknown;
 };
 
 export type ResolvedTransactionFees = TransactionFees & {
@@ -109,20 +110,44 @@ export function breakdownFromFiat(
   };
 }
 
+function finiteNum(value: unknown, fallback = 0): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 export function breakdownFromTarget(
   targetUsdt: number,
   exchangeRate: number,
   fees: ResolvedTransactionFees,
 ): UsdtFeeBreakdownDetail {
-  const premiumPct = fees.localPremiumPercent ?? fees.kimchiPremiumPercent ?? 0;
-  const pctSum = percentMultiplierSum(fees, premiumPct);
-  const fixed = fixedFeeSum(fees);
+  const want = finiteNum(targetUsdt);
+  const rate = finiteNum(exchangeRate);
+  const premiumPct = finiteNum(fees.localPremiumPercent ?? fees.kimchiPremiumPercent ?? 0);
+  const pctSum = finiteNum(percentMultiplierSum(fees, premiumPct));
+  const fixed = finiteNum(fixedFeeSum(fees));
   const denom = 1 - pctSum / 100;
-  const grossUsdt = denom > 0 ? (targetUsdt + fixed) / denom : targetUsdt + fixed;
-  return breakdownFromFiat(grossUsdt * exchangeRate, exchangeRate, {
+  if (!(denom > 0.0001) || !(rate > 0) || want <= 0) {
+    return breakdownFromFiat(0, rate, {
+      ...fees,
+      localPremiumPercent: premiumPct,
+      kimchiPremiumPercent: premiumPct,
+    });
+  }
+  const grossUsdt = (want + fixed) / denom;
+  const fiat = finiteNum(grossUsdt * rate);
+  const detail = breakdownFromFiat(fiat, rate, {
     ...fees,
+    localPremiumPercent: premiumPct,
+    kimchiPremiumPercent: premiumPct,
     baseOtherFeeUsdt: computeFeeAmounts(grossUsdt, fees).otherFeeUsdt,
   });
+  return {
+    ...detail,
+    targetUsdt: want,
+    netUsdt: finiteNum(detail.netUsdt),
+    requiredFiat: finiteNum(detail.requiredFiat),
+    grossUsdt: finiteNum(detail.grossUsdt),
+  };
 }
 
 export async function resolveFeesForPurchase(
@@ -134,9 +159,13 @@ export async function resolveFeesForPurchase(
   const base = await resolveFeesForAmount(wallet, currency, fiatAmount);
   if (!isLocalPremiumCurrency(currency)) return base;
 
-  const premium = await getLocalMarketPremiumAnalysis(currency);
-  const grossUsdt = fiatAmount > 0 && exchangeRate > 0 ? fiatAmount / exchangeRate : 0;
-  return withLocalPremium(base, premium, grossUsdt);
+  try {
+    const premium = await getLocalMarketPremiumAnalysis(currency);
+    const grossUsdt = fiatAmount > 0 && exchangeRate > 0 ? fiatAmount / exchangeRate : 0;
+    return withLocalPremium(base, premium, grossUsdt);
+  } catch {
+    return base;
+  }
 }
 
 export async function getLocalPremiumContext(currency: LocalPremiumCurrency) {

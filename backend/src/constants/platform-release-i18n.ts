@@ -14,8 +14,11 @@ export const AUTO_RELEASE_ENTITY_LEVEL: Record<string, ReleaseChangeLevel> = {
   HQ_FEE_TIERS: 'MINOR',
   HQ_EXCHANGE_RATE_SOURCES: 'MINOR',
   HQ_COMMISSION_RATES: 'MINOR',
+  HQ_ORG_SHARE: 'MINOR',
+  HQ_WORKFLOW_DISPLAY: 'MINOR',
   HQ_PLATFORM_EMAIL: 'MINOR',
   HQ_PLATFORM_BRANDING: 'PATCH',
+  HQ_CURFEX: 'MINOR',
 };
 
 export const AUTO_RELEASE_ENTITY_TYPES = new Set(Object.keys(AUTO_RELEASE_ENTITY_LEVEL));
@@ -29,8 +32,11 @@ const ENTITY_LABEL: Record<ReleaseLocale, Record<string, string>> = {
     HQ_FEE_TIERS: '수수료 구간',
     HQ_EXCHANGE_RATE_SOURCES: '기준가 소스',
     HQ_COMMISSION_RATES: '조직 수수료 요율',
+    HQ_ORG_SHARE: '단계별 수수료 배분',
+    HQ_WORKFLOW_DISPLAY: '진행상태·처리시한',
     HQ_PLATFORM_EMAIL: '이메일·OTP',
     HQ_PLATFORM_BRANDING: '브랜딩',
+    HQ_CURFEX: 'CURFEX Collection',
   },
   US: {
     HQ_ACCESS_MATRIX: 'Access & permissions',
@@ -40,8 +46,11 @@ const ENTITY_LABEL: Record<ReleaseLocale, Record<string, string>> = {
     HQ_FEE_TIERS: 'Fee tiers',
     HQ_EXCHANGE_RATE_SOURCES: 'Rate sources',
     HQ_COMMISSION_RATES: 'Commission rates',
+    HQ_ORG_SHARE: 'Org share defaults',
+    HQ_WORKFLOW_DISPLAY: 'Status labels & SLA',
     HQ_PLATFORM_EMAIL: 'Email & OTP',
     HQ_PLATFORM_BRANDING: 'Branding',
+    HQ_CURFEX: 'CURFEX Collection',
   },
   JP: {
     HQ_ACCESS_MATRIX: 'アクセス·権限',
@@ -51,8 +60,11 @@ const ENTITY_LABEL: Record<ReleaseLocale, Record<string, string>> = {
     HQ_FEE_TIERS: '手数料区間',
     HQ_EXCHANGE_RATE_SOURCES: '基準価ソース',
     HQ_COMMISSION_RATES: '組織手数料率',
+    HQ_ORG_SHARE: '階層手数料配分',
+    HQ_WORKFLOW_DISPLAY: '進捗表示·処理時限',
     HQ_PLATFORM_EMAIL: 'メール·OTP',
     HQ_PLATFORM_BRANDING: 'ブランディング',
+    HQ_CURFEX: 'CURFEX Collection',
   },
   CH: {
     HQ_ACCESS_MATRIX: '访问权限',
@@ -62,8 +74,11 @@ const ENTITY_LABEL: Record<ReleaseLocale, Record<string, string>> = {
     HQ_FEE_TIERS: '手续费区间',
     HQ_EXCHANGE_RATE_SOURCES: '基准价来源',
     HQ_COMMISSION_RATES: '组织手续费率',
+    HQ_ORG_SHARE: '层级手续费分配',
+    HQ_WORKFLOW_DISPLAY: '进度状态·处理时限',
     HQ_PLATFORM_EMAIL: '邮件OTP',
     HQ_PLATFORM_BRANDING: '品牌',
+    HQ_CURFEX: 'CURFEX Collection',
   },
   TH: {
     HQ_ACCESS_MATRIX: 'การเข้าถึง·สิทธิ์',
@@ -73,8 +88,11 @@ const ENTITY_LABEL: Record<ReleaseLocale, Record<string, string>> = {
     HQ_FEE_TIERS: 'ช่วงค่าธรรมเนียม',
     HQ_EXCHANGE_RATE_SOURCES: 'แหล่งอัตรา',
     HQ_COMMISSION_RATES: 'อัตราค่าคอมมิชชัน',
+    HQ_ORG_SHARE: 'การแบ่งค่าธรรมเนียมตามชั้น',
+    HQ_WORKFLOW_DISPLAY: 'ข้อความสถานะ·เวลาดำเนินการ',
     HQ_PLATFORM_EMAIL: 'อีเมล·OTP',
     HQ_PLATFORM_BRANDING: 'แบรนด์',
+    HQ_CURFEX: 'CURFEX Collection',
   },
 };
 

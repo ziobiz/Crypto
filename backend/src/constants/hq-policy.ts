@@ -13,19 +13,31 @@ export const HQ_ORG_LEVELS = [
 
 export type HqOrgLevel = (typeof HQ_ORG_LEVELS)[number];
 
+/** 본사권한 열: 조직 단계 + 고객사 */
+export const HQ_ACCESS_ACTORS = [...HQ_ORG_LEVELS, 'CUSTOMER'] as const;
+export type HqAccessActor = (typeof HQ_ACCESS_ACTORS)[number];
+
 /** 사이드바·본사권한설정 공통 페이지 카탈로그 */
 export const HQ_PAGE_CATALOG = [
   { path: '/dashboard', label: '대시보드', group: '업무' },
+  { path: '/dashboard/simulator', label: 'USDT 시뮬레이터', group: '업무' },
+  { path: '/dashboard/simulator-logs', label: '기록 시뮬레이터', group: '본사정책' },
+  { path: '/dashboard/hq-policy/cost-analysis', label: '거래분석', group: '본사정책' },
+  { path: '/dashboard/hq-policy/profit-analysis', label: '수익분석', group: '본사정책' },
   { path: '/dashboard/usdt', label: 'USDT 매입', group: '업무' },
   { path: '/dashboard/escrow', label: '무역 에스크로', group: '업무' },
   { path: '/dashboard/ledger', label: '수수료 장부', group: '업무' },
   { path: '/dashboard/wallets', label: '내 지갑', group: '업무' },
+  { path: '/dashboard/kyc', label: '인증센터', group: '업무' },
   { path: '/dashboard/users', label: '사용자관리', group: '사용자관리' },
+  { path: '/dashboard/customers', label: '고객관리', group: '사용자관리' },
   { path: '/dashboard/hq-policy/access', label: '접근·권한', group: '본사정책' },
   { path: '/dashboard/hq-policy/org-columns', label: '조직·화면', group: '본사정책' },
   { path: '/dashboard/hq-policy/commission', label: '수수료·리스크', group: '본사정책' },
   { path: '/dashboard/hq-policy/platform', label: '플랫폼', group: '본사정책' },
   { path: '/dashboard/hq-policy/ops', label: '운영관리', group: '본사정책' },
+  { path: '/dashboard/hq-policy/ops/workflow', label: '진행상태·처리시한', group: '본사정책' },
+  { path: '/dashboard/hq-policy/deletion', label: '삭제관리', group: '본사정책' },
 ] as const;
 
 /** 그리드 열 카탈로그 (조직항목설정) */
@@ -40,6 +52,7 @@ export const HQ_VIEW_COLUMN_CATALOG: Record<
     { key: 'amount', label: '금액' },
     { key: 'currency', label: '통화' },
     { key: 'createdAt', label: '신청일' },
+    { key: 'expectedComplete', label: '예상완료일' },
     { key: 'updatedAt', label: '최종변경' },
   ],
   '/dashboard/escrow': [
@@ -50,6 +63,7 @@ export const HQ_VIEW_COLUMN_CATALOG: Record<
     { key: 'amount', label: '거래금액' },
     { key: 'commissionPool', label: '수수료 풀' },
     { key: 'createdAt', label: '신청일' },
+    { key: 'expectedComplete', label: '예상완료일' },
   ],
   '/dashboard/ledger': [
     { key: 'settledAt', label: '정산일', fixed: true },
@@ -70,9 +84,212 @@ export const HQ_CONFIG_KEYS = {
   emailOtp: 'hq.platform.email_otp',
   icopay: 'hq.platform.icopay',
   cardPayment: 'hq.payment.card',
+  /** Fukugu/CURFEX 일본 이체 Collection (고정계좌 대체 옵션) */
+  curfex: 'hq.payment.curfex',
+  deletion: 'hq.deletion.policy',
+  orgShare: 'hq.commission.org_share',
+  gasNetworks: 'hq.commission.gas_networks',
+  workflowDisplay: 'hq.workflow.display',
 } as const;
 
-export type HqAccessMatrix = Record<HqOrgLevel, Record<string, HqPermissionLevel>>;
+export type HqOrgShareSlice = {
+  /** 수수료 풀에서 가져가는 비율 (%) */
+  poolPercent: number;
+  /** 건당 고정 (USDT) */
+  perTicketUsdt: number;
+};
+
+export type HqOrgShareByType = Record<HqOrgLevel, HqOrgShareSlice>;
+
+export type HqOrgSharePolicy = {
+  /** 에스크로 고객 부담 수수료율 (% of 거래금액). USDT 매입은 티켓 수수료 스냅샷 풀 사용 */
+  escrowFeePercent: number;
+  escrowPerTicketUsdt: number;
+  USDT_PURCHASE: HqOrgShareByType;
+  TRADE_ESCROW: HqOrgShareByType;
+};
+
+export function defaultOrgShareSlice(): HqOrgShareSlice {
+  return { poolPercent: 0, perTicketUsdt: 0 };
+}
+
+export function defaultOrgShareByType(): HqOrgShareByType {
+  return {
+    HEAD_OFFICE: { poolPercent: 40, perTicketUsdt: 0 },
+    MASTER_DISTRIBUTOR: { poolPercent: 25, perTicketUsdt: 0 },
+    REGIONAL_BRANCH: { poolPercent: 15, perTicketUsdt: 0 },
+    AGENCY: { poolPercent: 12, perTicketUsdt: 0 },
+    SALES_OFFICE: { poolPercent: 8, perTicketUsdt: 0 },
+  };
+}
+
+export function defaultOrgSharePolicy(): HqOrgSharePolicy {
+  return {
+    escrowFeePercent: 1.5,
+    escrowPerTicketUsdt: 0,
+    USDT_PURCHASE: defaultOrgShareByType(),
+    TRADE_ESCROW: {
+      HEAD_OFFICE: { poolPercent: 0.6, perTicketUsdt: 0 },
+      MASTER_DISTRIBUTOR: { poolPercent: 0.375, perTicketUsdt: 0 },
+      REGIONAL_BRANCH: { poolPercent: 0.225, perTicketUsdt: 0 },
+      AGENCY: { poolPercent: 0.18, perTicketUsdt: 0 },
+      SALES_OFFICE: { poolPercent: 0.12, perTicketUsdt: 0 },
+    },
+  };
+}
+
+export function roundShareTotal(n: number): number {
+  return Number(n.toFixed(4));
+}
+
+export function sumOrgShareTable(byType: HqOrgShareByType): { poolPercent: number; perTicketUsdt: number } {
+  let poolPercent = 0;
+  let perTicketUsdt = 0;
+  for (const level of HQ_ORG_LEVELS) {
+    const slice = byType[level] ?? { poolPercent: 0, perTicketUsdt: 0 };
+    poolPercent += Number(slice.poolPercent) || 0;
+    perTicketUsdt += Number(slice.perTicketUsdt) || 0;
+  }
+  return { poolPercent: roundShareTotal(poolPercent), perTicketUsdt: roundShareTotal(perTicketUsdt) };
+}
+
+export function escrowShareTotalsMatch(share: {
+  escrowFeePercent: number;
+  escrowPerTicketUsdt: number;
+  TRADE_ESCROW: HqOrgShareByType;
+}): { ok: boolean; expectedPct: number; actualPct: number; expectedUsdt: number; actualUsdt: number } {
+  const expectedPct = roundShareTotal(Number(share.escrowFeePercent) || 0);
+  const expectedUsdt = roundShareTotal(Number(share.escrowPerTicketUsdt) || 0);
+  const actual = sumOrgShareTable(share.TRADE_ESCROW);
+  return {
+    ok: actual.poolPercent === expectedPct && actual.perTicketUsdt === expectedUsdt,
+    expectedPct,
+    actualPct: actual.poolPercent,
+    expectedUsdt,
+    actualUsdt: actual.perTicketUsdt,
+  };
+}
+
+export function assertEscrowShareTotals(share: {
+  escrowFeePercent: number;
+  escrowPerTicketUsdt: number;
+  TRADE_ESCROW: HqOrgShareByType;
+}): void {
+  const check = escrowShareTotalsMatch(share);
+  if (check.ok) return;
+  throw new Error(
+    `ESCROW_SHARE_MISMATCH:${check.expectedPct}:${check.actualPct}:${check.expectedUsdt}:${check.actualUsdt}`,
+  );
+}
+
+export function normalizeOrgSharePolicy(raw: Partial<HqOrgSharePolicy> | null | undefined): HqOrgSharePolicy {
+  const base = defaultOrgSharePolicy();
+  if (!raw) return base;
+  const mergeLevel = (ticket: 'USDT_PURCHASE' | 'TRADE_ESCROW'): HqOrgShareByType => {
+    const src = raw[ticket] ?? base[ticket];
+    const out = { ...base[ticket] };
+    for (const level of HQ_ORG_LEVELS) {
+      const slice = src[level];
+      out[level] = {
+        poolPercent: Number(slice?.poolPercent ?? out[level].poolPercent) || 0,
+        perTicketUsdt: Number(slice?.perTicketUsdt ?? out[level].perTicketUsdt) || 0,
+      };
+    }
+    return out;
+  };
+  return {
+    escrowFeePercent: Number(raw.escrowFeePercent ?? base.escrowFeePercent) || 0,
+    escrowPerTicketUsdt: Number(raw.escrowPerTicketUsdt ?? base.escrowPerTicketUsdt) || 0,
+    USDT_PURCHASE: mergeLevel('USDT_PURCHASE'),
+    TRADE_ESCROW: mergeLevel('TRADE_ESCROW'),
+  };
+}
+
+export type CustomerFeeShare = {
+  escrowFeePercent: number;
+  escrowPerTicketUsdt: number;
+  USDT_PURCHASE: HqOrgShareByType;
+  TRADE_ESCROW: HqOrgShareByType;
+};
+
+export function defaultCustomerFeeShare(policy?: HqOrgSharePolicy | null): CustomerFeeShare {
+  const p = normalizeOrgSharePolicy(policy);
+  return {
+    escrowFeePercent: p.escrowFeePercent,
+    escrowPerTicketUsdt: p.escrowPerTicketUsdt,
+    USDT_PURCHASE: { ...p.USDT_PURCHASE },
+    TRADE_ESCROW: { ...p.TRADE_ESCROW },
+  };
+}
+
+export function customerFeeShareEquals(a: CustomerFeeShare, b: CustomerFeeShare): boolean {
+  if (Number(a.escrowFeePercent) !== Number(b.escrowFeePercent)) return false;
+  if (Number(a.escrowPerTicketUsdt) !== Number(b.escrowPerTicketUsdt)) return false;
+  for (const ticket of ['USDT_PURCHASE', 'TRADE_ESCROW'] as const) {
+    for (const level of HQ_ORG_LEVELS) {
+      const x = a[ticket][level];
+      const y = b[ticket][level];
+      if (Number(x.poolPercent) !== Number(y.poolPercent)) return false;
+      if (Number(x.perTicketUsdt) !== Number(y.perTicketUsdt)) return false;
+    }
+  }
+  return true;
+}
+
+export function persistableCustomerFeeShare(
+  raw: unknown,
+  policy?: HqOrgSharePolicy | null,
+): CustomerFeeShare | null {
+  const normalized = normalizeCustomerFeeShare(raw, policy);
+  const def = defaultCustomerFeeShare(policy);
+  return customerFeeShareEquals(normalized, def) ? null : normalized;
+}
+
+export function normalizeCustomerFeeShare(
+  raw: unknown,
+  policy?: HqOrgSharePolicy | null,
+): CustomerFeeShare {
+  const base = defaultCustomerFeeShare(policy);
+  if (!raw || typeof raw !== 'object') return base;
+  const src = raw as Partial<CustomerFeeShare>;
+  const merge = (ticket: 'USDT_PURCHASE' | 'TRADE_ESCROW'): HqOrgShareByType => {
+    const out = { ...base[ticket] };
+    const part = src[ticket];
+    if (!part) return out;
+    for (const level of HQ_ORG_LEVELS) {
+      const slice = part[level];
+      out[level] = {
+        poolPercent: Number(slice?.poolPercent ?? out[level].poolPercent) || 0,
+        perTicketUsdt: Number(slice?.perTicketUsdt ?? out[level].perTicketUsdt) || 0,
+      };
+    }
+    return out;
+  };
+  return {
+    escrowFeePercent:
+      src.escrowFeePercent === undefined || src.escrowFeePercent === null
+        ? base.escrowFeePercent
+        : Number(src.escrowFeePercent) || 0,
+    escrowPerTicketUsdt:
+      src.escrowPerTicketUsdt === undefined || src.escrowPerTicketUsdt === null
+        ? base.escrowPerTicketUsdt
+        : Number(src.escrowPerTicketUsdt) || 0,
+    USDT_PURCHASE: merge('USDT_PURCHASE'),
+    TRADE_ESCROW: merge('TRADE_ESCROW'),
+  };
+}
+
+export type HqDeletionPolicy = {
+  userRetentionMonths: number;
+  orgRetentionMonths: number;
+};
+
+export const DEFAULT_DELETION_POLICY: HqDeletionPolicy = {
+  userRetentionMonths: 3,
+  orgRetentionMonths: 3,
+};
+
+export type HqAccessMatrix = Record<HqAccessActor, Record<string, HqPermissionLevel>>;
 
 export type HqOrgColumnConfig = Record<
   string,
@@ -148,6 +365,105 @@ export type TransactionFees = {
   otherFeeUsdt: number;
 };
 
+/** USDT 출금 네트워크별 가스피 (고정 USDT) */
+export const GAS_NETWORK_CODES = ['TRC20', 'ERC20', 'BEP20', 'POLYGON', 'ARBITRUM', 'SOL'] as const;
+export type GasNetworkCode = (typeof GAS_NETWORK_CODES)[number];
+
+export const GAS_FEE_GROUPS = ['DEFAULT', 'A', 'B', 'C'] as const;
+export type GasFeeGroupId = (typeof GAS_FEE_GROUPS)[number];
+
+export type HqGasNetworkFees = Record<GasFeeGroupId, number>;
+
+export type HqGasNetworkRow = {
+  code: GasNetworkCode;
+  fees: HqGasNetworkFees;
+};
+
+export type HqGasNetworkPolicy = {
+  activeGroup: GasFeeGroupId;
+  networks: HqGasNetworkRow[];
+};
+
+const DEFAULT_GAS_FEES: Record<GasNetworkCode, number> = {
+  TRC20: 1,
+  ERC20: 8,
+  BEP20: 0.5,
+  POLYGON: 0.3,
+  ARBITRUM: 0.5,
+  SOL: 1,
+};
+
+function emptyGroupFees(base: number): HqGasNetworkFees {
+  const n = Number.isFinite(base) && base >= 0 ? Number(base.toFixed(8)) : 0;
+  return { DEFAULT: n, A: 0, B: 0, C: 0 };
+}
+
+function parseFee(value: unknown, fallback = 0): number {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) return fallback;
+  return Number(n.toFixed(8));
+}
+
+export function defaultGasNetworkPolicy(): HqGasNetworkPolicy {
+  return {
+    activeGroup: 'DEFAULT',
+    networks: GAS_NETWORK_CODES.map((code) => ({
+      code,
+      fees: emptyGroupFees(DEFAULT_GAS_FEES[code]),
+    })),
+  };
+}
+
+export function normalizeGasNetworkPolicy(raw: unknown): HqGasNetworkPolicy {
+  const defaults = defaultGasNetworkPolicy();
+  const byCode = new Map(defaults.networks.map((n) => [n.code, n.fees]));
+  let activeGroup: GasFeeGroupId = 'DEFAULT';
+  if (raw && typeof raw === 'object') {
+    const obj = raw as Partial<HqGasNetworkPolicy> & { networks?: unknown[] };
+    const ag = String(obj.activeGroup ?? '').toUpperCase();
+    if ((GAS_FEE_GROUPS as readonly string[]).includes(ag)) activeGroup = ag as GasFeeGroupId;
+    if (Array.isArray(obj.networks)) {
+      for (const row of obj.networks) {
+        const rec = row as {
+          code?: string;
+          gasFeeUsdt?: unknown;
+          fees?: Partial<HqGasNetworkFees>;
+        };
+        const code = String(rec?.code ?? '') as GasNetworkCode;
+        if (!(GAS_NETWORK_CODES as readonly string[]).includes(code)) continue;
+        const legacy = parseFee(rec.gasFeeUsdt, DEFAULT_GAS_FEES[code]);
+        const prev = byCode.get(code) ?? emptyGroupFees(legacy);
+        byCode.set(code, {
+          DEFAULT: parseFee(rec.fees?.DEFAULT, rec.fees ? prev.DEFAULT : legacy),
+          A: parseFee(rec.fees?.A, 0),
+          B: parseFee(rec.fees?.B, 0),
+          C: parseFee(rec.fees?.C, 0),
+        });
+      }
+    }
+  }
+  return {
+    activeGroup,
+    networks: GAS_NETWORK_CODES.map((code) => ({
+      code,
+      fees: byCode.get(code) ?? emptyGroupFees(DEFAULT_GAS_FEES[code]),
+    })),
+  };
+}
+
+export function gasFeeUsdtForNetwork(
+  policy: HqGasNetworkPolicy,
+  network: string | null | undefined,
+  fallback: number,
+): number {
+  const code = String(network ?? '').toUpperCase();
+  const row = policy.networks.find((n) => n.code === code);
+  if (!row) return Math.max(0, fallback);
+  const fee = row.fees[policy.activeGroup];
+  if (Number.isFinite(fee) && fee >= 0) return fee;
+  return Math.max(0, fallback);
+}
+
 /** USDT 매입 수수료·비용 도식 — 항목별 표시 여부 */
 export type FeeDiagramDisplayConfig = {
   gross: boolean;
@@ -218,6 +534,22 @@ export type ExchangeRateSourceId = (typeof EXCHANGE_RATE_SOURCES)[number];
 
 export type HqExchangeRateSourcePolicy = Record<SymbolFeeCurrency, ExchangeRateSourceId>;
 
+export const USDT_FIAT_CURRENCIES = ['KRW', 'JPY', 'THB', 'CNY'] as const;
+export type UsdtFiatCurrency = (typeof USDT_FIAT_CURRENCIES)[number];
+
+export type DepositReceivingAccount = {
+  bankName: string;
+  accountNumber: string;
+  accountHolder: string;
+  /** 계좌이체 USDT 매입. 미지정 시 true */
+  transferEnabled?: boolean;
+  /** 카드결제 USDT 매입. 미지정 시 true */
+  cardEnabled?: boolean;
+};
+
+export type UsdtCurrencyTradeFlags = { transfer: boolean; card: boolean };
+export type UsdtCurrencyTradePolicy = Record<UsdtFiatCurrency, UsdtCurrencyTradeFlags>;
+
 export type HqPlatformConfig = {
   primaryDomain: string;
   apiPublicUrl: string;
@@ -226,6 +558,8 @@ export type HqPlatformConfig = {
   redirectRootToPrimary: boolean;
   /** 브랜드 카드 — 사이트 이름 (로그인·헤더 표시) */
   siteName: string;
+  /** 브라우저 탭 제목. 비우면 siteName 사용 */
+  tabTitle?: string;
   /** 로그인 후 좌측 메뉴 상단 로고 (/api/branding/logo) */
   logoUrl?: string;
   /** 첫화면(로그인) 우측 패널 상단 로고 (/api/branding/auth-logo) — 로그인 후 로고와 별도 */
@@ -250,13 +584,10 @@ export type HqPlatformConfig = {
   idleTimeoutMinutes?: number;
   /** USDT 매입 기본 구매 통화 */
   defaultUsdtFiatCurrency?: 'KRW' | 'JPY' | 'THB' | 'CNY';
+  /** 시뮬레이터 기록 자동 삭제 보관 개월 (기본 3) */
+  simulatorRetentionMonths?: number;
   /** 고객 입금용 회사 수취 계좌 (통화별) */
-  depositReceivingAccounts?: Partial<
-    Record<
-      'KRW' | 'JPY' | 'THB' | 'CNY',
-      { bankName: string; accountNumber: string; accountHolder: string }
-    >
-  >;
+  depositReceivingAccounts?: Partial<Record<UsdtFiatCurrency, DepositReceivingAccount>>;
 };
 
 /** ICOPAY 카드 결제 연동 (ziobiz/PG) */
@@ -299,6 +630,42 @@ export const DEFAULT_ICOPAY_CONFIG = (): HqIcopayConfig => ({
   sandbox: true,
 });
 
+/**
+ * Fukugu Collection (CURFEX) — 일본 은행이체 수취.
+ * enabled=false 이면 기존 고정 수취계좌 사용 (기본).
+ * enabled=true 이면 JPY 이체 매입 시 API로 건별 계좌 발급.
+ */
+export type HqCurfexConfig = {
+  enabled: boolean;
+  clientId: string;
+  clientSecret: string;
+  apiBaseUrl?: string;
+  walletName?: string;
+  /** 적용 통화 (기본 JPY만) */
+  currencies?: Array<'JPY'>;
+  /** true면 실 API 대신 샌드박스 계좌 생성 */
+  sandbox?: boolean;
+};
+
+export const DEFAULT_CURFEX_CONFIG = (): HqCurfexConfig => ({
+  enabled: false,
+  clientId: '',
+  clientSecret: '',
+  apiBaseUrl: 'https://fcol-dashboard-uat1.curfex.com',
+  walletName: '',
+  currencies: ['JPY'],
+  sandbox: true,
+});
+
+export type CurfexCollectionAccount = {
+  bankName: string;
+  branchCode?: string;
+  branchName?: string;
+  accountType?: string;
+  accountNo: string;
+  accountName: string;
+};
+
 /** PG 본사정책 → 플랫폼 → 이메일·OTP */
 export type HqEmailOtpConfig = {
   otpEnabled: boolean;
@@ -318,3 +685,139 @@ export type HqEmailOtpConfig = {
   /** 거래 완료 시 고객에게 거래명세 이메일 자동 발송 */
   tradeReceiptEmailEnabled: boolean;
 };
+
+export const WORKFLOW_LOCALES = ['KR', 'US', 'JP', 'CH', 'TH'] as const;
+export type WorkflowLocale = (typeof WORKFLOW_LOCALES)[number];
+
+export const USDT_WORKFLOW_STATUSES = [
+  'APPLICATION_COMPLETED',
+  'CARD_PAYMENT_PENDING',
+  'DEPOSIT_PROOF_PENDING',
+  'ADMIN_REVIEWING',
+  'TRANSFER_IN_PROGRESS',
+  'COMPLETED',
+  'CANCELLED',
+] as const;
+
+export const ESCROW_WORKFLOW_STATUSES = [
+  'ESCROW_CREATED',
+  'CONTRACT_CONFIRMED',
+  'BUYER_DEPOSIT_PROOF',
+  'ADMIN_DEPOSIT_CONFIRMED',
+  'SELLER_FULFILLMENT_PROOF',
+  'BUYER_FINAL_APPROVAL',
+  'PAYOUT_SCHEDULED',
+  'ESCROW_COMPLETED',
+  'VOIDED',
+  'CANCELLED',
+  'DISPUTED',
+] as const;
+
+export type LocalizedStatusLabels = Record<WorkflowLocale, string>;
+
+export type HqSlaConfig = {
+  timezone: string;
+  /** ISO weekday 1=Mon … 7=Sun */
+  businessDays: number[];
+  businessStart: string;
+  businessEnd: string;
+  hoursInBusiness: number;
+  hoursAfterHours: number;
+};
+
+export type HqWorkflowDisplayConfig = {
+  usdtStatusLabels: Record<string, LocalizedStatusLabels>;
+  escrowStatusLabels: Record<string, LocalizedStatusLabels>;
+  sla: HqSlaConfig;
+};
+
+function L(kr: string, us: string, jp: string, ch: string, th: string): LocalizedStatusLabels {
+  return { KR: kr, US: us, JP: jp, CH: ch, TH: th };
+}
+
+export function defaultWorkflowDisplay(): HqWorkflowDisplayConfig {
+  return {
+    sla: {
+      timezone: 'Asia/Seoul',
+      businessDays: [1, 2, 3, 4, 5],
+      businessStart: '09:00',
+      businessEnd: '18:00',
+      hoursInBusiness: 3,
+      hoursAfterHours: 12,
+    },
+    usdtStatusLabels: {
+      APPLICATION_COMPLETED: L('접수완료', 'Received', '受付完了', '已受理', 'รับเรื่องแล้ว'),
+      CARD_PAYMENT_PENDING: L('카드결제중', 'Card pending', 'カード決済中', '卡支付中', 'รอชำระบัตร'),
+      DEPOSIT_PROOF_PENDING: L('입금대기', 'Awaiting deposit', '入金待ち', '待入金', 'รอฝากเงิน'),
+      ADMIN_REVIEWING: L('심사중', 'Under review', '審査中', '审核中', 'กำลังตรวจสอบ'),
+      TRANSFER_IN_PROGRESS: L('송금중', 'Transferring', '送金中', '汇款中', 'กำลังโอน'),
+      COMPLETED: L('심사완료', 'Completed', '審査完了', '审核完成', 'ตรวจสอบเสร็จ'),
+      CANCELLED: L('취소', 'Cancelled', 'キャンセル', '已取消', 'ยกเลิก'),
+    },
+    escrowStatusLabels: {
+      ESCROW_CREATED: L('접수완료', 'Received', '受付完了', '已受理', 'รับเรื่องแล้ว'),
+      CONTRACT_CONFIRMED: L('계약확정', 'Contract confirmed', '契約確定', '合同确认', 'ยืนยันสัญญา'),
+      BUYER_DEPOSIT_PROOF: L('입금증빙', 'Deposit proof', '入金証憑', '入金凭证', 'หลักฐานฝาก'),
+      ADMIN_DEPOSIT_CONFIRMED: L('심사중', 'Under review', '審査中', '审核中', 'กำลังตรวจสอบ'),
+      SELLER_FULFILLMENT_PROOF: L('이행중', 'Fulfillment', '履行中', '履约中', 'กำลังปฏิบัติ'),
+      BUYER_FINAL_APPROVAL: L('최종승인대기', 'Final approval', '最終承認待ち', '待最终确认', 'รออนุมัติสุดท้าย'),
+      PAYOUT_SCHEDULED: L('송금예약', 'Payout scheduled', '送金予約', '汇款预约', 'นัดโอน'),
+      ESCROW_COMPLETED: L('심사완료', 'Completed', '審査完了', '审核完成', 'ตรวจสอบเสร็จ'),
+      VOIDED: L('불발', 'Voided', '不成立', '未成立', 'ไม่สำเร็จ'),
+      CANCELLED: L('취소', 'Cancelled', 'キャンセル', '已取消', 'ยกเลิก'),
+      DISPUTED: L('분쟁', 'Disputed', '紛争', '争议', 'ข้อพิพาท'),
+    },
+  };
+}
+
+export function normalizeWorkflowDisplay(
+  raw: Partial<HqWorkflowDisplayConfig> | null | undefined,
+): HqWorkflowDisplayConfig {
+  const base = defaultWorkflowDisplay();
+  if (!raw) return base;
+  const mergeLabels = (
+    defaults: Record<string, LocalizedStatusLabels>,
+    incoming?: Record<string, LocalizedStatusLabels>,
+  ) => {
+    const out = { ...defaults };
+    if (!incoming) return out;
+    for (const [code, labels] of Object.entries(incoming)) {
+      out[code] = { ...defaults[code], ...labels };
+    }
+    return out;
+  };
+  const sla = { ...base.sla, ...(raw.sla ?? {}) };
+  sla.businessDays = (sla.businessDays?.length ? sla.businessDays : base.sla.businessDays).map(Number);
+  sla.hoursInBusiness = Number(sla.hoursInBusiness) > 0 ? Number(sla.hoursInBusiness) : 3;
+  sla.hoursAfterHours = Number(sla.hoursAfterHours) > 0 ? Number(sla.hoursAfterHours) : 12;
+  return {
+    sla,
+    usdtStatusLabels: mergeLabels(base.usdtStatusLabels, raw.usdtStatusLabels),
+    escrowStatusLabels: mergeLabels(base.escrowStatusLabels, raw.escrowStatusLabels),
+  };
+}
+
+export function isInBusinessHours(at: Date, sla: HqSlaConfig): boolean {
+  const tz = sla.timezone || 'Asia/Seoul';
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      weekday: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    })
+      .formatToParts(at)
+      .map((p) => [p.type, p.value]),
+  );
+  const wdMap: Record<string, number> = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 };
+  const day = wdMap[parts.weekday] ?? 0;
+  if (!sla.businessDays.includes(day)) return false;
+  const hm = `${parts.hour}:${parts.minute}`;
+  return hm >= sla.businessStart && hm < sla.businessEnd;
+}
+
+export function computeExpectedCompleteAt(createdAt: Date, sla: HqSlaConfig): Date {
+  const hours = isInBusinessHours(createdAt, sla) ? sla.hoursInBusiness : sla.hoursAfterHours;
+  return new Date(createdAt.getTime() + hours * 60 * 60 * 1000);
+}
