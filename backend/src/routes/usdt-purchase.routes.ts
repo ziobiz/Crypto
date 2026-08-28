@@ -21,6 +21,16 @@ import {
   transitionUsdtPurchaseStatus,
 } from '../services/usdt-purchase.service';
 import {
+  simulateSandboxCurfexDeposit,
+  syncCurfexDepositForTicket,
+} from '../services/curfex-webhook.service';
+import { assertCanUseUsdtSimulator } from '../services/simulator-access.service';
+import {
+  assertSimulatorFeeModeAllowed,
+  feePolicyFromMode,
+} from '../services/simulator-rate.service';
+import { prisma } from '../lib/prisma';
+import {
   createUsdtCardPurchase,
   getUsdtCardPaymentContext,
   previewUsdtCardFees,
@@ -73,20 +83,28 @@ router.use(authenticate);
 router.get(
   '/simulate',
   asyncHandler(async (req, res) => {
-    const actor = hqPolicyService.accessActorForUser(req.user!);
-    const allowed = await hqPolicyService.canAccessPage(actor, '/dashboard/simulator', 'VIEW');
-    if (!allowed) {
-      throw new AppError(403, 'Simulator is not enabled for this account', 'FORBIDDEN');
-    }
+    await assertCanUseUsdtSimulator(req.user!);
     const currency = (req.query.currency as FiatCurrency) || 'JPY';
     const fiatAmount = req.query.fiatAmount != null ? Number(req.query.fiatAmount) : undefined;
     const targetUsdtAmount =
       req.query.targetUsdtAmount != null ? Number(req.query.targetUsdtAmount) : undefined;
     const network = String(req.query.network ?? '').trim();
+    const feeMode = await assertSimulatorFeeModeAllowed(
+      req.user!,
+      req.query.feeMode != null ? String(req.query.feeMode) : null,
+    );
     if (!network) {
       throw new AppError(400, 'Withdrawal network is required', 'NETWORK_REQUIRED');
     }
-    res.json(await simulateHqUsdtQuote({ fiatCurrency: currency, fiatAmount, targetUsdtAmount, network }));
+    res.json(
+      await simulateHqUsdtQuote({
+        fiatCurrency: currency,
+        fiatAmount,
+        targetUsdtAmount,
+        network,
+        feePolicy: feePolicyFromMode(feeMode),
+      }),
+    );
   }),
 );
 
@@ -236,6 +254,23 @@ const statusSchema = z.object({
   cancelReason: z.string().optional(),
 });
 
+router.post(
+  '/:id/curfex-sync',
+  asyncHandler(async (req, res) => {
+    await assertTicketAccess(req.user!, req.params.id);
+    res.json(await syncCurfexDepositForTicket(req.params.id));
+  }),
+);
+
+router.post(
+  '/:id/curfex-sandbox-deposit',
+  asyncHandler(async (req, res) => {
+    await assertTicketAccess(req.user!, req.params.id);
+    // Customer or operator can simulate in sandbox to test the flow
+    res.json(await simulateSandboxCurfexDeposit(req.params.id));
+  }),
+);
+
 router.patch(
   '/:id/status',
   asyncHandler(async (req, res) => {
@@ -294,6 +329,18 @@ router.post(
     const ticketId = req.params.id;
     await assertTicketAccess(req.user!, ticketId);
 
+    const curfexDetail = await prisma.usdtPurchaseDetail.findUnique({
+      where: { ticketId },
+      select: { collectionProvider: true },
+    });
+    if (curfexDetail?.collectionProvider === 'CURFEX') {
+      throw new AppError(
+        400,
+        'CURFEX tickets do not require deposit proof — wait for automatic deposit detection',
+        'CURFEX_NO_PROOF',
+      );
+    }
+
     const meta = depositProofSchema.parse(req.body);
 
     const { bankMismatch } = await saveDepositProofMetadata(req.user!, ticketId, {
@@ -308,6 +355,7 @@ router.post(
       req.file,
       AttachmentPurpose.FIAT_DEPOSIT_RECEIPT,
       meta.description,
+      { fileIndex: 0 },
     );
 
     const ticket = await transitionUsdtPurchaseStatus(
@@ -334,6 +382,12 @@ router.post(
     const ticketId = req.params.id;
     await assertTicketAccess(req.user!, ticketId);
 
+    const detail = await prisma.usdtPurchaseDetail.findUnique({
+      where: { ticketId },
+      select: { collectionProvider: true, status: true },
+    });
+    const isCurfex = detail?.collectionProvider === 'CURFEX';
+
     const files = req.files as Record<string, Express.Multer.File[]> | undefined;
     const sourceOfFunds = files?.sourceOfFunds ?? [];
     const depositReceipt = files?.depositReceipt ?? [];
@@ -341,22 +395,45 @@ router.post(
     if (sourceOfFunds.length === 0) {
       throw new AppError(400, 'Source of funds document is required', 'VALIDATION_ERROR');
     }
-    if (depositReceipt.length === 0) {
+    // CURFEX: application/source docs only — deposit receipt not required (auto-detect).
+    if (!isCurfex && depositReceipt.length === 0) {
       throw new AppError(400, 'Deposit receipt is required', 'VALIDATION_ERROR');
     }
 
-    for (const file of sourceOfFunds) {
-      await saveAttachment(req.user!, ticketId, file, AttachmentPurpose.SOURCE_OF_FUNDS_DOC);
+    for (let i = 0; i < sourceOfFunds.length; i++) {
+      await saveAttachment(
+        req.user!,
+        ticketId,
+        sourceOfFunds[i],
+        AttachmentPurpose.SOURCE_OF_FUNDS_DOC,
+        undefined,
+        { fileIndex: i },
+      );
     }
-    for (const file of depositReceipt) {
-      await saveAttachment(req.user!, ticketId, file, AttachmentPurpose.FIAT_DEPOSIT_RECEIPT);
+    for (let i = 0; i < depositReceipt.length; i++) {
+      await saveAttachment(
+        req.user!,
+        ticketId,
+        depositReceipt[i],
+        AttachmentPurpose.FIAT_DEPOSIT_RECEIPT,
+        undefined,
+        { fileIndex: i },
+      );
     }
 
-    const ticket = await transitionUsdtPurchaseStatus(
-      req.user!,
-      ticketId,
-      UsdtPurchaseStatus.ADMIN_REVIEWING,
-    );
+    // Fixed accounts: docs complete → admin review.
+    // CURFEX: stay on deposit-proof pending until webhook/poll/sandbox simulate.
+    if (!isCurfex) {
+      const ticket = await transitionUsdtPurchaseStatus(
+        req.user!,
+        ticketId,
+        UsdtPurchaseStatus.ADMIN_REVIEWING,
+      );
+      res.json(ticket);
+      return;
+    }
+
+    const ticket = await getUsdtPurchaseTicket(req.user!, ticketId);
     res.json(ticket);
   }),
 );

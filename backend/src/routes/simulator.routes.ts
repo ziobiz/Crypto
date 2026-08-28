@@ -4,6 +4,7 @@ import { asyncHandler } from '../middleware/asyncHandler';
 import { authenticate, requireRoles } from '../middleware/auth';
 import { hqPolicyService } from '../services/hq-policy.service';
 import { AppError } from '../lib/errors';
+import { assertCanUseUsdtSimulator } from '../services/simulator-access.service';
 import {
   getSimulatorAnalytics,
   listHqSimulatorRuns,
@@ -19,6 +20,7 @@ router.use(authenticate);
 router.post(
   '/runs',
   asyncHandler(async (req, res) => {
+    await assertCanUseUsdtSimulator(req.user!);
     const body = req.body as {
       mode?: string;
       currency?: string;
@@ -51,6 +53,7 @@ router.post(
 router.get(
   '/mine',
   asyncHandler(async (req, res) => {
+    await assertCanUseUsdtSimulator(req.user!);
     res.json(await listMyRecentRuns(req.user!, Number(req.query.limit ?? 2)));
   }),
 );

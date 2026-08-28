@@ -17,6 +17,8 @@ export type ResolvedBranding = {
   loginNoticeEnabled: boolean;
   loginNoticeI18n: Partial<Record<Locale, { title: string; body: string }>>;
   customerRegistrationEnabled: boolean;
+  baseTimezone: string;
+  serviceTimezone: string;
 };
 
 function resolveUrls(b: BrandingResponse): ResolvedBranding {
@@ -33,6 +35,8 @@ function resolveUrls(b: BrandingResponse): ResolvedBranding {
     loginNoticeEnabled: b.loginNoticeEnabled !== false,
     loginNoticeI18n: b.loginNoticeI18n ?? {},
     customerRegistrationEnabled: b.customerRegistrationEnabled === true,
+    baseTimezone: b.baseTimezone || 'Asia/Seoul',
+    serviceTimezone: b.serviceTimezone || 'Asia/Seoul',
   };
 }
 
@@ -48,6 +52,8 @@ const FALLBACK: ResolvedBranding = {
   loginNoticeEnabled: true,
   loginNoticeI18n: {},
   customerRegistrationEnabled: false,
+  baseTimezone: 'Asia/Seoul',
+  serviceTimezone: 'Asia/Seoul',
 };
 
 export function useBranding() {

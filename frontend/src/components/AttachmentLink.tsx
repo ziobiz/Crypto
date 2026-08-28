@@ -38,10 +38,10 @@ export function AttachmentLink({ attachment }: { attachment: Attachment }) {
   const purposeKey = PURPOSE_KEYS[attachment.purpose];
   const purposeLabel = purposeKey ? t(purposeKey) : attachment.purpose;
 
-  if (!url) return <span className="text-sm text-gray-500">{attachment.fileName}</span>;
+  if (!url) return <span className="text-xs text-gray-500">{attachment.fileName}</span>;
 
   return (
-    <a href={url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline">
+    <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">
       {attachment.fileName} ({purposeLabel})
     </a>
   );

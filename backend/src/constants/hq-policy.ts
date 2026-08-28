@@ -89,6 +89,9 @@ export const HQ_CONFIG_KEYS = {
   deletion: 'hq.deletion.policy',
   orgShare: 'hq.commission.org_share',
   gasNetworks: 'hq.commission.gas_networks',
+  /** USDT 시뮬레이터 전용 수수료·리스크 (실거래와 분리) */
+  simulatorCommissionRisk: 'hq.commission.simulator_risk',
+  simulatorFeeTiers: 'hq.commission.simulator_fee_tiers',
   workflowDisplay: 'hq.workflow.display',
 } as const;
 
@@ -588,6 +591,10 @@ export type HqPlatformConfig = {
   simulatorRetentionMonths?: number;
   /** 고객 입금용 회사 수취 계좌 (통화별) */
   depositReceivingAccounts?: Partial<Record<UsdtFiatCurrency, DepositReceivingAccount>>;
+  /** 기준시간 (IANA TZ) — 플랫폼 도메인·SSL */
+  baseTimezone?: string;
+  /** 서비스기준시간 (IANA TZ) — 국가 변경 시 목록에서 오버라이드 가능 */
+  serviceTimezone?: string;
 };
 
 /** ICOPAY 카드 결제 연동 (ziobiz/PG) */
@@ -631,20 +638,31 @@ export const DEFAULT_ICOPAY_CONFIG = (): HqIcopayConfig => ({
 });
 
 /**
- * Fukugu Collection (CURFEX) — 일본 은행이체 수취.
+ * Fukugu Collection (CURFEX) — 은행이체 수취.
  * enabled=false 이면 기존 고정 수취계좌 사용 (기본).
- * enabled=true 이면 JPY 이체 매입 시 API로 건별 계좌 발급.
+ * enabled=true 이면 currencies에 포함된 통화의 이체 매입 시 API로 건별 계좌 발급.
+ * 선택되지 않은 통화는 CURFEX ON이어도 고정 계좌 + 입금 영수증.
  */
+export const CURFEX_CURRENCY_OPTIONS = ['JPY', 'KRW', 'THB', 'CNY'] as const;
+export type CurfexCurrency = (typeof CURFEX_CURRENCY_OPTIONS)[number];
+
 export type HqCurfexConfig = {
   enabled: boolean;
   clientId: string;
   clientSecret: string;
   apiBaseUrl?: string;
   walletName?: string;
-  /** 적용 통화 (기본 JPY만) */
-  currencies?: Array<'JPY'>;
+  /** CURFEX 적용 통화 (기본 JPY). 미선택 통화는 고정계좌 */
+  currencies?: CurfexCurrency[];
   /** true면 실 API 대신 샌드박스 계좌 생성 */
   sandbox?: boolean;
+  /** 웹훅 HMAC 검증용 공유 비밀 (Partner/Merchant 생성) */
+  webhookSecret?: string;
+  /**
+   * 입금 감지 시 CURFEX /api/payment/decision APPROVE 자동 호출.
+   * 금액이 신청액과 일치할 때만 수행 (기본 true).
+   */
+  autoApproveOnDeposit?: boolean;
 };
 
 export const DEFAULT_CURFEX_CONFIG = (): HqCurfexConfig => ({
@@ -655,6 +673,8 @@ export const DEFAULT_CURFEX_CONFIG = (): HqCurfexConfig => ({
   walletName: '',
   currencies: ['JPY'],
   sandbox: true,
+  webhookSecret: '',
+  autoApproveOnDeposit: true,
 });
 
 export type CurfexCollectionAccount = {

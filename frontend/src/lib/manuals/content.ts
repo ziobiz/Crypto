@@ -331,25 +331,168 @@ export const HQ_OPS_MANUAL: ManualDoc = {
     },
     {
       id: 's4',
-      title: L('결제관리 · ICOPAY', 'Payment · ICOPAY', '決済・ICOPAY', '支付·ICOPAY', 'การชำระเงิน·ICOPAY'),
+      title: L('결제관리 · ICOPAY · CURFEX', 'Payment · ICOPAY · CURFEX', '決済・ICOPAY・CURFEX', '支付·ICOPAY·CURFEX', 'การชำระเงิน·ICOPAY·CURFEX'),
       bodyHtml: L(
         `<span class="menu-path">본사정책 → 운영관리 → 결제관리</span>
+        <p><strong>ICOPAY (카드)</strong></p>
         <ol>
           <li>ICOPAY 연동: MID, Bracket Secret, API Base URL, 샌드박스</li>
           <li>카드 결제 사용 체크 → 저장(이중 확인)</li>
           <li>카드 수수료 %·통화별 최소/최대 한도</li>
         </ol>
-        <div class="block-box">카드 결제를 끄면 고객 화면의 카드 버튼은 회색(비활성)으로 남고 숨기지 않습니다. 통화별 카드 ON/OFF는 플랫폼 입금 수취 계좌에서 따로 설정합니다.</div>`,
+        <div class="block-box">카드 결제를 끄면 고객 화면의 카드 버튼은 회색(비활성)으로 남고 숨기지 않습니다. 통화별 카드 ON/OFF는 플랫폼 입금 수취 계좌에서 따로 설정합니다.</div>
+        <p class="mt-3"><strong>CURFEX Collection (일본 JPY 이체 수취) — 추가 기능</strong></p>
+        <p>기본은 <strong>꺼짐</strong>입니다. 꺼져 있으면 플랫폼의 <strong>전용 수취 계좌</strong>를 안내합니다. 켜면 JPY 계좌이체 USDT 매입 시 CURFEX가 <strong>건별 수취 계좌</strong>를 발급합니다. 전용 계좌 설정은 삭제되지 않습니다.</p>
+        <ol>
+          <li>결제관리 하단 <strong>CURFEX Collection</strong>에서 「CURFEX Collection 사용」을 켭니다.</li>
+          <li><strong>샌드박스 모드</strong>를 ON으로 두면 Client ID/Secret 없이도 테스트용 계좌가 발급됩니다. (실 API 호출 없음)</li>
+          <li>실연동 시: 샌드박스 OFF → CURFEX에서 받은 Client ID / Client Secret 입력 → API Base URL(UAT: <code>https://fcol-dashboard-uat1.curfex.com</code> 또는 운영 URL) → Wallet Name(선택) → 저장</li>
+          <li>플랫폼에서 JPY <strong>이체거래</strong>가 켜져 있는지 확인합니다.</li>
+          <li>고객 계정으로 JPY·계좌이체 USDT 매입을 신청하면 티켓 상세에 「CURFEX 발급」계좌·참조번호가 표시됩니다.</li>
+        </ol>
+        <div class="info-box">샌드박스 테스트: 사용 ON + 샌드박스 ON + 저장 → 고객으로 JPY 이체 신청 → 상세에 Sandbox Ginko 등 테스트 계좌가 보이면 정상입니다. 실입금 웹훅은 없습니다. 「샌드박스 입금 시뮬레이션」버튼을 누르면 입금 확인과 동일하게 상태가 <strong>관리자 확인(심사중)</strong>으로 바뀝니다.</div>
+        <p class="mt-2"><strong>입금 자동 감지 (CURFEX ON 시)</strong></p>
+        <ul>
+          <li>신청 시 <strong>신청서·자금 원천 증빙만</strong> 업로드 (입금 영수증 불필요)</li>
+          <li>웹훅 URL: <code>https://api.tinpass.com/api/webhooks/curfex</code> — CURFEX 포털 등록 + HMAC Secret</li>
+          <li>실운영: 입금 감지 시 자동으로 <strong>관리자 확인(심사중)</strong> — 관리자는 USDT 매입 상세에서 「송금 처리 시작」</li>
+          <li>샌드박스: 웹훅 없음 → 「샌드박스 입금 시뮬레이션」으로 동일 상태 전환 테스트</li>
+          <li>고정 수취계좌(CURFEX OFF)는 기존처럼 수동 증빙</li>
+        </ul>
+        <div class="warn-box">CURFEX는 JPY 이체 수취용입니다. 카드결제는 ICOPAY, KRW/THB/CNY 전용계좌는 기존 방식을 그대로 씁니다.</div>`,
         `<span class="menu-path">HQ Policy → Ops → Payment</span>
+        <p><strong>ICOPAY (card)</strong></p>
         <ol>
           <li>ICOPAY: MID, Bracket Secret, API URL, sandbox</li>
           <li>Enable card payment → save (confirm)</li>
           <li>Card fee % and min/max per currency</li>
         </ol>
-        <div class="block-box">When card is off, the customer card button stays gray (disabled), not hidden. Per-currency card on/off is set on Platform deposit accounts.</div>`,
-        `<span class="menu-path">運営管理 → 決済管理</span>`,
-        `<span class="menu-path">运营管理 → 支付管理</span>`,
-        `<span class="menu-path">Ops → Payment</span>`,
+        <div class="block-box">When card is off, the customer card button stays gray (disabled), not hidden. Per-currency card on/off is set on Platform deposit accounts.</div>
+        <p><strong>CURFEX Collection (JPY bank transfer) — additive</strong></p>
+        <p>Default is <strong>OFF</strong>: customers see <strong>fixed</strong> HQ deposit accounts. When ON, JPY bank-transfer USDT purchases get a <strong>per-ticket</strong> CURFEX account. Fixed accounts are kept.</p>
+        <ol>
+          <li>Open <strong>CURFEX Collection</strong> on the Payment page and enable it.</li>
+          <li><strong>Sandbox ON</strong> issues test accounts without calling the live API (Client ID/Secret not required for this test mode).</li>
+          <li>Production: Sandbox OFF → enter Client ID / Secret → API Base URL (UAT: <code>https://fcol-dashboard-uat1.curfex.com</code> or prod) → optional Wallet Name → Save.</li>
+          <li>Ensure JPY <strong>bank transfer</strong> is enabled under Platform deposit accounts.</li>
+          <li>As a customer, apply for JPY bank-transfer USDT — ticket detail shows the CURFEX-issued account and reference.</li>
+        </ol>
+        <div class="info-box">Sandbox test: Enable + Sandbox ON → customer JPY transfer apply → test account on ticket. No real deposit webhook in sandbox — press “Simulate sandbox deposit” to move status to <strong>Admin reviewing</strong>.</div>
+        <p><strong>Auto deposit detection (when CURFEX ON)</strong></p>
+        <ul>
+          <li>At apply: upload <strong>application / source-of-funds only</strong> (no deposit receipt)</li>
+          <li>Webhook URL: <code>https://api.tinpass.com/api/webhooks/curfex</code> — register in CURFEX portal + HMAC Secret</li>
+          <li>Live: deposit → auto <strong>Admin reviewing</strong> — admin starts remittance on ticket detail</li>
+          <li>Sandbox: no webhook → “Simulate sandbox deposit” for the same transition</li>
+          <li>Fixed accounts (CURFEX OFF) still require manual proof</li>
+        </ul>
+        <div class="warn-box">CURFEX is for JPY collection only. Cards stay on ICOPAY; other fiat fixed accounts are unchanged.</div>`,
+        `<span class="menu-path">運営管理 → 決済管理</span>
+        <p><strong>CURFEX Collection（JPY振込）</strong> — OFF=固定口座・手動証憑 / ON=取引ごと口座・入金自動検知。</p>
+        <ol>
+          <li>決済管理でCURFEXを有効化</li>
+          <li>サンドボックスONでテスト / 本番はOFF＋Client ID/Secret</li>
+          <li>Webhook <code>https://api.tinpass.com/api/webhooks/curfex</code> をCURFEXに登録</li>
+          <li>顧客でJPY振込USDT申請→CURFEX口座表示→入金後は証憑不要で管理者確認へ</li>
+        </ol>
+        <div class="check-box">サンドボックス: 有効+サンドボックスON→申請→「サンドボックス入金シミュレーション」で自動検知を確認。</div>`,
+        `<span class="menu-path">运营管理 → 支付管理</span>
+        <p><strong>CURFEX Collection</strong> — 关闭=固定账户+手动凭证 / 开启=按单开户+入金自动检测。</p>
+        <ol>
+          <li>在支付管理启用 CURFEX</li>
+          <li>沙盒 ON 测试 / 正式：沙盒 OFF + Client ID/Secret</li>
+          <li>在 CURFEX 注册 Webhook <code>https://api.tinpass.com/api/webhooks/curfex</code></li>
+          <li>客户 JPY 转账 USDT → 显示 CURFEX 账户 → 入金后无需凭证</li>
+        </ol>
+        <div class="check-box">沙盒：启用+沙盒 ON → 申请 → 点击「沙盒入金模拟」验证自动检测。</div>`,
+        `<span class="menu-path">Ops → Payment</span>
+        <p><strong>CURFEX Collection</strong> — ปิด=บัญชีคงที่+หลักฐานด้วยมือ / เปิด=บัญชีรายตั๋ว+ตรวจเงินเข้าอัตโนมัติ</p>
+        <ol>
+          <li>เปิด CURFEX ใน Payment</li>
+          <li>Sandbox ON ทดสอบ / ปิดแล้วใส่ Client ID/Secret</li>
+          <li>ลงทะเบียน Webhook <code>https://api.tinpass.com/api/webhooks/curfex</code></li>
+          <li>ลูกค้าโอน JPY → แสดงบัญชี CURFEX → ไม่ต้องอัปโหลดสลิป</li>
+        </ol>
+        <div class="check-box">แซนด์บ็อกซ์: เปิดใช้+Sandbox ON → สมัคร → 「จำลองฝากแซนด์บ็อกซ์」เพื่อทดสอบ</div>`,
+      ),
+    },
+    {
+      id: 'hq-curfex',
+      title: L('CURFEX 설정·입금 자동감지', 'CURFEX setup & auto-detect', 'CURFEX設定・入金自動検知', 'CURFEX 设置与自动检测', 'ตั้งค่า CURFEX และการตรวจอัตโนมัติ'),
+      bodyHtml: L(
+        `<span class="menu-path">본사정책 → 운영관리 → 결제관리 → CURFEX Collection</span>
+        <table><thead><tr><th>항목</th><th>설명</th></tr></thead><tbody>
+        <tr><td>사용 ON/OFF</td><td>OFF(기본)=모든 통화 고정 수취계좌·수동 증빙 / ON=선택 통화만 CURFEX</td></tr>
+        <tr><td>적용 통화</td><td>JPY/KRW/THB/CNY 중 선택. 기본 JPY. 미선택 통화는 전용계좌 + 입금 영수증</td></tr>
+        <tr><td>Client ID / Secret</td><td>CURFEX(Fukugu) 발급. 샌드박스만 테스트 시 비워도 됨</td></tr>
+        <tr><td>웹훅 URL</td><td><code>https://api.tinpass.com/api/webhooks/curfex</code> — CURFEX 포털에 등록</td></tr>
+        <tr><td>HMAC Secret</td><td>「HMAC Secret 생성」후 CURFEX에 동일 값 등록</td></tr>
+        <tr><td>자동 APPROVE</td><td>입금 금액이 신청액과 일치하면 decision APPROVE 자동 호출</td></tr>
+        <tr><td>샌드박스</td><td>ON=테스트 계좌 + 「샌드박스 입금 시뮬레이션」으로 자동감지 흐름 검증</td></tr>
+        </tbody></table>
+        <p class="mt-2"><strong>CURFEX ON 업무 순서</strong></p>
+        <div class="flow">
+          <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">고객 JPY 이체 신청 → 건별 계좌·참조번호 발급</span></div>
+          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">고객이 안내 계좌로 입금 (증빙 업로드 없음)</span></div>
+          <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">웹훅 또는 1분 폴링으로 입금 감지 → 관리자 확인</span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">운영자가 USDT 송금·완료 (기존과 동일)</span></div>
+        </div>
+        <div class="warn-box">예외: CURFEX ON이어도 적용 통화에 없는 화폐(예: KRW)는 고정 수취계좌 + 입금 영수증이 필요합니다.</div>
+        <div class="check-box">샌드박스: 사용 ON + 샌드박스 ON → 신청 → 티켓에서 「샌드박스 입금 시뮬레이션」→ 관리자 확인으로 넘어가면 성공.</div>`,
+        `<span class="menu-path">HQ Policy → Ops → Payment → CURFEX Collection</span>
+        <table><thead><tr><th>Field</th><th>Meaning</th></tr></thead><tbody>
+        <tr><td>Enable</td><td>OFF=all currencies fixed + manual proof / ON=CURFEX only for selected currencies</td></tr>
+        <tr><td>Currencies</td><td>Select JPY/KRW/THB/CNY. Default JPY. Unselected → fixed account + deposit receipt</td></tr>
+        <tr><td>Client ID / Secret</td><td>From CURFEX (Fukugu). Optional for sandbox-only tests</td></tr>
+        <tr><td>Webhook URL</td><td><code>https://api.tinpass.com/api/webhooks/curfex</code></td></tr>
+        <tr><td>HMAC Secret</td><td>Generate in TINPASS → register same value in CURFEX portal</td></tr>
+        <tr><td>Auto APPROVE</td><td>When deposited amount matches application, call CURFEX decision APPROVE</td></tr>
+        <tr><td>Sandbox</td><td>Test account + “Simulate sandbox deposit” on ticket</td></tr>
+        </tbody></table>
+        <div class="flow">
+          <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">Customer JPY transfer apply → per-ticket account</span></div>
+          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">Customer deposits (no proof upload)</span></div>
+          <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">Webhook or 1-min poll → admin review</span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">Operator sends USDT and completes</span></div>
+        </div>
+        <div class="warn-box">Exception: even with CURFEX ON, currencies not in the list (e.g. KRW) use fixed accounts + deposit receipt.</div>`,
+        `<span class="menu-path">決済管理 → CURFEX Collection</span>
+        <table><thead><tr><th>項目</th><th>説明</th></tr></thead><tbody>
+        <tr><td>使用ON/OFF</td><td>OFF=全通貨固定・手動 / ON=選択通貨のみCURFEX</td></tr>
+        <tr><td>適用通貨</td><td>JPY/KRW/THB/CNY。既定JPY。未選択は固定口座＋領収書</td></tr>
+        <tr><td>Webhook URL</td><td><code>https://api.tinpass.com/api/webhooks/curfex</code></td></tr>
+        <tr><td>HMAC Secret</td><td>生成後CURFEXに同値登録</td></tr>
+        </tbody></table>
+        <div class="flow">
+          <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">JPY振込USDT申請→口座発行</span></div>
+          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">入金（証憑不要）</span></div>
+          <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">Webhook/ポーリング→管理者確認</span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">USDT送金・完了</span></div>
+        </div>`,
+        `<span class="menu-path">支付管理 → CURFEX Collection</span>
+        <table><thead><tr><th>项</th><th>说明</th></tr></thead><tbody>
+        <tr><td>启用</td><td>关闭=固定账户+手动 / 开启=按单开户+自动检测</td></tr>
+        <tr><td>Webhook URL</td><td><code>https://api.tinpass.com/api/webhooks/curfex</code></td></tr>
+        <tr><td>HMAC Secret</td><td>生成后在 CURFEX 登记相同值</td></tr>
+        </tbody></table>
+        <div class="flow">
+          <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">JPY 转账申请 → 开立账户</span></div>
+          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">入金（无需凭证）</span></div>
+          <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">Webhook/轮询 → 管理员确认</span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">USDT 发送与完成</span></div>
+        </div>`,
+        `<span class="menu-path">Payment → CURFEX Collection</span>
+        <table><thead><tr><th>รายการ</th><th>ความหมาย</th></tr></thead><tbody>
+        <tr><td>เปิดใช้</td><td>ปิด=บัญชีคงที่+ด้วยมือ / เปิด=บัญชีรายตั๋ว+อัตโนมัติ</td></tr>
+        <tr><td>Webhook URL</td><td><code>https://api.tinpass.com/api/webhooks/curfex</code></td></tr>
+        <tr><td>HMAC Secret</td><td>สร้างใน TINPASS แล้วลงทะเบียนที่ CURFEX</td></tr>
+        </tbody></table>
+        <div class="flow">
+          <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">สมัครโอน JPY → ออกบัญชี</span></div>
+          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">ฝากเงิน (ไม่ต้องอัปโหลดสลิป)</span></div>
+          <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">Webhook/poll → ตรวจของผู้ดูแล</span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">ส่ง USDT และปิดงาน</span></div>
+        </div>`,
       ),
     },
     {
@@ -359,23 +502,34 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         `<span class="menu-path">USDT 매입</span>
         <div class="flow">
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">고객 신청 (계좌 이체 또는 카드)</span></div>
-          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">입금 증빙 또는 카드 결제 완료</span></div>
+          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">전용계좌: 입금 증빙 / CURFEX: 자동 입금감지 / 카드: 결제 완료</span></div>
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">관리자 검토 → 송금 → TXID 등록</span></div>
         </div>
-        <p>상세 화면에서 수수료 스냅샷·카드 결제 정보·김치/로컬 프리미엄을 확인합니다. 중계에서 받은 USDT는 <strong>중계 USDT</strong>로 수기 입력하면 수익분석에 반영됩니다.</p>`,
+        <p>상세 화면에서 수수료 스냅샷·카드 결제 정보·김치/로컬 프리미엄을 확인합니다. 중계에서 받은 USDT는 <strong>중계 USDT</strong>로 수기 입력하면 수익분석에 반영됩니다.</p>
+        <p class="mt-2"><strong>CURFEX JPY 건 (입금 자동감지 ON)</strong></p>
+        <ul>
+          <li>티켓에 「입금 계좌 (CURFEX 발급)」·참조번호가 표시됩니다.</li>
+          <li>입금 후 웹훅/폴링으로 <strong>관리자 확인</strong>으로 자동 전환 — 증빙 검토 불필요.</li>
+          <li>금액 불일치 시 관리자 메모에 기록됩니다. 「입금 상태 확인」으로 CURFEX 상태를 수동 동기화할 수 있습니다.</li>
+          <li>샌드박스: 「샌드박스 입금 시뮬레이션」으로 테스트.</li>
+        </ul>`,
         `<span class="menu-path">USDT purchase</span>
         <div class="flow">
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">Customer applies (bank or card)</span></div>
-          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">Deposit proof or card charged</span></div>
+          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">Fixed account: deposit proof / CURFEX: auto detect / Card: charged</span></div>
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">Review → transfer → TXID</span></div>
         </div>
-        <p>Enter <strong>broker USDT</strong> on the ticket (amount from the intermediary) so Profit analysis can compare it with expected USDT.</p>`,
+        <p>Enter <strong>broker USDT</strong> on the ticket for profit analysis.</p>
+        <p><strong>CURFEX JPY tickets:</strong> CURFEX-issued account on detail. After deposit, webhook/poll moves to admin review — no proof review. Use “Check deposit status” to sync. Sandbox: “Simulate sandbox deposit”.</p>`,
         `<span class="menu-path">USDT購入</span>
-        <p>チケットに仲介USDTを手入力すると収益分析に反映されます。</p>`,
+        <p>固定口座=証憑確認 / CURFEX=入金自動検知で管理者確認へ / カード=決済完了。</p>
+        <p>CURFEXチケットは「入金状態を確認」で同期。サンドボックスは入金シミュレーション。</p>`,
         `<span class="menu-path">USDT 采购</span>
-        <p>在单据上手填中介 USDT，收益分析会用来对比预计 USDT。</p>`,
+        <p>固定账户=凭证确认 / CURFEX=自动检测入金 / 卡=支付完成。</p>
+        <p>CURFEX 单据显示 CURFEX 账户；入金后自动进入管理员确认。沙盒可用「沙盒入金模拟」。</p>`,
         `<span class="menu-path">USDT</span>
-        <p>กรอก USDT ตัวกลางในตั๋ว เพื่อให้วิเคราะห์กำไรเทียบกับที่คาด</p>`,
+        <p>บัญชีคงที่=ตรวจหลักฐาน / CURFEX=ตรวจอัตโนมัติ / บัตร=ชำระแล้ว</p>
+        <p>ตั๋ว CURFEX แสดงบัญชี CURFEX หลังฝากจะไปขั้นตรวจของผู้ดูแลอัตโนมัติ ทดสอบด้วยจำลองฝากแซนด์บ็อกซ์</p>`,
       ),
     },
     {
@@ -462,18 +616,19 @@ export const HQ_OPS_MANUAL: ManualDoc = {
       title: L('버전 · 업데이트 내용', 'Version · release notes', 'バージョン・更新内容', '版本·更新内容', 'เวอร์ชัน·ประวัติอัปเดต'),
       bodyHtml: L(
         `<span class="menu-path">본사정책 → 운영관리 → 업데이트 내용</span>
-        <p>라이브 버전은 표지·메뉴얼·업데이트 목록에 <strong>V{version}</strong>으로 표시됩니다. 이번 라이브는 <strong>V2.4</strong>입니다.</p>
+        <p>라이브 버전은 표지·메뉴얼·업데이트 목록에 <strong>V{version}</strong>으로 표시됩니다. 이번 라이브는 <strong>V2.6.11</strong>입니다.</p>
         <ul>
           <li><strong>주요 업데이트</strong> — 2.0, 3.0, 4.0 …</li>
-          <li><strong>소소한 업데이트</strong> — 2.1, 2.2, 2.3, 2.4 …</li>
+          <li><strong>소소한 업데이트</strong> — 2.1 … 2.6 …</li>
         </ul>
-        <div class="info-box">자동 배포·정책 저장에 따른 이력은 「업데이트 이력」탭에서도 확인할 수 있습니다.</div>`,
+        <div class="info-box">V2.6: CURFEX 입금 자동감지(웹훅)·운영·고객 메뉴얼 전 언어 반영.</div>`,
         `<span class="menu-path">HQ Policy → Ops → Release notes</span>
-        <p>Live version appears as <strong>V{version}</strong> on covers and lists. This live is <strong>V2.4</strong>.</p>
+        <p>Live version appears as <strong>V{version}</strong> on covers and lists. This live is <strong>V2.6.11</strong>.</p>
         <ul>
           <li><strong>Major</strong> — 2.0, 3.0, 4.0…</li>
-          <li><strong>Minor</strong> — 2.1, 2.2, 2.3, 2.4…</li>
-        </ul>`,
+          <li><strong>Minor</strong> — 2.1 … 2.6…</li>
+        </ul>
+        <div class="info-box">V2.6: CURFEX auto deposit detection + full manual updates (all languages).</div>`,
         `<span class="menu-path">運営管理 → アップデート内容</span>`,
         `<span class="menu-path">运营管理 → 更新内容</span>`,
         `<span class="menu-path">Ops → Release notes</span>`,
@@ -491,7 +646,9 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <div class="faq-item"><div class="faq-q">메뉴얼 로고가 안 보입니다.</div><div class="faq-a">플랫폼 브랜딩에서 로고를 업로드했는지 확인하세요.</div></div>
         <div class="faq-item"><div class="faq-q">로그인 후 브라우저 탭이 Crypto Workflow입니다.</div><div class="faq-a">플랫폼 브랜드 카드의 사이트 이름(또는 브라우저 탭 이름)을 저장하세요. 강력 새로고침 후 확인합니다.</div></div>
         <div class="faq-item"><div class="faq-q">특정 통화로 USDT 매입이 안 됩니다.</div><div class="faq-a">플랫폼 입금 수취 계좌에서 해당 통화의 이체거래·카드결제가 켜져 있는지 확인하세요.</div></div>
-        <div class="faq-item"><div class="faq-q">비밀번호 초기화 후 OTP가 그대로입니다.</div><div class="faq-a">OTP는 별도 「OTP 초기화」입니다. 초기화하면 다음 로그인에서 OTP를 다시 등록합니다.</div></div>`,
+        <div class="faq-item"><div class="faq-q">비밀번호 초기화 후 OTP가 그대로입니다.</div><div class="faq-a">OTP는 별도 「OTP 초기화」입니다. 초기화하면 다음 로그인에서 OTP를 다시 등록합니다.</div></div>
+        <div class="faq-item"><div class="faq-q">JPY CURFEX 건인데 고객이 증빙을 올리려 합니다.</div><div class="faq-a">CURFEX ON이면 증빙 업로드가 필요 없습니다. 입금 후 자동으로 관리자 확인으로 넘어갑니다.</div></div>
+        <div class="faq-item"><div class="faq-q">CURFEX 입금이 감지되지 않습니다.</div><div class="faq-a">웹훅 URL·HMAC Secret 등록 여부를 확인하세요. 티켓 「입금 상태 확인」 또는 1분 폴링을 기다리세요.</div></div>`,
         `<div class="faq-item"><div class="faq-q">Card button is gray.</div><div class="faq-a">Enable card under Payment management.</div></div>
         <div class="faq-item"><div class="faq-q">Customer cannot apply.</div><div class="faq-a">Open Customers, review documents, grant verification pass. USDT and escrow stay blocked until then.</div></div>
         <div class="faq-item"><div class="faq-q">Verification menu is missing for HQ.</div><div class="faq-a">It is merged into Customers. Only customer accounts upload files under Verification.</div></div>
@@ -499,7 +656,9 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <div class="faq-item"><div class="faq-q">Manual logo missing.</div><div class="faq-a">Upload a logo under Platform branding.</div></div>
         <div class="faq-item"><div class="faq-q">Tab still says Crypto Workflow after login.</div><div class="faq-a">Save site name (or tab title) on the brand card, then hard-refresh.</div></div>
         <div class="faq-item"><div class="faq-q">USDT purchase blocked for a currency.</div><div class="faq-a">Enable transfer and/or card for that currency under Platform deposit accounts.</div></div>
-        <div class="faq-item"><div class="faq-q">OTP still works after password reset.</div><div class="faq-a">Use OTP reset separately. The user re-enrolls OTP at next login.</div></div>`,
+        <div class="faq-item"><div class="faq-q">OTP still works after password reset.</div><div class="faq-a">Use OTP reset separately. The user re-enrolls OTP at next login.</div></div>
+        <div class="faq-item"><div class="faq-q">Customer tries proof upload on CURFEX JPY.</div><div class="faq-a">CURFEX ON skips proof — deposit is auto-detected.</div></div>
+        <div class="faq-item"><div class="faq-q">CURFEX deposit not detected.</div><div class="faq-a">Check webhook URL and HMAC in CURFEX portal. Use “Check deposit status” on ticket.</div></div>`,
         `<div class="faq-item"><div class="faq-q">カードボタンが灰色です。</div><div class="faq-a">決済管理でカードを有効にしてください。</div></div>
         <div class="faq-item"><div class="faq-q">顧客が申請できません。</div><div class="faq-a">顧客管理で書類を確認し認証パスしてください。</div></div>
         <div class="faq-item"><div class="faq-q">認証センターがありません。</div><div class="faq-a">総本社・組織は顧客管理に統合。書類提出は顧客の認証センターです。</div></div>`,
@@ -582,7 +741,7 @@ export const ORG_OPS_MANUAL: ManualDoc = {
         `<div class="flow">
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">고객이 인증센터에 서류를 올렸는지 고객관리에서 확인</span></div>
           <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">USDT/에스크로 목록에서 대기 건 확인</span></div>
-          <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">증빙·상태 검토 후 다음 단계 처리</span></div>
+          <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">증빙·상태 검토 후 다음 단계 처리 (CURFEX JPY는 입금 자동감지 — 증빙 불필요)</span></div>
           <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">장부에서 수수료 배분 확인</span></div>
         </div>
         <div class="info-box">고객에게는 인증센터 → 지갑 → 시뮬레이터 → 매입 순서를 안내하세요. 인증패스는 총본사만 처리합니다.</div>
@@ -590,7 +749,7 @@ export const ORG_OPS_MANUAL: ManualDoc = {
         `<div class="flow">
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">Check Customers for Verification submissions</span></div>
           <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">Check pending USDT/escrow</span></div>
-          <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">Review proofs and advance status</span></div>
+          <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">Review proofs and advance status (CURFEX JPY: auto deposit — no proof)</span></div>
           <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">Verify ledger shares</span></div>
         </div>
         <div class="info-box">Guide customers: Verification → wallet → simulator → purchase. Only HQ grants the pass.</div>`,
@@ -648,6 +807,39 @@ export const ORG_OPS_MANUAL: ManualDoc = {
         </ul>
         <div class="warn-box">ให้ผ่านการยืนยันได้เฉพาะ HQ องค์กรตรวจเอกสารแล้วขอ HQ ดำเนินการ</div>
         <div class="info-box">ลูกค้าอัปโหลดที่ <strong>ศูนย์ยืนยันตัวตน</strong> ของตนเอง ดาวน์โหลดแบบฟอร์มรายงาน 6 เดือนและรายการตรวจสอบ USDT ได้ที่ <strong>คู่มือใช้งาน</strong> ยังไม่ผ่านจะสมัคร USDT/เอสโครว์ไม่ได้</div>`,
+      ),
+    },
+    {
+      id: 'org-curfex',
+      title: L('CURFEX JPY 입금 처리', 'CURFEX JPY deposit handling', 'CURFEX JPY入金処理', 'CURFEX JPY 入金处理', 'จัดการฝาก JPY CURFEX'),
+      bodyHtml: L(
+        `<span class="menu-path">USDT 매입</span>
+        <p>본사가 CURFEX를 켠 JPY 건은 <strong>입금 증빙 검토가 없습니다</strong>. 입금이 감지되면 티켓이 관리자 확인으로 옵니다.</p>
+        <ul>
+          <li>티켓에 「입금 계좌 (CURFEX 발급)」·CURFEX 참조번호가 표시됩니다.</li>
+          <li>고객은 증빙을 올리지 않습니다 — 웹훅/폴링으로 입금 확인.</li>
+          <li>운영자는 입금 확인 후 USDT 송금·TXID 등록 (기존과 동일).</li>
+          <li>「입금 상태 확인」으로 CURFEX 상태를 수동 동기화할 수 있습니다.</li>
+        </ul>
+        <div class="warn-box">KRW·THB·CNY 등 전용계좌 건은 기존처럼 증빙을 검토하세요. CURFEX 설정은 총본사만 변경합니다.</div>`,
+        `<span class="menu-path">USDT purchase</span>
+        <p>When HQ enables CURFEX for JPY, there is <strong>no deposit proof review</strong>. Detected deposits move tickets to admin review.</p>
+        <ul>
+          <li>Ticket shows CURFEX-issued account and reference.</li>
+          <li>Customers do not upload proof — webhook/poll confirms deposit.</li>
+          <li>Operator sends USDT and registers TXID as usual.</li>
+          <li>Use “Check deposit status” to sync manually if needed.</li>
+        </ul>
+        <div class="warn-box">Fixed-account tickets (KRW/THB/CNY etc.) still need proof review. Only HQ changes CURFEX settings.</div>`,
+        `<span class="menu-path">USDT購入</span>
+        <p>CURFEX有効のJPYは<strong>証憑確認なし</strong>。入金検知で管理者確認へ。</p>
+        <ul><li>CURFEX発行口座・参照番号を確認</li><li>USDT送金・TXIDは従来どおり</li></ul>`,
+        `<span class="menu-path">USDT 采购</span>
+        <p>总部开启 CURFEX 的 JPY 单<strong>无需凭证审核</strong>，入金检测后进入管理员确认。</p>
+        <ul><li>查看 CURFEX 账户与参考号</li><li>USDT 发送与 TXID 同以往</li></ul>`,
+        `<span class="menu-path">USDT</span>
+        <p>เมื่อ HQ เปิด CURFEX สำหรับ JPY <strong>ไม่ต้องตรวจสลิป</strong> ระบบยืนยันเงินเข้าอัตโนมัติ</p>
+        <ul><li>ดูบัญชี CURFEX และเลขอ้างอิง</li><li>ส่ง USDT และ TXID ตามเดิม</li></ul>`,
       ),
     },
   ],
@@ -860,25 +1052,100 @@ export const CUSTOMER_MANUAL: ManualDoc = {
         `<span class="menu-path">USDT 매입 → + 신규신청</span>
         <p>업무 시작 순서의 <strong>6단계</strong>입니다. 인증패스와 지갑 등록이 끝난 뒤에 신청합니다. 희망 수령 USDT 또는 입금 금액을 입력하면 수수료·비용 도식이 표시됩니다.</p>
         <ul>
-          <li><strong>계좌 이체</strong> — 안내 계좌 입금 후 2시간 내 증빙 제출. 본사가 해당 통화의 이체거래를 켠 경우만 선택 가능</li>
-          <li><strong>카드 결제</strong> — 카드 정보·환불 불가 동의 후 즉시 결제 (운영 카드 결제 ON + 해당 통화 카드 ON)</li>
+          <li><strong>계좌 이체</strong> — 안내 계좌로 입금. 통화·방식은 본사 설정에 따름</li>
+          <li><strong>카드 결제</strong> — 카드 정보·환불 불가 동의 후 즉시 결제</li>
         </ul>
-        <div class="info-box">통화 목록에는 선택한 결제 수단으로 허용된 통화만 보입니다. 없는 통화는 본사에 문의하세요.</div>
+        <p class="mt-2"><strong>JPY 이체 — 두 가지 방식</strong></p>
+        <table><thead><tr><th>방식</th><th>고객 행동</th></tr></thead><tbody>
+        <tr><td>고정 수취계좌</td><td>플랫폼 전용 계좌로 입금 → 2시간 내 <strong>입금 증빙</strong> 업로드</td></tr>
+        <tr><td>CURFEX (본사 ON)</td><td>티켓에 표시된 <strong>건별 계좌</strong>로만 입금 → <strong>증빙 업로드 없음</strong>. 입금 확인 후 자동으로 다음 단계</td></tr>
+        </tbody></table>
+        <div class="info-box">CURFEX 계좌는 「입금 계좌 (CURFEX 발급)」으로 표시됩니다. 다른 거래 계좌와 섞어 입금하지 마세요.</div>
         <div class="block-box">카드 결제는 완료 후 카드 취소·환불이 불가합니다. 동의 없이는 진행할 수 없습니다.</div>`,
         `<span class="menu-path">USDT → + New application</span>
-        <p><strong>Step 6.</strong> Apply after verification pass and wallet setup. Enter target USDT or fiat amount to see the fee diagram.</p>
+        <p><strong>Step 6.</strong> Apply after verification pass and wallet setup.</p>
         <ul>
-          <li><strong>Bank transfer</strong> — deposit then upload proof within 2 hours (only currencies HQ enabled for transfer)</li>
-          <li><strong>Card</strong> — pay after waiver (global card ON and that currency’s card ON)</li>
+          <li><strong>Bank transfer</strong> — deposit to the shown account</li>
+          <li><strong>Card</strong> — pay after non-refundable waiver</li>
         </ul>
-        <div class="info-box">The currency list shows only currencies allowed for the selected payment method.</div>
+        <p><strong>JPY transfer — two modes</strong></p>
+        <table><thead><tr><th>Mode</th><th>What you do</th></tr></thead><tbody>
+        <tr><td>Fixed HQ account</td><td>Deposit to fixed account → upload <strong>deposit proof</strong> within 2 hours</td></tr>
+        <tr><td>CURFEX (HQ ON)</td><td>Deposit only to the <strong>per-ticket account</strong> → <strong>no proof upload</strong>. System auto-confirms deposit</td></tr>
+        </tbody></table>
+        <div class="info-box">CURFEX accounts are labeled “Deposit account (CURFEX issued)”. Do not mix with other tickets.</div>
         <div class="block-box">Card payments are non-refundable after charge.</div>`,
         `<span class="menu-path">USDT → +新規申請</span>
+        <p><strong>6</strong>段階目。認証パスとウォレット登録後に申請。</p>
+        <table><thead><tr><th>方式</th><th>操作</th></tr></thead><tbody>
+        <tr><td>固定口座</td><td>入金→2時間以内に<strong>証憑アップロード</strong></td></tr>
+        <tr><td>CURFEX</td><td>取引専用口座へ入金→<strong>証憑不要</strong>・自動確認</td></tr>
+        </tbody></table>
         <div class="block-box">カード決済後の返金はできません。</div>`,
         `<span class="menu-path">USDT → +新申请</span>
+        <p>第 <strong>6</strong> 步。认证通过并登记钱包后申请。</p>
+        <table><thead><tr><th>方式</th><th>操作</th></tr></thead><tbody>
+        <tr><td>固定账户</td><td>入金 → 2 小时内<strong>上传凭证</strong></td></tr>
+        <tr><td>CURFEX</td><td>向本单专用账户入金 → <strong>无需凭证</strong>，系统自动确认</td></tr>
+        </tbody></table>
         <div class="block-box">卡支付完成后不可退款。</div>`,
         `<span class="menu-path">USDT → +สมัครใหม่</span>
+        <p>ขั้น <strong>6</strong> หลังผ่านการยืนยันและลงทะเบียนกระเป๋า</p>
+        <table><thead><tr><th>แบบ</th><th>การทำ</th></tr></thead><tbody>
+        <tr><td>บัญชีคงที่</td><td>ฝาก → อัปโหลด<strong>หลักฐาน</strong>ภายใน 2 ชม.</td></tr>
+        <tr><td>CURFEX</td><td>ฝากบัญชีรายตั๋ว → <strong>ไม่ต้องอัปโหลดสลิป</strong> ระบบยืนยันอัตโนมัติ</td></tr>
+        </tbody></table>
         <div class="block-box">ชำระบัตรแล้วคืนเงินไม่ได้</div>`,
+      ),
+    },
+    {
+      id: 'c-curfex',
+      title: L('JPY CURFEX 입금 (자동 확인)', 'JPY CURFEX deposit (auto)', 'JPY CURFEX入金（自動確認）', 'JPY CURFEX 入金（自动确认）', 'ฝาก JPY CURFEX (อัตโนมัติ)'),
+      bodyHtml: L(
+        `<span class="menu-path">USDT 매입 → 티켓 상세</span>
+        <p>본사가 CURFEX를 켠 경우, JPY 계좌이체 신청 시 <strong>이 거래 전용 일본 수취 계좌</strong>가 발급됩니다.</p>
+        <div class="flow">
+          <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">신청 시 <strong>신청서·자금 원천 증빙</strong>만 업로드 (입금 영수증 칸 없음)</span></div>
+          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">「입금 계좌 (CURFEX 발급)」·참조번호 확인 후 해당 계좌로만 JPY 입금</span></div>
+          <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">입금 영수증 업로드 <strong>하지 않음</strong> — 실운영은 웹훅 자동 확인 / 샌드박스는 「입금 시뮬레이션」</span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">상태가 <strong>심사중(관리자 확인)</strong>이 되면 USDT 송금을 기다림</span></div>
+        </div>
+        <div class="info-box">화면에 「입금 대기 (자동 감지)」가 보이면 CURFEX 모드입니다. 관리자 화면에서도 동일 티켓이 「심사중」으로 바뀌면 입금 완료로 처리된 것입니다.</div>
+        <div class="warn-box">KRW·THB·CNY 등 다른 통화, 또는 CURFEX가 꺼진 경우에는 기존처럼 전용 계좌 + 입금 영수증 업로드가 필요합니다.</div>`,
+        `<span class="menu-path">USDT purchase → ticket detail</span>
+        <p>When HQ enables CURFEX, JPY bank transfer gets a <strong>per-ticket Japan receiving account</strong>.</p>
+        <div class="flow">
+          <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">At apply: upload <strong>application / source-of-funds only</strong> (no deposit receipt field)</span></div>
+          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">Note CURFEX account &amp; reference — transfer JPY only there</span></div>
+          <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">Do <strong>not</strong> upload deposit receipt — live uses webhook; sandbox uses “Simulate deposit”</span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">When status becomes <strong>Admin reviewing</strong>, wait for USDT</span></div>
+        </div>
+        <div class="info-box">“Awaiting deposit (auto-detect)” = CURFEX mode. Admins see the same ticket move to Admin reviewing when deposit is confirmed.</div>
+        <div class="warn-box">Other currencies or when CURFEX is off: fixed account + deposit receipt as before.</div>`,
+        `<span class="menu-path">USDT購入 → 詳細</span>
+        <p>CURFEX有効時、JPY振込は<strong>取引専用口座</strong>が発行されます。</p>
+        <div class="flow">
+          <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">申請→「入金口座（CURFEX発行）」を確認</span></div>
+          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">表示口座へJPY入金</span></div>
+          <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">証憑アップロード<strong>不要</strong></span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">管理者確認後USDT送金を待つ</span></div>
+        </div>`,
+        `<span class="menu-path">USDT 采购 → 详情</span>
+        <p>总部开启 CURFEX 时，JPY 转账会开立<strong>本单专用账户</strong>。</p>
+        <div class="flow">
+          <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">申请后查看 CURFEX 账户</span></div>
+          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">向该账户入金</span></div>
+          <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc"><strong>无需</strong>上传凭证</span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">等待 USDT 发送</span></div>
+        </div>`,
+        `<span class="menu-path">USDT → รายละเอียด</span>
+        <p>เมื่อ HQ เปิด CURFEX โอน JPY จะได้<strong>บัญชีรายตั๋ว</strong></p>
+        <div class="flow">
+          <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">สมัครแล้วดูบัญชี CURFEX</span></div>
+          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">โอน JPY เข้าบัญชีนั้น</span></div>
+          <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc"><strong>ไม่ต้อง</strong>อัปโหลดสลิป</span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">รอ USDT หลังขั้นตรวจของผู้ดูแล</span></div>
+        </div>`,
       ),
     },
     {
@@ -902,12 +1169,16 @@ export const CUSTOMER_MANUAL: ManualDoc = {
         <div class="faq-item"><div class="faq-q">USDT·에스크로를 신청할 수 없습니다.</div><div class="faq-a">인증센터에서 서류를 제출하고 총본사 인증패스를 기다리세요. 반려이면 사유를 보고 다시 올리세요.</div></div>
         <div class="faq-item"><div class="faq-q">시뮬레이터에 결과가 안 남습니다.</div><div class="faq-a">네트워크를 선택하고 금액을 입력하세요. 이 화면은 최근 3건, 대시보드는 2건입니다.</div></div>
         <div class="faq-item"><div class="faq-q">예상 USDT와 실제가 다릅니다.</div><div class="faq-a">환율·가스비 변동으로 범위 내 차이가 날 수 있습니다.</div></div>
-        <div class="faq-item"><div class="faq-q">원하는 통화가 목록에 없습니다.</div><div class="faq-a">본사가 해당 통화의 이체 또는 카드결제를 끈 상태입니다. 운영자에게 문의하세요.</div></div>`,
+        <div class="faq-item"><div class="faq-q">원하는 통화가 목록에 없습니다.</div><div class="faq-a">본사가 해당 통화의 이체 또는 카드결제를 끈 상태입니다. 운영자에게 문의하세요.</div></div>
+        <div class="faq-item"><div class="faq-q">JPY인데 증빙 업로드 칸이 없습니다.</div><div class="faq-a">CURFEX가 켜져 있으면 정상입니다. 안내 계좌로 입금만 하면 시스템이 자동 확인합니다.</div></div>
+        <div class="faq-item"><div class="faq-q">입금했는데 상태가 안 바뀝니다.</div><div class="faq-a">CURFEX 건은 「입금 상태 확인」을 누르거나 잠시 기다리세요. 전용계좌는 증빙을 업로드해야 합니다.</div></div>`,
         `<div class="faq-item"><div class="faq-q">Card button is gray.</div><div class="faq-a">Card pay is disabled; use bank transfer or contact support.</div></div>
         <div class="faq-item"><div class="faq-q">Cannot apply for USDT or escrow.</div><div class="faq-a">Submit files in Verification and wait for HQ verification pass. If rejected, resubmit after reading the reason.</div></div>
         <div class="faq-item"><div class="faq-q">Simulator results disappear.</div><div class="faq-a">Select a network and enter an amount. The page keeps 3 runs; the dashboard shows 2.</div></div>
         <div class="faq-item"><div class="faq-q">Received USDT differs.</div><div class="faq-a">Rate/gas variance may apply within the shown range.</div></div>
-        <div class="faq-item"><div class="faq-q">My currency is missing.</div><div class="faq-a">HQ disabled transfer or card for that currency. Contact support.</div></div>`,
+        <div class="faq-item"><div class="faq-q">My currency is missing.</div><div class="faq-a">HQ disabled transfer or card for that currency. Contact support.</div></div>
+        <div class="faq-item"><div class="faq-q">No proof upload for JPY.</div><div class="faq-a">Normal when CURFEX is on — deposit to the shown account only.</div></div>
+        <div class="faq-item"><div class="faq-q">Deposited but status unchanged.</div><div class="faq-a">CURFEX: tap “Check deposit status” or wait. Fixed account: upload proof.</div></div>`,
         `<div class="faq-item"><div class="faq-q">カードが灰色です。</div><div class="faq-a">カード決済が無効です。振込を利用してください。</div></div>
         <div class="faq-item"><div class="faq-q">USDT・エスクローを申請できません。</div><div class="faq-a">認証センターで提出し、総本社の認証パスを待ってください。</div></div>`,
         `<div class="faq-item"><div class="faq-q">卡按钮是灰色。</div><div class="faq-a">卡支付未启用，请用转账或联系客服。</div></div>

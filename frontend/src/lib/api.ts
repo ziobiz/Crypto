@@ -270,11 +270,13 @@ export const api = {
       fiatAmount?: number;
       targetUsdtAmount?: number;
       network?: string;
+      feeMode?: 'LIVE' | 'SAND';
     }) => {
       const q = new URLSearchParams({ currency: params.fiatCurrency });
       if (params.fiatAmount != null) q.set('fiatAmount', String(params.fiatAmount));
       if (params.targetUsdtAmount != null) q.set('targetUsdtAmount', String(params.targetUsdtAmount));
       if (params.network) q.set('network', params.network);
+      if (params.feeMode) q.set('feeMode', params.feeMode);
       return request<UsdtFeePreview>(`/api/tickets/usdt-purchase/simulate?${q}`);
     },
     create: (data: {
@@ -325,6 +327,16 @@ export const api = {
         body: form,
       });
     },
+    syncCurfexDeposit: (id: string) =>
+      request<{ synced: boolean; applied: boolean; statusCode?: string; ticket?: UsdtTicket }>(
+        `/api/tickets/usdt-purchase/${id}/curfex-sync`,
+        { method: 'POST' },
+      ),
+    simulateCurfexSandboxDeposit: (id: string) =>
+      request<{ applied: boolean; ticket?: UsdtTicket }>(
+        `/api/tickets/usdt-purchase/${id}/curfex-sandbox-deposit`,
+        { method: 'POST' },
+      ),
     uploadApplicationDocs: (
       id: string,
       files: { sourceOfFunds?: File[]; depositReceipt?: File[] },
@@ -509,7 +521,9 @@ export interface MeResponse extends User {
     id: string;
     customerType: string;
     recruitingOrg?: { id: string; name: string; code: string };
-  };
+  simulatorEnabled?: boolean;
+  simulatorRateMode?: 'LIVE' | 'SAND';
+};
 }
 
 export interface SessionPolicy {
@@ -646,6 +660,8 @@ export interface Organization {
   path?: string;
   parentId?: string | null;
   isActive?: boolean;
+  simulatorEnabled?: boolean;
+  simulatorRateMode?: 'LIVE' | 'SAND';
   deletedAt?: string | null;
   purgeAt?: string | null;
   parent?: { id: string; code: string; name: string; type: string } | null;
@@ -661,6 +677,8 @@ export interface CreateOrganizationInput {
 export interface UpdateOrganizationInput {
   name?: string;
   isActive?: boolean;
+  simulatorEnabled?: boolean;
+  simulatorRateMode?: 'LIVE' | 'SAND';
 }
 
 export interface HqDeletionPolicy {
@@ -756,6 +774,8 @@ export interface ManagedUser {
     id: string;
     customerType: string;
     businessName?: string | null;
+    simulatorEnabled?: boolean;
+    simulatorRateMode?: 'LIVE' | 'SAND';
     recruitingOrg?: { id: string; code: string; name: string };
     feeShare?: CustomerFeeShare | null;
   } | null;
@@ -815,6 +835,9 @@ export interface CreateUserInput {
   walletNetwork?: string;
   walletLabel?: string;
   feeShare?: CustomerFeeShare;
+  /** USDT 시뮬레이터 허용 (기본 true). false면 본사 권한보다 우선 차단 */
+  simulatorEnabled?: boolean;
+  simulatorRateMode?: 'LIVE' | 'SAND';
 }
 
 export interface UpdateUserInput {
@@ -826,6 +849,8 @@ export interface UpdateUserInput {
   recruitingOrgId?: string;
   statusReason?: string;
   feeShare?: CustomerFeeShare;
+  simulatorEnabled?: boolean;
+  simulatorRateMode?: 'LIVE' | 'SAND';
 }
 
 export interface Wallet {
@@ -1060,6 +1085,8 @@ export interface UsdtTicket {
   collectionProvider?: 'FIXED' | 'CURFEX' | string | null;
   curfexRefNo?: string | null;
   curfexStatusCode?: string | null;
+  curfexDepositDetectedAt?: string | null;
+  curfexAutoDetect?: boolean;
   collectionAccount?: {
     bankName: string;
     accountNumber: string;
@@ -1360,6 +1387,16 @@ export const hqPolicyApi = {
       method: 'PUT',
       body: JSON.stringify({ gasNetworks }),
     }),
+  saveSimulatorCommissionRisk: (risk: HqCommissionRiskConfig) =>
+    request<HqCommissionPayload>('/api/hq-policy/commission/simulator/risk', {
+      method: 'PUT',
+      body: JSON.stringify({ risk }),
+    }),
+  saveSimulatorSymbolFeeTiers: (feeTiers: SymbolFeeTierRow[]) =>
+    request<HqCommissionPayload>('/api/hq-policy/commission/simulator/fee-tiers', {
+      method: 'PUT',
+      body: JSON.stringify({ feeTiers }),
+    }),
   saveCommissionRates: (
     rates: Array<{
       organizationId: string;
@@ -1433,12 +1470,18 @@ export const hqPolicyApi = {
       method: 'PUT',
       body: JSON.stringify({ config }),
     }),
-  getCurfex: () => request<{ config: HqCurfexConfig }>('/api/hq-policy/payment/curfex'),
+  getCurfex: () =>
+    request<{ config: HqCurfexConfig; webhookUrl?: string }>('/api/hq-policy/payment/curfex'),
   saveCurfex: (config: HqCurfexConfig) =>
-    request<{ config: HqCurfexConfig }>('/api/hq-policy/payment/curfex', {
+    request<{ config: HqCurfexConfig; webhookUrl?: string }>('/api/hq-policy/payment/curfex', {
       method: 'PUT',
       body: JSON.stringify({ config }),
     }),
+  generateCurfexWebhookSecret: () =>
+    request<{ config: HqCurfexConfig; webhookUrl?: string; webhookSecretOnce?: string }>(
+      '/api/hq-policy/payment/curfex/webhook-secret',
+      { method: 'POST' },
+    ),
   getDeletion: () => request<HqDeletionPayload>('/api/hq-policy/deletion'),
   getWorkflowDisplay: () => request<HqWorkflowDisplayConfig>('/api/hq-policy/workflow-display'),
   saveWorkflowDisplay: (config: HqWorkflowDisplayConfig) =>
@@ -1689,6 +1732,8 @@ export type HqGasNetworkPolicy = {
 export interface HqCommissionPayload {
   risk: HqCommissionRiskConfig;
   feeTiers: SymbolFeeTierRow[];
+  simulatorRisk?: HqCommissionRiskConfig;
+  simulatorFeeTiers?: SymbolFeeTierRow[];
   exchangeRateSources: HqExchangeRateSourcePolicy;
   exchangeRatePreview: ExchangeRatePreviewRow[];
   localPremiums: LocalMarketPremiumAnalysis[];
@@ -1724,6 +1769,10 @@ export interface BrandingResponse {
   >;
   customerRegistrationEnabled: boolean;
   defaultUsdtFiatCurrency?: 'KRW' | 'JPY' | 'THB' | 'CNY';
+  /** 기준시간 IANA TZ */
+  baseTimezone?: string;
+  /** 서비스기준시간 IANA TZ */
+  serviceTimezone?: string;
 }
 
 export interface HqPlatformConfig {
@@ -1761,6 +1810,8 @@ export interface HqPlatformConfig {
       }
     >
   >;
+  baseTimezone?: string;
+  serviceTimezone?: string;
 }
 
 export interface HqPlatformPayload {
@@ -1809,8 +1860,11 @@ export interface HqCurfexConfig {
   clientSecret: string;
   apiBaseUrl?: string;
   walletName?: string;
-  currencies?: Array<'JPY'>;
+  /** Currencies that use CURFEX (default JPY). Others stay on fixed accounts. */
+  currencies?: Array<'JPY' | 'KRW' | 'THB' | 'CNY'>;
   sandbox?: boolean;
+  webhookSecret?: string;
+  autoApproveOnDeposit?: boolean;
 }
 
 export type CardCurrencyLimits = { min: number; max: number };

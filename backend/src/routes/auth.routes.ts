@@ -391,6 +391,7 @@ router.get(
       pageAccess: await hqPolicyService.getPageAccessForUser({
         role: user.role,
         organizationType: user.organization?.type ?? null,
+        simulatorEnabled: user.customerProfile?.simulatorEnabled,
       }),
       kycStatus: user.kyc?.status ?? (user.role === 'CUSTOMER' ? 'NOT_SUBMITTED' : 'APPROVED'),
       wallets: user.wallets.map((w) => ({

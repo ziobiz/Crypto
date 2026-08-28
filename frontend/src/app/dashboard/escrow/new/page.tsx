@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthProvider';
 import { api, EscrowFeePreview } from '@/lib/api';
 import { isKycApproved } from '@/lib/kyc';
 import { ContentCard } from '@/components/layout/ContentCard';
+import { ReferenceClocks } from '@/components/ReferenceClocks';
 import { formatCurrency } from '@/lib/format';
 
 const ESCROW_CURRENCIES = ['KRW', 'USD', 'JPY', 'THB', 'CNY', 'USDT'] as const;
@@ -92,6 +93,7 @@ export default function EscrowNewPage() {
 
   return (
     <div className="pg-stack">
+      <ReferenceClocks compact />
       <p className="pg-hint">{t('escrow.flowHint')}</p>
       {!kycOk && (
         <div className="pg-callout pg-callout-warn text-sm">

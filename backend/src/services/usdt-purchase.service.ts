@@ -175,6 +175,7 @@ async function quoteFromTarget(
   currency: FiatCurrency,
   targetUsdt: number,
   rate: number,
+  feePolicy?: Parameters<typeof resolveFeesForAmount>[3],
 ): Promise<{
   fees: ResolvedTransactionFees;
   fiatAmount: number;
@@ -190,12 +191,12 @@ async function quoteFromTarget(
       localPremium = null;
     }
   }
-  let baseFees = await resolveFeesForAmount(wallet, currency, 0);
+  let baseFees = await resolveFeesForAmount(wallet, currency, 0, feePolicy);
   let fees: ResolvedTransactionFees =
     localPremium != null ? applyLocalPremiumToBaseFees(baseFees, localPremium, 0) : baseFees;
   let breakdown = breakdownFromTarget(targetUsdt, rate, fees);
 
-  baseFees = await resolveFeesForAmount(wallet, currency, breakdown.requiredFiat);
+  baseFees = await resolveFeesForAmount(wallet, currency, breakdown.requiredFiat, feePolicy);
   if (hasLocalPremium && localPremium) {
     try {
       localPremium = await getLocalPremiumContext(currency as LocalPremiumCurrency);
@@ -334,6 +335,7 @@ export async function simulateHqUsdtQuote(input: {
   fiatAmount?: number;
   targetUsdtAmount?: number;
   network?: string;
+  feePolicy?: 'live' | 'sandbox';
 }) {
   const sessionPolicy = await hqPolicyService.getSessionPolicy();
   const currency = input.fiatCurrency ?? sessionPolicy.defaultUsdtFiatCurrency ?? 'JPY';
@@ -344,10 +346,18 @@ export async function simulateHqUsdtQuote(input: {
     throw new AppError(400, 'Withdrawal network is required', 'NETWORK_REQUIRED');
   }
   const wallet = { ...HQ_SIM_WALLET, network };
+  const feeOpts = input.feePolicy === 'sandbox' ? { feePolicy: 'sandbox' as const } : undefined;
+  const policyBasis = input.feePolicy === 'sandbox' ? ('SANDBOX' as const) : ('HQ' as const);
 
   try {
     if (input.targetUsdtAmount != null && Number(input.targetUsdtAmount) > 0) {
-      const quoted = await quoteFromTarget(wallet, currency, Number(input.targetUsdtAmount), rate);
+      const quoted = await quoteFromTarget(
+        wallet,
+        currency,
+        Number(input.targetUsdtAmount),
+        rate,
+        feeOpts,
+      );
       return {
         fees: quoted.fees,
         fiatAmount: quoted.fiatAmount,
@@ -358,12 +368,12 @@ export async function simulateHqUsdtQuote(input: {
         localPremium: quoted.localPremium,
         kimchiPremium: quoted.localPremium?.currency === 'KRW' ? quoted.localPremium : undefined,
         feeDiagramDisplay,
-        policyBasis: 'HQ' as const,
+        policyBasis,
       };
     }
 
     const fiatAmount = input.fiatAmount ?? 0;
-    const fees = await resolveFeesForPurchase(wallet, currency, fiatAmount, rate);
+    const fees = await resolveFeesForPurchase(wallet, currency, fiatAmount, rate, feeOpts);
     const breakdown = fiatAmount > 0 ? breakdownFromFiat(fiatAmount, rate, fees) : undefined;
     let localPremiumInfo;
     if (isLocalPremiumCurrency(currency) && fiatAmount > 0) {
@@ -385,7 +395,7 @@ export async function simulateHqUsdtQuote(input: {
       localPremium: localPremiumInfo,
       kimchiPremium: localPremiumInfo?.currency === 'KRW' ? localPremiumInfo : undefined,
       feeDiagramDisplay,
-      policyBasis: 'HQ' as const,
+      policyBasis,
     };
   } catch (e) {
     if (isAppError(e)) throw e;
@@ -913,6 +923,8 @@ function serializeTicket(
     collectionProvider: detail.collectionProvider ?? 'FIXED',
     curfexRefNo: detail.curfexRefNo ?? null,
     curfexStatusCode: detail.curfexStatusCode ?? null,
+    curfexDepositDetectedAt: detail.curfexDepositDetectedAt ?? null,
+    curfexAutoDetect: detail.collectionProvider === 'CURFEX',
     collectionAccount: (() => {
       const raw = detail.collectionAccountJson as Record<string, unknown> | null;
       if (!raw || detail.collectionProvider !== 'CURFEX') return null;

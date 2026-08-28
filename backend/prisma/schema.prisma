@@ -117,6 +117,12 @@ enum CurrencyCode {
   USDT
 }
 
+/// USDT 시뮬레이터 수수료 체계 — LIVE=실제 정책, SAND=시뮬레이터 전용 정책
+enum SimulatorRateMode {
+  LIVE
+  SAND
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ORGANIZATION — 5단계 영업 조직 트리
 // ─────────────────────────────────────────────────────────────────────────────
@@ -139,6 +145,11 @@ model Organization {
 
   // Materialized path for efficient subtree queries (예: /HQ/MD01/RB02/AG03/SO04)
   path String @default("/")
+
+  /// USDT 시뮬레이터 사용 허용 (조직별). false면 소속 사용자 시뮬레이터 차단
+  simulatorEnabled   Boolean            @default(true)
+  /// 시뮬레이터 수수료 체계 — LIVE=실제, SAND=시뮬레이터 전용
+  simulatorRateMode  SimulatorRateMode  @default(LIVE)
 
   users            User[]
   customers        CustomerProfile[] @relation("RecruitingOrg")
@@ -258,6 +269,11 @@ model CustomerProfile {
 
   /// 고객별 수수료 배분 (총본사 기본값을 복사 후 고객마다 수정)
   feeShare Json?
+
+  /// USDT 시뮬레이터 사용 허용 (고객별). false면 본사 권한 매트릭스보다 우선해 차단
+  simulatorEnabled Boolean @default(true)
+  /// 시뮬레이터 수수료 체계 — LIVE=실제, SAND=시뮬레이터 전용 (본사 기본값보다 우선)
+  simulatorRateMode SimulatorRateMode @default(LIVE)
 
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -468,6 +484,10 @@ model UsdtPurchaseDetail {
   curfexStatusCode       String?
   /// CURFEX 수취 계좌 스냅샷 { bankName, branchCode, branchName, accountType, accountNo, accountName }
   collectionAccountJson  Json?
+  /// CURFEX 웹훅/폴링으로 입금 감지된 시각 (증빙 업로드 대체)
+  curfexDepositDetectedAt DateTime?
+  /// 최근 CURFEX 이벤트 스냅샷 (감사)
+  curfexLastEventJson     Json?
 
   // 수령 지갑
   walletId String?

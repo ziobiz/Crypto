@@ -7,6 +7,7 @@ import { api, SalesOffice } from '@/lib/api';
 import { useT } from '@/context/LocaleProvider';
 import { AuthChrome } from '@/components/layout/AuthChrome';
 import { useBranding } from '@/hooks/useBranding';
+import { ReferenceClocks } from '@/components/ReferenceClocks';
 import {
   CustomerBankAccountsForm,
   emptyBankAccounts,
@@ -113,6 +114,9 @@ export default function RegisterPage() {
     <AuthChrome branding={branding}>
       <div className="w-full">
         <h2 className="text-xl font-bold sm:text-2xl">{t('auth.registerCustomerTitle')}</h2>
+        <div className="mt-2">
+          <ReferenceClocks compact />
+        </div>
         <form onSubmit={handleSubmit} className="mt-4 space-y-3">
           <Field label={t('auth.email')} value={form.email} onChange={(v) => setForm({ ...form, email: v })} type="email" />
           <div className="flex gap-2">

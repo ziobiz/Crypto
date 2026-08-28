@@ -9,6 +9,7 @@ import {
   ApiError,
   ExchangeRateResponse,
   UsdtCardPaymentContext,
+  UsdtDepositContext,
   UsdtFeePreview,
   Wallet,
 } from '@/lib/api';
@@ -18,6 +19,7 @@ import { FormattedAmountInput } from '@/components/FormattedAmountInput';
 import { ContentCard } from '@/components/layout/ContentCard';
 import { CardPaymentForm, emptyCardForm, type CardFormState } from '@/components/CardPaymentForm';
 import { LocalizedFileInput } from '@/components/LocalizedFileInput';
+import { ReferenceClocks } from '@/components/ReferenceClocks';
 import { displayWalletLabel } from '@/lib/wallet-label';
 import { isKycApproved } from '@/lib/kyc';
 
@@ -53,6 +55,7 @@ export default function UsdtNewPage() {
   const [cardForm, setCardForm] = useState<CardFormState>(emptyCardForm());
   const [sourceFiles, setSourceFiles] = useState<File[]>([]);
   const [depositFiles, setDepositFiles] = useState<File[]>([]);
+  const [depositCtx, setDepositCtx] = useState<UsdtDepositContext | null>(null);
 
   useEffect(() => {
     const def = user?.sessionPolicy?.defaultUsdtFiatCurrency;
@@ -67,6 +70,7 @@ export default function UsdtNewPage() {
       const def = w.find((x) => x.isDefault) ?? w[0];
       if (def) setWalletId(def.id);
     }).catch(console.error);
+    api.usdt.depositContext().then(setDepositCtx).catch(console.error);
     api.usdt.cardContext().then((ctx) => {
       setCardContext(ctx);
       setCardForm(
@@ -100,6 +104,12 @@ export default function UsdtNewPage() {
   const cardMethodAvailable = cardPaymentEnabled && cardFiats.length > 0;
   const bankMethodAvailable = transferFiats.length > 0;
   const methodFiats = isCard ? cardFiats : transferFiats;
+  const isCurfexCurrency =
+    !isCard && (depositCtx?.curfexEnabledCurrencies ?? []).includes(fiatCurrency);
+
+  useEffect(() => {
+    if (isCurfexCurrency) setDepositFiles([]);
+  }, [isCurfexCurrency, fiatCurrency]);
 
   useEffect(() => {
     if (cardContext && !cardMethodAvailable && paymentMethod === 'CARD') {
@@ -181,7 +191,7 @@ export default function UsdtNewPage() {
         setError(t('usdt.funding.sourceRequired'));
         return;
       }
-      if (depositFiles.length === 0) {
+      if (!isCurfexCurrency && depositFiles.length === 0) {
         setError(t('usdt.funding.depositRequired'));
         return;
       }
@@ -220,7 +230,7 @@ export default function UsdtNewPage() {
       );
       await api.usdt.uploadApplicationDocs(ticket.id, {
         sourceOfFunds: sourceFiles,
-        depositReceipt: depositFiles,
+        depositReceipt: isCurfexCurrency ? [] : depositFiles,
       });
       router.push(`/dashboard/usdt/${ticket.id}`);
     } catch (err) {
@@ -238,6 +248,7 @@ export default function UsdtNewPage() {
 
   return (
     <div className="pg-stack">
+      <ReferenceClocks compact />
       <p className="pg-hint">
         {isCard ? t('usdt.cardFlowHint') : t('usdt.manualFlowHint')}
       </p>
@@ -419,7 +430,11 @@ export default function UsdtNewPage() {
             {!isCard && (
               <div className="mt-6 space-y-3 border-t border-slate-200 pt-5">
                 <p className="pg-label">{t('usdt.funding.applyTitle')}</p>
-                <p className="pg-hint">{t('usdt.funding.applyHint')}</p>
+                <p className="pg-hint">
+                  {isCurfexCurrency
+                    ? t('usdt.funding.applyHintCurfex')
+                    : t('usdt.funding.applyHint')}
+                </p>
                 <div>
                   <label className="pg-label">{t('usdt.funding.sourceFiles')}</label>
                   <div className="mt-1">
@@ -431,17 +446,19 @@ export default function UsdtNewPage() {
                     />
                   </div>
                 </div>
-                <div>
-                  <label className="pg-label">{t('usdt.funding.depositReceipt')}</label>
-                  <div className="mt-1">
-                    <LocalizedFileInput
-                      accept="image/*,.pdf"
-                      multiple
-                      files={depositFiles}
-                      onFiles={setDepositFiles}
-                    />
+                {!isCurfexCurrency && (
+                  <div>
+                    <label className="pg-label">{t('usdt.funding.depositReceipt')}</label>
+                    <div className="mt-1">
+                      <LocalizedFileInput
+                        accept="image/*,.pdf"
+                        multiple
+                        files={depositFiles}
+                        onFiles={setDepositFiles}
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             )}
 

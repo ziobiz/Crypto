@@ -17,6 +17,7 @@ import { formatDate } from '@/lib/format';
 const FIAT_CURRENCIES = ['KRW', 'JPY', 'THB', 'CNY'] as const;
 type FiatCurrency = (typeof FIAT_CURRENCIES)[number];
 type InputMode = 'fiat' | 'target';
+type SimulatorFeeMode = 'LIVE' | 'SAND';
 
 type SimHistoryItem = {
   at: string;
@@ -118,6 +119,7 @@ export default function UsdtSimulatorPage() {
   const t = useT();
   const router = useRouter();
   const hq = isHqViewer(user);
+  const [feeMode, setFeeMode] = useState<SimulatorFeeMode>('LIVE');
   const [fiatCurrency, setFiatCurrency] = useState<FiatCurrency>('JPY');
   const [network, setNetwork] = useState<WalletNetwork>('TRC20');
   const [inputMode, setInputMode] = useState<InputMode>('fiat');
@@ -172,8 +174,8 @@ export default function UsdtSimulatorPage() {
     }
     const params =
       inputMode === 'fiat'
-        ? { fiatCurrency, fiatAmount, network }
-        : { fiatCurrency, targetUsdtAmount: targetUsdt, network };
+        ? { fiatCurrency, fiatAmount, network, ...(hq ? { feeMode } : {}) }
+        : { fiatCurrency, targetUsdtAmount: targetUsdt, network, ...(hq ? { feeMode } : {}) };
     api.usdt
       .simulate(params)
       .then((p) => {
@@ -191,7 +193,7 @@ export default function UsdtSimulatorPage() {
         if (code === 'NETWORK_REQUIRED') setError(t('simulator.networkRequired'));
         else setError(e instanceof Error ? e.message : t('common.loadFailed'));
       });
-  }, [ready, inputMode, fiatAmount, targetUsdt, fiatCurrency, network, t]);
+  }, [ready, inputMode, fiatAmount, targetUsdt, fiatCurrency, network, feeMode, hq, t]);
 
   useEffect(() => {
     if (!user || !preview?.breakdown || !previewAt) return;
@@ -258,6 +260,25 @@ export default function UsdtSimulatorPage() {
 
       <ContentCard title={t('simulator.title')}>
         <p className="pg-hint mb-3">{t('simulator.hint')}</p>
+        <div className="pg-callout pg-callout-muted mb-3 text-xs">{t('simulator.disclaimer')}</div>
+        {hq && (
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className={`pg-btn ${feeMode === 'LIVE' ? 'pg-btn-primary' : 'pg-btn-secondary'}`}
+              onClick={() => setFeeMode('LIVE')}
+            >
+              {t('simulator.tabLive')}
+            </button>
+            <button
+              type="button"
+              className={`pg-btn ${feeMode === 'SAND' ? 'pg-btn-primary' : 'pg-btn-secondary'}`}
+              onClick={() => setFeeMode('SAND')}
+            >
+              {t('simulator.tabSandbox')}
+            </button>
+          </div>
+        )}
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <button
             type="button"

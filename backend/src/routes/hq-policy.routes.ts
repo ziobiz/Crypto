@@ -25,6 +25,8 @@ import {
 import {
   getCurfexConfigMasked,
   saveCurfexConfig,
+  generateCurfexWebhookSecret,
+  publicCurfexWebhookUrl,
 } from '../services/curfex.service';
 
 const router = Router();
@@ -118,6 +120,32 @@ router.put(
     }
     const audit = auditFromRequest(req.user!, req);
     res.json(await hqPolicyService.saveSymbolFeeTiers(audit, body.feeTiers));
+  }),
+);
+
+router.put(
+  '/commission/simulator/risk',
+  asyncHandler(async (req, res) => {
+    const body = req.body as { risk?: HqCommissionRiskConfig };
+    if (!body.risk) {
+      res.status(400).json({ error: 'risk required' });
+      return;
+    }
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await hqPolicyService.saveSimulatorCommissionRisk(audit, body.risk));
+  }),
+);
+
+router.put(
+  '/commission/simulator/fee-tiers',
+  asyncHandler(async (req, res) => {
+    const body = req.body as { feeTiers?: SymbolFeeTierPolicy };
+    if (!body.feeTiers?.length) {
+      res.status(400).json({ error: 'feeTiers required' });
+      return;
+    }
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await hqPolicyService.saveSimulatorSymbolFeeTiers(audit, body.feeTiers));
   }),
 );
 
@@ -364,7 +392,10 @@ router.put(
 router.get(
   '/payment/curfex',
   asyncHandler(async (_req, res) => {
-    res.json({ config: await getCurfexConfigMasked() });
+    res.json({
+      config: await getCurfexConfigMasked(),
+      webhookUrl: publicCurfexWebhookUrl(),
+    });
   }),
 );
 
@@ -377,7 +408,37 @@ router.put(
       return;
     }
     const audit = auditFromRequest(req.user!, req);
-    res.json(await hqPolicyService.saveCurfex(audit, body.config));
+    const result = await hqPolicyService.saveCurfex(audit, body.config);
+    res.json({ ...result, webhookUrl: publicCurfexWebhookUrl() });
+  }),
+);
+
+router.post(
+  '/payment/curfex/webhook-secret',
+  asyncHandler(async (req, res) => {
+    const audit = auditFromRequest(req.user!, req);
+    const before = await getCurfexConfigMasked();
+    const after = await generateCurfexWebhookSecret();
+    await logAdminChange({
+      actor: audit.actor,
+      action: AdminChangeAction.UPDATE,
+      entityType: 'HQ_CURFEX',
+      entityId: 'hq.payment.curfex',
+      entityLabel: 'CURFEX webhook secret',
+      summary: `CURFEX 웹훅 HMAC 비밀 재생성 (관리자: ${audit.actor.email})`,
+      before,
+      after,
+      ipAddress: audit.ipAddress,
+      userAgent: audit.userAgent,
+    });
+    // Return unmasked secret once so HQ can copy into CURFEX portal
+    const { getCurfexConfig } = await import('../services/curfex.service');
+    const full = await getCurfexConfig();
+    res.json({
+      config: after,
+      webhookUrl: publicCurfexWebhookUrl(),
+      webhookSecretOnce: full.webhookSecret,
+    });
   }),
 );
 

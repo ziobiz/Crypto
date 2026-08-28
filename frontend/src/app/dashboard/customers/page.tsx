@@ -16,6 +16,7 @@ import {
 import type { MessageKey } from '@/i18n/messages';
 import { WALLET_NETWORKS } from '@/constants/wallet-networks';
 import { CustomerFeeShareEditor, emptyFeeShare, feeShareFromHq } from '@/components/CustomerFeeShareEditor';
+import { ReferenceClocks } from '@/components/ReferenceClocks';
 import { escrowShareTotalsMatch, formatEscrowShareMismatch, parseEscrowShareMismatch } from '@/lib/escrow-share-totals';
 import { detailRowProps } from '@/lib/table-row-detail';
 
@@ -36,6 +37,8 @@ const emptyCreate: CreateUserInput = {
   walletAddress: '',
   walletNetwork: 'TRC20',
   walletLabel: '',
+  simulatorEnabled: true,
+  simulatorRateMode: 'LIVE',
 };
 
 function kycBadgeClass(status?: string | null): string {
@@ -141,6 +144,7 @@ export default function CustomersPage() {
 
   return (
     <div className="pg-stack">
+      <ReferenceClocks compact />
       <div className="pg-toolbar">
         <p className="pg-hint">{t('customers.subtitle')}</p>
         {canRegisterCustomer && (
@@ -214,6 +218,8 @@ export default function CustomersPage() {
               <th>{t('auth.customerType')}</th>
               <th>{t('users.recruitOrg')}</th>
               <th>{t('users.col.status')}</th>
+              <th>{t('customers.col.sRate')}</th>
+              <th>{t('customers.col.simulator')}</th>
               <th>{t('customers.col.kyc')}</th>
               <th>{t('users.col.actions')}</th>
             </tr>
@@ -221,13 +227,13 @@ export default function CustomersPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={7} className="pg-empty">
+                <td colSpan={9} className="pg-empty">
                   {t('common.loading')}
                 </td>
               </tr>
             ) : users.length === 0 ? (
               <tr>
-                <td colSpan={7} className="pg-empty">
+                <td colSpan={9} className="pg-empty">
                   {t('customers.empty')}
                 </td>
               </tr>
@@ -248,6 +254,26 @@ export default function CustomersPage() {
                   <td>
                     <span className={`pg-badge ${u.isActive ? 'pg-badge-success' : 'pg-badge-muted'}`}>
                       {u.isActive ? t('users.active') : t('users.inactive')}
+                    </span>
+                  </td>
+                  <td>
+                    <span className="pg-badge pg-badge-info">
+                      {u.customerProfile?.simulatorRateMode === 'SAND'
+                        ? t('customers.sRate.sand')
+                        : t('customers.sRate.live')}
+                    </span>
+                  </td>
+                  <td>
+                    <span
+                      className={`pg-badge ${
+                        u.customerProfile?.simulatorEnabled !== false
+                          ? 'pg-badge-success'
+                          : 'pg-badge-muted'
+                      }`}
+                    >
+                      {u.customerProfile?.simulatorEnabled !== false
+                        ? t('customers.simulator.on')
+                        : t('customers.simulator.off')}
                     </span>
                   </td>
                   <td>
@@ -275,6 +301,9 @@ export default function CustomersPage() {
               <h2 className="pg-modal-title">{t('customers.createTitle')}</h2>
             </div>
             <div className="pg-modal-body">
+              <div className="mb-3">
+                <ReferenceClocks compact />
+              </div>
               <label className="pg-field">
                 <span className="pg-field-label">
                   {t('auth.email')}
@@ -435,6 +464,40 @@ export default function CustomersPage() {
                       </option>
                     ))}
                   </select>
+                </label>
+              </div>
+              <div className="pg-inset-panel">
+                <p className="pg-inset-title">{t('customers.simulator.title')}</p>
+                <label className="mt-2 flex items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={form.simulatorEnabled !== false}
+                    onChange={(e) => setForm({ ...form, simulatorEnabled: e.target.checked })}
+                  />
+                  <span>
+                    <span className="font-medium">{t('customers.simulator.enable')}</span>
+                    <span className="mt-0.5 block text-xs text-slate-500">
+                      {t('customers.simulator.hint')}
+                    </span>
+                  </span>
+                </label>
+                <label className="mt-3 block text-sm">
+                  <span className="pg-field-label">{t('customers.sRate.title')}</span>
+                  <select
+                    className="pg-select mt-1 w-full max-w-xs"
+                    value={form.simulatorRateMode ?? 'LIVE'}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        simulatorRateMode: e.target.value as 'LIVE' | 'SAND',
+                      })
+                    }
+                  >
+                    <option value="LIVE">{t('customers.sRate.live')}</option>
+                    <option value="SAND">{t('customers.sRate.sand')}</option>
+                  </select>
+                  <span className="mt-1 block text-xs text-slate-500">{t('customers.sRate.hint')}</span>
                 </label>
               </div>
               <div className="pg-inset-panel">

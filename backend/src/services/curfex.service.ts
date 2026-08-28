@@ -1,3 +1,4 @@
+import { createHmac, timingSafeEqual } from 'crypto';
 import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
 import {
@@ -21,8 +22,9 @@ async function getConfigRow<T>(key: string, fallback: T): Promise<T> {
 
 export function normalizeCurfexConfig(raw: Partial<HqCurfexConfig>): HqCurfexConfig {
   const base = DEFAULT_CURFEX_CONFIG();
+  const allowed = new Set<string>(['JPY', 'KRW', 'THB', 'CNY']);
   const currencies = Array.isArray(raw.currencies) && raw.currencies.length
-    ? (raw.currencies.filter((c) => c === 'JPY') as Array<'JPY'>)
+    ? (raw.currencies.filter((c) => allowed.has(String(c))) as NonNullable<HqCurfexConfig['currencies']>)
     : base.currencies;
   return {
     enabled: raw.enabled === true,
@@ -32,6 +34,8 @@ export function normalizeCurfexConfig(raw: Partial<HqCurfexConfig>): HqCurfexCon
     walletName: String(raw.walletName ?? '').trim(),
     currencies: currencies?.length ? currencies : ['JPY'],
     sandbox: raw.sandbox !== false,
+    webhookSecret: String(raw.webhookSecret ?? '').trim(),
+    autoApproveOnDeposit: raw.autoApproveOnDeposit !== false,
   };
 }
 
@@ -39,6 +43,7 @@ export function maskCurfexSecret(config: HqCurfexConfig): HqCurfexConfig {
   return {
     ...config,
     clientSecret: config.clientSecret ? '********' : '',
+    webhookSecret: config.webhookSecret ? '********' : '',
   };
 }
 
@@ -55,13 +60,23 @@ export async function getCurfexConfigMasked(): Promise<HqCurfexConfig> {
 export async function saveCurfexConfig(
   incoming: Partial<HqCurfexConfig>,
   existingSecret?: string,
+  existingWebhookSecret?: string,
 ): Promise<HqCurfexConfig> {
   const current = await getCurfexConfig();
   const clientSecret =
     incoming.clientSecret && incoming.clientSecret !== '********'
       ? incoming.clientSecret
       : existingSecret ?? current.clientSecret;
-  const normalized = normalizeCurfexConfig({ ...current, ...incoming, clientSecret });
+  const webhookSecret =
+    incoming.webhookSecret && incoming.webhookSecret !== '********'
+      ? incoming.webhookSecret
+      : existingWebhookSecret ?? current.webhookSecret;
+  const normalized = normalizeCurfexConfig({
+    ...current,
+    ...incoming,
+    clientSecret,
+    webhookSecret,
+  });
   await prisma.systemConfig.upsert({
     where: { key: HQ_CONFIG_KEYS.curfex },
     create: {
@@ -75,9 +90,21 @@ export async function saveCurfexConfig(
   return maskCurfexSecret(normalized);
 }
 
+/** HMAC 공유 비밀 생성 (CURFEX 포털에 동일 값 등록) */
+export async function generateCurfexWebhookSecret(): Promise<HqCurfexConfig> {
+  const { randomBytes } = await import('crypto');
+  const current = await getCurfexConfig();
+  return saveCurfexConfig(
+    { ...current, webhookSecret: randomBytes(32).toString('hex') },
+    current.clientSecret,
+    undefined,
+  );
+}
+
 export function isCurfexCurrencyEnabled(config: HqCurfexConfig, currency: string): boolean {
   if (!config.enabled) return false;
-  return (config.currencies ?? ['JPY']).includes(currency as 'JPY');
+  const list = config.currencies?.length ? config.currencies : ['JPY'];
+  return list.includes(currency as NonNullable<HqCurfexConfig['currencies']>[number]);
 }
 
 export type CurfexPaymentRequestInput = {
@@ -283,4 +310,178 @@ export function collectionAccountToDisplay(account: CurfexCollectionAccount): {
     branchName: account.branchName,
     accountType: account.accountType,
   };
+}
+
+export type CurfexPaymentStatus = {
+  refNo: string;
+  statusCode: string;
+  detail?: string;
+  currency?: string;
+  amount?: number;
+  amountCollected?: number;
+  paymentBalance?: number;
+  excessAmount?: number;
+  senderAccountName?: string;
+  merchantReference?: string;
+  decisionList?: Array<{ decision?: string; paymentMade?: boolean }>;
+};
+
+/** 입금 감지에 해당하는 CURFEX statusCode */
+export function isCurfexDepositStatus(statusCode: string | undefined | null): boolean {
+  const s = String(statusCode ?? '')
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, '_');
+  if (!s) return false;
+  return [
+    'PAID',
+    'PAYMENT_RECEIVED',
+    'PAYMENT_COMPLETED',
+    'DEPOSITED',
+    'FUNDS_RECEIVED',
+    'AWAITING_DECISION',
+    'AWAITING_MERCHANT_DECISION',
+    'UNDERPAID',
+    'OVERPAID',
+    'PARTIAL',
+    'PARTIAL_PAID',
+    'APPROVED',
+    'COMPLETED',
+    'SUCCESS',
+    'SETTLED',
+  ].includes(s);
+}
+
+export async function getCurfexPaymentStatus(refNo: string): Promise<CurfexPaymentStatus> {
+  const config = await getCurfexConfig();
+  if (config.sandbox === true || config.clientSecret.toUpperCase() === 'SANDBOX') {
+    throw new AppError(400, 'Sandbox mode has no live payment status', 'CURFEX_SANDBOX');
+  }
+  const token = await requestAccessToken(config);
+  const payload = await curfexFetch<{
+    refNo: string;
+    statusCode: string;
+    detail?: string;
+    currency?: string;
+    amount?: number;
+    amountCollected?: number;
+    paymentBalance?: number;
+    excessAmount?: number;
+    senderAccountName?: string;
+    merchantReference?: string;
+    decisionList?: Array<{ decision?: string; paymentMade?: boolean }>;
+  }>(config, '/api/payment/status', { payload: { refNo } }, token);
+
+  return {
+    refNo: payload.refNo || refNo,
+    statusCode: payload.statusCode,
+    detail: payload.detail,
+    currency: payload.currency,
+    amount: payload.amount,
+    amountCollected: payload.amountCollected,
+    paymentBalance: payload.paymentBalance,
+    excessAmount: payload.excessAmount,
+    senderAccountName: payload.senderAccountName,
+    merchantReference: payload.merchantReference,
+    decisionList: payload.decisionList,
+  };
+}
+
+export async function getCurfexPaymentDetail(refNo: string): Promise<CurfexPaymentStatus> {
+  const config = await getCurfexConfig();
+  if (config.sandbox === true || config.clientSecret.toUpperCase() === 'SANDBOX') {
+    throw new AppError(400, 'Sandbox mode has no live payment detail', 'CURFEX_SANDBOX');
+  }
+  const token = await requestAccessToken(config);
+  const payload = await curfexFetch<{
+    refNo: string;
+    statusCode: string;
+    detail?: string;
+    currency?: string;
+    amount?: number;
+    amountCollected?: number;
+    paymentBalance?: number;
+    excessAmount?: number;
+    senderAccountName?: string;
+    merchantReference?: string;
+    decisionList?: Array<{ decision?: string; paymentMade?: boolean }>;
+  }>(config, '/api/payment/get', { payload: { refNo } }, token);
+
+  return {
+    refNo: payload.refNo || refNo,
+    statusCode: payload.statusCode,
+    detail: payload.detail,
+    currency: payload.currency,
+    amount: payload.amount,
+    amountCollected: payload.amountCollected,
+    paymentBalance: payload.paymentBalance,
+    excessAmount: payload.excessAmount,
+    senderAccountName: payload.senderAccountName,
+    merchantReference: payload.merchantReference,
+    decisionList: payload.decisionList,
+  };
+}
+
+/** 입금 확인 후 Collection 승인 (지갑 반영) */
+export async function approveCurfexPayment(input: {
+  refNo: string;
+  merchantReference: string;
+  description?: string;
+}): Promise<{ statusCode: string; detail?: string }> {
+  const config = await getCurfexConfig();
+  if (config.sandbox === true || config.clientSecret.toUpperCase() === 'SANDBOX') {
+    return { statusCode: 'APPROVED', detail: 'Sandbox auto-approve' };
+  }
+  const token = await requestAccessToken(config);
+  const payload = await curfexFetch<{
+    refNo: string;
+    statusCode: string;
+    detail?: string;
+  }>(
+    config,
+    '/api/payment/decision',
+    {
+      payload: {
+        refNo: input.refNo,
+        decision: 'APPROVE',
+        remark: input.description || 'TINPASS auto-approve on deposit',
+        approve: {
+          walletName: config.walletName || undefined,
+          merchantReference: input.merchantReference,
+          description: input.description || `USDT ${input.merchantReference}`,
+        },
+      },
+    },
+    token,
+  );
+  return { statusCode: payload.statusCode, detail: payload.detail };
+}
+
+export function verifyCurfexWebhookHmac(
+  rawBody: Buffer | string,
+  signatureHeader: string | undefined,
+  secret: string,
+): boolean {
+  if (!secret) return false;
+  if (!signatureHeader?.trim()) return false;
+  const body = typeof rawBody === 'string' ? Buffer.from(rawBody, 'utf8') : rawBody;
+  const expected = createHmac('sha512', secret).update(body).digest('hex');
+  const received = signatureHeader.trim().toLowerCase().replace(/^sha512=/i, '');
+  try {
+    const a = Buffer.from(expected, 'hex');
+    const b = Buffer.from(received, 'hex');
+    if (a.length !== b.length) return false;
+    return timingSafeEqual(a, b);
+  } catch {
+    return expected.toLowerCase() === received;
+  }
+}
+
+export function publicCurfexWebhookUrl(): string {
+  const base = (
+    process.env.PUBLIC_API_URL ||
+    process.env.API_PUBLIC_URL ||
+    'https://api.tinpass.com'
+  ).replace(/\/$/, '');
+  return `${base}/api/webhooks/curfex`;
 }

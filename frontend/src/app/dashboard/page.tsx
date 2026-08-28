@@ -42,7 +42,10 @@ export default function DashboardPage() {
         <UsdtRatePanel compact />
       </ContentCard>
 
-      {user && user.role !== 'SUPER_ADMIN' && user.organization?.type !== 'HEAD_OFFICE' && (
+      {user &&
+        user.role !== 'SUPER_ADMIN' &&
+        user.organization?.type !== 'HEAD_OFFICE' &&
+        !(user.role === 'CUSTOMER' && user.customerProfile?.simulatorEnabled === false) && (
         <DashboardSimulatorPreview />
       )}
 

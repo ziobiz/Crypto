@@ -177,6 +177,68 @@ export default function CustomerKycDetailPage() {
             {t('customers.col.kyc')}:{' '}
             <span className={`pg-badge ${kycBadgeClass(kyc.status)}`}>{t(statusKey(kyc.status))}</span>
           </p>
+          {profile?.customerProfile && (
+            <div className="rounded border border-slate-200 bg-slate-50 px-3 py-2">
+              <p className="font-medium text-slate-800">{t('customers.simulator.title')}</p>
+              <p className="mt-1 text-xs text-slate-500">{t('customers.simulator.hint')}</p>
+              <label className="mt-2 flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={profile.customerProfile.simulatorEnabled !== false}
+                  disabled={loading || !canEditFeeShare}
+                  onChange={async (e) => {
+                    if (!profile) return;
+                    setLoading(true);
+                    setMsg('');
+                    try {
+                      const next = await api.users.update(profile.id, {
+                        simulatorEnabled: e.target.checked,
+                      });
+                      setProfile(next);
+                      setMsg(t('customers.simulator.saved'));
+                    } catch (err) {
+                      setMsg(err instanceof Error ? err.message : t('users.saveFailed'));
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                />
+                <span>
+                  {profile.customerProfile.simulatorEnabled !== false
+                    ? t('customers.simulator.on')
+                    : t('customers.simulator.off')}
+                </span>
+              </label>
+              <label className="mt-3 block text-sm">
+                <span className="font-medium">{t('customers.sRate.title')}</span>
+                <select
+                  className="pg-select mt-1 w-full max-w-xs"
+                  disabled={loading || !canEditFeeShare}
+                  value={profile.customerProfile.simulatorRateMode ?? 'LIVE'}
+                  onChange={async (e) => {
+                    if (!profile) return;
+                    setLoading(true);
+                    setMsg('');
+                    try {
+                      const next = await api.users.update(profile.id, {
+                        simulatorRateMode: e.target.value as 'LIVE' | 'SAND',
+                      });
+                      setProfile(next);
+                      setMsg(t('customers.simulator.saved'));
+                    } catch (err) {
+                      setMsg(err instanceof Error ? err.message : t('users.saveFailed'));
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                >
+                  <option value="LIVE">{t('customers.sRate.live')}</option>
+                  <option value="SAND">{t('customers.sRate.sand')}</option>
+                </select>
+                <span className="mt-1 block text-xs text-slate-500">{t('customers.sRate.hint')}</span>
+              </label>
+            </div>
+          )}
           {kyc.submittedAt && (
             <p>
               {t('kyc.col.submitted')}: {formatDate(kyc.submittedAt)}

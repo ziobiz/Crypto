@@ -36,6 +36,7 @@ import {
   parseEscrowShareMismatch,
   sumOrgShareTable,
 } from '@/lib/escrow-share-totals';
+import { SimulatorCommissionPanel } from '@/components/hq-policy/SimulatorCommissionPanel';
 
 type OrgRateRow = {
   organizationId: string;
@@ -1477,6 +1478,8 @@ export default function HqCommissionPage() {
           )}
         </div>
       </section>
+
+      <SimulatorCommissionPanel />
     </div>
   );
 }

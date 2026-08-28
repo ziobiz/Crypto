@@ -17,9 +17,11 @@ import costAnalysisRoutes from './routes/cost-analysis.routes';
 import { startMarketSnapshotCollector } from './services/market-snapshot.service';
 import { startEscrowJobScheduler } from './services/escrow-jobs.service';
 import { startDeletionPurgeScheduler } from './services/deletion.service';
+import { startCurfexDepositPoller } from './services/curfex-webhook.service';
 import { hqPolicyService } from './services/hq-policy.service';
 import { errorHandler } from './middleware/errorHandler';
 import { asyncHandler } from './middleware/asyncHandler';
+import webhooksRoutes from './routes/webhooks.routes';
 
 const BRAND_MIME: Record<string, string> = {
   '.png': 'image/png',
@@ -48,6 +50,7 @@ export function createApiApp(): express.Application {
   startMarketSnapshotCollector();
   startEscrowJobScheduler();
   startDeletionPurgeScheduler();
+  startCurfexDepositPoller();
   const app = express();
   app.set('trust proxy', 1);
 
@@ -59,7 +62,13 @@ export function createApiApp(): express.Application {
         : undefined,
     ),
   );
-  app.use(express.json());
+  app.use(
+    express.json({
+      verify: (req, _res, buf) => {
+        (req as { rawBody?: Buffer }).rawBody = buf;
+      },
+    }),
+  );
 
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -89,6 +98,7 @@ export function createApiApp(): express.Application {
   });
 
   app.use('/api/auth', authRoutes);
+  app.use('/api/webhooks', webhooksRoutes);
   app.use('/api/wallets', walletRoutes);
   app.use('/api/tickets/usdt-purchase', usdtPurchaseRoutes);
   app.use('/api/tickets/trade-escrow', tradeEscrowRoutes);

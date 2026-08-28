@@ -58,6 +58,8 @@ import {
 } from './curfex.service';
 import {
   defaultTransactionFees,
+  getSimulatorCommissionRiskConfig,
+  getSimulatorSymbolFeeTiers,
   getSymbolFeeTiers,
   normalizeCommissionRisk,
   normalizeSymbolFeeTiers,
@@ -212,6 +214,17 @@ function clampSimulatorRetention(value?: number): number {
   return n;
 }
 
+function normalizeIanaTimezone(raw: string | undefined, fallback: string): string {
+  const v = String(raw ?? '').trim();
+  if (!v) return fallback;
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: v });
+    return v;
+  } catch {
+    return fallback;
+  }
+}
+
 function normalizePlatformConfig(raw: Partial<HqPlatformConfig>): HqPlatformConfig {
   const base = defaultPlatform();
   const merged = { ...base, ...raw };
@@ -222,6 +235,8 @@ function normalizePlatformConfig(raw: Partial<HqPlatformConfig>): HqPlatformConf
     simulatorRetentionMonths: clampSimulatorRetention(merged.simulatorRetentionMonths),
     loginNoticeI18n: mergeLoginNoticeI18n(merged.loginNoticeI18n),
     depositReceivingAccounts: normalizeDepositReceivingAccounts(merged.depositReceivingAccounts),
+    baseTimezone: normalizeIanaTimezone(merged.baseTimezone, 'Asia/Seoul'),
+    serviceTimezone: normalizeIanaTimezone(merged.serviceTimezone, 'Asia/Seoul'),
   };
 }
 
@@ -276,6 +291,8 @@ function defaultPlatform(): HqPlatformConfig {
     defaultUsdtFiatCurrency: 'JPY',
     simulatorRetentionMonths: 3,
     depositReceivingAccounts: {},
+    baseTimezone: 'Asia/Seoul',
+    serviceTimezone: 'Asia/Seoul',
   };
 }
 
@@ -497,6 +514,8 @@ export const hqPolicyService = {
     return {
       risk,
       feeTiers,
+      simulatorRisk: await getSimulatorCommissionRiskConfig(),
+      simulatorFeeTiers: await getSimulatorSymbolFeeTiers(),
       exchangeRateSources,
       exchangeRatePreview,
       localPremiums,
@@ -545,6 +564,33 @@ export const hqPolicyService = {
       description: '시볼(티켓) 통화별 수수료 구간',
       entityType: 'HQ_FEE_TIERS',
       summary: '시볼 수수료 구간 저장',
+    });
+    return this.getCommissionPayload();
+  },
+
+  async saveSimulatorCommissionRisk(audit: AuditContext, risk: HqCommissionRiskConfig) {
+    const normalized = normalizeCommissionRisk(risk);
+    await putConfigWithAudit(audit, {
+      key: HQ_CONFIG_KEYS.simulatorCommissionRisk,
+      value: normalized,
+      description: '시뮬레이터 수수료·리스크 정책',
+      entityType: 'HQ_SIMULATOR_COMMISSION_RISK',
+      summary: '시뮬레이터 수수료·리스크 정책 저장',
+    });
+    return this.getCommissionPayload();
+  },
+
+  async saveSimulatorSymbolFeeTiers(audit: AuditContext, tiers: SymbolFeeTierPolicy) {
+    const normalized = normalizeSymbolFeeTiers(tiers);
+    if (!normalized.length) {
+      throw new Error('시뮬레이터 수수료 구간이 비어 있습니다.');
+    }
+    await putConfigWithAudit(audit, {
+      key: HQ_CONFIG_KEYS.simulatorFeeTiers,
+      value: normalized,
+      description: '시뮬레이터 시볼 수수료 구간',
+      entityType: 'HQ_SIMULATOR_FEE_TIERS',
+      summary: '시뮬레이터 수수료 구간 저장',
     });
     return this.getCommissionPayload();
   },
@@ -814,6 +860,8 @@ export const hqPolicyService = {
       loginNoticeI18n: config.loginNoticeI18n ?? {},
       customerRegistrationEnabled: config.customerRegistrationEnabled === true,
       defaultUsdtFiatCurrency: config.defaultUsdtFiatCurrency ?? 'JPY',
+      baseTimezone: config.baseTimezone ?? 'Asia/Seoul',
+      serviceTimezone: config.serviceTimezone ?? 'Asia/Seoul',
     };
   },
 
@@ -890,7 +938,7 @@ export const hqPolicyService = {
   async saveCurfex(audit: AuditContext, config: HqCurfexConfig) {
     const before = await getCurfexConfigMasked();
     const current = await getCurfexConfig();
-    const after = await saveCurfexConfig(config, current.clientSecret);
+    const after = await saveCurfexConfig(config, current.clientSecret, current.webhookSecret);
     await logAdminChange({
       actor: audit.actor,
       action: AdminChangeAction.UPDATE,
@@ -939,16 +987,20 @@ export const hqPolicyService = {
     return (user.organizationType as HqAccessActor) || 'SALES_OFFICE';
   },
 
-  async getPageAccessForUser(user: { role: string; organizationType?: string | null }) {
+  async getPageAccessForUser(user: {
+    role: string;
+    organizationType?: string | null;
+    /** CUSTOMER — false면 본사 매트릭스보다 우선해 USDT 시뮬레이터 차단 */
+    simulatorEnabled?: boolean | null;
+  }) {
     const payload = await this.getAccessPayload();
     const actor = this.accessActorForUser(user);
+    let levels: Record<string, HqPermissionLevel>;
     if (actor === 'SUPER_ADMIN') {
-      const levels: Record<string, HqPermissionLevel> = {};
+      levels = {};
       for (const page of HQ_PAGE_CATALOG) levels[page.path] = 'DELETE';
-      return levels;
-    }
-    if (user.role === 'ORGANIZER') {
-      const levels: Record<string, HqPermissionLevel> = {};
+    } else if (user.role === 'ORGANIZER') {
+      levels = {};
       for (const page of HQ_PAGE_CATALOG) levels[page.path] = 'NONE';
       const allow: Array<[string, HqPermissionLevel]> = [
         ['/dashboard', 'VIEW'],
@@ -963,17 +1015,22 @@ export const hqPolicyService = {
         ['/dashboard/hq-policy/profit-analysis', 'MODIFY'],
       ];
       for (const [path, level] of allow) levels[path] = level;
-      return levels;
-    }
-    if (user.role === 'SETTLEMENT_ADMIN') {
-      const levels: Record<string, HqPermissionLevel> = {};
+    } else if (user.role === 'SETTLEMENT_ADMIN') {
+      levels = {};
       for (const page of HQ_PAGE_CATALOG) levels[page.path] = 'NONE';
       levels['/dashboard'] = 'VIEW';
       levels['/dashboard/ledger'] = 'VIEW';
       levels['/dashboard/users'] = 'MODIFY';
-      return levels;
+    } else {
+      levels = { ...(payload.matrix[actor] ?? {}) };
     }
-    return { ...payload.matrix[actor] };
+
+    // 고객별 시뮬레이터 OFF → 본사권한(CUSTOMER 매트릭스)보다 우선 차단
+    // HQ 「기록 시뮬레이터」(/dashboard/simulator-logs)는 고객 플래그와 무관
+    if (user.role === 'CUSTOMER' && user.simulatorEnabled === false) {
+      levels['/dashboard/simulator'] = 'NONE';
+    }
+    return levels;
   },
 
   async getWorkflowDisplay(): Promise<HqWorkflowDisplayConfig> {

@@ -21,6 +21,8 @@ const orgSelect = {
   path: true,
   parentId: true,
   isActive: true,
+  simulatorEnabled: true,
+  simulatorRateMode: true,
   deletedAt: true,
   purgeAt: true,
   createdAt: true,
@@ -172,7 +174,12 @@ export const organizationService = {
   async update(
     actor: AuthUser,
     id: string,
-    data: { name?: string; isActive?: boolean },
+    data: {
+      name?: string;
+      isActive?: boolean;
+      simulatorEnabled?: boolean;
+      simulatorRateMode?: 'LIVE' | 'SAND';
+    },
   ) {
     assertCanManageOrgs(actor);
     const org = await prisma.organization.findUnique({ where: { id } });
@@ -194,6 +201,8 @@ export const organizationService = {
       data: {
         ...(name ? { name } : {}),
         ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
+        ...(data.simulatorEnabled !== undefined ? { simulatorEnabled: data.simulatorEnabled } : {}),
+        ...(data.simulatorRateMode !== undefined ? { simulatorRateMode: data.simulatorRateMode } : {}),
       },
       select: orgSelect,
     });

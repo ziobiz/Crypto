@@ -155,8 +155,9 @@ export async function resolveFeesForPurchase(
   currency: string,
   fiatAmount: number,
   exchangeRate: number,
+  options?: { feePolicy?: import('./transaction-fee.service').FeePolicyScope },
 ): Promise<ResolvedTransactionFees> {
-  const base = await resolveFeesForAmount(wallet, currency, fiatAmount);
+  const base = await resolveFeesForAmount(wallet, currency, fiatAmount, options);
   if (!isLocalPremiumCurrency(currency)) return base;
 
   try {

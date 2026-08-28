@@ -46,6 +46,8 @@ const userSelect = {
       id: true,
       customerType: true,
       businessName: true,
+      simulatorEnabled: true,
+      simulatorRateMode: true,
       recruitingOrg: { select: { id: true, code: true, name: true, path: true } },
       feeShare: true,
     },
@@ -312,6 +314,8 @@ export const userService = {
       walletLabel?: string;
       reason: string;
       feeShare?: unknown;
+      simulatorEnabled?: boolean;
+      simulatorRateMode?: 'LIVE' | 'SAND';
     },
     audit?: AuditContext,
   ) {
@@ -379,6 +383,8 @@ export const userService = {
               recruitingOrgId: data.recruitingOrgId!,
               businessName: data.businessName,
               businessNumber: data.businessNumber,
+              simulatorEnabled: data.simulatorEnabled !== false,
+              simulatorRateMode: data.simulatorRateMode ?? 'LIVE',
               ...(feeShare ? { feeShare } : {}),
             },
           },
@@ -473,6 +479,8 @@ export const userService = {
       recruitingOrgId?: string;
       statusReason?: string;
       feeShare?: unknown;
+      simulatorEnabled?: boolean;
+      simulatorRateMode?: 'LIVE' | 'SAND';
     },
     audit?: AuditContext,
   ) {
@@ -533,7 +541,12 @@ export const userService = {
       );
     }
 
-    const customerProfileUpdate: { recruitingOrgId?: string; feeShare?: Prisma.InputJsonValue } = {};
+    const customerProfileUpdate: {
+      recruitingOrgId?: string;
+      feeShare?: Prisma.InputJsonValue;
+      simulatorEnabled?: boolean;
+      simulatorRateMode?: 'LIVE' | 'SAND';
+    } = {};
     if (data.recruitingOrgId && existing.customerProfile) {
       customerProfileUpdate.recruitingOrgId = data.recruitingOrgId;
     }
@@ -542,6 +555,12 @@ export const userService = {
       requireEscrowShareTotals(data.feeShare, policy);
       const feeShare = persistableCustomerFeeShare(data.feeShare, policy);
       customerProfileUpdate.feeShare = (feeShare ?? Prisma.JsonNull) as Prisma.InputJsonValue;
+    }
+    if (data.simulatorEnabled !== undefined && existing.customerProfile) {
+      customerProfileUpdate.simulatorEnabled = data.simulatorEnabled;
+    }
+    if (data.simulatorRateMode !== undefined && existing.customerProfile) {
+      customerProfileUpdate.simulatorRateMode = data.simulatorRateMode;
     }
 
     const user = await prisma.user.update({

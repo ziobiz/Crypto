@@ -153,6 +153,46 @@ export async function getSymbolFeeTiers(): Promise<SymbolFeeTierPolicy> {
   return normalizeSymbolFeeTiers(row?.value);
 }
 
+export async function getSimulatorCommissionRiskConfig(): Promise<HqCommissionRiskConfig> {
+  const row = await prisma.systemConfig.findUnique({
+    where: { key: HQ_CONFIG_KEYS.simulatorCommissionRisk },
+  });
+  if (!row?.value || (typeof row.value === 'object' && Object.keys(row.value as object).length === 0)) {
+    return getCommissionRiskConfig();
+  }
+  return normalizeCommissionRisk(row.value as Partial<HqCommissionRiskConfig>);
+}
+
+export async function getSimulatorSymbolFeeTiers(): Promise<SymbolFeeTierPolicy> {
+  const row = await prisma.systemConfig.findUnique({
+    where: { key: HQ_CONFIG_KEYS.simulatorFeeTiers },
+  });
+  if (!row?.value || !Array.isArray(row.value) || row.value.length === 0) {
+    return getSymbolFeeTiers();
+  }
+  return normalizeSymbolFeeTiers(row.value);
+}
+
+export async function getSimulatorHqTransactionFees(): Promise<TransactionFees> {
+  const risk = await getSimulatorCommissionRiskConfig();
+  return normalizeTransactionFees({
+    fxFeeMode: risk.defaultFxFeeMode,
+    fxFeePercent: risk.defaultFxFeePercent,
+    fxFeeUsdt: risk.defaultFxFeeUsdt,
+    gasFeeMode: risk.defaultGasFeeMode,
+    gasFeePercent: risk.defaultGasFeePercent,
+    gasFeeUsdt: risk.defaultGasFeeUsdt,
+    transferFeeMode: risk.defaultTransferFeeMode,
+    transferFeePercent: risk.defaultTransferFeePercent,
+    transferFeeUsdt: risk.defaultTransferFeeUsdt,
+    otherFeeMode: risk.defaultOtherFeeMode,
+    otherFeePercent: risk.defaultOtherFeePercent,
+    otherFeeUsdt: risk.defaultOtherFeeUsdt,
+  });
+}
+
+export type FeePolicyScope = 'live' | 'sandbox';
+
 export async function getFeeDiagramDisplay(): Promise<FeeDiagramDisplayConfig> {
   const risk = await getCommissionRiskConfig();
   return risk.feeDiagramDisplay ?? normalizeFeeDiagramDisplay();
@@ -254,10 +294,12 @@ export async function resolveFeesForAmount(
   wallet: WalletFeeSource,
   currency: string,
   fiatAmount: number,
+  options?: { feePolicy?: FeePolicyScope },
 ): Promise<TransactionFees> {
+  const sandbox = options?.feePolicy === 'sandbox';
   const [tiers, hqFlat, gasPolicy] = await Promise.all([
-    getSymbolFeeTiers(),
-    getHqTransactionFees(),
+    sandbox ? getSimulatorSymbolFeeTiers() : getSymbolFeeTiers(),
+    sandbox ? getSimulatorHqTransactionFees() : getHqTransactionFees(),
     getGasNetworkPolicy(),
   ]);
   const tier = pickFeeTier(tiers, currency, fiatAmount);

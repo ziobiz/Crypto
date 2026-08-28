@@ -14,6 +14,7 @@ import { BrandAssetField, type BrandAssetKey } from '@/components/hq-policy/Bran
 import { PolicyTableActions } from '@/components/policy/PolicyTableActions';
 import { PolicyCellValue } from '@/components/policy/PolicyCellValue';
 import { PolicyNumberInput } from '@/components/policy/PolicyNumberInput';
+import { PLATFORM_TIMEZONE_OPTIONS } from '@/lib/reference-time';
 
 function afterAssetUpload(
   key: BrandAssetKey,
@@ -500,6 +501,36 @@ export default function HqPlatformPage() {
               onChange={(e) => setConfig({ ...config, sslCertPath: e.target.value })}
               className="pg-input mt-1 font-mono"
             />
+          </label>
+          <label className="block">
+            <span className="pg-label">{t('hq.platform.baseTimezone')}</span>
+            <select
+              value={config.baseTimezone ?? 'Asia/Seoul'}
+              onChange={(e) => setConfig({ ...config, baseTimezone: e.target.value })}
+              className="pg-select mt-1"
+            >
+              {PLATFORM_TIMEZONE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {t(o.labelKey)}
+                </option>
+              ))}
+            </select>
+            <span className="pg-hint mt-1 block">{t('hq.platform.baseTimezoneDesc')}</span>
+          </label>
+          <label className="block">
+            <span className="pg-label">{t('hq.platform.serviceTimezone')}</span>
+            <select
+              value={config.serviceTimezone ?? 'Asia/Seoul'}
+              onChange={(e) => setConfig({ ...config, serviceTimezone: e.target.value })}
+              className="pg-select mt-1"
+            >
+              {PLATFORM_TIMEZONE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {t(o.labelKey)}
+                </option>
+              ))}
+            </select>
+            <span className="pg-hint mt-1 block">{t('hq.platform.serviceTimezoneDesc')}</span>
           </label>
         </div>
         <label className="block">

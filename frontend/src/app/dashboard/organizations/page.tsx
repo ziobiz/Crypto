@@ -26,6 +26,8 @@ export default function OrganizationsPage() {
   const [type, setType] = useState<OrgTypeCode>('MASTER_DISTRIBUTOR');
   const [parentId, setParentId] = useState('');
   const [isActive, setIsActive] = useState(true);
+  const [simulatorEnabled, setSimulatorEnabled] = useState(true);
+  const [simulatorRateMode, setSimulatorRateMode] = useState<'LIVE' | 'SAND'>('LIVE');
   const [deleting, setDeleting] = useState<Organization | null>(null);
 
   const load = useCallback(async () => {
@@ -56,6 +58,8 @@ export default function OrganizationsPage() {
     setEditing(org);
     setName(org.name);
     setIsActive(org.isActive !== false);
+    setSimulatorEnabled(org.simulatorEnabled !== false);
+    setSimulatorRateMode(org.simulatorRateMode === 'SAND' ? 'SAND' : 'LIVE');
     setModal('edit');
     setMsg('');
   }
@@ -82,7 +86,12 @@ export default function OrganizationsPage() {
     if (!editing) return;
     setMsg('');
     try {
-      await api.updateOrganization(editing.id, { name, isActive });
+      await api.updateOrganization(editing.id, {
+        name,
+        isActive,
+        simulatorEnabled,
+        simulatorRateMode,
+      });
       setModal(null);
       setMsg(t('orgs.saved'));
       load();
@@ -126,6 +135,8 @@ export default function OrganizationsPage() {
               <th>{t('orgs.col.type')}</th>
               <th>{t('orgs.parent')}</th>
               <th>{t('users.col.status')}</th>
+              <th>{t('orgs.col.sRate')}</th>
+              <th>{t('orgs.col.simulator')}</th>
               <th>{t('users.col.actions')}</th>
               <th>{t('users.col.note')}</th>
             </tr>
@@ -133,13 +144,13 @@ export default function OrganizationsPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={7} className="pg-hint">
+                <td colSpan={9} className="pg-hint">
                   {t('common.loading')}
                 </td>
               </tr>
             ) : orgs.length === 0 ? (
               <tr>
-                <td colSpan={7} className="pg-hint">
+                <td colSpan={9} className="pg-hint">
                   {t('orgs.empty')}
                 </td>
               </tr>
@@ -153,6 +164,20 @@ export default function OrganizationsPage() {
                   <td className="text-center">
                     <span className={`pg-badge ${o.isActive === false ? 'pg-badge-muted' : 'pg-badge-success'}`}>
                       {o.isActive === false ? t('users.inactive') : t('users.active')}
+                    </span>
+                  </td>
+                  <td className="text-center">
+                    <span className="pg-badge pg-badge-info">
+                      {o.simulatorRateMode === 'SAND' ? t('orgs.sRate.sand') : t('orgs.sRate.live')}
+                    </span>
+                  </td>
+                  <td className="text-center">
+                    <span
+                      className={`pg-badge ${
+                        o.simulatorEnabled !== false ? 'pg-badge-success' : 'pg-badge-muted'
+                      }`}
+                    >
+                      {o.simulatorEnabled !== false ? t('orgs.simulator.on') : t('orgs.simulator.off')}
                     </span>
                   </td>
                   <td className="text-center">
@@ -228,6 +253,30 @@ export default function OrganizationsPage() {
                 />
                 <span>{t('orgs.active')}</span>
               </label>
+              <div className="rounded border border-slate-200 bg-slate-50 px-3 py-2">
+                <p className="font-medium text-slate-800">{t('orgs.simulator.title')}</p>
+                <label className="mt-2 flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={simulatorEnabled}
+                    onChange={(e) => setSimulatorEnabled(e.target.checked)}
+                  />
+                  <span>{t('orgs.simulator.enable')}</span>
+                </label>
+                <p className="mt-1 text-xs text-slate-500">{t('orgs.simulator.hint')}</p>
+                <label className="mt-3 block text-sm">
+                  <span className="font-medium">{t('orgs.sRate.title')}</span>
+                  <select
+                    className="pg-select mt-1 w-full"
+                    value={simulatorRateMode}
+                    onChange={(e) => setSimulatorRateMode(e.target.value as 'LIVE' | 'SAND')}
+                  >
+                    <option value="LIVE">{t('orgs.sRate.live')}</option>
+                    <option value="SAND">{t('orgs.sRate.sand')}</option>
+                  </select>
+                  <span className="mt-1 block text-xs text-slate-500">{t('orgs.sRate.hint')}</span>
+                </label>
+              </div>
             </div>
             {msg && <p className="pg-callout pg-callout-error mx-6 mb-0">{msg}</p>}
             <div className="pg-modal-foot">

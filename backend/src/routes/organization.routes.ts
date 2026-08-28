@@ -31,6 +31,8 @@ const createSchema = z.object({
 const updateSchema = z.object({
   name: z.string().min(1).optional(),
   isActive: z.boolean().optional(),
+  simulatorEnabled: z.boolean().optional(),
+  simulatorRateMode: z.enum(['LIVE', 'SAND']).optional(),
 });
 
 router.get(
