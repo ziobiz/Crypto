@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthProvider';
 import { useT } from '@/context/LocaleProvider';
 import {
@@ -12,12 +11,14 @@ import {
   type CustomerFeeShare,
   type ManagedUser,
   type Organization,
+  type UpdateUserInput,
 } from '@/lib/api';
 import type { MessageKey } from '@/i18n/messages';
 import { WALLET_NETWORKS } from '@/constants/wallet-networks';
 import { CustomerFeeShareEditor, emptyFeeShare, feeShareFromHq } from '@/components/CustomerFeeShareEditor';
 import { ReferenceClocks } from '@/components/ReferenceClocks';
 import { escrowShareTotalsMatch, formatEscrowShareMismatch, parseEscrowShareMismatch } from '@/lib/escrow-share-totals';
+import { SRateBadge } from '@/components/SRateBadge';
 import { detailRowProps } from '@/lib/table-row-detail';
 
 const CUSTOMER_REGISTER_ORG_TYPES = ['HEAD_OFFICE', 'MASTER_DISTRIBUTOR'] as const;
@@ -58,7 +59,6 @@ function kycStatusKey(status?: string | null): MessageKey {
 export default function CustomersPage() {
   const { user: me } = useAuth();
   const t = useT();
-  const router = useRouter();
   const isSuperAdmin = me?.role === 'SUPER_ADMIN';
   const canRegisterCustomer =
     isSuperAdmin ||
@@ -76,7 +76,12 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [msg, setMsg] = useState('');
-  const [modal, setModal] = useState(false);
+  const [modal, setModal] = useState<'create' | 'edit' | null>(null);
+  const [editing, setEditing] = useState<ManagedUser | null>(null);
+  const [editForm, setEditForm] = useState<UpdateUserInput>({});
+  const [newPassword, setNewPassword] = useState('');
+  const [statusReason, setStatusReason] = useState('');
+  const [initialIsActive, setInitialIsActive] = useState(true);
   const [form, setForm] = useState<CreateUserInput>(emptyCreate);
   const [feeShare, setFeeShare] = useState<CustomerFeeShare>(emptyFeeShare());
 
@@ -117,6 +122,81 @@ export default function CustomersPage() {
     );
   }
 
+  async function openEdit(u: ManagedUser) {
+    setMsg('');
+    setError('');
+    try {
+      const detail = await api.users.get(u.id);
+      setEditing(detail);
+      setEditForm({
+        name: detail.name,
+        phone: detail.phone ?? '',
+        recruitingOrgId: detail.customerProfile?.recruitingOrg?.id,
+        isActive: detail.isActive,
+        simulatorEnabled: detail.customerProfile?.simulatorEnabled !== false,
+        simulatorRateMode: detail.customerProfile?.simulatorRateMode ?? 'LIVE',
+      });
+      setInitialIsActive(detail.isActive);
+      setNewPassword('');
+      setStatusReason('');
+      setModal('edit');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('users.loadError'));
+    }
+  }
+
+  async function handleUpdate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editing) return;
+    setMsg('');
+    const statusChanging = editForm.isActive !== undefined && editForm.isActive !== initialIsActive;
+    if (statusChanging && !statusReason.trim()) {
+      setMsg(t('users.statusReasonRequired'));
+      return;
+    }
+    try {
+      await api.users.update(editing.id, {
+        ...editForm,
+        statusReason: statusChanging ? statusReason.trim() : undefined,
+      });
+      if (newPassword.length >= 6) {
+        await api.users.resetPassword(editing.id, newPassword);
+      }
+      setModal(null);
+      setEditing(null);
+      setMsg(t('users.saved'));
+      load();
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : t('users.saveFailed'));
+    }
+  }
+
+  async function handleResetPassword(u: ManagedUser) {
+    if (!window.confirm(t('users.resetPasswordConfirm', { email: u.email }))) return;
+    setMsg('');
+    setError('');
+    try {
+      const res = await api.users.resetPassword(u.id);
+      setMsg(t('users.passwordResetDone', { password: res.initialPassword ?? '' }));
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('users.resetPasswordFailed'));
+    }
+  }
+
+  async function handleResetOtp(u: ManagedUser) {
+    if (!window.confirm(t('users.resetOtpConfirm', { email: u.email }))) return;
+    setMsg('');
+    setError('');
+    try {
+      await api.users.resetOtp(u.id);
+      setMsg(t('users.otpResetDone', { email: u.email }));
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('users.resetOtpFailed'));
+    }
+  }
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setMsg('');
@@ -129,7 +209,7 @@ export default function CustomersPage() {
         return;
       }
       await api.users.create({ ...form, role: 'CUSTOMER', feeShare });
-      setModal(false);
+      setModal(null);
       setForm(emptyCreate);
       setMsg(t('customers.created'));
       load();
@@ -142,6 +222,9 @@ export default function CustomersPage() {
     }
   }
 
+  const statusChanging =
+    editForm.isActive !== undefined && editForm.isActive !== initialIsActive;
+
   return (
     <div className="pg-stack">
       <ReferenceClocks compact />
@@ -153,7 +236,7 @@ export default function CustomersPage() {
             onClick={() => {
               setForm(emptyCreate);
               setFeeShare(emptyFeeShare());
-              setModal(true);
+              setModal('create');
               setMsg('');
               hqPolicyApi
                 .getCommission()
@@ -241,7 +324,7 @@ export default function CustomersPage() {
               users.map((u) => (
                 <tr
                   key={u.id}
-                  {...detailRowProps(t('table.dblclickHint'), () => router.push(`/dashboard/customers/${u.id}`))}
+                  {...detailRowProps(t('table.dblclickHint'), () => void openEdit(u))}
                 >
                   <td>{u.email}</td>
                   <td>{u.name}</td>
@@ -257,11 +340,11 @@ export default function CustomersPage() {
                     </span>
                   </td>
                   <td>
-                    <span className="pg-badge pg-badge-info">
-                      {u.customerProfile?.simulatorRateMode === 'SAND'
-                        ? t('customers.sRate.sand')
-                        : t('customers.sRate.live')}
-                    </span>
+                    <SRateBadge
+                      mode={u.customerProfile?.simulatorRateMode}
+                      liveLabel={t('customers.sRate.live')}
+                      sandLabel={t('customers.sRate.sand')}
+                    />
                   </td>
                   <td>
                     <span
@@ -282,9 +365,23 @@ export default function CustomersPage() {
                     </span>
                   </td>
                   <td>
-                    <Link href={`/dashboard/customers/${u.id}`} className="pg-link">
-                      {t('customers.openKyc')}
-                    </Link>
+                    <div className="pg-table-actions">
+                      <button type="button" onClick={() => void openEdit(u)} className="pg-action-chip pg-action-chip-edit">
+                        {t('users.edit')}
+                      </button>
+                      <button type="button" onClick={() => void handleResetPassword(u)} className="pg-action-chip pg-action-chip-warn">
+                        {t('users.resetPasswordBtn')}
+                      </button>
+                      <button type="button" onClick={() => void handleResetOtp(u)} className="pg-action-chip pg-action-chip-otp">
+                        {t('users.resetOtpBtn')}
+                      </button>
+                      <Link
+                        href={`/dashboard/customers/${u.id}`}
+                        className="pg-action-chip bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      >
+                        {t('customers.openKyc')}
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -294,7 +391,7 @@ export default function CustomersPage() {
       </div>
       <p className="pg-hint">{t('users.total', { n: total })} · {t('table.dblclickHint')}</p>
 
-      {modal && (
+      {modal === 'create' && (
         <div className="pg-modal-overlay">
           <form onSubmit={handleCreate} className="pg-modal">
             <div className="pg-modal-head">
@@ -522,11 +619,140 @@ export default function CustomersPage() {
             </div>
             {msg && <p className="pg-callout pg-callout-error mx-6 mb-0">{msg}</p>}
             <div className="pg-modal-foot">
-              <button type="button" onClick={() => setModal(false)} className="pg-btn pg-btn-secondary">
+              <button type="button" onClick={() => setModal(null)} className="pg-btn pg-btn-secondary">
                 {t('common.cancel')}
               </button>
               <button type="submit" className="pg-btn pg-btn-primary">
                 {t('common.register')}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {modal === 'edit' && editing && (
+        <div className="pg-modal-overlay">
+          <form onSubmit={handleUpdate} className="pg-modal">
+            <div className="pg-modal-head">
+              <h2 className="pg-modal-title">{t('customers.editTitle')}</h2>
+              <p className="pg-modal-sub">{editing.email}</p>
+            </div>
+            <div className="pg-modal-body">
+              <label className="pg-field">
+                <span className="pg-field-label">
+                  {t('auth.name')}
+                  <span className="pg-field-required"> *</span>
+                </span>
+                <input
+                  required
+                  value={editForm.name ?? ''}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  className="pg-input mt-1"
+                />
+              </label>
+              <label className="pg-field">
+                <span className="pg-field-label">{t('auth.phone')}</span>
+                <input
+                  value={editForm.phone ?? ''}
+                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                  className="pg-input mt-1"
+                />
+              </label>
+              <label className="pg-field">
+                <span className="pg-field-label">
+                  {t('users.recruitOrg')}
+                  <span className="pg-field-required"> *</span>
+                </span>
+                <select
+                  required
+                  value={editForm.recruitingOrgId ?? ''}
+                  onChange={(e) => setEditForm({ ...editForm, recruitingOrgId: e.target.value })}
+                  className="pg-input mt-1"
+                >
+                  <option value="">{t('users.select')}</option>
+                  {salesOfficesForActor().map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="pg-inset-panel">
+                <p className="pg-inset-title">{t('customers.simulator.title')}</p>
+                <label className="mt-2 flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={editForm.simulatorEnabled !== false}
+                    onChange={(e) => setEditForm({ ...editForm, simulatorEnabled: e.target.checked })}
+                  />
+                  {t('customers.simulator.enable')}
+                </label>
+                <label className="pg-field mt-2">
+                  <span className="pg-field-label">{t('customers.sRate.title')}</span>
+                  <select
+                    value={editForm.simulatorRateMode ?? 'LIVE'}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        simulatorRateMode: e.target.value as 'LIVE' | 'SAND',
+                      })
+                    }
+                    className="pg-input mt-1"
+                  >
+                    <option value="LIVE">{t('customers.sRate.live')}</option>
+                    <option value="SAND">{t('customers.sRate.sand')}</option>
+                  </select>
+                </label>
+              </div>
+              <label className="pg-field">
+                <span className="pg-field-label">{t('users.col.status')}</span>
+                <label className="mt-1 flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={editForm.isActive ?? true}
+                    onChange={(e) => setEditForm({ ...editForm, isActive: e.target.checked })}
+                  />
+                  {t('users.accountActive')}
+                </label>
+              </label>
+              {statusChanging && (
+                <label className="pg-field">
+                  <span className="pg-field-label">
+                    {t('users.statusReason')}
+                    <span className="pg-field-required"> *</span>
+                  </span>
+                  <textarea
+                    required
+                    rows={3}
+                    value={statusReason}
+                    onChange={(e) => setStatusReason(e.target.value)}
+                    className="pg-input mt-1 min-h-[72px]"
+                    placeholder={
+                      editForm.isActive
+                        ? t('users.activateReasonPlaceholder')
+                        : t('users.deactivateReasonPlaceholder')
+                    }
+                  />
+                </label>
+              )}
+              <label className="pg-field">
+                <span className="pg-field-label">{t('users.resetPassword')}</span>
+                <input
+                  type="password"
+                  minLength={6}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="pg-input mt-1"
+                />
+              </label>
+            </div>
+            {msg && <p className="pg-callout pg-callout-error mx-6 mb-0">{msg}</p>}
+            <div className="pg-modal-foot">
+              <button type="button" onClick={() => setModal(null)} className="pg-btn pg-btn-secondary">
+                {t('common.cancel')}
+              </button>
+              <button type="submit" className="pg-btn pg-btn-primary">
+                {t('common.save')}
               </button>
             </div>
           </form>

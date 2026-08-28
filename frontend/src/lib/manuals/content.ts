@@ -98,8 +98,14 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <p>이용 고객(회원)은 <strong>사용자관리가 아니라 고객관리</strong>에서 다룹니다. 예전 본사 인증센터 심사는 이 화면으로 합쳤습니다.</p>
         <table><thead><tr><th>구분</th><th>내용</th></tr></thead><tbody>
         <tr><td>사용자관리</td><td>총본사·조직 직원 계정만 등록·수정</td></tr>
-        <tr><td>고객관리</td><td>이용 회원 목록, 활성/비활성, 인증 상태</td></tr>
+        <tr><td>고객관리</td><td>이용 회원 목록, 활성/비활성, 인증 상태, S RATE·시뮬레이터, 계정 관리</td></tr>
         </tbody></table>
+        <p>목록·계정 관리</p>
+        <ul>
+          <li>목록에 <strong>S RATE</strong>(청록=LIVE / 주황=SAND)와 <strong>시뮬레이터</strong>(사용/미사용) 열이 있습니다.</li>
+          <li><strong>수정</strong> — 이름·휴대폰·모집 영업점·시뮬레이터 사용·S RATE·활성 상태·(선택) 새 비밀번호. 행을 더블클릭해도 수정 창이 열립니다.</li>
+          <li><strong>비밀번호 초기화</strong> · <strong>OTP 초기화</strong> — 사용자관리와 동일 규칙(아래 「비밀번호·OTP 초기화」).</li>
+        </ul>
         <p>인증 상태</p>
         <ul>
           <li><strong>인증패스</strong> — 서비스 이용 가능 (USDT 매입·무역 에스크로)</li>
@@ -118,8 +124,14 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <p>End members are managed under <strong>Customers, not Users</strong>. HQ verification review is merged into this screen.</p>
         <table><thead><tr><th>Area</th><th>What it is</th></tr></thead><tbody>
         <tr><td>Users</td><td>HQ and org staff accounts only</td></tr>
-        <tr><td>Customers</td><td>Members, active/inactive, verification status</td></tr>
+        <tr><td>Customers</td><td>Members, active/inactive, verification, S RATE & simulator, account actions</td></tr>
         </tbody></table>
+        <p>List & account actions</p>
+        <ul>
+          <li>The list shows <strong>S RATE</strong> (teal = LIVE / orange = SAND) and <strong>simulator</strong> (on/off).</li>
+          <li><strong>Edit</strong> — name, phone, recruiting office, simulator, S RATE, active status, optional new password. Double-click a row to open edit.</li>
+          <li><strong>Password reset</strong> · <strong>OTP reset</strong> — same rules as Users (see “Password & OTP reset” below).</li>
+        </ul>
         <ul>
           <li><strong>Verified pass</strong> — may use USDT purchase and trade escrow</li>
           <li><strong>Unverified</strong> — no documents or not yet approved</li>
@@ -136,6 +148,9 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         `<span class="menu-path">顧客管理</span>
         <p>利用顧客は<strong>ユーザー管理ではなく顧客管理</strong>で扱います。総本社の認証センター審査はこの画面に統合しました。</p>
         <ul>
+          <li>一覧に<strong>S RATE</strong>(ティール=LIVE / オレンジ=SAND)と<strong>シミュレーター</strong>(使用/未使用)があります。</li>
+          <li><strong>修正</strong> — 名前・電話・募集営業店・シミュレーター・S RATE・有効状態・(任意)新パスワード。行ダブルクリックでも開きます。</li>
+          <li><strong>パスワード初期化</strong> · <strong>OTP初期化</strong> — ユーザー管理と同じ(下記参照)。</li>
           <li><strong>認証パス</strong> — USDT購入・貿易エスクロー利用可</li>
           <li><strong>未認証</strong> — 未提出または未承認</li>
           <li><strong>審査中</strong> — 顧客が認証センターで提出済み</li>
@@ -151,6 +166,9 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         `<span class="menu-path">客户管理</span>
         <p>终端客户在<strong>客户管理</strong>中处理，不在用户管理。总部认证审核已并入此页。</p>
         <ul>
+          <li>列表含<strong>S RATE</strong>(青绿=LIVE / 橙=SAND)与<strong>模拟器</strong>(开/关)。</li>
+          <li><strong>编辑</strong> — 姓名、手机、招募营业点、模拟器、S RATE、启用状态、(可选)新密码。双击行可打开编辑。</li>
+          <li><strong>密码初始化</strong> · <strong>OTP 初始化</strong> — 与用户管理相同(见下文)。</li>
           <li><strong>认证通过</strong> — 可使用 USDT 采购与贸易托管</li>
           <li><strong>未认证</strong> — 未提交或未批准</li>
           <li><strong>审核中</strong> — 客户已在认证中心提交</li>
@@ -166,6 +184,9 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         `<span class="menu-path">จัดการลูกค้า</span>
         <p>ลูกค้าผู้ใช้บริการจัดการที่ <strong>จัดการลูกค้า ไม่ใช่จัดการผู้ใช้</strong> การตรวจสอบของ HQ รวมไว้ที่หน้านี้แล้ว</p>
         <ul>
+          <li>รายการมี <strong>S RATE</strong> (เขียวน้ำทะเล=LIVE / ส้ม=SAND) และ <strong>ตัวจำลอง</strong> (เปิด/ปิด)</li>
+          <li><strong>แก้ไข</strong> — ชื่อ โทรศัพท์ สำนักงานรับสมัคร ตัวจำลอง S RATE สถานะใช้งาน (ไม่บังคับ) รหัสใหม่ ดับเบิลคลิกแถวเพื่อแก้ไข</li>
+          <li><strong>รีเซ็ตรหัสผ่าน</strong> · <strong>รีเซ็ต OTP</strong> — กฎเดียวกับจัดการผู้ใช้ (ดูด้านล่าง)</li>
           <li><strong>ผ่านการยืนยัน</strong> — ใช้ซื้อ USDT และเอสโครว์ได้</li>
           <li><strong>ยังไม่ยืนยัน</strong> — ยังไม่ส่งหรือยังไม่อนุมัติ</li>
           <li><strong>กำลังตรวจสอบ</strong> — ลูกค้าส่งเอกสารที่ศูนย์ยืนยันแล้ว</li>
@@ -279,32 +300,36 @@ export const HQ_OPS_MANUAL: ManualDoc = {
       id: 'hq-users-reset',
       title: L('비밀번호·OTP 초기화', 'Password & OTP reset', 'パスワード・OTP初期化', '密码与 OTP 初始化', 'รีเซ็ตรหัสผ่านและ OTP'),
       bodyHtml: L(
-        `<span class="menu-path">사용자관리</span>
-        <p>조직 직원 계정의 로그인 복구는 이 화면에서 합니다.</p>
+        `<span class="menu-path">사용자관리 · 고객관리</span>
+        <p>조직 직원 계정은 <strong>사용자관리</strong>, 이용 회원(고객)은 <strong>고객관리</strong>에서 동일하게 처리합니다.</p>
         <ul>
           <li><strong>비밀번호 초기화</strong> — 임시 비밀번호는 <strong>이메일 @ 앞 아이디 + 1!</strong> 입니다. (예: name@mail.com → name1!) 화면 메시지에 임시 비밀번호가 표시됩니다. 다음 로그인에서는 대시보드 전에 <strong>새 비밀번호를 설정</strong>해야 합니다. 초기 규칙 비밀번호(아이디+1!)는 새 비밀번호로 쓸 수 없습니다.</li>
           <li><strong>OTP 초기화</strong> — 등록된 Google OTP 비밀키를 지웁니다. 비밀번호 초기화와는 별개입니다. 본사정책에서 OTP가 켜져 있으면 다음 로그인에서 <strong>OTP를 처음부터 다시 등록</strong>합니다.</li>
         </ul>
         <div class="warn-box">비밀번호 초기화 확인 문구에 OTP 해제가 적혀 있어도, OTP를 끄려면 OTP 초기화를 따로 눌러야 합니다.</div>`,
-        `<span class="menu-path">Users</span>
+        `<span class="menu-path">Users · Customers</span>
+        <p>Staff accounts under <strong>Users</strong>; end members under <strong>Customers</strong> — same reset rules.</p>
         <ul>
           <li><strong>Password reset</strong> — temporary password is <strong>email local-part + 1!</strong> (e.g. name@mail.com → name1!). The UI shows it. Next login requires setting a <strong>new password</strong> before the dashboard. The initial pattern cannot be reused as the new password.</li>
           <li><strong>OTP reset</strong> — clears the Google Authenticator secret. Separate from password reset. If OTP is enabled in HQ Policy, the user must <strong>enroll OTP again</strong> at next login.</li>
         </ul>
         <div class="warn-box">The password-reset confirm text may mention OTP, but OTP is only cleared by the OTP reset button.</div>`,
-        `<span class="menu-path">ユーザー管理</span>
+        `<span class="menu-path">ユーザー管理 · 顧客管理</span>
+        <p>組織スタッフは<strong>ユーザー管理</strong>、利用会員は<strong>顧客管理</strong>で同様に処理します。</p>
         <ul>
           <li><strong>パスワード初期化</strong> — 仮パスワードはメールID+1!。次回ログインで新パスワード設定が必要。</li>
           <li><strong>OTP初期化</strong> — 秘密鍵を削除。次回ログインでOTP再登録。</li>
         </ul>
         <div class="warn-box">パスワード初期化だけではOTPは解除されません。</div>`,
-        `<span class="menu-path">用户管理</span>
+        `<span class="menu-path">用户管理 · 客户管理</span>
+        <p>组织员工在<strong>用户管理</strong>，终端客户在<strong>客户管理</strong>，规则相同。</p>
         <ul>
           <li><strong>密码初始化</strong> — 临时密码为邮箱ID+1!。下次登录须设置新密码。</li>
           <li><strong>OTP 初始化</strong> — 清除密钥。下次登录需重新绑定 OTP。</li>
         </ul>
         <div class="warn-box">仅初始化密码不会关闭 OTP。</div>`,
-        `<span class="menu-path">จัดการผู้ใช้</span>
+        `<span class="menu-path">จัดการผู้ใช้ · จัดการลูกค้า</span>
+        <p>พนักงานองค์กรที่ <strong>จัดการผู้ใช้</strong> ลูกค้าที่ <strong>จัดการลูกค้า</strong> — กฎเดียวกัน</p>
         <ul>
           <li><strong>รีเซ็ตรหัสผ่าน</strong> — รหัสชั่วคราวคือ ID อีเมล+1! เข้าสู่ระบบครั้งถัดไปต้องตั้งรหัสใหม่</li>
           <li><strong>รีเซ็ต OTP</strong> — ลบรหัสลับ เข้าสู่ระบบครั้งถัดไปต้องลงทะเบียน OTP ใหม่</li>
@@ -319,14 +344,31 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         `<span class="menu-path">본사정책 → 수수료·리스크 → 시볼(티켓) 수수료</span>
         <p>FX·가스피·송금·기타 수수료마다 <strong>%</strong> 또는 <strong>고정(USDT)</strong>을 선택합니다. 선택한 방식만 계산·도식에 반영됩니다.</p>
         <div class="check-box"><strong>세팅된 수수료율 노출</strong> — 사용 시 도식에 수수료율 열 표시, 미사용 시 숨김.</div>
-        <p>통화·금액 구간별로 행을 편집한 뒤 저장하십시오.</p>`,
+        <p>통화·금액 구간별로 행을 편집한 뒤 저장하십시오.</p>
+        <p class="mt-2"><strong>시뮬레이터 Sandbox 수수료</strong> (<span class="menu-path">본사정책 → 수수료·리스크 → 시뮬레이터용 수수료</span>, Sandbox 탭)</p>
+        <ul>
+          <li><strong>LIVE</strong> 구간·가스는 실거래(시볼) 수수료와 동일합니다.</li>
+          <li><strong>Sandbox</strong>는 LIVE에 <strong>추가 기본 수수료</strong>(FX %, 가스/송금/기타 USDT)만 더합니다. 구간 표는 LIVE 미러(읽기 전용), 화면에는 <strong>합계 (LIVE)</strong>로 표시됩니다.</li>
+          <li>「Sandbox 추가 수수료 0으로 초기화」로 Sandbox 가산만 0으로 되돌립니다.</li>
+        </ul>`,
         `<span class="menu-path">HQ Policy → Fees → Symbol fees</span>
         <p>Each of FX, gas, transfer, other can be <strong>%</strong> or <strong>fixed USDT</strong>. Only the selected mode applies.</p>
-        <div class="check-box"><strong>Show fee rates</strong> — On shows the rate column; Off hides it.</div>`,
+        <div class="check-box"><strong>Show fee rates</strong> — On shows the rate column; Off hides it.</div>
+        <p class="mt-2"><strong>Simulator Sandbox fees</strong> (<span class="menu-path">HQ Policy → Fees → Simulator fees</span>, Sandbox tab)</p>
+        <ul>
+          <li><strong>LIVE</strong> tiers and gas match live (symbol) fees.</li>
+          <li><strong>Sandbox</strong> adds only <strong>basic fees</strong> (FX %, gas/transfer/other USDT) on top of LIVE. The tier table mirrors LIVE (read-only); the UI shows <strong>combined (LIVE)</strong>.</li>
+          <li>“Reset Sandbox add-on fees to zero” clears only the Sandbox add-on.</li>
+        </ul>`,
         `<span class="menu-path">本社ポリシー → 手数料</span>
-        <p>各手数料を%または固定USDTで選択します。</p>`,
-        `<p>各项手续费可选 % 或固定 USDT。</p>`,
-        `<p>เลือก % หรือ USDT คงที่สำหรับแต่ละค่าธรรมเนียม</p>`,
+        <p>各手数料を%または固定USDTで選択します。</p>
+        <p class="mt-2"><strong>シミュレーターSandbox手数料</strong> — LIVE段階+基本加算。段階表はLIVEミラー(読取専用)。<strong>合計 (LIVE)</strong>表示。</p>`,
+        `<span class="menu-path">总部策略 → 手续费</span>
+        <p>各项手续费可选 % 或固定 USDT。</p>
+        <p class="mt-2"><strong>模拟器 Sandbox 手续费</strong> — LIVE 档位之上叠加基本费；档位表为 LIVE 镜像(只读)；显示<strong>合计 (LIVE)</strong>。</p>`,
+        `<span class="menu-path">HQ Policy → ค่าธรรมเนียม</span>
+        <p>เลือก % หรือ USDT คงที่สำหรับแต่ละค่าธรรมเนียม</p>
+        <p class="mt-2"><strong>Sandbox ตัวจำลอง</strong> — บวกค่าพื้นฐานกับ LIVE ตารางชั้นเป็น LIVE (อ่านอย่างเดียว) แสดง<strong>รวม (LIVE)</strong></p>`,
       ),
     },
     {
@@ -542,31 +584,61 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li>출금 <strong>네트워크를 반드시 선택</strong>한 뒤 입금액 또는 받을 USDT로 계산합니다.</li>
           <li>고객 화면에는 최근 시뮬레이션이 <strong>최대 3건</strong> 남습니다. 대시보드 미리보기는 <strong>2건</strong>입니다.</li>
           <li>기록 시뮬레이터는 <strong>사용 분석이 위</strong>, 목록이 아래입니다. 보관 기간은 본사정책 → 플랫폼에서 바꿉니다.</li>
-        </ul>`,
+        </ul>
+        <p><strong>고객·조직 시뮬레이터 설정</strong></p>
+        <ul>
+          <li><span class="menu-path">고객관리</span> · <span class="menu-path">조직 관리</span> — 시뮬레이터 사용 ON/OFF, S RATE(LIVE/SAND). SAND는 Sandbox 수수료 체계로 계산됩니다.</li>
+          <li>S RATE는 목록에서 청록(LIVE)·주황(SAND) 배지로 구분됩니다.</li>
+          <li>고객별 시뮬레이터 OFF는 본사 CUSTOMER 메뉴 권한보다 우선해 메뉴를 막습니다.</li>
+        </ul>
+        <p><strong>본사 시뮬레이터 LIVE / Sandbox 탭</strong></p>
+        <ul>
+          <li><strong>LIVE</strong> — 실거래(시볼) 수수료·환율로 계산합니다.</li>
+          <li><strong>Sandbox</strong> — LIVE 구간·가스에 Sandbox 추가 기본 수수료를 더합니다. 구간 표는 LIVE 미러(읽기 전용), 값은 <strong>합계 (LIVE)</strong>로 표시됩니다.</li>
+        </ul>
+        <div class="info-box">Sandbox 수수료 편집은 <span class="menu-path">수수료·리스크 → 시뮬레이터용 수수료</span>에서 합니다(「수수료 정책」 참고).</div>`,
         `<span class="menu-path">HQ Policy → USDT simulator / Record simulator</span>
         <p>HQ menus sit under HQ Policy. Customers and orgs use the work-menu simulator.</p>
         <ul>
           <li>Choose a withdrawal <strong>network</strong>, then calculate from deposit or target USDT.</li>
           <li>The customer page keeps up to <strong>3</strong> recent runs. Dashboard preview shows <strong>2</strong>.</li>
           <li>Record simulator: <strong>usage analysis on top</strong>, list below. Retention is under HQ Policy → Platform.</li>
-        </ul>`,
+        </ul>
+        <p><strong>Customer & org simulator settings</strong></p>
+        <ul>
+          <li><span class="menu-path">Customers</span> · <span class="menu-path">Organizations</span> — simulator on/off, S RATE (LIVE/SAND). SAND uses the Sandbox fee stack.</li>
+          <li>S RATE appears as teal (LIVE) or orange (SAND) badges in the list.</li>
+          <li>Per-customer simulator OFF overrides the HQ CUSTOMER menu matrix.</li>
+        </ul>
+        <p><strong>HQ simulator LIVE / Sandbox tabs</strong></p>
+        <ul>
+          <li><strong>LIVE</strong> — live (symbol) fees and rates.</li>
+          <li><strong>Sandbox</strong> — LIVE tiers + gas plus Sandbox basic add-ons. Tier table mirrors LIVE (read-only); values show as <strong>combined (LIVE)</strong>.</li>
+        </ul>
+        <div class="info-box">Edit Sandbox fees under <span class="menu-path">Fees → Simulator fees</span> (see “Fee policy”).</div>`,
         `<span class="menu-path">本社ポリシー → USDTシミュレーター / 記録シミュレーター</span>
         <ul>
           <li>出金ネットワーク必須。入金額または受取USDTで計算。</li>
           <li>顧客画面は直近最大3件。ダッシュボードは2件。</li>
           <li>記録画面は利用分析が上、一覧が下。</li>
+          <li><strong>顧客管理</strong>・<strong>組織管理</strong> — シミュレーターON/OFF、S RATE(LIVE/SAND)。SANDはSandbox手数料。</li>
+          <li>本社シミュレーター LIVE/Sandbox タブ — SandboxはLIVE+追加基本手数料。段階表はLIVEミラー。</li>
         </ul>`,
         `<span class="menu-path">总部策略 → USDT 模拟器 / 记录模拟器</span>
         <ul>
           <li>必须选择提现网络，再按入金或目标 USDT 计算。</li>
           <li>客户页最多保留 3 条；仪表盘预览 2 条。</li>
           <li>记录页：使用分析在上，列表在下。</li>
+          <li><strong>客户管理</strong>·<strong>组织管理</strong> — 模拟器开/关、S RATE(LIVE/SAND)。SAND 用 Sandbox 手续费。</li>
+          <li>总部模拟器 LIVE/Sandbox 标签 — Sandbox 在 LIVE 上叠加基本费；档位表为 LIVE 镜像。</li>
         </ul>`,
         `<span class="menu-path">HQ Policy → ตัวจำลอง USDT / ตัวจำลองบันทึก</span>
         <ul>
           <li>ต้องเลือกเครือข่ายถอน แล้วคำนวณจากยอดฝากหรือ USDT ที่จะรับ</li>
-          <li>หน้ารลูกค้าเก็บได้สูงสุด 3 รายการ แดชบอร์ดโชว์ 2</li>
+          <li>หน้าลูกค้าเก็บได้สูงสุด 3 รายการ แดชบอร์ดโชว์ 2</li>
           <li>หน้าบันทึก: วิเคราะห์การใช้งานอยู่บน รายการอยู่ล่าง</li>
+          <li><strong>จัดการลูกค้า</strong> · <strong>จัดการองค์กร</strong> — เปิด/ปิดตัวจำลอง S RATE (LIVE/SAND) SAND ใช้ค่าธรรมเนียม Sandbox</li>
+          <li>แท็บ LIVE/Sandbox ที่ HQ — Sandbox บวกค่าพื้นฐานกับ LIVE ตารางชั้นเป็น LIVE (อ่านอย่างเดียว)</li>
         </ul>`,
       ),
     },
@@ -616,22 +688,25 @@ export const HQ_OPS_MANUAL: ManualDoc = {
       title: L('버전 · 업데이트 내용', 'Version · release notes', 'バージョン・更新内容', '版本·更新内容', 'เวอร์ชัน·ประวัติอัปเดต'),
       bodyHtml: L(
         `<span class="menu-path">본사정책 → 운영관리 → 업데이트 내용</span>
-        <p>라이브 버전은 표지·메뉴얼·업데이트 목록에 <strong>V{version}</strong>으로 표시됩니다. 이번 라이브는 <strong>V2.6.11</strong>입니다.</p>
+        <p>라이브 버전은 표지·메뉴얼·업데이트 목록에 <strong>V{version}</strong>으로 표시됩니다. 현재 라이브는 목록 최상단 버전과 동일합니다.</p>
         <ul>
           <li><strong>주요 업데이트</strong> — 2.0, 3.0, 4.0 …</li>
           <li><strong>소소한 업데이트</strong> — 2.1 … 2.6 …</li>
         </ul>
-        <div class="info-box">V2.6: CURFEX 입금 자동감지(웹훅)·운영·고객 메뉴얼 전 언어 반영.</div>`,
+        <div class="info-box">V2.6: 시뮬레이터·고객관리·Sandbox 수수료 등 운영·고객·조직 이용메뉴얼 전 언어 반영.</div>`,
         `<span class="menu-path">HQ Policy → Ops → Release notes</span>
-        <p>Live version appears as <strong>V{version}</strong> on covers and lists. This live is <strong>V2.6.11</strong>.</p>
+        <p>Live version appears as <strong>V{version}</strong> on covers and lists. The current live matches the top entry here.</p>
         <ul>
           <li><strong>Major</strong> — 2.0, 3.0, 4.0…</li>
           <li><strong>Minor</strong> — 2.1 … 2.6…</li>
         </ul>
-        <div class="info-box">V2.6: CURFEX auto deposit detection + full manual updates (all languages).</div>`,
-        `<span class="menu-path">運営管理 → アップデート内容</span>`,
-        `<span class="menu-path">运营管理 → 更新内容</span>`,
-        `<span class="menu-path">Ops → Release notes</span>`,
+        <div class="info-box">V2.6: simulator, customer admin, Sandbox fees — full manual updates (all languages).</div>`,
+        `<span class="menu-path">運営管理 → アップデート内容</span>
+        <p>ライブ版は表紙・マニュアル・更新一覧に V{version} で表示。現在は一覧最上段と一致。</p>`,
+        `<span class="menu-path">运营管理 → 更新内容</span>
+        <p>线上版本在封面、手册与更新列表显示为 V{version}，与列表首条一致。</p>`,
+        `<span class="menu-path">Ops → Release notes</span>
+        <p>เวอร์ชันสดแสดงเป็น V{version} ตรงกับรายการบนสุด</p>`,
       ),
     },
     {
@@ -715,23 +790,26 @@ export const ORG_OPS_MANUAL: ManualDoc = {
       id: 'org-users-reset',
       title: L('비밀번호·OTP 초기화', 'Password & OTP reset', 'パスワード・OTP初期化', '密码与 OTP 初始化', 'รีเซ็ตรหัสผ่านและ OTP'),
       bodyHtml: L(
-        `<span class="menu-path">사용자관리</span>
+        `<span class="menu-path">사용자관리 · 고객관리</span>
+        <p>조직 직원은 <strong>사용자관리</strong>, 소속 범위 이용 회원은 <strong>고객관리</strong>에서 동일하게 처리합니다.</p>
         <ul>
           <li><strong>비밀번호 초기화</strong> — 임시 비밀번호는 이메일 아이디 + 1! 입니다. 다음 로그인에서 새 비밀번호를 설정해야 합니다.</li>
           <li><strong>OTP 초기화</strong> — OTP 비밀키를 지웁니다. 다음 로그인에서 OTP를 다시 등록합니다. 비밀번호 초기화와 별개입니다.</li>
         </ul>
-        <div class="info-box">권한 범위 안의 조직 직원만 초기화할 수 있습니다. 총본사 정책(통화·브랜드)은 바꿀 수 없습니다.</div>`,
-        `<span class="menu-path">Users</span>
+        <div class="info-box">권한 범위 안의 조직 직원·고객만 초기화할 수 있습니다. 총본사 정책(통화·브랜드)은 바꿀 수 없습니다.</div>`,
+        `<span class="menu-path">Users · Customers</span>
+        <p>Org staff under <strong>Users</strong>; in-scope members under <strong>Customers</strong> — same rules.</p>
         <ul>
           <li><strong>Password reset</strong> — temporary password is email ID + 1!. Next login requires a new password.</li>
           <li><strong>OTP reset</strong> — clears the authenticator secret. The user re-enrolls at next login. Separate from password reset.</li>
-        </ul>`,
-        `<span class="menu-path">ユーザー管理</span>
-        <p>パスワード初期化はメールID+1!。次回に新パスワード。OTP初期化は次回に再登録。</p>`,
-        `<span class="menu-path">用户管理</span>
-        <p>密码初始化为邮箱ID+1!，下次须设新密码。OTP 初始化后下次重新绑定。</p>`,
-        `<span class="menu-path">จัดการผู้ใช้</span>
-        <p>รีเซ็ตรหัสผ่าน = ID อีเมล+1! ครั้งถัดไปตั้งรหัสใหม่ รีเซ็ต OTP ต้องลงทะเบียนใหม่</p>`,
+        </ul>
+        <div class="info-box">You can reset only staff and customers within your org scope. HQ policy (currency, brand) cannot be changed.</div>`,
+        `<span class="menu-path">ユーザー管理 · 顧客管理</span>
+        <p>組織スタッフはユーザー管理、配下の会員は顧客管理で同様に処理します。パスワード初期化はメールID+1!。OTP初期化は次回に再登録。</p>`,
+        `<span class="menu-path">用户管理 · 客户管理</span>
+        <p>组织员工在用户管理，范围内客户在客户管理，规则相同。密码初始化为邮箱ID+1!；OTP 初始化后下次重新绑定。</p>`,
+        `<span class="menu-path">จัดการผู้ใช้ · จัดการลูกค้า</span>
+        <p>พนักงานที่จัดการผู้ใช้ ลูกค้าในขอบเขตที่จัดการลูกค้า — กฎเดียวกัน รีเซ็ตรหัสผ่าน = ID อีเมล+1!</p>`,
       ),
     },
     {
@@ -766,6 +844,7 @@ export const ORG_OPS_MANUAL: ManualDoc = {
         <p>이용 회원은 <strong>고객관리</strong>에서 봅니다. 조직 직원 계정은 <strong>사용자관리</strong>입니다.</p>
         <ul>
           <li>목록에서 활성/비활성과 인증패스·비인증·심사중·반려를 함께 확인합니다.</li>
+          <li><strong>수정</strong> · <strong>비밀번호 초기화</strong> · <strong>OTP 초기화</strong> — 소속 범위 고객만(행 더블클릭으로 수정). 시뮬레이터 사용·S RATE도 수정 창에서 바꿀 수 있습니다.</li>
           <li>고객을 열어 업로드 서류를 열람할 수 있습니다.</li>
           <li>총판 이상은 고객 등록(통장·지갑 포함)을 고객관리에서 처리합니다.</li>
         </ul>
@@ -775,6 +854,7 @@ export const ORG_OPS_MANUAL: ManualDoc = {
         <p>Members live under <strong>Customers</strong>. Staff accounts live under <strong>Users</strong>.</p>
         <ul>
           <li>See active/inactive together with verified pass / unverified / under review / rejected.</li>
+          <li><strong>Edit</strong> · <strong>Password reset</strong> · <strong>OTP reset</strong> — in-scope customers only (double-click to edit). Simulator and S RATE are in the edit dialog.</li>
           <li>Open a customer to view uploaded documents.</li>
           <li>Master distributor and above can register customers (bank + wallet) on this screen.</li>
         </ul>
@@ -784,6 +864,7 @@ export const ORG_OPS_MANUAL: ManualDoc = {
         <p>利用会員は<strong>顧客管理</strong>、組織スタッフは<strong>ユーザー管理</strong>です。</p>
         <ul>
           <li>有効/無効と認証パス・未認証・審査中・差戻しを一覧で確認します。</li>
+          <li><strong>修正</strong> · <strong>パスワード初期化</strong> · <strong>OTP初期化</strong> — 配下の顧客のみ(ダブルクリックで修正)。シミュレーター・S RATEも修正画面で変更。</li>
           <li>顧客を開き提出書類を閲覧できます。</li>
           <li>総販以上は顧客管理から顧客登録(口座・ウォレット)が可能です。</li>
         </ul>
@@ -793,6 +874,7 @@ export const ORG_OPS_MANUAL: ManualDoc = {
         <p>终端会员在<strong>客户管理</strong>，组织员工在<strong>用户管理</strong>。</p>
         <ul>
           <li>同时查看启用/停用与认证通过、未认证、审核中、已退回。</li>
+          <li><strong>编辑</strong> · <strong>密码初始化</strong> · <strong>OTP 初始化</strong> — 仅范围内客户(双击编辑)。模拟器与 S RATE 可在编辑窗口修改。</li>
           <li>打开客户可查看上传文件。</li>
           <li>总经销及以上可在客户管理登记客户（账户与钱包）。</li>
         </ul>
@@ -802,6 +884,7 @@ export const ORG_OPS_MANUAL: ManualDoc = {
         <p>สมาชิกอยู่ที่ <strong>จัดการลูกค้า</strong> พนักงานองค์กรอยู่ที่ <strong>จัดการผู้ใช้</strong></p>
         <ul>
           <li>ดูใช้งาน/ปิดใช้งาน พร้อมผ่านการยืนยัน ยังไม่ยืนยัน กำลังตรวจสอบ ถูกปฏิเสธ</li>
+          <li><strong>แก้ไข</strong> · <strong>รีเซ็ตรหัสผ่าน</strong> · <strong>รีเซ็ต OTP</strong> — เฉพาะลูกค้าในขอบเขต (ดับเบิลคลิกแก้ไข) ตัวจำลองและ S RATE แก้ในหน้าต่างแก้ไข</li>
           <li>เปิดลูกค้าเพื่อดูเอกสารที่อัปโหลด</li>
           <li>ตัวแทนหลักขึ้นไปลงทะเบียนลูกค้าได้ที่นี่ (บัญชี+กระเป๋า)</li>
         </ul>
@@ -869,7 +952,7 @@ export const CUSTOMER_MANUAL: ManualDoc = {
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc"><strong>USDT 시뮬레이터</strong>에서 네트워크를 고르고 입금액 또는 받을 USDT로 수수료·수령액을 미리 봅니다. 최근 결과는 최대 3건입니다.</span></div>
           <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>인증패스 후</strong> USDT 매입 또는 무역 에스크로를 신청합니다.</span></div>
         </div>
-        <div class="warn-box">인증패스 전에는 USDT 매입·무역 에스크로 신청이 불가합니다. 시뮬레이터는 미리 계산용이며 실제 신청이 아닙니다.</div>
+        <div class="warn-box">인증패스 전에는 USDT 매입·무역 에스크로 신청이 불가합니다. 시뮬레이터는 <strong>참고용 미리 계산</strong>이며 실제 신청·확정 금액이 아닙니다.</div>
         <div class="info-box">대시보드에는 시뮬레이터 최근 결과가 2건만 보입니다. 언어는 상단에서 바꿉니다. 유휴 시간이 지나면 자동 로그아웃됩니다.</div>`,
         `<p>Follow this order. Later steps stay blocked until earlier ones are done.</p>
         <div class="flow">
@@ -880,7 +963,7 @@ export const CUSTOMER_MANUAL: ManualDoc = {
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc">Open <strong>USDT simulator</strong>, choose a network, and preview fees from deposit or target USDT. Up to 3 recent results are kept.</span></div>
           <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc">After a <strong>verification pass</strong>, apply for USDT purchase or trade escrow.</span></div>
         </div>
-        <div class="warn-box">USDT purchase and escrow stay blocked until you have a pass. The simulator is a preview only, not an application.</div>
+        <div class="warn-box">USDT purchase and escrow stay blocked until you have a pass. The simulator is a <strong>reference preview only</strong>, not an application or binding amount.</div>
         <div class="info-box">Dashboard shows only 2 recent simulator results. Change language in the top bar. Idle timeout signs you out.</div>`,
         `<p>次の順番どおりに進めてください。前の段階が終わるまで次が止まることがあります。</p>
         <div class="flow">
@@ -891,7 +974,7 @@ export const CUSTOMER_MANUAL: ManualDoc = {
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc"><strong>USDTシミュレーター</strong>でネットワークを選び、入金または受取USDTで手数料を確認。直近最大3件。</span></div>
           <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>認証パス後</strong>にUSDT購入または貿易エスクローを申請。</span></div>
         </div>
-        <div class="warn-box">認証パス前はUSDT購入・エスクロー申請不可。シミュレーターは試算のみで申請ではありません。</div>
+        <div class="warn-box">認証パス前はUSDT購入・エスクロー申請不可。シミュレーターは<strong>参考用の試算</strong>で申請・確定金額ではありません。</div>
         <div class="info-box">ダッシュボードのシミュレーター表示は2件です。言語は上部で切替。アイドルで自動ログアウト。</div>`,
         `<p>请按此顺序操作。前一步未完成时，后一步可能无法进行。</p>
         <div class="flow">
@@ -902,7 +985,7 @@ export const CUSTOMER_MANUAL: ManualDoc = {
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc">打开<strong>USDT 模拟器</strong>，选择网络，按入金或目标 USDT 预览手续费。最多保留 3 条。</span></div>
           <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>认证通过后</strong>再申请 USDT 采购或贸易托管。</span></div>
         </div>
-        <div class="warn-box">未通过认证前无法申请采购或托管。模拟器仅试算，不是申请。</div>
+        <div class="warn-box">未通过认证前无法申请采购或托管。模拟器为<strong>仅供参考的试算</strong>，不是申请或确定金额。</div>
         <div class="info-box">仪表盘模拟器预览只显示 2 条。语言在顶部切换。空闲会自动退出。</div>`,
         `<p>ทำตามลำดับนี้ ขั้นหลังอาจถูกบล็อกจนกว่าขั้นก่อนจะเสร็จ</p>
         <div class="flow">
@@ -913,7 +996,7 @@ export const CUSTOMER_MANUAL: ManualDoc = {
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc">เปิด <strong>ตัวจำลอง USDT</strong> เลือกเครือข่าย ดูค่าธรรมเนียมจากยอดฝากหรือ USDT ที่จะรับ เก็บได้สูงสุด 3 รายการ</span></div>
           <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc">หลัง <strong>ผ่านการยืนยัน</strong> ค่อยสมัครซื้อ USDT หรือเอสโครว์</span></div>
         </div>
-        <div class="warn-box">ยังไม่ผ่านจะสมัครซื้อ/เอสโครว์ไม่ได้ ตัวจำลองเป็นการทดลองคำนวณ ไม่ใช่การสมัคร</div>
+        <div class="warn-box">ยังไม่ผ่านจะสมัครซื้อ/เอสโครว์ไม่ได้ ตัวจำลองเป็น<strong>การอ้างอิงเท่านั้น</strong> ไม่ใช่การสมัครหรือจำนวนเงินที่ผูกพัน</div>
         <div class="info-box">แดชบอร์ดโชว์ผลจำลอง 2 รายการ เปลี่ยนภาษาด้านบน หากไม่ใช้งานจะออกจากระบบอัตโนมัติ</div>`,
       ),
     },
@@ -1001,47 +1084,57 @@ export const CUSTOMER_MANUAL: ManualDoc = {
         `<span class="menu-path">USDT 시뮬레이터</span>
         <p>업무 시작 순서의 <strong>5단계</strong>입니다. 실제 신청 전에 수수료와 수령 USDT를 미리 봅니다.</p>
         <ul>
+          <li>왼쪽 메뉴에서 <strong>USDT 시뮬레이터</strong>를 엽니다.</li>
           <li>출금 <strong>네트워크를 먼저 선택</strong>합니다.</li>
           <li><strong>입금액으로 계산</strong> 또는 <strong>받을 USDT로 계산</strong>을 고릅니다.</li>
-          <li>수령 USDT는 빨간색, 총 수수료는 초록색으로 표시됩니다.</li>
+          <li>금액을 입력하고 계산하면 수령 USDT(빨간색)·총 수수료(초록색)가 표시됩니다.</li>
           <li>최근 결과는 <strong>최대 3건</strong>이 이 화면에 남고, 대시보드에는 <strong>2건</strong>만 보입니다.</li>
         </ul>
-        <div class="info-box">시뮬레이터는 시세·수수료 미리보기입니다. 돈을 보내거나 매입이 만들어지지 않습니다.</div>`,
+        <div class="warn-box"><strong>참고용입니다.</strong> 시뮬레이터 결과는 당시 수수료·환율을 바탕으로 한 <strong>대략적인 참고치</strong>이며, 실제 매입·송금 금액과 <strong>일치하지 않을 수 있습니다</strong>. 계약·입금·수령의 확정 근거로 사용하지 마세요.</div>
+        <div class="info-box">시뮬레이터는 시세·수수료 미리보기입니다. 돈을 보내거나 매입 신청이 만들어지지 않습니다.</div>`,
         `<span class="menu-path">USDT simulator</span>
         <p>This is <strong>step 5</strong>. Preview fees and received USDT before you apply.</p>
         <ul>
+          <li>Open <strong>USDT simulator</strong> from the left menu.</li>
           <li>Choose a withdrawal <strong>network</strong> first.</li>
-          <li>Calculate from <strong>deposit amount</strong> or from <strong>USDT to receive</strong>.</li>
-          <li>Received USDT is shown in red; total fee in green.</li>
+          <li>Pick <strong>calculate from deposit</strong> or <strong>from USDT to receive</strong>.</li>
+          <li>Enter an amount and run the calculation. Received USDT is shown in red; total fee in green.</li>
           <li>This page keeps up to <strong>3</strong> recent results; the dashboard shows <strong>2</strong>.</li>
         </ul>
+        <div class="warn-box"><strong>For reference only.</strong> Results are <strong>approximate previews</strong> based on fees and rates at calculation time. They may <strong>differ from the actual purchase or transfer</strong>. Do not treat them as binding amounts.</div>
         <div class="info-box">The simulator is a preview only. It does not send money or create a purchase.</div>`,
         `<span class="menu-path">USDTシミュレーター</span>
         <p>開始順の<strong>5</strong>です。申請前に手数料と受取USDTを確認します。</p>
         <ul>
+          <li>左メニューから<strong>USDTシミュレーター</strong>を開く。</li>
           <li>出金<strong>ネットワークを先に選択</strong>。</li>
           <li>入金額または受取USDTで計算。</li>
-          <li>受取USDTは赤、総手数料は緑。</li>
+          <li>金額入力後、受取USDT(赤)・総手数料(緑)が表示。</li>
           <li>この画面は最大3件、ダッシュボードは2件。</li>
         </ul>
+        <div class="warn-box"><strong>参考用です。</strong> 結果は試算時点の手数料・為替に基づく<strong>目安</strong>で、実際の購入・送金と<strong>一致しない場合があります</strong>。確定金額の根拠には使わないでください。</div>
         <div class="info-box">シミュレーターは試算のみで、送金や購入は発生しません。</div>`,
         `<span class="menu-path">USDT 模拟器</span>
         <p>这是开工顺序的<strong>第 5 步</strong>。申请前先看手续费与到账 USDT。</p>
         <ul>
+          <li>从左侧菜单打开<strong>USDT 模拟器</strong>。</li>
           <li>先选择提现<strong>网络</strong>。</li>
-          <li>按<strong>入金额</strong>或<strong>要收到的 USDT</strong>计算。</li>
-          <li>到账 USDT 为红色，总手续费为绿色。</li>
+          <li>选择按<strong>入金额</strong>或<strong>要收到的 USDT</strong>计算。</li>
+          <li>输入金额并计算后，到账 USDT 为红色，总手续费为绿色。</li>
           <li>本页最多 3 条，仪表盘只显示 2 条。</li>
         </ul>
+        <div class="warn-box"><strong>仅供参考。</strong> 结果为当时手续费与汇率下的<strong>大致参考值</strong>，可能与实际采购/到账<strong>不一致</strong>。请勿作为合同或入账的确定依据。</div>
         <div class="info-box">模拟器仅预览，不会汇款或生成采购单。</div>`,
         `<span class="menu-path">ตัวจำลอง USDT</span>
         <p>ขั้น <strong>5</strong> ของลำดับเริ่มงาน ดูค่าธรรมเนียมและ USDT ที่จะได้รับก่อนสมัครจริง</p>
         <ul>
+          <li>เปิด<strong>ตัวจำลอง USDT</strong>จากเมนูซ้าย</li>
           <li>เลือก<strong>เครือข่าย</strong>ถอนก่อน</li>
           <li>คำนวณจากยอดฝาก หรือจาก USDT ที่ต้องการรับ</li>
-          <li>USDT ที่ได้รับเป็นสีแดง ค่าธรรมเนียมรวมสีเขียว</li>
+          <li>ใส่จำนวนแล้วคำนวณ USDT ที่ได้รับเป็นสีแดง ค่าธรรมเนียมรวมสีเขียว</li>
           <li>หน้านี้เก็บได้สูงสุด 3 รายการ แดชบอร์ดโชว์ 2</li>
         </ul>
+        <div class="warn-box"><strong>ใช้เป็นข้อมูลอ้างอิงเท่านั้น</strong> ผลลัพธ์เป็น<strong>ค่าประมาณ</strong>ตามค่าธรรมเนียมและอัตรา ณ ขณะคำนวณ อาจ<strong>ไม่ตรงกับการซื้อ/โอนจริง</strong> อย่าใช้เป็นจำนวนเงินที่ผูกพัน</div>
         <div class="info-box">ตัวจำลองเป็นการทดลองคำนวณ ไม่โอนเงินและไม่สร้างคำขอซื้อ</div>`,
       ),
     },
@@ -1168,6 +1261,7 @@ export const CUSTOMER_MANUAL: ManualDoc = {
         `<div class="faq-item"><div class="faq-q">카드 버튼이 회색입니다.</div><div class="faq-a">현재 카드 결제가 비활성입니다. 계좌 이체를 이용하거나 운영자에게 문의하세요.</div></div>
         <div class="faq-item"><div class="faq-q">USDT·에스크로를 신청할 수 없습니다.</div><div class="faq-a">인증센터에서 서류를 제출하고 총본사 인증패스를 기다리세요. 반려이면 사유를 보고 다시 올리세요.</div></div>
         <div class="faq-item"><div class="faq-q">시뮬레이터에 결과가 안 남습니다.</div><div class="faq-a">네트워크를 선택하고 금액을 입력하세요. 이 화면은 최근 3건, 대시보드는 2건입니다.</div></div>
+        <div class="faq-item"><div class="faq-q">시뮬레이터와 실제 매입 금액이 다릅니다.</div><div class="faq-a">시뮬레이터는 참고용입니다. 환율·수수료 변동으로 실제 신청·입금 시점과 다를 수 있습니다.</div></div>
         <div class="faq-item"><div class="faq-q">예상 USDT와 실제가 다릅니다.</div><div class="faq-a">환율·가스비 변동으로 범위 내 차이가 날 수 있습니다.</div></div>
         <div class="faq-item"><div class="faq-q">원하는 통화가 목록에 없습니다.</div><div class="faq-a">본사가 해당 통화의 이체 또는 카드결제를 끈 상태입니다. 운영자에게 문의하세요.</div></div>
         <div class="faq-item"><div class="faq-q">JPY인데 증빙 업로드 칸이 없습니다.</div><div class="faq-a">CURFEX가 켜져 있으면 정상입니다. 안내 계좌로 입금만 하면 시스템이 자동 확인합니다.</div></div>
@@ -1175,6 +1269,7 @@ export const CUSTOMER_MANUAL: ManualDoc = {
         `<div class="faq-item"><div class="faq-q">Card button is gray.</div><div class="faq-a">Card pay is disabled; use bank transfer or contact support.</div></div>
         <div class="faq-item"><div class="faq-q">Cannot apply for USDT or escrow.</div><div class="faq-a">Submit files in Verification and wait for HQ verification pass. If rejected, resubmit after reading the reason.</div></div>
         <div class="faq-item"><div class="faq-q">Simulator results disappear.</div><div class="faq-a">Select a network and enter an amount. The page keeps 3 runs; the dashboard shows 2.</div></div>
+        <div class="faq-item"><div class="faq-q">Simulator differs from my purchase.</div><div class="faq-a">The simulator is reference only. Rates and fees may change before you apply or deposit.</div></div>
         <div class="faq-item"><div class="faq-q">Received USDT differs.</div><div class="faq-a">Rate/gas variance may apply within the shown range.</div></div>
         <div class="faq-item"><div class="faq-q">My currency is missing.</div><div class="faq-a">HQ disabled transfer or card for that currency. Contact support.</div></div>
         <div class="faq-item"><div class="faq-q">No proof upload for JPY.</div><div class="faq-a">Normal when CURFEX is on — deposit to the shown account only.</div></div>

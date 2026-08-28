@@ -14,6 +14,7 @@ import {
   gasFeeUsdtForNetwork,
   normalizeGasNetworkPolicy,
 } from '../constants/hq-policy';
+import { mergeLiveFeesWithSandboxBasic, sandboxBasicDeltas, applySandboxGasDelta } from '../lib/sandbox-fee-merge';
 import { computeFeeAmounts, normalizeTransactionFees } from '../lib/fee-component';
 import { prisma } from '../lib/prisma';
 import { normalizeTransactionLimits } from '../lib/transaction-limit-policy';
@@ -158,19 +159,18 @@ export async function getSimulatorCommissionRiskConfig(): Promise<HqCommissionRi
     where: { key: HQ_CONFIG_KEYS.simulatorCommissionRisk },
   });
   if (!row?.value || (typeof row.value === 'object' && Object.keys(row.value as object).length === 0)) {
-    return getCommissionRiskConfig();
+    return normalizeCommissionRisk({
+      defaultFxFeePercent: 0,
+      defaultGasFeeUsdt: 0,
+      defaultTransferFeeUsdt: 0,
+      defaultOtherFeeUsdt: 0,
+    });
   }
   return normalizeCommissionRisk(row.value as Partial<HqCommissionRiskConfig>);
 }
 
 export async function getSimulatorSymbolFeeTiers(): Promise<SymbolFeeTierPolicy> {
-  const row = await prisma.systemConfig.findUnique({
-    where: { key: HQ_CONFIG_KEYS.simulatorFeeTiers },
-  });
-  if (!row?.value || !Array.isArray(row.value) || row.value.length === 0) {
-    return getSymbolFeeTiers();
-  }
-  return normalizeSymbolFeeTiers(row.value);
+  return getSymbolFeeTiers();
 }
 
 export async function getSimulatorHqTransactionFees(): Promise<TransactionFees> {
@@ -297,12 +297,24 @@ export async function resolveFeesForAmount(
   options?: { feePolicy?: FeePolicyScope },
 ): Promise<TransactionFees> {
   const sandbox = options?.feePolicy === 'sandbox';
-  const [tiers, hqFlat, gasPolicy] = await Promise.all([
-    sandbox ? getSimulatorSymbolFeeTiers() : getSymbolFeeTiers(),
-    sandbox ? getSimulatorHqTransactionFees() : getHqTransactionFees(),
-    getGasNetworkPolicy(),
-  ]);
-  const tier = pickFeeTier(tiers, currency, fiatAmount);
+  const [liveTiers, gasPolicy] = await Promise.all([getSymbolFeeTiers(), getGasNetworkPolicy()]);
+  const tier = pickFeeTier(liveTiers, currency, fiatAmount);
+
+  if (sandbox) {
+    const sandboxRisk = await getSimulatorCommissionRiskConfig();
+    const deltas = sandboxBasicDeltas(sandboxRisk);
+    let hq = tier ? tierToTransactionFees(tier) : await getHqTransactionFees();
+    hq = mergeLiveFeesWithSandboxBasic(hq, deltas);
+    const networkGas = gasFeeUsdtForNetwork(
+      gasPolicy,
+      String(wallet.network ?? ''),
+      hq.gasFeeUsdt,
+    );
+    hq = applySandboxGasDelta(hq, networkGas, deltas.gasUsdt);
+    return resolveTransactionFees(wallet, hq);
+  }
+
+  const hqFlat = await getHqTransactionFees();
   let hq = tier ? tierToTransactionFees(tier) : hqFlat;
   hq = withNetworkGasFee(hq, String(wallet.network ?? ''), gasPolicy);
   return resolveTransactionFees(wallet, hq);

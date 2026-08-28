@@ -8,6 +8,7 @@ import { DoubleConfirmDialog } from '@/components/DoubleConfirmDialog';
 import { api, type Organization } from '@/lib/api';
 import type { MessageKey } from '@/i18n/messages';
 import { type OrgTypeCode } from '@/lib/org-types';
+import { SRateBadge } from '@/components/SRateBadge';
 import { detailRowProps } from '@/lib/table-row-detail';
 
 export default function OrganizationsPage() {
@@ -167,9 +168,11 @@ export default function OrganizationsPage() {
                     </span>
                   </td>
                   <td className="text-center">
-                    <span className="pg-badge pg-badge-info">
-                      {o.simulatorRateMode === 'SAND' ? t('orgs.sRate.sand') : t('orgs.sRate.live')}
-                    </span>
+                    <SRateBadge
+                      mode={o.simulatorRateMode}
+                      liveLabel={t('orgs.sRate.live')}
+                      sandLabel={t('orgs.sRate.sand')}
+                    />
                   </td>
                   <td className="text-center">
                     <span

@@ -3,6 +3,125 @@ import type { PlatformReleaseNote } from './version';
 /** 본사정책 → 운영관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
 export const PLATFORM_RELEASE_NOTES: PlatformReleaseNote[] = [
   {
+    version: '2.6.18',
+    kind: 'minor',
+    date: '2026-08-28',
+    items: {
+      KR: [
+        '이용메뉴얼(총본사·조직·고객) 전 언어 — 시뮬레이터·고객관리·Sandbox 수수료 반영',
+        '고객용: 시뮬레이터 사용법·참고용(비확정) 주의 문구 강화',
+      ],
+      US: [
+        'Usage manuals (HQ, org, customer) — all languages: simulator, customer admin, Sandbox fees',
+        'Customer manual: simulator how-to + stronger reference-only disclaimer',
+      ],
+      JP: [
+        '利用マニュアル(総本社・組織・顧客)全言語 — シミュレーター・顧客管理・Sandbox手数料を反映',
+        '顧客向け: シミュレーター使い方と参考用(非確定)注意を強化',
+      ],
+      CH: [
+        '使用手册(总部/组织/客户)全语言 — 模拟器、客户管理、Sandbox 手续费',
+        '客户手册：模拟器用法与仅供参考说明加强',
+      ],
+      TH: [
+        'คู่มือ (HQ/องค์กร/ลูกค้า) ครบทุกภาษา — ตัวจำลอง จัดการลูกค้า ค่าธรรมเนียม Sandbox',
+        'ลูกค้า: วิธีใช้ตัวจำลองและคำเตือนอ้างอิงเท่านั้น',
+      ],
+    },
+  },
+  {
+    version: '2.6.17',
+    kind: 'minor',
+    date: '2026-08-28',
+    items: {
+      KR: ['고객관리: 수정·비밀번호 초기화·OTP 초기화 (사용자관리와 동일)'],
+      US: ['Customer management: edit, password reset, OTP reset (same as user admin)'],
+      JP: ['顧客管理: 修正・パスワード初期化・OTP初期化（ユーザー管理と同様）'],
+      CH: ['客户管理：编辑、密码初始化、OTP 初始化（与用户管理相同）'],
+      TH: ['จัดการลูกค้า: แก้ไข รีเซ็ตรหัสผ่าน OTP (เหมือนผู้ใช้)'],
+    },
+  },
+  {
+    version: '2.6.16',
+    kind: 'minor',
+    date: '2026-08-28',
+    items: {
+      KR: [
+        'Sandbox 수수료: LIVE 구간+가스피에 기본 수수료 가산, 합계 (LIVE) 표시',
+        'Sandbox 구간 표는 LIVE 미러(읽기 전용), 계산은 합산값 적용',
+      ],
+      US: [
+        'Sandbox fees: LIVE tiers + basic add-on; display combined (LIVE)',
+        'Sandbox tier table mirrors LIVE (read-only)',
+      ],
+      JP: [
+        'Sandbox手数料: LIVE段階+ガスに基本加算、合計 (LIVE) 表示',
+      ],
+      CH: [
+        'Sandbox 手续费：LIVE 档位+gas 叠加基本费，显示合计 (LIVE)',
+      ],
+      TH: [
+        'Sandbox: บวกค่าพื้นฐานกับ LIVE แสดงผลรวม (LIVE)',
+      ],
+    },
+  },
+  {
+    version: '2.6.15',
+    kind: 'minor',
+    date: '2026-08-28',
+    items: {
+      KR: ['고객·조직 S RATE: LIVE(청록)/SAND(주황) 파스텔 배지로 구분'],
+      US: ['Customer/org S RATE: distinct pastel badges for LIVE (teal) vs SAND (orange)'],
+      JP: ['顧客・組織 S RATE: LIVE(ティール)/SAND(オレンジ)バッジで区別'],
+      CH: ['客户/组织 S RATE：LIVE(青绿)/SAND(橙) 徽章区分'],
+      TH: ['S RATE ลูกค้า/องค์กร: ป้าย LIVE(เขียวน้ำทะเล)/SAND(ส้ม) แยกสี'],
+    },
+  },
+  {
+    version: '2.6.14',
+    kind: 'minor',
+    date: '2026-08-28',
+    items: {
+      KR: [
+        '시뮬레이터 Sandbox: KRW/JPY/THB/CNY/USD 통화별 구간 수수료 편집 UI 추가',
+      ],
+      US: [
+        'Simulator Sandbox: currency tier fee editor (KRW/JPY/THB/CNY/USD)',
+      ],
+      JP: [
+        'シミュレーターSandbox: 通貨別段階手数料編集UI追加',
+      ],
+      CH: [
+        '模拟器 Sandbox：按货币档位手续费编辑界面',
+      ],
+      TH: [
+        'Sandbox ตัวจำลอง: แก้ไขค่าธรรมเนียมตามชั้นแยกสกุลเงิน',
+      ],
+    },
+  },
+  {
+    version: '2.6.13',
+    kind: 'minor',
+    date: '2026-08-28',
+    items: {
+      KR: [
+        '시뮬레이터 Sandbox 수수료: 파스텔 톤 입력칸·가운데 정렬·수수료별 색 구분',
+      ],
+      US: [
+        'Simulator Sandbox fees: pastel input boxes, center-aligned, color per fee type',
+      ],
+      JP: [
+        'シミュレーターSandbox手数料: パステル入力欄・中央揃え・手数料別色',
+      ],
+      CH: [
+        '模拟器 Sandbox 手续费：粉彩输入框、居中、按费用类型分色',
+      ],
+      TH: [
+        'ค่าธรรมเนียม Sandbox: ช่องป้อนพาสเทล จัดกึ่งกลาง แยกสีตามประเภท',
+      ],
+    },
+  },
+  {
     version: '2.6.12',
     kind: 'minor',
     date: '2026-08-28',

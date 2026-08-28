@@ -270,6 +270,55 @@
     color: var(--shell-content-text);
   }
 
+  /* 시뮬레이터 Sandbox 기본 수수료 — 파스텔 입력칸 */
+  .pg-sim-fee-field {
+    @apply rounded-lg border border-slate-200/80 p-2.5;
+    background-color: rgba(248, 250, 252, 0.6);
+  }
+  .pg-sim-fee-field-label {
+    @apply mb-2 block text-center text-[11px] font-semibold leading-tight;
+    color: var(--shell-content-text-muted);
+  }
+  .pg-sim-fee-input {
+    @apply w-full rounded-md border-2 px-2 py-2 text-center text-sm font-semibold tabular-nums shadow-sm;
+    min-height: 2.5rem;
+  }
+  .pg-sim-fee-input:focus {
+    @apply outline-none ring-2 ring-offset-1;
+  }
+  .pg-sim-fee-input--fx {
+    background-color: #e0f2fe;
+    border-color: #7dd3fc;
+    color: #0369a1;
+  }
+  .pg-sim-fee-input--fx:focus {
+    @apply ring-sky-300;
+  }
+  .pg-sim-fee-input--gas {
+    background-color: #d1fae5;
+    border-color: #6ee7b7;
+    color: #047857;
+  }
+  .pg-sim-fee-input--gas:focus {
+    @apply ring-emerald-300;
+  }
+  .pg-sim-fee-input--transfer {
+    background-color: #fef3c7;
+    border-color: #fcd34d;
+    color: #92400e;
+  }
+  .pg-sim-fee-input--transfer:focus {
+    @apply ring-amber-300;
+  }
+  .pg-sim-fee-input--other {
+    background-color: #fce7f3;
+    border-color: #f9a8d4;
+    color: #9d174d;
+  }
+  .pg-sim-fee-input--other:focus {
+    @apply ring-pink-300;
+  }
+
   .pg-hint {
     @apply text-[11px] leading-relaxed;
     color: var(--shell-content-text-muted);
@@ -544,6 +593,17 @@
     color: #ffffff;
     font-weight: 700;
     letter-spacing: 0.02em;
+  }
+
+  /** S RATE — LIVE(실거래) vs SAND(시뮬레이터) 구분 */
+  .pg-badge-srate-live {
+    background-color: #ccfbf1;
+    color: #0f766e;
+  }
+
+  .pg-badge-srate-sand {
+    background-color: #ffedd5;
+    color: #c2410c;
   }
 
   .pg-modal-overlay {

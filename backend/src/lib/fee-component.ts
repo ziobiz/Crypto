@@ -67,7 +67,11 @@ export function computeFeeAmounts(
     out[`${key}FeeUsdt`] =
       key === 'other'
         ? computeOtherFeeUsdt(grossUsdt, percent, fixedUsdt)
-        : computeFeeUsdt(grossUsdt, mode, percent, fixedUsdt);
+        : key === 'transfer' && mode === 'percent' && fixedUsdt > 0
+          ? Number(
+              (computeFeeUsdt(grossUsdt, mode, percent, fixedUsdt) + fixedUsdt).toFixed(8),
+            )
+          : computeFeeUsdt(grossUsdt, mode, percent, fixedUsdt);
   }
   return out;
 }
