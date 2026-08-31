@@ -769,9 +769,9 @@ export function defaultWorkflowDisplay(): HqWorkflowDisplayConfig {
       APPLICATION_COMPLETED: L('접수완료', 'Received', '受付完了', '已受理', 'รับเรื่องแล้ว'),
       CARD_PAYMENT_PENDING: L('카드결제중', 'Card pending', 'カード決済中', '卡支付中', 'รอชำระบัตร'),
       DEPOSIT_PROOF_PENDING: L('입금대기', 'Awaiting deposit', '入金待ち', '待入金', 'รอฝากเงิน'),
-      ADMIN_REVIEWING: L('심사중', 'Under review', '審査中', '审核中', 'กำลังตรวจสอบ'),
+      ADMIN_REVIEWING: L('입금확인중', 'Deposit verifying', '入金確認中', '入金确认中', 'กำลังตรวจสอบการฝาก'),
       TRANSFER_IN_PROGRESS: L('송금중', 'Transferring', '送金中', '汇款中', 'กำลังโอน'),
-      COMPLETED: L('심사완료', 'Completed', '審査完了', '审核完成', 'ตรวจสอบเสร็จ'),
+      COMPLETED: L('완료', 'Completed', '完了', '已完成', 'เสร็จสิ้น'),
       CANCELLED: L('취소', 'Cancelled', 'キャンセル', '已取消', 'ยกเลิก'),
     },
     escrowStatusLabels: {
@@ -812,9 +812,22 @@ export function normalizeWorkflowDisplay(
   sla.hoursAfterHours = Number(sla.hoursAfterHours) > 0 ? Number(sla.hoursAfterHours) : 12;
   return {
     sla,
-    usdtStatusLabels: mergeLabels(base.usdtStatusLabels, raw.usdtStatusLabels),
+    usdtStatusLabels: patchLegacyUsdtStatusLabels(mergeLabels(base.usdtStatusLabels, raw.usdtStatusLabels)),
     escrowStatusLabels: mergeLabels(base.escrowStatusLabels, raw.escrowStatusLabels),
   };
+}
+
+/** DB에 저장된 구 라벨(심사중 등)을 입금확인중으로 정렬 */
+function patchLegacyUsdtStatusLabels(
+  labels: Record<string, LocalizedStatusLabels>,
+): Record<string, LocalizedStatusLabels> {
+  const defaults = defaultWorkflowDisplay().usdtStatusLabels;
+  const legacyReviewKr = new Set(['심사중', '관리자 확인 중', '審査中', '审核中', 'Under review']);
+  const reviewing = labels.ADMIN_REVIEWING;
+  if (reviewing && legacyReviewKr.has(reviewing.KR)) {
+    return { ...labels, ADMIN_REVIEWING: defaults.ADMIN_REVIEWING };
+  }
+  return labels;
 }
 
 export function isInBusinessHours(at: Date, sla: HqSlaConfig): boolean {

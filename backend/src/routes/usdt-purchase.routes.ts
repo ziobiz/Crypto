@@ -252,6 +252,7 @@ const statusSchema = z.object({
   actualUsdtAmount: z.number().positive().optional(),
   adminNote: z.string().optional(),
   cancelReason: z.string().optional(),
+  amountConfirmAcknowledged: z.boolean().optional(),
 });
 
 router.post(
@@ -293,6 +294,7 @@ router.patch(
       actualUsdtAmount: body.actualUsdtAmount ?? undefined,
       adminNote: body.adminNote ?? undefined,
       cancelReason: body.cancelReason ?? undefined,
+      amountConfirmAcknowledged: body.amountConfirmAcknowledged ?? undefined,
     });
     res.json(ticket);
   }),

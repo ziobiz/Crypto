@@ -284,6 +284,95 @@ export async function getOrgSharePolicyCached(): Promise<HqOrgSharePolicy> {
 
 export { defaultOrgSharePolicy };
 
+const ticketLedgerSelect = {
+  id: true,
+  ticketNo: true,
+  type: true,
+  createdAt: true,
+  customer: {
+    select: {
+      user: { select: { name: true, email: true } },
+    },
+  },
+  usdtPurchase: {
+    select: {
+      status: true,
+      fiatAmount: true,
+      fiatCurrency: true,
+      expectedUsdtAmount: true,
+      actualUsdtAmount: true,
+      paymentMethod: true,
+    },
+  },
+  tradeEscrow: {
+    select: {
+      status: true,
+      title: true,
+      amount: true,
+      currency: true,
+      buyer: { select: { name: true, email: true } },
+      seller: { select: { name: true, email: true } },
+    },
+  },
+} as const;
+
+function ledgerTradeContext(ticket: {
+  id: string;
+  type: string;
+  createdAt: Date;
+  customer: { user: { name: string; email: string } } | null;
+  usdtPurchase: {
+    status: string;
+    fiatAmount: unknown;
+    fiatCurrency: string;
+    expectedUsdtAmount: unknown;
+    actualUsdtAmount: unknown | null;
+    paymentMethod: string;
+  } | null;
+  tradeEscrow: {
+    status: string;
+    title: string;
+    amount: unknown;
+    currency: string;
+    buyer: { name: string; email: string };
+    seller: { name: string; email: string };
+  } | null;
+}) {
+  const customer = ticket.customer?.user;
+  const customerLabel = customer ? `${customer.name} / ${customer.email}` : null;
+  let tradeSummary: string | null = null;
+  let ticketStatus: string | null = null;
+  let ticketHref: string | null = null;
+
+  if (ticket.type === 'USDT_PURCHASE' && ticket.usdtPurchase) {
+    const u = ticket.usdtPurchase;
+    ticketStatus = u.status;
+    ticketHref = `/dashboard/usdt/${ticket.id}`;
+    const fiat = Number(u.fiatAmount);
+    const usdt =
+      u.actualUsdtAmount != null
+        ? Number(u.actualUsdtAmount)
+        : Number(u.expectedUsdtAmount);
+    tradeSummary = `${u.fiatCurrency} ${fiat.toLocaleString()} → ${usdt.toFixed(4)} USDT`;
+  } else if (ticket.type === 'TRADE_ESCROW' && ticket.tradeEscrow) {
+    const e = ticket.tradeEscrow;
+    ticketStatus = e.status;
+    ticketHref = `/dashboard/escrow/${ticket.id}`;
+    tradeSummary = `${e.title} · ${Number(e.amount).toLocaleString()} ${e.currency} (${e.buyer.name} ↔ ${e.seller.name})`;
+  }
+
+  return {
+    ticketId: ticket.id,
+    ticketHref,
+    customerName: customer?.name ?? null,
+    customerEmail: customer?.email ?? null,
+    customerLabel,
+    tradeSummary,
+    ticketStatus,
+    appliedAt: ticket.createdAt,
+  };
+}
+
 /** 조직별 누적 수수료 조회 + 미정산(수령 예정) */
 export async function getOrgLedgerSummary(
   organizationId: string,
@@ -311,7 +400,7 @@ export async function getOrgLedgerSummary(
         : {}),
     },
     include: {
-      ticket: { select: { ticketNo: true, type: true } },
+      ticket: { select: ticketLedgerSelect },
     },
     orderBy: { settledAt: 'desc' },
   });
@@ -345,17 +434,21 @@ export async function getOrgLedgerSummary(
     pendingUsdt: pending.totalUsdt,
     pendingCount: pending.lines.length,
     pendingLines: pending.lines,
-    entries: entries.map((e) => ({
-      id: e.id,
-      amount: Number(e.amount),
-      currency: e.currency,
-      ratePercent: Number(e.ratePercent),
-      baseAmount: Number(e.baseAmount),
-      ticketNo: e.ticket.ticketNo,
-      ticketType: e.ticket.type,
-      settledAt: e.settledAt,
-      description: e.description,
-    })),
+    entries: entries.map((e) => {
+      const ctx = ledgerTradeContext(e.ticket);
+      return {
+        id: e.id,
+        amount: Number(e.amount),
+        currency: e.currency,
+        ratePercent: Number(e.ratePercent),
+        baseAmount: Number(e.baseAmount),
+        ticketNo: e.ticket.ticketNo,
+        ticketType: e.ticket.type,
+        settledAt: e.settledAt,
+        description: e.description,
+        ...ctx,
+      };
+    }),
   };
 }
 
@@ -386,8 +479,19 @@ async function getPendingCommission(organizationId: string, orgPath: string) {
     },
     include: {
       usdtPurchase: true,
-      tradeEscrow: true,
-      customer: { select: { recruitingOrgId: true, feeShare: true } },
+      tradeEscrow: {
+        include: {
+          buyer: { select: { name: true, email: true } },
+          seller: { select: { name: true, email: true } },
+        },
+      },
+      customer: {
+        select: {
+          recruitingOrgId: true,
+          feeShare: true,
+          user: { select: { name: true, email: true } },
+        },
+      },
     },
     orderBy: { createdAt: 'desc' },
     take: 200,
@@ -401,6 +505,11 @@ async function getPendingCommission(organizationId: string, orgPath: string) {
     ratePercent: number;
     baseAmount: number;
     status: string;
+    ticketId: string;
+    ticketHref: string | null;
+    customerLabel: string | null;
+    tradeSummary: string | null;
+    appliedAt: Date;
   }> = [];
   let totalUsdt = 0;
 
@@ -428,6 +537,34 @@ async function getPendingCommission(organizationId: string, orgPath: string) {
     const amount = lineShareAmount(ticket.type, pool, slice);
     if (amount <= 0) continue;
     if (currency === CurrencyCode.USDT) totalUsdt += amount;
+    const ctx = ledgerTradeContext({
+      id: ticket.id,
+      type: ticket.type,
+      createdAt: ticket.createdAt,
+      customer: ticket.customer?.user
+        ? { user: ticket.customer.user }
+        : null,
+      usdtPurchase: ticket.usdtPurchase
+        ? {
+            status: ticket.usdtPurchase.status,
+            fiatAmount: ticket.usdtPurchase.fiatAmount,
+            fiatCurrency: ticket.usdtPurchase.fiatCurrency,
+            expectedUsdtAmount: ticket.usdtPurchase.expectedUsdtAmount,
+            actualUsdtAmount: ticket.usdtPurchase.actualUsdtAmount,
+            paymentMethod: ticket.usdtPurchase.paymentMethod,
+          }
+        : null,
+      tradeEscrow: ticket.tradeEscrow
+        ? {
+            status: ticket.tradeEscrow.status,
+            title: ticket.tradeEscrow.title,
+            amount: ticket.tradeEscrow.amount,
+            currency: ticket.tradeEscrow.currency,
+            buyer: ticket.tradeEscrow.buyer,
+            seller: ticket.tradeEscrow.seller,
+          }
+        : null,
+    });
     lines.push({
       ticketNo: ticket.ticketNo,
       ticketType: ticket.type,
@@ -436,6 +573,11 @@ async function getPendingCommission(organizationId: string, orgPath: string) {
       ratePercent: slice.poolPercent,
       baseAmount: pool,
       status,
+      ticketId: ticket.id,
+      ticketHref: ctx.ticketHref,
+      customerLabel: ctx.customerLabel,
+      tradeSummary: ctx.tradeSummary,
+      appliedAt: ticket.createdAt,
     });
   }
 

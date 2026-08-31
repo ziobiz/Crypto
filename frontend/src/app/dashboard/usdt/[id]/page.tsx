@@ -4,13 +4,23 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthProvider';
 import { useT } from '@/context/LocaleProvider';
-import { api, UsdtDepositContext, UsdtTicket } from '@/lib/api';
-import { StatusBadge } from '@/components/StatusBadge';
+import { api, UsdtDepositContext, UsdtTicket, ApiError } from '@/lib/api';
+import { StatusBadge, buildUsdtStatusContext } from '@/components/StatusBadge';
+import { OperatorAmountConfirmModal } from '@/components/OperatorAmountConfirmModal';
+import {
+  evaluateUsdtAmountVariance,
+  usdtAmountRefFromTicket,
+  type UsdtAmountVariance,
+} from '@/lib/usdt-amount-guard';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { AttachmentLink } from '@/components/AttachmentLink';
 import { LocalizedFileInput } from '@/components/LocalizedFileInput';
+import { DetailHero, DetailRow, DetailSection } from '@/components/DetailKvTable';
+import { DualTimezoneDate } from '@/components/DualTimezoneDate';
+import { useReferenceTimeState } from '@/components/ReferenceClocks';
 import { formatFeeComponentLabel } from '@/lib/fee-component';
 import type { TransactionFees } from '@/lib/api';
+import type { MessageKey } from '@/i18n/messages';
 
 const LOCAL_PREMIUM_CURRENCIES = ['KRW', 'THB', 'JPY'] as const;
 
@@ -90,7 +100,11 @@ export default function UsdtDetailPage() {
   const [actualUsdt, setActualUsdt] = useState('');
   const [cancelReason, setCancelReason] = useState('');
   const [loading, setLoading] = useState(false);
+  const [completeConfirm, setCompleteConfirm] = useState<
+    { kind: 'variance'; variance: UsdtAmountVariance } | { kind: 'missing-actual' } | null
+  >(null);
 
+  const { country, baseTimezone, serviceTimezone } = useReferenceTimeState();
   const countdown = useCountdown(ticket?.depositDeadlineAt);
   const isCurfex =
     ticket?.collectionProvider === 'CURFEX' || ticket?.curfexAutoDetect === true;
@@ -172,7 +186,15 @@ export default function UsdtDetailPage() {
     }
   };
 
-  const handleStatus = async (status: string, extra?: Record<string, string | number>) => {
+  const handleStatus = async (
+    status: string,
+    extra?: {
+      usdtTxId?: string;
+      actualUsdtAmount?: number;
+      cancelReason?: string;
+      amountConfirmAcknowledged?: boolean;
+    },
+  ) => {
     setLoading(true);
     try {
       await api.usdt.updateStatus(id, { status, ...extra });
@@ -180,6 +202,55 @@ export default function UsdtDetailPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const parseActualUsdtInput = () => {
+    const raw = actualUsdt.trim();
+    if (!raw) return null;
+    const n = parseFloat(raw);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  const submitComplete = async (acknowledged: boolean) => {
+    if (!ticket || !txId.trim()) return;
+    const parsed = parseActualUsdtInput();
+    setCompleteConfirm(null);
+    setLoading(true);
+    try {
+      await api.usdt.updateStatus(id, {
+        status: 'COMPLETED',
+        usdtTxId: txId.trim(),
+        ...(parsed != null ? { actualUsdtAmount: parsed } : {}),
+        ...(acknowledged ? { amountConfirmAcknowledged: true } : {}),
+      });
+      await load();
+    } catch (e) {
+      if (e instanceof ApiError && e.code === 'USDT_AMOUNT_CONFIRM_REQUIRED' && parsed != null) {
+        setCompleteConfirm({
+          kind: 'variance',
+          variance: evaluateUsdtAmountVariance(usdtAmountRefFromTicket(ticket), parsed),
+        });
+      } else {
+        console.error(e);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const requestComplete = () => {
+    if (!ticket || !txId.trim()) return;
+    const parsed = parseActualUsdtInput();
+    if (parsed == null) {
+      setCompleteConfirm({ kind: 'missing-actual' });
+      return;
+    }
+    const variance = evaluateUsdtAmountVariance(usdtAmountRefFromTicket(ticket), parsed);
+    if (variance.requiresConfirm) {
+      setCompleteConfirm({ kind: 'variance', variance });
+      return;
+    }
+    void submitComplete(false);
   };
 
   const rateLabel = `1 USDT = ${ticket.exchangeRate.toLocaleString()} ${ticket.fiatCurrency}`;
@@ -194,17 +265,57 @@ export default function UsdtDetailPage() {
     ticket.status === 'DEPOSIT_PROOF_PENDING';
 
   const isCard = ticket.paymentMethod === 'CARD';
+  const showAdmin =
+    user?.role === 'SUPER_ADMIN' ||
+    user?.role === 'ORGANIZER' ||
+    user?.role === 'SETTLEMENT_ADMIN' ||
+    user?.role === 'ORG_STAFF';
+  const inputModeLabel =
+    ticket.paymentMethod === 'CARD' && ticket.cardChargeFiat != null
+      ? t('usdt.inputModeCardCharge')
+      : ticket.targetUsdtAmount != null
+        ? t('usdt.inputModeTarget')
+        : t('usdt.inputModeFiat');
+  const collectionLabel =
+    ticket.paymentMethod === 'CARD'
+      ? t('usdt.collection.na')
+      : ticket.collectionProvider === 'CURFEX'
+        ? t('usdt.collection.curfex')
+        : t('usdt.collection.fixed');
+  const heroToUsdt =
+    ticket.actualUsdtAmount != null
+      ? `${Number(ticket.actualUsdtAmount).toFixed(4)} USDT`
+      : expectedRange;
+  const usdtCtx = buildUsdtStatusContext(ticket);
+  const isTestSeed = ticket.adminNote?.includes('[TEST R2]') ?? false;
+  const expectedProofKeys = isCurfexAccount
+    ? (['SOURCE_OF_FUNDS_DOC', 'FUNDING_FORECAST_REPORT'] as const)
+    : (['SOURCE_OF_FUNDS_DOC', 'FUNDING_FORECAST_REPORT', 'FIAT_DEPOSIT_RECEIPT'] as const);
+  const attachedPurposes = new Set(ticket.attachments.map((a) => a.purpose));
 
   return (
     <div className="pg-stack">
-      <div className="flex flex-wrap items-center gap-2">
-        <p className="text-xs font-semibold">{ticket.ticketNo}</p>
-        <StatusBadge status={ticket.status} kind="usdt" />
-        {isCard && <span className="pg-badge pg-badge-info">{t('usdt.paymentCard')}</span>}
-        {ticket.bankMismatch && (
-          <span className="pg-badge pg-badge-error">{t('usdt.bankMismatch')}</span>
-        )}
-      </div>
+      <DetailHero
+        fromLabel={formatCurrency(ticket.fiatAmount, ticket.fiatCurrency)}
+        toLabel={heroToUsdt}
+        meta={
+          <>
+            <StatusBadge status={ticket.status} kind="usdt" usdtContext={usdtCtx} />
+            {isCard && <span className="pg-badge pg-badge-info">{t('usdt.paymentCard')}</span>}
+            {ticket.bankMismatch && (
+              <span className="pg-badge pg-badge-error">{t('usdt.bankMismatch')}</span>
+            )}
+            <span className="pg-muted text-xs">
+              <DualTimezoneDate
+                value={ticket.createdAt}
+                baseTimezone={baseTimezone}
+                serviceTimezone={serviceTimezone}
+                country={country}
+              />
+            </span>
+          </>
+        }
+      />
 
       {ticket.status === 'DEPOSIT_PROOF_PENDING' && ticket.depositDeadlineAt && !isCard && (
         <div className="pg-card">
@@ -272,49 +383,39 @@ export default function UsdtDetailPage() {
         </div>
       )}
 
-      <div className="pg-card">
-        <div className="pg-card-body">
-          <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Item
-          tone={0}
+      <DetailSection title={t('usdt.detail.section.payment')}>
+        <DetailRow label={t('usdt.col.ticketNo')} value={ticket.ticketNo} mono />
+        <DetailRow
           label={t('usdt.paymentMethod')}
           value={ticket.paymentMethod === 'CARD' ? t('usdt.paymentCard') : t('usdt.paymentBank')}
         />
-        <Item
-          tone={1}
-          label={t('usdt.col.inputMode')}
-          value={
-            ticket.paymentMethod === 'CARD' && ticket.cardChargeFiat != null
-              ? t('usdt.inputModeCardCharge')
-              : ticket.targetUsdtAmount != null
-                ? t('usdt.inputModeTarget')
-                : t('usdt.inputModeFiat')
-          }
+        <DetailRow label={t('usdt.col.inputMode')} value={inputModeLabel} />
+        <DetailRow label={t('usdt.col.collection')} value={collectionLabel} />
+        <DetailRow label={t('usdt.col.currency')} value={ticket.fiatCurrency} />
+      </DetailSection>
+
+      <DetailSection title={t('usdt.detail.section.amounts')}>
+        <DetailRow
+          label={t('usdt.detail.fiatAmount')}
+          value={formatCurrency(ticket.fiatAmount, ticket.fiatCurrency)}
+          highlight
         />
-        <Item
-          tone={2}
-          label={t('usdt.col.collection')}
-          value={
-            ticket.collectionProvider === 'CURFEX'
-              ? t('usdt.collection.curfex')
-              : t('usdt.collection.fixed')
-          }
-        />
-        <Item tone={3} label={t('usdt.col.currency')} value={ticket.fiatCurrency} />
-        <Item tone={4} label={t('usdt.detail.fiatAmount')} value={formatCurrency(ticket.fiatAmount, ticket.fiatCurrency)} />
         {ticket.targetUsdtAmount != null && (
-          <Item tone={5} label={t('usdt.targetUsdt')} value={`${ticket.targetUsdtAmount.toFixed(4)} USDT`} />
+          <DetailRow
+            label={t('usdt.targetUsdt')}
+            value={`${ticket.targetUsdtAmount.toFixed(4)} USDT`}
+          />
         )}
+        <DetailRow label={t('usdt.detail.expected')} value={expectedRange} highlight />
+        <DetailRow label={t('usdt.detail.rate')} value={rateLabel} />
         {ticket.cardChargeFiat != null && (
-          <Item
-            tone={6}
+          <DetailRow
             label={t('usdt.cardChargeLabel', { currency: ticket.fiatCurrency })}
             value={formatCurrency(ticket.cardChargeFiat, ticket.fiatCurrency)}
           />
         )}
         {ticket.cardFeePercentSnapshot != null && (
-          <Item
-            tone={7}
+          <DetailRow
             label={t('usdt.cardFee', { pct: String(ticket.cardFeePercentSnapshot) })}
             value={
               ticket.cardFeeFiatSnapshot != null
@@ -323,97 +424,145 @@ export default function UsdtDetailPage() {
             }
           />
         )}
-        <Item tone={0} label={t('usdt.detail.rate')} value={rateLabel} />
-        <Item tone={1} label={t('usdt.detail.expected')} value={expectedRange} />
+        {hasLocalPremium(ticket.fiatCurrency) &&
+          ticket.fairExchangeRate != null &&
+          ticket.kimchiPremiumPercent != null && (
+            <DetailRow
+              label={
+                ticket.fiatCurrency === 'KRW' ? t('usdt.detail.kimchi') : t('usdt.detail.localPremium')
+              }
+              value={
+                ticket.fiatCurrency === 'KRW'
+                  ? t('usdt.kimchiPremiumNote', {
+                      pct: ticket.kimchiPremiumPercent.toFixed(2),
+                      fair: ticket.fairExchangeRate.toLocaleString(undefined, {
+                        maximumFractionDigits: 0,
+                      }),
+                      domestic: ticket.exchangeRate.toLocaleString(undefined, {
+                        maximumFractionDigits: 0,
+                      }),
+                    })
+                  : t(`usdt.localPremiumNote.${ticket.fiatCurrency}` as 'usdt.localPremiumNote.THB', {
+                      pct: ticket.kimchiPremiumPercent.toFixed(2),
+                      fair: ticket.fairExchangeRate.toLocaleString(undefined, {
+                        maximumFractionDigits: 2,
+                      }),
+                      domestic: ticket.exchangeRate.toLocaleString(undefined, {
+                        maximumFractionDigits: 2,
+                      }),
+                    })
+              }
+            />
+          )}
+      </DetailSection>
+
+      <DetailSection title={t('usdt.detail.section.fees')}>
+        <DetailRow
+          label={t('usdt.detail.fxFee')}
+          value={`${ticket.fxFeePercentSnapshot}%`}
+        />
+        <DetailRow label={t('usdt.detail.gasFee')} value={`${ticket.gasFeeSnapshot} USDT`} />
+        <DetailRow
+          label={t('usdt.detail.transferFee')}
+          value={`${ticket.transferFeeSnapshot} USDT`}
+        />
+        <DetailRow label={t('usdt.detail.otherFee')} value={`${ticket.otherFeeSnapshot} USDT`} />
+        <DetailRow label={t('usdt.detail.fees')} value={feeSummaryLabel(ticket, t)} />
         {(user?.role === 'SUPER_ADMIN' || user?.role === 'ORGANIZER') && (
-          <Item
-            tone={2}
+          <DetailRow
             label={t('usdt.brokerUsdt')}
             value={`${ticket.brokerUsdtAmount != null ? ticket.brokerUsdtAmount.toFixed(4) : '—'} USDT`}
           />
         )}
-        <Item
-          tone={3}
-          label={t('usdt.detail.fees')}
-          value={
-            hasLocalPremium(ticket.fiatCurrency) && ticket.kimchiPremiumPercent != null
-              ? `${feeSummaryLabel(ticket, t)} (${
-                  ticket.fiatCurrency === 'KRW'
-                    ? t('usdt.kimchiPremiumFee', { pct: ticket.kimchiPremiumPercent.toFixed(2) })
-                    : t('usdt.localPremiumFee', {
-                        currency: ticket.fiatCurrency,
-                        pct: ticket.kimchiPremiumPercent.toFixed(2),
-                      })
-                } ${ticket.kimchiPremiumFeeUsdt ?? 0})`
-              : feeSummaryLabel(ticket, t)
-          }
-        />
-        <Item
-          tone={4}
-          label={t('usdt.detail.fxFee')}
-          value={`${ticket.fxFeePercentSnapshot}%`}
-        />
-        <Item
-          tone={5}
-          label={t('usdt.detail.gasFee')}
-          value={`${ticket.gasFeeSnapshot} USDT`}
-        />
-        <Item
-          tone={6}
-          label={t('usdt.detail.transferFee')}
-          value={`${ticket.transferFeeSnapshot} USDT`}
-        />
-        <Item
-          tone={7}
-          label={t('usdt.detail.otherFee')}
-          value={`${ticket.otherFeeSnapshot} USDT`}
-        />
-        {hasLocalPremium(ticket.fiatCurrency) && ticket.fairExchangeRate != null && ticket.kimchiPremiumPercent != null && (
-          <Item
-            tone={0}
-            label={ticket.fiatCurrency === 'KRW' ? t('usdt.detail.kimchi') : t('usdt.detail.localPremium')}
-            value={
-              ticket.fiatCurrency === 'KRW'
-                ? t('usdt.kimchiPremiumNote', {
-                    pct: ticket.kimchiPremiumPercent.toFixed(2),
-                    fair: ticket.fairExchangeRate.toLocaleString(undefined, { maximumFractionDigits: 0 }),
-                    domestic: ticket.exchangeRate.toLocaleString(undefined, { maximumFractionDigits: 0 }),
-                  })
-                : t(`usdt.localPremiumNote.${ticket.fiatCurrency}` as 'usdt.localPremiumNote.THB', {
-                    pct: ticket.kimchiPremiumPercent.toFixed(2),
-                    fair: ticket.fairExchangeRate.toLocaleString(undefined, { maximumFractionDigits: 2 }),
-                    domestic: ticket.exchangeRate.toLocaleString(undefined, { maximumFractionDigits: 2 }),
-                  })
-            }
-          />
-        )}
-        {ticket.depositAmount != null && (
-          <Item tone={1} label={t('usdt.detail.depositAmount')} value={formatCurrency(ticket.depositAmount, ticket.fiatCurrency)} />
-        )}
-        {ticket.depositorName && <Item tone={2} label={t('usdt.detail.depositor')} value={ticket.depositorName} />}
-        {ticket.depositTransferredAt && (
-          <Item tone={3} label={t('usdt.detail.depositTime')} value={formatDate(ticket.depositTransferredAt)} />
-        )}
-        {ticket.usdtTxId && <Item tone={4} label="TXID" value={ticket.usdtTxId} />}
-        {ticket.actualUsdtAmount != null && (
-          <Item tone={5} label={t('usdt.detail.actualUsdt')} value={`${ticket.actualUsdtAmount} USDT`} />
-        )}
-        {ticket.cancelReason && <Item tone={6} label={t('usdt.cancelReason')} value={ticket.cancelReason} />}
-        {ticket.wallet && <Item tone={7} label={t('usdt.wallet')} value={`${ticket.wallet.address} (${ticket.wallet.network})`} />}
-        {(user?.role === 'SUPER_ADMIN' || user?.role === 'ORGANIZER' || user?.role === 'SETTLEMENT_ADMIN' || user?.role === 'ORG_STAFF') && ticket.customer && (
-          <Item
-            tone={0}
+      </DetailSection>
+
+      {(ticket.depositAmount != null ||
+        ticket.depositorName ||
+        ticket.depositTransferredAt) && (
+        <DetailSection title={t('usdt.detail.section.deposit')}>
+          {ticket.depositAmount != null && (
+            <DetailRow
+              label={t('usdt.detail.depositAmount')}
+              value={formatCurrency(ticket.depositAmount, ticket.fiatCurrency)}
+              highlight
+            />
+          )}
+          {ticket.depositorName && (
+            <DetailRow label={t('usdt.detail.depositor')} value={ticket.depositorName} />
+          )}
+          {ticket.depositTransferredAt && (
+            <DetailRow
+              label={t('usdt.detail.depositTime')}
+              value={
+                <DualTimezoneDate
+                  value={ticket.depositTransferredAt}
+                  baseTimezone={baseTimezone}
+                  serviceTimezone={serviceTimezone}
+                  country={country}
+                />
+              }
+            />
+          )}
+        </DetailSection>
+      )}
+
+      {(ticket.usdtTxId || ticket.actualUsdtAmount != null || ticket.wallet) && (
+        <DetailSection title={t('usdt.detail.section.settlement')}>
+          {ticket.actualUsdtAmount != null && (
+            <DetailRow
+              label={t('usdt.detail.actualUsdt')}
+              value={`${ticket.actualUsdtAmount} USDT`}
+              highlight
+            />
+          )}
+          {ticket.usdtTxId && (
+            <DetailRow label={t('usdt.detail.txid')} value={ticket.usdtTxId} mono />
+          )}
+          {ticket.wallet && (
+            <DetailRow
+              label={t('usdt.wallet')}
+              value={`${ticket.wallet.address} (${ticket.wallet.network})`}
+              mono
+            />
+          )}
+        </DetailSection>
+      )}
+
+      <DetailSection title={t('usdt.detail.section.schedule')}>
+        {showAdmin && ticket.customer && (
+          <DetailRow
             label={t('usdt.col.customer')}
             value={`${ticket.customer.user.name} / ${ticket.customer.user.email}`}
           />
         )}
-        <Item tone={1} label={t('usdt.col.date')} value={formatDate(ticket.createdAt)} />
+        <DetailRow
+          label={t('usdt.col.date')}
+          value={
+            <DualTimezoneDate
+              value={ticket.createdAt}
+              baseTimezone={baseTimezone}
+              serviceTimezone={serviceTimezone}
+              country={country}
+            />
+          }
+        />
         {ticket.expectedCompleteAt && (
-          <Item tone={2} label={t('usdt.col.expectedComplete')} value={formatDate(ticket.expectedCompleteAt)} />
+          <DetailRow
+            label={t('usdt.col.expectedComplete')}
+            value={
+              <DualTimezoneDate
+                value={ticket.expectedCompleteAt}
+                baseTimezone={baseTimezone}
+                serviceTimezone={serviceTimezone}
+                country={country}
+              />
+            }
+          />
         )}
-          </dl>
-        </div>
-      </div>
+        {ticket.cancelReason && (
+          <DetailRow label={t('usdt.cancelReason')} value={ticket.cancelReason} />
+        )}
+      </DetailSection>
 
       {ticket.status === 'COMPLETED' && (
         <div className="pg-card border-green-200 bg-green-50">
@@ -554,12 +703,8 @@ export default function UsdtDetailPage() {
                   className="pg-input"
                 />
                 <button
-                  onClick={() =>
-                    handleStatus('COMPLETED', {
-                      usdtTxId: txId,
-                      ...(actualUsdt ? { actualUsdtAmount: parseFloat(actualUsdt) } : {}),
-                    })
-                  }
+                  type="button"
+                  onClick={requestComplete}
                   disabled={loading || !txId}
                   className="pg-btn pg-btn-primary disabled:opacity-50"
                 >
@@ -596,17 +741,37 @@ export default function UsdtDetailPage() {
         </div>
       )}
 
-      {ticket.attachments.length > 0 && (
-        <div className="pg-section">
-          <div className="pg-section-head">{t('usdt.detail.attachments')}</div>
-          <div className="pg-section-pad">
+      {!isCard && (
+        <DetailSection title={t('usdt.detail.attachments')}>
+          {ticket.attachments.length > 0 ? (
             <ul className="space-y-2">
               {ticket.attachments.map((a) => (
-                <li key={a.id}><AttachmentLink attachment={a} /></li>
+                <li key={a.id}>
+                  <AttachmentLink attachment={a} />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="pg-callout pg-callout-warn text-xs">
+              <p className="font-medium">{t('usdt.detail.attachmentsEmpty')}</p>
+              <p className="mt-1 pg-hint">{t('usdt.detail.attachmentsEmptyFixed')}</p>
+              {isTestSeed && <p className="mt-2 pg-hint">{t('usdt.detail.attachmentsEmptyTest')}</p>}
+            </div>
+          )}
+          <div className="mt-3 text-xs">
+            <p className="font-semibold">{t('usdt.detail.attachmentsExpected')}</p>
+            <ul className="mt-1 space-y-1 pg-muted">
+              {expectedProofKeys.map((purpose) => (
+                <li key={purpose} className="flex items-center gap-2">
+                  <span className={attachedPurposes.has(purpose) ? 'text-emerald-700' : 'text-slate-400'}>
+                    {attachedPurposes.has(purpose) ? '✓' : '○'}
+                  </span>
+                  <span>{t(`attachment.${purpose}` as MessageKey)}</span>
+                </li>
               ))}
             </ul>
           </div>
-        </div>
+        </DetailSection>
       )}
 
       <div className="pg-section">
@@ -615,7 +780,7 @@ export default function UsdtDetailPage() {
           <ol className="space-y-3">
           {ticket.statusHistory.map((h) => (
             <li key={h.id} className="border-l-2 pl-4 text-xs" style={{ borderColor: 'var(--shell-card-border)' }}>
-              <StatusBadge status={h.toStatus} kind="usdt" />
+              <StatusBadge status={h.toStatus} kind="usdt" usdtContext={usdtCtx} />
               {h.note && <p className="mt-0.5">{h.note}</p>}
               <p className="mt-1 pg-hint">{h.changedBy.name} · {formatDate(h.createdAt)}</p>
             </li>
@@ -623,27 +788,67 @@ export default function UsdtDetailPage() {
           </ol>
         </div>
       </div>
-    </div>
-  );
-}
 
-function Item({ label, value, tone = 0 }: { label: string; value: string; tone?: number }) {
-  const tones = [
-    'pg-field-chip-sky',
-    'pg-field-chip-rose',
-    'pg-field-chip-amber',
-    'pg-field-chip-emerald',
-    'pg-field-chip-violet',
-    'pg-field-chip-teal',
-    'pg-field-chip-orange',
-    'pg-field-chip-slate',
-  ] as const;
-  return (
-    <div>
-      <dt>
-        <span className={`pg-field-chip ${tones[tone % tones.length]}`}>{label}</span>
-      </dt>
-      <dd className="pg-field-value">{value}</dd>
+      {completeConfirm && (
+        <OperatorAmountConfirmModal
+          open
+          title={
+            completeConfirm.kind === 'missing-actual'
+              ? t('usdt.detail.completeConfirmMissingTitle')
+              : t('usdt.detail.completeConfirmTitle')
+          }
+          warning={
+            completeConfirm.kind === 'missing-actual'
+              ? t('usdt.detail.completeConfirmMissingWarn', {
+                  expected: ticket.expectedUsdtAmount.toFixed(4),
+                })
+              : t('usdt.detail.completeConfirmWarn')
+          }
+          rows={
+            completeConfirm.kind === 'variance'
+              ? [
+                  {
+                    label: t('usdt.detail.confirmExpected'),
+                    value: `${ticket.expectedUsdtAmount.toFixed(4)} USDT`,
+                  },
+                  ...(ticket.expectedUsdtMin != null && ticket.expectedUsdtMax != null
+                    ? [
+                        {
+                          label: t('usdt.detail.confirmRange'),
+                          value: `${ticket.expectedUsdtMin.toFixed(4)} ~ ${ticket.expectedUsdtMax.toFixed(4)} USDT`,
+                        },
+                      ]
+                    : []),
+                  {
+                    label: t('usdt.detail.confirmActual'),
+                    value: `${completeConfirm.variance.actualAmount.toFixed(4)} USDT`,
+                    warn: true,
+                  },
+                  {
+                    label: t('usdt.detail.confirmDiff'),
+                    value: `${completeConfirm.variance.diffAmount >= 0 ? '+' : ''}${completeConfirm.variance.diffAmount.toFixed(4)} USDT (${completeConfirm.variance.diffPercent >= 0 ? '+' : ''}${completeConfirm.variance.diffPercent.toFixed(2)}%)`,
+                    warn: true,
+                  },
+                ]
+              : [
+                  {
+                    label: t('usdt.detail.confirmExpected'),
+                    value: `${ticket.expectedUsdtAmount.toFixed(4)} USDT`,
+                  },
+                  {
+                    label: t('usdt.detail.confirmActual'),
+                    value: t('usdt.detail.confirmNotEntered'),
+                    warn: true,
+                  },
+                ]
+          }
+          confirmLabel={t('usdt.detail.completeConfirmProceed')}
+          cancelLabel={t('usdt.detail.completeConfirmCancel')}
+          loading={loading}
+          onCancel={() => setCompleteConfirm(null)}
+          onConfirm={() => void submitComplete(true)}
+        />
+      )}
     </div>
   );
 }

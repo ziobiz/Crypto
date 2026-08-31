@@ -4,6 +4,11 @@ import { useT, useLocale } from '@/context/LocaleProvider';
 import { useWorkflowDisplay } from '@/context/WorkflowDisplayProvider';
 import type { MessageKey } from '@/i18n/messages';
 
+export type UsdtStatusContext = {
+  paymentMethod?: string | null;
+  collectionProvider?: string | null;
+};
+
 const STATUS_KEYS: Record<string, MessageKey> = {
   APPLICATION_COMPLETED: 'status.APPLICATION_COMPLETED',
   CARD_PAYMENT_PENDING: 'status.CARD_PAYMENT_PENDING',
@@ -48,18 +53,43 @@ const STATUS_BADGE: Record<string, string> = {
   DISPUTED: 'pg-badge-error',
 };
 
-export function StatusBadge({ status, kind }: { status: string; kind?: 'usdt' | 'escrow' }) {
+export function buildUsdtStatusContext(ticket: {
+  paymentMethod?: string | null;
+  collectionProvider?: string | null;
+}): UsdtStatusContext {
+  return {
+    paymentMethod: ticket.paymentMethod,
+    collectionProvider: ticket.collectionProvider,
+  };
+}
+
+function usdtContextualKey(status: string, ctx?: UsdtStatusContext): MessageKey | null {
+  if (status !== 'ADMIN_REVIEWING' || !ctx) return null;
+  if (ctx.paymentMethod === 'CARD') return 'status.PAYMENT_VERIFYING';
+  return 'status.DEPOSIT_VERIFYING';
+}
+
+export function StatusBadge({
+  status,
+  kind,
+  usdtContext,
+}: {
+  status: string;
+  kind?: 'usdt' | 'escrow';
+  usdtContext?: UsdtStatusContext;
+}) {
   const t = useT();
   const { locale } = useLocale();
   const wf = useWorkflowDisplay();
+  const contextualKey = kind === 'usdt' ? usdtContextualKey(status, usdtContext) : null;
   const fromHq =
     kind === 'escrow'
       ? wf?.escrowStatusLabels[status]?.[locale]
       : kind === 'usdt'
         ? wf?.usdtStatusLabels[status]?.[locale]
         : wf?.usdtStatusLabels[status]?.[locale] ?? wf?.escrowStatusLabels[status]?.[locale];
-  const key = STATUS_KEYS[status];
-  const label = (fromHq && fromHq.trim()) || (key ? t(key) : status);
+  const key = contextualKey ?? STATUS_KEYS[status];
+  const label = (contextualKey && t(contextualKey)) || (fromHq && fromHq.trim()) || (key ? t(key) : status);
   const tone = STATUS_BADGE[status] ?? 'pg-badge-muted';
 
   return <span className={`pg-badge ${tone}`}>{label}</span>;

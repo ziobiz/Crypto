@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useT } from '@/context/LocaleProvider';
 import { resolvePageMeta } from './breadcrumb-config';
@@ -7,19 +8,28 @@ import { resolvePageMeta } from './breadcrumb-config';
 export function PageFrame({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const t = useT();
-  const { titleKey, trailKeys } = resolvePageMeta(pathname);
-
-  const pathLabels = [...trailKeys, titleKey].map((key) => t(key));
-  const pathText = pathLabels.join(` ${t('page.breadcrumbSeparator')} `);
+  const { titleKey, trail } = resolvePageMeta(pathname);
+  const sep = ` ${t('page.breadcrumbSeparator')} `;
 
   return (
     <div className="pg-frame">
       <div className="pg-frame-head">
         <h1 className="pg-frame-title">{t(titleKey)}</h1>
-        {trailKeys.length > 0 && (
-          <p className="pg-frame-path" aria-label={t('page.pathLabel')}>
-            {pathText}
-          </p>
+        {trail.length > 0 && (
+          <nav className="pg-frame-path" aria-label={t('page.pathLabel')}>
+            {trail.map((crumb, i) => (
+              <span key={`${crumb.href}-${crumb.labelKey}`}>
+                {i > 0 && sep}
+                <Link href={crumb.href} className="pg-frame-path-link">
+                  {t(crumb.labelKey)}
+                </Link>
+              </span>
+            ))}
+            {sep}
+            <span className="pg-frame-path-current" aria-current="page">
+              {t(titleKey)}
+            </span>
+          </nav>
         )}
       </div>
       <div className="pg-frame-body">{children}</div>

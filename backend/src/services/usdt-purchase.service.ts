@@ -1,4 +1,4 @@
-import { Prisma, TicketType, UsdtPurchaseStatus, UserRole } from '@prisma/client';
+import { Prisma, TicketType, UsdtPaymentMethod, UsdtPurchaseStatus, UserRole } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { AppError, isAppError } from '../lib/errors';
 import { AuthUser } from '../types/auth';
@@ -19,6 +19,7 @@ import {
   isCurfexCurrencyEnabled,
 } from './curfex.service';
 import { computeExpectedCompleteAt, type HqSlaConfig } from '../constants/hq-policy';
+import { evaluateUsdtAmountVariance } from '../lib/usdt-amount-guard';
 import {
   resolveFeesForAmount,
   commissionPoolFromSnapshots,
@@ -723,7 +724,13 @@ export async function transitionUsdtPurchaseStatus(
   user: AuthUser,
   ticketId: string,
   toStatus: UsdtPurchaseStatus,
-  extra?: { usdtTxId?: string; actualUsdtAmount?: number; adminNote?: string; cancelReason?: string },
+  extra?: {
+    usdtTxId?: string;
+    actualUsdtAmount?: number;
+    adminNote?: string;
+    cancelReason?: string;
+    amountConfirmAcknowledged?: boolean;
+  },
 ) {
   const { assertTicketAccess, canChangeTicketStatus } = await import(
     './ticket-access.service'
@@ -759,6 +766,30 @@ export async function transitionUsdtPurchaseStatus(
   if (toStatus === UsdtPurchaseStatus.COMPLETED) {
     if (!extra?.usdtTxId) {
       throw new AppError(400, 'usdtTxId is required for completion', 'VALIDATION_ERROR');
+    }
+    if (extra.actualUsdtAmount != null) {
+      const variance = evaluateUsdtAmountVariance(
+        {
+          expectedUsdtAmount: Number(ticket.usdtPurchase.expectedUsdtAmount),
+          expectedUsdtMin: ticket.usdtPurchase.expectedUsdtMin
+            ? Number(ticket.usdtPurchase.expectedUsdtMin)
+            : null,
+          expectedUsdtMax: ticket.usdtPurchase.expectedUsdtMax
+            ? Number(ticket.usdtPurchase.expectedUsdtMax)
+            : null,
+          targetUsdtAmount: ticket.usdtPurchase.targetUsdtAmount
+            ? Number(ticket.usdtPurchase.targetUsdtAmount)
+            : null,
+        },
+        extra.actualUsdtAmount,
+      );
+      if (variance.requiresConfirm && !extra.amountConfirmAcknowledged) {
+        throw new AppError(
+          400,
+          'Actual USDT amount is outside the expected range. Operator confirmation required.',
+          'USDT_AMOUNT_CONFIRM_REQUIRED',
+        );
+      }
     }
   }
 
@@ -920,7 +951,9 @@ function serializeTicket(
     cardLast4: detail.cardLast4,
     icopayOrderId: detail.icopayOrderId,
     icopayTransactionId: detail.icopayTransactionId,
-    collectionProvider: detail.collectionProvider ?? 'FIXED',
+    collectionProvider:
+      detail.collectionProvider ??
+      (detail.paymentMethod === UsdtPaymentMethod.CARD ? null : 'FIXED'),
     curfexRefNo: detail.curfexRefNo ?? null,
     curfexStatusCode: detail.curfexStatusCode ?? null,
     curfexDepositDetectedAt: detail.curfexDepositDetectedAt ?? null,

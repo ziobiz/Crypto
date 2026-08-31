@@ -301,6 +301,7 @@ export const api = {
         actualUsdtAmount?: number;
         adminNote?: string;
         cancelReason?: string;
+        amountConfirmAcknowledged?: boolean;
       },
     ) =>
       request<UsdtTicket>(`/api/tickets/usdt-purchase/${id}/status`, {
@@ -1295,6 +1296,11 @@ export interface LedgerSummary {
     ratePercent: number;
     baseAmount: number;
     status: string;
+    ticketId?: string;
+    ticketHref?: string | null;
+    customerLabel?: string | null;
+    tradeSummary?: string | null;
+    appliedAt?: string;
   }>;
   entries: Array<{
     id: string;
@@ -1306,6 +1312,14 @@ export interface LedgerSummary {
     ticketType: string;
     settledAt: string;
     description?: string;
+    ticketId?: string;
+    ticketHref?: string | null;
+    customerName?: string | null;
+    customerEmail?: string | null;
+    customerLabel?: string | null;
+    tradeSummary?: string | null;
+    ticketStatus?: string | null;
+    appliedAt?: string;
   }>;
 }
 

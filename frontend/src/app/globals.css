@@ -173,6 +173,13 @@
     @apply text-[13px] font-bold leading-snug;
     color: var(--shell-content-text);
   }
+  .pg-frame-path-link {
+    @apply underline-offset-2 transition-colors hover:underline;
+    color: var(--shell-accent, #0369a1);
+  }
+  .pg-frame-path-current {
+    color: var(--shell-content-text-muted);
+  }
 
   .pg-frame-body {
     @apply space-y-4 p-4;
@@ -268,6 +275,57 @@
   .pg-field-value {
     @apply mt-1 break-all text-xs leading-relaxed;
     color: var(--shell-content-text);
+  }
+
+  /* 상세 페이지 — 섹션별 label|value 한 줄 (모바일: 세로, PC: 가로) */
+  .pg-detail-hero {
+    @apply border border-sky-200/80 bg-gradient-to-br from-sky-50/90 to-white;
+  }
+  .pg-detail-hero-amounts {
+    @apply flex flex-col items-start gap-1 sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-2;
+  }
+  .pg-detail-hero-from {
+    @apply text-xl font-bold tabular-nums sm:text-2xl;
+    color: var(--shell-content-text);
+  }
+  .pg-detail-hero-arrow {
+    @apply hidden text-lg font-normal text-sky-600 sm:inline;
+  }
+  .pg-detail-hero-to {
+    @apply text-xl font-bold tabular-nums text-emerald-700 sm:text-2xl;
+  }
+  .pg-detail-hero-meta {
+    @apply mt-3 flex flex-wrap items-center gap-2 border-t border-sky-100/80 pt-3;
+  }
+  .pg-detail-kv {
+    @apply divide-y divide-gray-100;
+  }
+  .pg-detail-kv-row {
+    @apply grid grid-cols-1 gap-0.5 py-2.5 first:pt-0 last:pb-0 sm:grid-cols-[minmax(7rem,11rem)_1fr] sm:items-start sm:gap-4 sm:py-2;
+  }
+  .pg-detail-kv-row--highlight {
+    @apply rounded-md bg-slate-50/80 px-2 -mx-2;
+  }
+  .pg-detail-kv-label {
+    @apply text-[11px] font-semibold uppercase tracking-wide;
+    color: var(--shell-content-text-muted);
+  }
+  .pg-detail-kv-value {
+    @apply break-all text-sm font-medium leading-snug;
+    color: var(--shell-content-text);
+  }
+  @media (min-width: 640px) {
+    .pg-detail-kv-value {
+      @apply text-right;
+    }
+  }
+  @media (min-width: 1024px) {
+    .pg-detail-kv-row {
+      @apply grid-cols-[minmax(8rem,12rem)_1fr];
+    }
+    .pg-detail-kv-value {
+      @apply text-left;
+    }
   }
 
   /* 시뮬레이터 Sandbox 기본 수수료 — 파스텔 입력칸 */

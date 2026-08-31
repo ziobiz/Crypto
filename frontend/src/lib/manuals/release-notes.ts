@@ -3,6 +3,217 @@ import type { PlatformReleaseNote } from './version';
 /** 본사정책 → 운영관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
 export const PLATFORM_RELEASE_NOTES: PlatformReleaseNote[] = [
   {
+    version: '2.6.26',
+    kind: 'minor',
+    date: '2026-08-31',
+    items: {
+      KR: [
+        'USDT 거래 완료: 실제 송금 USDT가 예상 범위를 크게 벗어나면 재확인 모달(더블 확인) 필수',
+        '서버에서도 확인 없이 범위 밖 금액 완료 차단',
+      ],
+      US: [
+        'USDT trade completion: double-confirm modal when actual USDT is far outside expected range',
+        'Server blocks out-of-range completion without operator acknowledgment',
+      ],
+      JP: [
+        'USDT取引完了: 実際送金USDTが予想範囲を大きく外れる場合は再確認モーダル必須',
+        'サーバーでも確認なしの範囲外完了をブロック',
+      ],
+      CH: [
+        'USDT完成交易：实际 USDT 明显超出预期范围时须二次确认',
+        '服务端阻止未经确认的越界金额完成',
+      ],
+      TH: [
+        'เสร็จสิ้นซื้อ USDT: ต้องยืนยันซ้ำเมื่อ USDT จริงห่างจากช่วงที่คาด',
+        'เซิร์ฟเวอร์บล็อกการเสร็จสิ้นนอกช่วงโดยไม่ยืนยัน',
+      ],
+    },
+  },
+  {
+    version: '2.6.25',
+    kind: 'minor',
+    date: '2026-08-31',
+    items: {
+      KR: [
+        '이용메뉴얼: USDT 입금확인중/결제확인중 vs KYC 심사중 용어 분리 반영',
+        '이용메뉴얼: 전용계좌 증빙 파일 영역·입금 영수증 안내 추가 (5개 언어)',
+      ],
+      US: [
+        'Usage manuals: deposit/payment verifying vs KYC under review terminology',
+        'Usage manuals: fixed-account proof files section guidance (5 locales)',
+      ],
+      JP: [
+        '利用マニュアル: USDT入金確認中/決済確認中とKYC審査中の用語分離を反映',
+        '利用マニュアル: 固定口座の証憑ファイル欄・入金領収書案内を追加',
+      ],
+      CH: [
+        '使用手册：USDT入金确认中/支付确认中与KYC审核中用语分离',
+        '使用手册：固定账户凭证文件区域与入金回单说明',
+      ],
+      TH: [
+        'คู่มือใช้งาน: แยกคำว่าตรวจฝาก/ตรวจชำระ USDT กับตรวจ KYC',
+        'คู่มือใช้งาน: คำแนะนำไฟล์หลักฐานบัญชีคงที่และสลิปฝาก',
+      ],
+    },
+  },
+  {
+    version: '2.6.24',
+    kind: 'minor',
+    date: '2026-08-31',
+    items: {
+      KR: [
+        'USDT 입금 확인 상태를 "입금확인중"으로 분리 — "심사중"은 KYC·서류 심사 전용',
+        '전용계좌 이체 상세: 증빙 파일 영역 항상 표시, 미첨부 시 안내·테스트 시드 구분',
+      ],
+      US: [
+        'USDT deposit verification label split from KYC "Under review"',
+        'Dedicated bank transfer detail: attachments section always visible with empty-state guidance',
+      ],
+      JP: [
+        'USDT入金確認「入金確認中」をKYC審査と分離',
+        '専用口座振込詳細: 証憑欄を常時表示、未添付時の案内',
+      ],
+      CH: [
+        'USDT入金确认与KYC审核状态分离',
+        '专用账户转账详情：凭证区域始终显示，未上传时提示',
+      ],
+      TH: [
+        'แยกสถานะตรวจสอบการฝาก USDT จากการตรวจ KYC',
+        'รายละเอียดโอนบัญชีเฉพาะ: แสดงไฟล์หลักฐานเสมอ พร้อมคำแนะนำเมื่อไม่มีไฟล์',
+      ],
+    },
+  },
+  {
+    version: '2.6.23',
+    kind: 'minor',
+    date: '2026-08-31',
+    items: {
+      KR: [
+        '상단 breadcrumb(예: USDT 매입 > 상세) — 상위 메뉴 클릭 시 목록으로 이동, 전 페이지 공통',
+      ],
+      US: [
+        'Breadcrumb links on all detail/sub pages — click parent menu to return to list',
+      ],
+      JP: [
+        'パンくず(例: USDT購入 > 詳細) — 上位メニューをクリックで一覧へ、全ページ共通',
+      ],
+      CH: [
+        '面包屑导航(如 USDT采购 > 详情)— 点击上级菜单返回列表，全页面统一',
+      ],
+      TH: [
+        'breadcrumb (เช่น ซื้อ USDT > รายละเอียด) — คลิกเมนูระดับบนกลับรายการ ทุกหน้า',
+      ],
+    },
+  },
+  {
+    version: '2.6.22',
+    kind: 'minor',
+    date: '2026-08-31',
+    items: {
+      KR: [
+        'USDT 매입 상세: 섹션별 한눈에 보기(요약·결제·금액·수수료·입금·정산·일정), 모바일 반응형',
+        '수수료 장부: 고객·거래내용(JPY→USDT)·신청일·상태·상세 링크 컬럼 추가',
+      ],
+      US: [
+        'USDT purchase detail: grouped sections + hero summary, mobile responsive',
+        'Commission ledger: customer, trade summary, applied date, status, detail links',
+      ],
+      JP: [
+        'USDT購入詳細: セクション別サマリー・モバイル対応レイアウト',
+        '手数料台帳: 顧客・取引内容・申請日・状態・詳細リンク列を追加',
+      ],
+      CH: [
+        'USDT 购入详情：分区摘要布局，移动端响应式',
+        '手续费账本：新增客户、交易摘要、申请日、状态、详情链接',
+      ],
+      TH: [
+        'รายละเอียด USDT: สรุปแยกส่วน รองรับมือถือ',
+        'บัญชีค่าธรรมเนียม: เพิ่มลูกค้า สรุปธุรกรรม วันที่สมัคร สถานะ ลิงก์รายละเอียด',
+      ],
+    },
+  },
+  {
+    version: '2.6.21',
+    kind: 'minor',
+    date: '2026-08-31',
+    items: {
+      KR: [
+        '카드 USDT 매입: 수금방식이 전용계좌(FIXED)로 잘못 표시되던 문제 수정 → 해당없음',
+        'USDT/무역에스크로 Round-2 시나리오 테스트 데이터·직렬화 검증 보강',
+      ],
+      US: [
+        'Card USDT purchase: collection no longer mislabelled as FIXED → N/A',
+        'USDT/trade-escrow Round-2 scenario seed and serialize checks',
+      ],
+      JP: [
+        'カードUSDT購入: 回収方法が固定口座(FIXED)と誤表示される不具合を修正 → 該当なし',
+        'USDT/エスクロー Round-2 シナリオ検証を補強',
+      ],
+      CH: [
+        '卡片 USDT 购入：收款方式误显示为专用账户(FIXED) → 不适用',
+        'USDT/贸易托管 Round-2 场景测试与序列化校验',
+      ],
+      TH: [
+        'บัตร USDT: วิธีรับเงินไม่แสดงผิดเป็นบัญชีเฉพาะ(FIXED) → ไม่มี',
+        'เสริมการทดสอบสถานการณ์ Round-2 ของ USDT/เอสโครว์',
+      ],
+    },
+  },
+  {
+    version: '2.6.20',
+    kind: 'minor',
+    date: '2026-08-31',
+    items: {
+      KR: [
+        'UI 표기: CURFEX → 가상계좌서비스(CURFEX) (목록·상세·결제관리, 5개 언어)',
+        '무역 에스크로: 수락 기한 경과 시 불발 사유 문구를 실제 로직(기한 경과)에 맞게 수정',
+      ],
+      US: [
+        'UI labels: CURFEX → Virtual Account Service (CURFEX) (list/detail/payment, 5 locales)',
+        'Trade escrow: void reason text matches acceptance-deadline logic',
+      ],
+      JP: [
+        'UI表記: CURFEX → バーチャル口座サービス(CURFEX)（一覧・詳細・決済、5言語）',
+        'エスクロー: 受諾期限超過時の不成立文言を実際のロジックに合わせて修正',
+      ],
+      CH: [
+        '界面文案：CURFEX → 虚拟账户服务(CURFEX)（列表/详情/支付，5语言）',
+        '贸易托管：未接受到期作废说明与实际逻辑一致',
+      ],
+      TH: [
+        'ข้อความ UI: CURFEX → บริการบัญชีเสมือน(CURFEX) (5 ภาษา)',
+        'เอสโครว์: ข้อความยกเลิกเมื่อหมดเวลายอมรับ ให้ตรงกับ logic',
+      ],
+    },
+  },
+  {
+    version: '2.6.19',
+    kind: 'minor',
+    date: '2026-08-31',
+    items: {
+      KR: [
+        '이용메뉴얼 전수 다국어 통일 — JP/CH/TH를 한국어 기준으로 보완',
+        'CURFEX 표기 → 가상계좌서비스(CURFEX)로 전 언어 통일',
+      ],
+      US: [
+        'Usage manuals: full JP/CH/TH parity with Korean source',
+        'CURFEX wording → Virtual Account Service (CURFEX) in all locales',
+      ],
+      JP: [
+        '利用マニュアル全言語統一 — JP/CH/THを韓国語基準で補完',
+        'CURFEX表記 → バーチャル口座サービス(CURFEX)に統一',
+      ],
+      CH: [
+        '使用手册全语言统一 — 以韩语为基准补全 JP/CH/TH',
+        'CURFEX 改称 → 虚拟账户服务(CURFEX)',
+      ],
+      TH: [
+        'คู่มือครบทุกภาษา — เติม JP/CH/TH ตามต้นฉบับเกาหลี',
+        'เปลี่ยนคำ CURFEX → บริการบัญชีเสมือน(CURFEX)',
+      ],
+    },
+  },
+  {
     version: '2.6.18',
     kind: 'minor',
     date: '2026-08-28',

@@ -25,7 +25,7 @@ export async function voidExpiredEscrowAcceptances(): Promise<number> {
         where: { ticketId: row.ticketId },
         data: {
           status: TradeEscrowStatus.VOIDED,
-          voidReason: '당일 양측 계약 미체결 — 거래 불발',
+          voidReason: '수락 기한 경과 — 양측 계약 미체결로 거래 불발',
         },
       });
       await tx.ticketStatusHistory.create({
@@ -34,7 +34,7 @@ export async function voidExpiredEscrowAcceptances(): Promise<number> {
           fromStatus: row.status,
           toStatus: TradeEscrowStatus.VOIDED,
           changedById: row.buyerId,
-          note: '당일 미체결 자동 파기',
+          note: '수락 기한 경과 자동 파기',
         },
       });
     });

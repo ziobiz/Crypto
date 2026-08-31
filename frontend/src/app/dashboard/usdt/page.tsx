@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthProvider';
 import { useT } from '@/context/LocaleProvider';
 import { api, UsdtTicket } from '@/lib/api';
-import { StatusBadge } from '@/components/StatusBadge';
+import { StatusBadge, buildUsdtStatusContext } from '@/components/StatusBadge';
 import { PageSizeBar } from '@/components/PageSizeBar';
 import { SortableTh } from '@/components/ListTableControls';
 import {
@@ -174,6 +174,7 @@ export default function UsdtListPage() {
     return row.paymentMethod === 'CARD' ? t('usdt.paymentCard') : t('usdt.paymentBank');
   }
   function collectionLabel(row: UsdtTicket) {
+    if (row.paymentMethod === 'CARD') return t('usdt.collection.na');
     return row.collectionProvider === 'CURFEX' ? t('usdt.collection.curfex') : t('usdt.collection.fixed');
   }
   function inputModeLabel(row: UsdtTicket) {
@@ -286,7 +287,7 @@ export default function UsdtListPage() {
           <MobileStackCard key={ticket.id} href={`/dashboard/usdt/${ticket.id}`}>
             <div className="flex items-start justify-between gap-2">
               <span className="pg-link break-all text-left text-sm font-semibold">{ticket.ticketNo}</span>
-              <StatusBadge status={ticket.status} kind="usdt" />
+              <StatusBadge status={ticket.status} kind="usdt" usdtContext={buildUsdtStatusContext(ticket)} />
             </div>
             <MobileStackFields>
               {admin && (
@@ -368,13 +369,21 @@ export default function UsdtListPage() {
                 </td>
                 <td className="text-[11px]">{inputModeLabel(ticket)}</td>
                 <td>
-                  <span className={`pg-field-chip ${ticket.collectionProvider === 'CURFEX' ? 'pg-field-chip-emerald' : 'pg-field-chip-red'}`}>
+                  <span
+                    className={`pg-field-chip ${
+                      ticket.paymentMethod === 'CARD'
+                        ? 'pg-field-chip-slate'
+                        : ticket.collectionProvider === 'CURFEX'
+                          ? 'pg-field-chip-emerald'
+                          : 'pg-field-chip-red'
+                    }`}
+                  >
                     {collectionLabel(ticket)}
                   </span>
                 </td>
                 <td>{ticket.attachments?.length ?? 0}</td>
                 <td>
-                  <StatusBadge status={ticket.status} kind="usdt" />
+                  <StatusBadge status={ticket.status} kind="usdt" usdtContext={buildUsdtStatusContext(ticket)} />
                 </td>
                 <td>
                   <DualTimezoneDate

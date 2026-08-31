@@ -1,10 +1,19 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/context/AuthProvider';
 import { useT } from '@/context/LocaleProvider';
 import { api, LedgerSummary } from '@/lib/api';
 import { formatCurrency, formatDate } from '@/lib/format';
+import { StatusBadge } from '@/components/StatusBadge';
+import {
+  MobileStackCard,
+  MobileStackEmpty,
+  MobileStackField,
+  MobileStackFields,
+  MobileStackList,
+} from '@/components/layout/MobileStackList';
 
 const CURRENCY_ORDER = ['USDT', 'KRW', 'USD', 'JPY', 'CNY', 'THB'];
 
@@ -57,6 +66,15 @@ export default function LedgerPage() {
   const currencies = sortCurrencies(Object.keys(totalsByCurrency));
   const ticketTypes = Object.keys(byTicketType);
 
+  function ticketLink(href?: string | null, ticketNo?: string) {
+    if (!href || !ticketNo) return ticketNo ?? '—';
+    return (
+      <Link href={href} className="pg-link break-all">
+        {ticketNo}
+      </Link>
+    );
+  }
+
   return (
     <div className="pg-stack">
       {user?.role === 'SUPER_ADMIN' && orgs.length > 0 && (
@@ -101,7 +119,7 @@ export default function LedgerPage() {
       </div>
 
       {ticketTypes.length > 0 && (
-        <div className="pg-card pg-table-wrap">
+        <div className="pg-card pg-table-wrap hidden md:block">
           <p className="border-b border-gray-200 px-3 py-2 text-[13px] font-bold text-gray-700">
             {t('ledger.byType')}
           </p>
@@ -132,13 +150,50 @@ export default function LedgerPage() {
         </div>
       )}
 
-      <div className="pg-card pg-table-wrap">
+      <MobileStackList>
+        {ledger.entries.map((e) => (
+          <MobileStackCard key={e.id} href={e.ticketHref ?? undefined}>
+            <div className="flex items-start justify-between gap-2">
+              <span className="pg-link break-all text-sm font-semibold">{e.ticketNo}</span>
+              {e.ticketStatus && (
+                <StatusBadge
+                  status={e.ticketStatus}
+                  kind={e.ticketType === 'USDT_PURCHASE' ? 'usdt' : 'escrow'}
+                />
+              )}
+            </div>
+            <MobileStackFields>
+              <MobileStackField label={t('ledger.col.customer')}>
+                {e.customerLabel ?? '—'}
+              </MobileStackField>
+              <MobileStackField label={t('ledger.col.trade')}>
+                {e.tradeSummary ?? '—'}
+              </MobileStackField>
+              <MobileStackField label={t('ledger.col.fee')}>
+                {formatCurrency(e.amount, e.currency)} ({e.ratePercent}%)
+              </MobileStackField>
+              <MobileStackField label={t('ledger.col.appliedAt')}>
+                {e.appliedAt ? formatDate(e.appliedAt) : '—'}
+              </MobileStackField>
+              <MobileStackField label={t('ledger.col.settledAt')}>
+                {formatDate(e.settledAt)}
+              </MobileStackField>
+            </MobileStackFields>
+          </MobileStackCard>
+        ))}
+        {ledger.entries.length === 0 && <MobileStackEmpty>{t('ledger.empty')}</MobileStackEmpty>}
+      </MobileStackList>
+
+      <div className="pg-card pg-table-wrap hidden md:block">
         <table className="pg-table">
           <thead>
             <tr>
+              <th>{t('ledger.col.appliedAt')}</th>
               <th>{t('ledger.col.settledAt')}</th>
+              <th>{t('ledger.col.customer')}</th>
+              <th>{t('ledger.col.trade')}</th>
               <th>{t('ledger.col.type')}</th>
-              <th>{t('ledger.col.currency')}</th>
+              <th>{t('ledger.col.status')}</th>
               <th>{t('ledger.col.fee')}</th>
               <th>{t('ledger.col.rate')}</th>
               <th>{t('ledger.col.ticket')}</th>
@@ -147,17 +202,33 @@ export default function LedgerPage() {
           <tbody>
             {ledger.entries.map((e) => (
               <tr key={e.id}>
-                <td className="pg-muted">{formatDate(e.settledAt)}</td>
+                <td className="pg-muted whitespace-nowrap text-xs">
+                  {e.appliedAt ? formatDate(e.appliedAt) : '—'}
+                </td>
+                <td className="pg-muted whitespace-nowrap text-xs">{formatDate(e.settledAt)}</td>
+                <td className="max-w-[10rem] truncate text-xs" title={e.customerLabel ?? ''}>
+                  {e.customerLabel ?? '—'}
+                </td>
+                <td className="max-w-xs text-xs">{e.tradeSummary ?? '—'}</td>
                 <td>{typeLabel(e.ticketType)}</td>
-                <td>{e.currency}</td>
+                <td className="text-xs">
+                  {e.ticketStatus ? (
+                    <StatusBadge
+                      status={e.ticketStatus}
+                      kind={e.ticketType === 'USDT_PURCHASE' ? 'usdt' : 'escrow'}
+                    />
+                  ) : (
+                    '—'
+                  )}
+                </td>
                 <td>{formatCurrency(e.amount, e.currency)}</td>
                 <td>{e.ratePercent}%</td>
-                <td>{e.ticketNo}</td>
+                <td>{ticketLink(e.ticketHref, e.ticketNo)}</td>
               </tr>
             ))}
             {ledger.entries.length === 0 && (
               <tr>
-                <td colSpan={6} className="pg-empty">
+                <td colSpan={9} className="pg-empty">
                   {t('ledger.empty')}
                 </td>
               </tr>
@@ -170,12 +241,38 @@ export default function LedgerPage() {
         <p className="border-b border-gray-200 px-3 py-2 text-[13px] font-bold text-gray-700">
           {t('ledger.pendingTitle')}
         </p>
-        <table className="pg-table">
+        <MobileStackList>
+          {(ledger.pendingLines ?? []).map((e) => (
+            <MobileStackCard key={`${e.ticketNo}-${e.ticketType}`} href={e.ticketHref ?? undefined}>
+              <span className="pg-link break-all text-sm font-semibold">{e.ticketNo}</span>
+              <MobileStackFields>
+                <MobileStackField label={t('ledger.col.customer')}>
+                  {e.customerLabel ?? '—'}
+                </MobileStackField>
+                <MobileStackField label={t('ledger.col.trade')}>
+                  {e.tradeSummary ?? '—'}
+                </MobileStackField>
+                <MobileStackField label={t('usdt.col.status')}>
+                  {e.status}
+                </MobileStackField>
+                <MobileStackField label={t('ledger.col.fee')}>
+                  {formatCurrency(e.amount, e.currency)} ({e.ratePercent}%)
+                </MobileStackField>
+              </MobileStackFields>
+            </MobileStackCard>
+          ))}
+          {(ledger.pendingLines ?? []).length === 0 && (
+            <MobileStackEmpty>{t('ledger.pendingEmpty')}</MobileStackEmpty>
+          )}
+        </MobileStackList>
+        <table className="pg-table hidden md:table">
           <thead>
             <tr>
               <th>{t('ledger.col.ticket')}</th>
+              <th>{t('ledger.col.customer')}</th>
+              <th>{t('ledger.col.trade')}</th>
               <th>{t('ledger.col.type')}</th>
-              <th>{t('usdt.col.status')}</th>
+              <th>{t('ledger.col.status')}</th>
               <th>{t('ledger.col.fee')}</th>
               <th>{t('ledger.col.rate')}</th>
             </tr>
@@ -183,16 +280,18 @@ export default function LedgerPage() {
           <tbody>
             {(ledger.pendingLines ?? []).map((e) => (
               <tr key={`${e.ticketNo}-${e.ticketType}`}>
-                <td>{e.ticketNo}</td>
+                <td>{ticketLink(e.ticketHref, e.ticketNo)}</td>
+                <td className="max-w-[10rem] truncate text-xs">{e.customerLabel ?? '—'}</td>
+                <td className="max-w-xs text-xs">{e.tradeSummary ?? '—'}</td>
                 <td>{typeLabel(e.ticketType)}</td>
-                <td className="pg-muted">{e.status}</td>
+                <td className="pg-muted text-xs">{e.status}</td>
                 <td>{formatCurrency(e.amount, e.currency)}</td>
                 <td>{e.ratePercent}%</td>
               </tr>
             ))}
             {(ledger.pendingLines ?? []).length === 0 && (
               <tr>
-                <td colSpan={5} className="pg-empty">{t('ledger.pendingEmpty')}</td>
+                <td colSpan={7} className="pg-empty">{t('ledger.pendingEmpty')}</td>
               </tr>
             )}
           </tbody>
