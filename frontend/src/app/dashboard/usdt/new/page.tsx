@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthProvider';
 import { useT } from '@/context/LocaleProvider';
@@ -15,6 +15,7 @@ import {
 } from '@/lib/api';
 import { UsdtRatePanel } from '@/components/UsdtRatePanel';
 import { UsdtFeeBreakdownPanel } from '@/components/UsdtFeeBreakdown';
+import { QuoteExpiryTimer } from '@/components/QuoteExpiryTimer';
 import { FormattedAmountInput } from '@/components/FormattedAmountInput';
 import { ContentCard } from '@/components/layout/ContentCard';
 import { CardPaymentForm, emptyCardForm, type CardFormState } from '@/components/CardPaymentForm';
@@ -23,13 +24,14 @@ import { ReferenceClocks } from '@/components/ReferenceClocks';
 import { displayWalletLabel } from '@/lib/wallet-label';
 import { isKycApproved } from '@/lib/kyc';
 
-const FIAT_CURRENCIES = ['KRW', 'JPY', 'THB', 'CNY'] as const;
+const FIAT_CURRENCIES = ['KRW', 'JPY', 'THB', 'CNY', 'HKD'] as const;
 type FiatCurrency = (typeof FIAT_CURRENCIES)[number];
 const ALL_CURRENCY_TRADE: Record<FiatCurrency, { transfer: boolean; card: boolean }> = {
   KRW: { transfer: true, card: true },
   JPY: { transfer: true, card: true },
   THB: { transfer: true, card: true },
   CNY: { transfer: true, card: true },
+  HKD: { transfer: true, card: true },
 };
 type PaymentMethod = 'BANK_TRANSFER' | 'CARD';
 type InputMode = 'target' | 'fiat' | 'cardCharge';
@@ -52,10 +54,24 @@ export default function UsdtNewPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [feePreview, setFeePreview] = useState<UsdtFeePreview | null>(null);
+  const [quoteExpired, setQuoteExpired] = useState(false);
+  const [quoteRefreshKey, setQuoteRefreshKey] = useState(0);
   const [cardForm, setCardForm] = useState<CardFormState>(emptyCardForm());
   const [sourceFiles, setSourceFiles] = useState<File[]>([]);
   const [depositFiles, setDepositFiles] = useState<File[]>([]);
   const [depositCtx, setDepositCtx] = useState<UsdtDepositContext | null>(null);
+  const feePreviewSeq = useRef(0);
+
+  const refreshQuote = useCallback(() => {
+    setQuoteExpired(false);
+    setQuoteRefreshKey((k) => k + 1);
+    api.exchangeRateFor(fiatCurrency).then(setRate).catch(console.error);
+  }, [fiatCurrency]);
+
+  const handleQuoteExpired = useCallback(() => {
+    setQuoteExpired(true);
+    window.alert(t('usdt.quote.expired'));
+  }, [t]);
 
   useEffect(() => {
     const def = user?.sessionPolicy?.defaultUsdtFiatCurrency;
@@ -148,8 +164,10 @@ export default function UsdtNewPage() {
   useEffect(() => {
     if (!canPreview) {
       setFeePreview(null);
+      setQuoteExpired(false);
       return;
     }
+    const seq = ++feePreviewSeq.current;
     const base = { walletId, fiatCurrency, paymentMethod: isCard ? ('CARD' as const) : undefined };
     const params =
       inputMode === 'target'
@@ -157,8 +175,34 @@ export default function UsdtNewPage() {
         : inputMode === 'cardCharge'
           ? { ...base, cardChargeFiat }
           : { ...base, fiatAmount };
-    api.usdt.fees(params).then(setFeePreview).catch(() => setFeePreview(null));
-  }, [walletId, fiatCurrency, inputMode, usdtAmount, fiatAmount, cardChargeFiat, canPreview, isCard]);
+    api.usdt
+      .fees(params)
+      .then((p) => {
+        if (seq !== feePreviewSeq.current) return;
+        setFeePreview(p);
+        setQuoteExpired(false);
+        setError('');
+      })
+      .catch((e) => {
+        if (seq !== feePreviewSeq.current) return;
+        setFeePreview(null);
+        const code = e instanceof ApiError ? e.code : undefined;
+        if (code === 'DEPOSIT_BELOW_FEES') setError(t('usdt.depositBelowFees'));
+        else if (code === 'TRANSACTION_LIMIT') setError(t('usdt.limits.blocked'));
+        else setError('');
+      });
+  }, [
+    walletId,
+    fiatCurrency,
+    inputMode,
+    usdtAmount,
+    fiatAmount,
+    cardChargeFiat,
+    canPreview,
+    isCard,
+    quoteRefreshKey,
+    t,
+  ]);
 
   const fiatRate = rate?.usdtFiatRate ?? rate?.usdtKrwRate ?? 0;
   const breakdown = feePreview?.breakdown ?? null;
@@ -198,6 +242,11 @@ export default function UsdtNewPage() {
     }
     if (!kycOk) {
       setError(t('kyc.requiredToTrade'));
+      return;
+    }
+    if (quoteExpired || !feePreview?.quotedAt) {
+      setError(t('usdt.quote.expired'));
+      refreshQuote();
       return;
     }
     setLoading(true);
@@ -466,7 +515,7 @@ export default function UsdtNewPage() {
 
             <button
               type="submit"
-              disabled={loading || wallets.length === 0 || !breakdown || !kycOk}
+              disabled={loading || wallets.length === 0 || !breakdown || !kycOk || quoteExpired}
               className="pg-btn pg-btn-primary mt-5 w-full disabled:opacity-50"
             >
               {loading ? t('usdt.processing') : isCard ? t('usdt.submitCard') : t('usdt.submit')}
@@ -476,18 +525,33 @@ export default function UsdtNewPage() {
 
         <div className="space-y-4 lg:col-span-3">
           {breakdown ? (
-            <UsdtFeeBreakdownPanel
-              breakdown={breakdown}
-              currency={fiatCurrency}
-              exchangeRate={fiatRate}
-              source={rate?.source}
-              fees={feePreview?.fees}
-              display={feePreview?.feeDiagramDisplay}
-              isCardPayment={isCard}
-              cardFeeFiat={feePreview?.cardFeeFiat}
-              cardChargeFiat={feePreview?.cardChargeFiat}
-              cardFeePercent={feePreview?.cardFeePercent}
-            />
+            <>
+              <QuoteExpiryTimer
+                quotedAt={feePreview?.quotedAt}
+                expiresInSeconds={feePreview?.quoteExpiresInSeconds ?? 240}
+                onExpired={handleQuoteExpired}
+              />
+              {quoteExpired && (
+                <div className="pg-callout pg-callout-warn flex items-center justify-between gap-3">
+                  <p>{t('usdt.quote.expired')}</p>
+                  <button type="button" className="pg-btn pg-btn-secondary text-xs" onClick={refreshQuote}>
+                    {t('usdt.quote.refresh')}
+                  </button>
+                </div>
+              )}
+              <UsdtFeeBreakdownPanel
+                breakdown={breakdown}
+                currency={fiatCurrency}
+                exchangeRate={fiatRate}
+                source={rate?.source}
+                fees={feePreview?.fees}
+                display={feePreview?.feeDiagramDisplay}
+                isCardPayment={isCard}
+                cardFeeFiat={feePreview?.cardFeeFiat}
+                cardChargeFiat={feePreview?.cardChargeFiat}
+                cardFeePercent={feePreview?.cardFeePercent}
+              />
+            </>
           ) : (
             <div className="pg-card border-dashed">
               <div className="pg-card-body py-12 text-center pg-hint">

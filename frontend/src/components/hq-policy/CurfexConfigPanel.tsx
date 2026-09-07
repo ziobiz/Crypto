@@ -5,7 +5,7 @@ import { useT } from '@/context/LocaleProvider';
 import { hqPolicyApi, type HqCurfexConfig } from '@/lib/api';
 import { PolicyTableActions } from '@/components/policy/PolicyTableActions';
 
-const CURFEX_CURRENCY_OPTIONS = ['JPY', 'KRW', 'THB', 'CNY'] as const;
+const CURFEX_CURRENCY_OPTIONS = ['JPY', 'KRW', 'THB', 'CNY', 'HKD'] as const;
 type CurfexCurrency = (typeof CURFEX_CURRENCY_OPTIONS)[number];
 
 const EMPTY: HqCurfexConfig = {

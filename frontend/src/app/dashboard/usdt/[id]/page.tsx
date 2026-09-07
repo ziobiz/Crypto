@@ -141,7 +141,7 @@ export default function UsdtDetailPage() {
   const isOperator = user?.role === 'SUPER_ADMIN' || user?.role === 'ORG_STAFF';
   const isCustomer = user?.role === 'CUSTOMER';
   const receivingFixed =
-    depositCtx?.receivingAccounts?.[ticket.fiatCurrency as 'KRW' | 'JPY' | 'THB' | 'CNY'];
+    depositCtx?.receivingAccounts?.[ticket.fiatCurrency as 'KRW' | 'JPY' | 'THB' | 'CNY' | 'HKD'];
   const receiving =
     ticket.collectionProvider === 'CURFEX' && ticket.collectionAccount
       ? ticket.collectionAccount

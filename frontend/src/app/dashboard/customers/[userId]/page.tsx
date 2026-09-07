@@ -8,7 +8,13 @@ import { useT } from '@/context/LocaleProvider';
 import { api, hqPolicyApi, type CustomerFeeShare, type KycCase, type ManagedUser } from '@/lib/api';
 import { KycFileLink } from '@/components/KycFileLink';
 import { CustomerFeeShareEditor, emptyFeeShare, feeShareFromHq } from '@/components/CustomerFeeShareEditor';
-import { escrowShareTotalsMatch, formatEscrowShareMismatch, parseEscrowShareMismatch } from '@/lib/escrow-share-totals';
+import {
+  escrowShareTotalsMatch,
+  formatEscrowShareMismatch,
+  formatUsdtShareMismatch,
+  parseEscrowShareMismatch,
+  usdtShareTotalsMatch,
+} from '@/lib/escrow-share-totals';
 import { formatDate } from '@/lib/format';
 import type { MessageKey } from '@/i18n/messages';
 
@@ -39,6 +45,7 @@ export default function CustomerKycDetailPage() {
   const [profile, setProfile] = useState<ManagedUser | null>(null);
   const [feeShare, setFeeShare] = useState<CustomerFeeShare>(emptyFeeShare());
   const [feeShareCustom, setFeeShareCustom] = useState(false);
+  const [hqFeeShareDefault, setHqFeeShareDefault] = useState<CustomerFeeShare | null>(null);
   const [reason, setReason] = useState('');
   const [hqNote, setHqNote] = useState('');
   const [draftAction, setDraftAction] = useState<'APPROVE' | 'REJECT' | null>(null);
@@ -52,16 +59,34 @@ export default function CustomerKycDetailPage() {
       setProfile(u);
       const share = u.customerProfile?.feeShare;
       if (share) {
-        setFeeShare(share);
+        setFeeShare({
+          ...feeShareFromHq({
+            usdtOperatingFeePercent: 0,
+            usdtOperatingFeeUsdt: 0,
+            escrowFeePercent: 1.5,
+            escrowPerTicketUsdt: 0,
+            USDT_PURCHASE: emptyFeeShare().USDT_PURCHASE,
+            TRADE_ESCROW: emptyFeeShare().TRADE_ESCROW,
+          }),
+          ...share,
+        });
         setFeeShareCustom(true);
       } else {
         setFeeShareCustom(false);
         hqPolicyApi
           .getCommission()
-          .then((c) =>
-            setFeeShare(feeShareFromHq(c.orgShare)),
-          )
+          .then((c) => {
+            const d = feeShareFromHq(c.orgShare);
+            setHqFeeShareDefault(d);
+            setFeeShare(d);
+          })
           .catch(console.error);
+      }
+      if (share) {
+        hqPolicyApi
+          .getCommission()
+          .then((c) => setHqFeeShareDefault(feeShareFromHq(c.orgShare)))
+          .catch(() => undefined);
       }
     }).catch(console.error);
   };
@@ -107,21 +132,36 @@ export default function CustomerKycDetailPage() {
     setLoading(true);
     setMsg('');
     try {
-      const check = escrowShareTotalsMatch(feeShare);
-      if (!check.ok) {
-        const text = formatEscrowShareMismatch(t, check);
-        window.alert(text);
-        setMsg(text);
-        return;
+      if (feeShareCustom) {
+        const usdtCheck = usdtShareTotalsMatch(feeShare);
+        if (!usdtCheck.ok) {
+          const text = formatUsdtShareMismatch(t, usdtCheck);
+          window.alert(text);
+          setMsg(text);
+          return;
+        }
+        const check = escrowShareTotalsMatch(feeShare);
+        if (!check.ok) {
+          const text = formatEscrowShareMismatch(t, check);
+          window.alert(text);
+          setMsg(text);
+          return;
+        }
       }
-      const next = await api.users.update(profile.id, { feeShare });
+      const next = await api.users.update(profile.id, {
+        feeShare: feeShareCustom ? feeShare : null,
+      });
       setProfile(next);
       setFeeShareCustom(Boolean(next.customerProfile?.feeShare));
       setMsg(t('feeShare.saved'));
     } catch (e) {
       const raw = e instanceof Error ? e.message : t('users.saveFailed');
       const parsed = parseEscrowShareMismatch(raw);
-      const text = parsed ? formatEscrowShareMismatch(t, parsed) : raw;
+      const text = parsed
+        ? raw.startsWith('USDT_SHARE_MISMATCH')
+          ? formatUsdtShareMismatch(t, parsed)
+          : formatEscrowShareMismatch(t, parsed)
+        : raw;
       if (parsed) window.alert(text);
       setMsg(text);
     } finally {
@@ -323,7 +363,17 @@ export default function CustomerKycDetailPage() {
             </span>
           </div>
           <div className="pg-card-body space-y-3">
-            <CustomerFeeShareEditor value={feeShare} onChange={setFeeShare} canEdit={canEditFeeShare} />
+            <CustomerFeeShareEditor
+              value={feeShare}
+              onChange={setFeeShare}
+              canEdit={canEditFeeShare}
+              useHqDefault={!feeShareCustom}
+              onUseHqDefaultChange={(useDefault) => {
+                setFeeShareCustom(!useDefault);
+                if (useDefault && hqFeeShareDefault) setFeeShare(hqFeeShareDefault);
+              }}
+              hqDefault={hqFeeShareDefault}
+            />
             {canEditFeeShare && (
               <button type="button" className="pg-btn pg-btn-primary" disabled={loading} onClick={saveFeeShare}>
                 {t('feeShare.save')}

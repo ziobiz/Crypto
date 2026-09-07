@@ -52,7 +52,7 @@ const createSchema = z.object({
   walletNetwork: z.preprocess(emptyToUndef, z.string().optional()),
   walletLabel: z.preprocess(emptyToUndef, z.string().optional()),
   reason: z.string().min(1, '등록 사유가 필요합니다'),
-  feeShare: z.unknown().optional(),
+  feeShare: z.union([z.unknown(), z.null()]).optional(),
   simulatorEnabled: z.boolean().optional(),
   simulatorRateMode: z.enum(['LIVE', 'SAND']).optional(),
 });
@@ -65,7 +65,7 @@ const updateSchema = z.object({
   isActive: z.boolean().optional(),
   recruitingOrgId: z.string().optional(),
   statusReason: z.string().optional(),
-  feeShare: z.unknown().optional(),
+  feeShare: z.union([z.unknown(), z.null()]).optional(),
   simulatorEnabled: z.boolean().optional(),
   simulatorRateMode: z.enum(['LIVE', 'SAND']).optional(),
 });

@@ -8,6 +8,7 @@ import { auditFromRequest, listAdminChangeLogs, logAdminChange } from '../servic
 import { hqPolicyService } from '../services/hq-policy.service';
 import { createPlatformRelease, listPlatformReleases } from '../services/platform-release.service';
 import type { HqAccessMatrix, HqCommissionRiskConfig, HqExchangeRateSourcePolicy, HqOrgColumnConfig, HqPlatformConfig, HqEmailOtpConfig, HqCardPaymentConfig, HqIcopayConfig, HqCurfexConfig, SymbolFeeTierPolicy, HqDeletionPolicy, HqOrgSharePolicy, HqWorkflowDisplayConfig, HqGasNetworkPolicy } from '../constants/hq-policy';
+import type { HqCurrencyAmountDisplayPolicy } from '../lib/currency-amount';
 import {
   getDeletionPolicy,
   hardDeleteOrganization,
@@ -146,6 +147,19 @@ router.put(
     }
     const audit = auditFromRequest(req.user!, req);
     res.json(await hqPolicyService.saveSimulatorSymbolFeeTiers(audit, body.feeTiers));
+  }),
+);
+
+router.put(
+  '/commission/currency-amount-display',
+  asyncHandler(async (req, res) => {
+    const body = req.body as { currencyAmountDisplay?: HqCurrencyAmountDisplayPolicy };
+    if (!body.currencyAmountDisplay) {
+      res.status(400).json({ error: 'currencyAmountDisplay required' });
+      return;
+    }
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await hqPolicyService.saveCurrencyAmountDisplay(audit, body.currencyAmountDisplay));
   }),
 );
 

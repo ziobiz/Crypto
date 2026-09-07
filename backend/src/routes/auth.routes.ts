@@ -407,7 +407,7 @@ router.get(
 );
 
 const registerBankAccountSchema = z.object({
-  currency: z.enum(['KRW', 'JPY', 'THB', 'CNY']),
+  currency: z.enum(['KRW', 'JPY', 'THB', 'CNY', 'HKD']),
   bankName: z.string().min(1),
   accountNumber: z.string().min(1),
   accountHolder: z.string().min(1),

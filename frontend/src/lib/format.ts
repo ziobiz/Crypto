@@ -1,14 +1,44 @@
-export function formatCurrency(amount: number, currency = 'USDT') {
-  if (currency === 'KRW') {
-    return new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW' }).format(amount);
-  }
+import {
+  applyCurrencyAmount,
+  DEFAULT_CURRENCY_AMOUNT_DISPLAY,
+  resolveCurrencyAmountRule,
+  type HqCurrencyAmountDisplayPolicy,
+} from './currency-amount';
+
+let displayPolicy: HqCurrencyAmountDisplayPolicy = DEFAULT_CURRENCY_AMOUNT_DISPLAY;
+
+export function setCurrencyAmountDisplayPolicy(policy: HqCurrencyAmountDisplayPolicy | null | undefined) {
+  displayPolicy = policy ?? DEFAULT_CURRENCY_AMOUNT_DISPLAY;
+}
+
+export function getCurrencyAmountDisplayPolicy(): HqCurrencyAmountDisplayPolicy {
+  return displayPolicy;
+}
+
+export function formatCurrency(
+  amount: number,
+  currency = 'USDT',
+  policy: HqCurrencyAmountDisplayPolicy = displayPolicy,
+) {
+  if (!Number.isFinite(amount)) return `— ${currency}`;
   if (currency === 'USDT') {
     return `${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })} USDT`;
   }
-  if (currency === 'USD' || currency === 'JPY' || currency === 'CNY' || currency === 'THB') {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
+  const rounded = applyCurrencyAmount(amount, currency, policy);
+  const rule = resolveCurrencyAmountRule(policy, currency);
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: currency === 'USDT' ? 'USD' : currency,
+      minimumFractionDigits: rule.decimals,
+      maximumFractionDigits: rule.decimals,
+    }).format(rounded);
+  } catch {
+    return `${rounded.toLocaleString(undefined, {
+      minimumFractionDigits: rule.decimals,
+      maximumFractionDigits: rule.decimals,
+    })} ${currency}`;
   }
-  return `${amount.toLocaleString()} ${currency}`;
 }
 
 /** 입력 필드용 천 단위 콤마 */

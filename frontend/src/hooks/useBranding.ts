@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { api, type BrandingResponse } from '@/lib/api';
 import { getApiBaseUrl } from '@/lib/api-base';
+import { setCurrencyAmountDisplayPolicy } from '@/lib/format';
 import type { Locale } from '@/i18n/locales';
 
 export type ResolvedBranding = {
@@ -60,7 +61,13 @@ export function useBranding() {
   const [branding, setBranding] = useState<ResolvedBranding | null>(null);
 
   useEffect(() => {
-    api.branding().then((b) => setBranding(resolveUrls(b))).catch(() => setBranding(FALLBACK));
+    api
+      .branding()
+      .then((b) => {
+        setCurrencyAmountDisplayPolicy(b.currencyAmountDisplay);
+        setBranding(resolveUrls(b));
+      })
+      .catch(() => setBranding(FALLBACK));
   }, []);
 
   return branding;

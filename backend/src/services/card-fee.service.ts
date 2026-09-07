@@ -1,6 +1,8 @@
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
-}
+import {
+  applyCurrencyAmount,
+  DEFAULT_CURRENCY_AMOUNT_DISPLAY,
+  type HqCurrencyAmountDisplayPolicy,
+} from '../lib/currency-amount';
 
 export type CardFeeQuote = {
   cardFeePercent: number;
@@ -22,10 +24,20 @@ export type CardFeeQuote = {
 export function quoteCardFromTarget(
   breakdown: CardFeeQuote['breakdown'],
   cardFeePercent: number,
+  currency = 'JPY',
+  policy: HqCurrencyAmountDisplayPolicy = DEFAULT_CURRENCY_AMOUNT_DISPLAY,
 ): CardFeeQuote {
   const fiatForConversion = breakdown.requiredFiat;
-  const cardFeeFiat = round2((fiatForConversion * cardFeePercent) / 100);
-  const cardChargeFiat = round2(fiatForConversion + cardFeeFiat);
+  const cardFeeFiat = applyCurrencyAmount(
+    (fiatForConversion * cardFeePercent) / 100,
+    currency,
+    policy,
+  );
+  const cardChargeFiat = applyCurrencyAmount(
+    fiatForConversion + cardFeeFiat,
+    currency,
+    policy,
+  );
   return {
     cardFeePercent,
     cardFeeFiat,
@@ -36,8 +48,21 @@ export function quoteCardFromTarget(
 }
 
 /** 카드 결제 금액 → USDT (카드 수수료 차감 후 기존 수수료 도식 적용) */
-export function splitCardCharge(cardChargeFiat: number, cardFeePercent: number) {
-  const cardFeeFiat = round2((cardChargeFiat * cardFeePercent) / (100 + cardFeePercent));
-  const fiatForConversion = round2(Math.max(0, cardChargeFiat - cardFeeFiat));
+export function splitCardCharge(
+  cardChargeFiat: number,
+  cardFeePercent: number,
+  currency = 'JPY',
+  policy: HqCurrencyAmountDisplayPolicy = DEFAULT_CURRENCY_AMOUNT_DISPLAY,
+) {
+  const cardFeeFiat = applyCurrencyAmount(
+    (cardChargeFiat * cardFeePercent) / (100 + cardFeePercent),
+    currency,
+    policy,
+  );
+  const fiatForConversion = applyCurrencyAmount(
+    Math.max(0, cardChargeFiat - cardFeeFiat),
+    currency,
+    policy,
+  );
   return { cardFeeFiat, fiatForConversion };
 }

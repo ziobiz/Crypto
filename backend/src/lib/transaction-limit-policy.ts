@@ -34,9 +34,25 @@ export function defaultTransactionLimitsPolicy(
               ? 0.03
               : currency === 'CNY'
                 ? 0.005
-                : 0.00075;
+                : currency === 'HKD'
+                  ? 0.006
+                  : 0.00075;
       const base = Math.round(maxTicketKrw * scale);
+      // 마이크로 트랜잭션 방지 — 통화별 최소 입금 기본값
+      const minDefault =
+        currency === 'JPY'
+          ? 100_000
+          : currency === 'KRW'
+            ? 1_000_000
+            : currency === 'THB'
+              ? 30_000
+              : currency === 'CNY'
+                ? 5_000
+                : currency === 'HKD'
+                  ? 6_000
+                  : 100;
       row[currency] = defaultCurrencyLimits({
+        perTransactionMin: minDefault,
         perTransactionMax: base * multiplier,
         dailyMax: base * multiplier * 5,
         monthlyMax: base * multiplier * 20,

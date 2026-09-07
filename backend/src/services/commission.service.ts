@@ -119,16 +119,9 @@ async function allocateCommissionShares(
   return allocated;
 }
 
-function shareAmount(pool: number, slice: HqOrgShareSlice): number {
-  const fromPool = (pool * slice.poolPercent) / 100;
-  return Number((fromPool + slice.perTicketUsdt).toFixed(8));
-}
-
-function lineShareAmount(ticketType: TicketType, baseAmount: number, slice: HqOrgShareSlice): number {
-  if (ticketType === TicketType.TRADE_ESCROW) {
-    return Number(((baseAmount * slice.poolPercent) / 100 + slice.perTicketUsdt).toFixed(8));
-  }
-  return shareAmount(baseAmount, slice);
+function lineShareAmount(_ticketType: TicketType, baseAmount: number, slice: HqOrgShareSlice): number {
+  // USDT·에스크로 공통: poolPercent는 거래액(또는 gross USDT) 대비 절대 %
+  return Number(((baseAmount * slice.poolPercent) / 100 + slice.perTicketUsdt).toFixed(8));
 }
 
 async function buildOrgChain(
@@ -205,6 +198,7 @@ export async function settleCommission(
         include: { recruitingOrg: true },
       },
       tradeEscrow: true,
+      usdtPurchase: true,
     },
   });
 
@@ -231,13 +225,17 @@ export async function settleCommission(
   const chain = await buildOrgChain(tx, ticket.customer.recruitingOrgId);
   const customerShare = normalizeCustomerFeeShare(ticket.customer.feeShare, policy);
   const allocated = await allocateCommissionShares(tx, chain, policy, ctx.ticketType, customerShare);
-  const escrowTradeAmount =
-    ctx.ticketType === TicketType.TRADE_ESCROW && ticket.tradeEscrow
-      ? Number(ticket.tradeEscrow.amount)
-      : ctx.commissionPool;
+
+  let shareBase = ctx.commissionPool;
+  if (ctx.ticketType === TicketType.TRADE_ESCROW && ticket.tradeEscrow) {
+    shareBase = Number(ticket.tradeEscrow.amount);
+  } else if (ctx.ticketType === TicketType.USDT_PURCHASE && ticket.usdtPurchase) {
+    const rate = Number(ticket.usdtPurchase.exchangeRate);
+    shareBase = rate > 0 ? Number(ticket.usdtPurchase.fiatAmount) / rate : ctx.commissionPool;
+  }
 
   for (const row of allocated) {
-    const amount = lineShareAmount(ctx.ticketType, escrowTradeAmount, row.slice);
+    const amount = lineShareAmount(ctx.ticketType, shareBase, row.slice);
     if (amount <= 0) continue;
 
     await tx.ledgerEntry.create({
@@ -248,7 +246,7 @@ export async function settleCommission(
         amount,
         currency: ctx.currency,
         ratePercent: row.slice.poolPercent,
-        baseAmount: ctx.commissionPool,
+        baseAmount: shareBase,
         description: `${ctx.ticketType} commission — ${row.org.name}`,
       },
     });
@@ -260,7 +258,7 @@ export async function settleCommission(
   });
 }
 
-/** 에스크로: 본사 고객 수수료율로 풀을 만들고 조직 배분 미리보기 */
+/** 에스크로·USDT: 운영수수료(절대 %)로 풀을 만들고 조직 배분 미리보기 */
 export async function previewCommissionPool(
   recruitingOrgId: string,
   ticketType: TicketType,
@@ -272,9 +270,11 @@ export async function previewCommissionPool(
   const pool =
     ticketType === TicketType.TRADE_ESCROW
       ? Number(((tradeAmount * share.escrowFeePercent) / 100 + share.escrowPerTicketUsdt).toFixed(8))
-      : tradeAmount;
-  const linesBase = ticketType === TicketType.TRADE_ESCROW ? tradeAmount : pool;
-  const preview = await previewLines(recruitingOrgId, ticketType, linesBase, feeShareRaw);
+      : Number(
+          ((tradeAmount * share.usdtOperatingFeePercent) / 100 + share.usdtOperatingFeeUsdt).toFixed(8),
+        );
+  // 절대 % 배분 — base는 거래액(에스크로) 또는 gross USDT(매입)
+  const preview = await previewLines(recruitingOrgId, ticketType, tradeAmount, feeShareRaw);
   return { ...preview, commissionPool: pool };
 }
 

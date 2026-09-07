@@ -1,0 +1,32 @@
+---
+description: 다국어 최우선 + 개발 완료 시 자동 배포 (변경·약화 금지)
+alwaysApply: true
+---
+
+# 다국어 · 자동 배포 (절대 규칙)
+
+사용자 요청에 이 내용이 **없어도** 반드시 수행한다. 채팅에서 이 규칙을 반복 설명하지 않는다. **변경·완화·예외 처리 금지.**
+
+## 1. 다국어 최우선
+
+- UI/문구/라벨/안내/에러/메뉴얼 등 사용자에게 보이는 문자열은 **KR 기준 키를 `frontend/src/i18n/kr.ts`에 추가**하고, **US / JP / CH / TH** (`locale/us|jp|ch|th.ts`)에 **동일 키**로 번역을 넣는다.
+- 하드코딩 한글·영문만 넣고 다른 로케일을 비워 두지 않는다.
+- 기능이 끝나면 “다국어까지 반영”이 완료 조건이다, 로케일 누락은 미완료다.
+
+## 2. 자동 배포
+
+코드/설정/문구를 **실제로 수정한 작업**이 끝나면 사용자가 “배포해”라고 하지 않아도:
+
+1. `powershell -ExecutionPolicy Bypass -File deploy\pack-release.ps1`
+2. SCP: `deploy\release\crypto-release.zip` → `root@114.207.245.160:/var/www/crypto-workflow/incoming/crypto-release.zip`
+3. SSH: `cd /var/www/crypto-workflow && bash deploy/cafe24-business/apply-release.sh`
+4. health/PM2 online 확인
+
+로컬 `npm run dev`로 완료 판단하지 않는다. 서버 `backend/.env`는 덮어쓰지 않는다.
+
+## 3. 응답 끝 필수 명시
+
+배포(또는 배포 시도) 후 **답변 맨 끝**에 항상:
+
+- **다국어**: 어떤 키/화면을 KR·US·JP·CH·TH에 반영했는지
+- **배포**: 성공/실패, 버전(또는 zip), PM2/health 요약

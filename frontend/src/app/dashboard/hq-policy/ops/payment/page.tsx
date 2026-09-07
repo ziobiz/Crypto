@@ -9,7 +9,7 @@ import { PolicyTableActions } from '@/components/policy/PolicyTableActions';
 import { IcopayConfigPanel } from '@/components/hq-policy/IcopayConfigPanel';
 import { CurfexConfigPanel } from '@/components/hq-policy/CurfexConfigPanel';
 
-const CURRENCIES: SymbolFeeCurrency[] = ['KRW', 'JPY', 'THB', 'CNY', 'USD'];
+const CURRENCIES: SymbolFeeCurrency[] = ['KRW', 'JPY', 'THB', 'CNY', 'HKD', 'USD'];
 
 const DEFAULT_CONFIG: HqCardPaymentConfig = {
   enabled: false,
@@ -19,6 +19,7 @@ const DEFAULT_CONFIG: HqCardPaymentConfig = {
     JPY: { min: 1000, max: 500000 },
     THB: { min: 500, max: 200000 },
     CNY: { min: 100, max: 50000 },
+    HKD: { min: 100, max: 80000 },
     USD: { min: 10, max: 10000 },
   },
 };

@@ -1,6 +1,5 @@
 /** TINPASS Crypto 라이브 버전 — 주요=정수.0, 소소=소수 (2.1, 2.2…) */
-export const CURRENT_LIVE_VERSION = '2.6.26';
-
+export const CURRENT_LIVE_VERSION = '2.6.32';
 export type ReleaseKind = 'major' | 'minor';
 
 export type ManualLocale = 'KR' | 'US' | 'JP' | 'CH' | 'TH';

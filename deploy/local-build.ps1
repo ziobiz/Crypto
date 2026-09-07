@@ -3,7 +3,14 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 Set-Location $Root
 
-Write-Host "==> Backend (prisma generate + tsc)"
+Write-Host "==> Frontend (next build)"
+if (-not (Test-Path "frontend\node_modules\.bin\next.cmd")) {
+  npm ci --prefix frontend
+}
+$env:NODE_OPTIONS = "--max-old-space-size=4096"
+npm run build --prefix frontend
+
+Write-Host "==> Backend (prisma generate + tsc) — frontend 이후에 실행 (dist 오염 방지)"
 if (-not (Test-Path "backend\node_modules\.bin\tsc.cmd")) {
   npm ci --prefix backend
 }
@@ -13,13 +20,6 @@ if (Test-Path "node_modules\.bin\prisma.cmd") {
 }
 Pop-Location
 npm run build --prefix backend
-
-Write-Host "==> Frontend (next build)"
-if (-not (Test-Path "frontend\node_modules\.bin\next.cmd")) {
-  npm ci --prefix frontend
-}
-$env:NODE_OPTIONS = "--max-old-space-size=4096"
-npm run build --prefix frontend
 
 Write-Host "==> Server (tsc)"
 if (-not (Test-Path "server\node_modules\.bin\tsc.cmd")) {

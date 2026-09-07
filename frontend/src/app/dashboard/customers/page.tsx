@@ -17,7 +17,13 @@ import type { MessageKey } from '@/i18n/messages';
 import { WALLET_NETWORKS } from '@/constants/wallet-networks';
 import { CustomerFeeShareEditor, emptyFeeShare, feeShareFromHq } from '@/components/CustomerFeeShareEditor';
 import { ReferenceClocks } from '@/components/ReferenceClocks';
-import { escrowShareTotalsMatch, formatEscrowShareMismatch, parseEscrowShareMismatch } from '@/lib/escrow-share-totals';
+import {
+  escrowShareTotalsMatch,
+  formatEscrowShareMismatch,
+  formatUsdtShareMismatch,
+  parseEscrowShareMismatch,
+  usdtShareTotalsMatch,
+} from '@/lib/escrow-share-totals';
 import { SRateBadge } from '@/components/SRateBadge';
 import { detailRowProps } from '@/lib/table-row-detail';
 
@@ -84,6 +90,8 @@ export default function CustomersPage() {
   const [initialIsActive, setInitialIsActive] = useState(true);
   const [form, setForm] = useState<CreateUserInput>(emptyCreate);
   const [feeShare, setFeeShare] = useState<CustomerFeeShare>(emptyFeeShare());
+  const [feeShareUseHq, setFeeShareUseHq] = useState(true);
+  const [hqFeeShareDefault, setHqFeeShareDefault] = useState<CustomerFeeShare | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -201,6 +209,13 @@ export default function CustomersPage() {
     e.preventDefault();
     setMsg('');
     try {
+      const usdtCheck = usdtShareTotalsMatch(feeShare);
+      if (!usdtCheck.ok) {
+        const text = formatUsdtShareMismatch(t, usdtCheck);
+        window.alert(text);
+        setMsg(text);
+        return;
+      }
       const check = escrowShareTotalsMatch(feeShare);
       if (!check.ok) {
         const text = formatEscrowShareMismatch(t, check);
@@ -208,7 +223,11 @@ export default function CustomersPage() {
         setMsg(text);
         return;
       }
-      await api.users.create({ ...form, role: 'CUSTOMER', feeShare });
+      await api.users.create({
+        ...form,
+        role: 'CUSTOMER',
+        feeShare: feeShareUseHq ? undefined : feeShare,
+      });
       setModal(null);
       setForm(emptyCreate);
       setMsg(t('customers.created'));
@@ -236,11 +255,16 @@ export default function CustomersPage() {
             onClick={() => {
               setForm(emptyCreate);
               setFeeShare(emptyFeeShare());
+              setFeeShareUseHq(true);
               setModal('create');
               setMsg('');
               hqPolicyApi
                 .getCommission()
-                .then((c) => setFeeShare(feeShareFromHq(c.orgShare)))
+                .then((c) => {
+                  const d = feeShareFromHq(c.orgShare);
+                  setHqFeeShareDefault(d);
+                  setFeeShare(d);
+                })
                 .catch(console.error);
             }}
             className="pg-btn pg-btn-primary"
@@ -600,7 +624,14 @@ export default function CustomersPage() {
               <div className="pg-inset-panel">
                 <p className="pg-inset-title">{t('feeShare.title')}</p>
                 <div className="mt-2">
-                  <CustomerFeeShareEditor value={feeShare} onChange={setFeeShare} canEdit />
+                  <CustomerFeeShareEditor
+                    value={feeShare}
+                    onChange={setFeeShare}
+                    canEdit
+                    useHqDefault={feeShareUseHq}
+                    onUseHqDefaultChange={setFeeShareUseHq}
+                    hqDefault={hqFeeShareDefault}
+                  />
                 </div>
               </div>
               <label className="pg-field">

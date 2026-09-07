@@ -10,7 +10,7 @@ function n(value: unknown, digits: number): number {
   return Number(x.toFixed(digits));
 }
 
-const FIATS: FiatCurrency[] = ['KRW', 'JPY', 'THB', 'CNY', 'USD'];
+const FIATS: FiatCurrency[] = ['KRW', 'JPY', 'THB', 'CNY', 'HKD', 'USD'];
 
 export function computeCostBreakdown(input: {
   depositFiat: number;

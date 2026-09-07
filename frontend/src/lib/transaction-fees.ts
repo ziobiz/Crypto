@@ -6,6 +6,11 @@ import {
   fixedFeeSum,
   percentMultiplierSum,
 } from '@/lib/fee-component';
+import {
+  applyCurrencyAmount,
+  DEFAULT_CURRENCY_AMOUNT_DISPLAY,
+  type HqCurrencyAmountDisplayPolicy,
+} from '@/lib/currency-amount';
 
 export type { TransactionFees };
 
@@ -61,6 +66,8 @@ export function calculateFromTargetUsdt(
   targetUsdt: number,
   exchangeRate: number,
   fees: TransactionFees,
+  currency = 'USD',
+  policy: HqCurrencyAmountDisplayPolicy = DEFAULT_CURRENCY_AMOUNT_DISPLAY,
 ): UsdtFeeBreakdown {
   const pctSum = percentMultiplierSum(fees);
   const fixed = fixedFeeSum(fees);
@@ -78,6 +85,6 @@ export function calculateFromTargetUsdt(
     transferFeeUsdt,
     otherFeeUsdt,
     netUsdt: Number(targetUsdt.toFixed(8)),
-    requiredFiat: Number((grossUsdt * exchangeRate).toFixed(2)),
+    requiredFiat: applyCurrencyAmount(grossUsdt * exchangeRate, currency, policy),
   };
 }

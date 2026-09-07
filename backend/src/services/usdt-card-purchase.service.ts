@@ -24,9 +24,13 @@ import { quoteCardFromTarget, splitCardCharge } from './card-fee.service';
 import { chargeIcopayCard, type IcopayCardInput } from './icopay.service';
 import {
   breakdownFromFiat,
+  getCurrencyAmountDisplayPolicy,
+  isDepositBelowFees,
+  minFiatForNetUsdt,
   resolveFeesForPurchase,
   type ResolvedTransactionFees,
 } from './usdt-fee-breakdown.service';
+import { applyCurrencyAmount } from '../lib/currency-amount';
 import { validateCustomerTransactionAmount } from './transaction-limit.service';
 import {
   previewUsdtTransactionFees,
@@ -88,23 +92,27 @@ export async function previewUsdtCardFees(
   await hqPolicyService.assertUsdtFiatMethodEnabled(currencyForPolicy, 'CARD');
 
   if (input.cardChargeFiat != null && input.cardChargeFiat > 0) {
+    const amountPolicy = await getCurrencyAmountDisplayPolicy();
+    const currency = input.fiatCurrency ?? 'JPY';
+    const cardChargeFiat = applyCurrencyAmount(input.cardChargeFiat, currency, amountPolicy);
     const { cardFeeFiat, fiatForConversion } = splitCardCharge(
-      input.cardChargeFiat,
+      cardChargeFiat,
       cardConfig.cardFeePercent,
+      currency,
+      amountPolicy,
     );
     const base = await previewUsdtTransactionFees(user, {
       walletId: input.walletId,
       fiatCurrency: input.fiatCurrency,
       fiatAmount: fiatForConversion,
     });
-    const currency = input.fiatCurrency ?? 'JPY';
-    validateCardChargeAmount(cardConfig, currency, input.cardChargeFiat);
+    validateCardChargeAmount(cardConfig, currency, cardChargeFiat);
     return {
       ...base,
       paymentMethod: 'CARD' as const,
       cardFeePercent: cardConfig.cardFeePercent,
       cardFeeFiat,
-      cardChargeFiat: input.cardChargeFiat,
+      cardChargeFiat,
       fiatForConversion,
     };
   }
@@ -124,6 +132,8 @@ export async function previewUsdtCardFees(
       fiatForConversion: base.fiatAmount,
     };
   }
+  const currency = input.fiatCurrency ?? 'JPY';
+  const amountPolicy = await getCurrencyAmountDisplayPolicy();
   const cardQuote = quoteCardFromTarget(
     {
       requiredFiat: base.breakdown.requiredFiat,
@@ -135,8 +145,9 @@ export async function previewUsdtCardFees(
       otherFeeUsdt: base.breakdown.otherFeeUsdt,
     },
     cardConfig.cardFeePercent,
+    currency,
+    amountPolicy,
   );
-  const currency = input.fiatCurrency ?? 'JPY';
   validateCardChargeAmount(cardConfig, currency, cardQuote.cardChargeFiat);
   return {
     ...base,
@@ -202,15 +213,35 @@ export async function createUsdtCardPurchase(
   let fees: ResolvedTransactionFees;
   let localPremiumSnapshot = null;
   let feeBreakdown: ReturnType<typeof breakdownFromFiat> | null = null;
+  const feeShareProfile = await prisma.customerProfile.findUnique({
+    where: { id: user.customerProfileId },
+    select: { feeShare: true, customerType: true },
+  });
+  const feeShare = feeShareProfile?.feeShare ?? null;
 
   if (input.cardChargeFiat != null && input.cardChargeFiat > 0) {
-    const split = splitCardCharge(input.cardChargeFiat, cardPolicy.cardFeePercent);
-    cardChargeFiat = input.cardChargeFiat;
+    const amountPolicy = await getCurrencyAmountDisplayPolicy();
+    const roundedCharge = applyCurrencyAmount(input.cardChargeFiat, currency, amountPolicy);
+    const split = splitCardCharge(
+      roundedCharge,
+      cardPolicy.cardFeePercent,
+      currency,
+      amountPolicy,
+    );
+    cardChargeFiat = roundedCharge;
     cardFeeFiat = split.cardFeeFiat;
     fiatAmount = split.fiatForConversion;
     validateCardChargeAmount(cardPolicy, currency, cardChargeFiat);
-    fees = await resolveFeesForPurchase(wallet, currency, fiatAmount, rate);
+    fees = await resolveFeesForPurchase(wallet, currency, fiatAmount, rate, { feeShare });
     feeBreakdown = breakdownFromFiat(fiatAmount, rate, fees);
+    if (isDepositBelowFees(feeBreakdown)) {
+      const minFiat = minFiatForNetUsdt(1, rate, fees, currency, amountPolicy);
+      throw new AppError(
+        400,
+        `Deposit below fees: net USDT is 0. Need at least ~${minFiat} ${currency} for ~1 USDT net.`,
+        'DEPOSIT_BELOW_FEES',
+      );
+    }
     expected = feeBreakdown.netUsdt;
     const range = calculateExpectedUsdtRange(fiatAmount, rate, fees);
     min = range.min;
@@ -236,10 +267,7 @@ export async function createUsdtCardPurchase(
     max = range.max;
   }
 
-  const customerProfile = await prisma.customerProfile.findUnique({
-    where: { id: user.customerProfileId },
-    select: { customerType: true },
-  });
+  const customerProfile = feeShareProfile;
   if (!customerProfile) {
     throw new AppError(404, 'Customer profile not found', 'NOT_FOUND');
   }
@@ -253,12 +281,16 @@ export async function createUsdtCardPurchase(
 
   const orderId = generateTicketNo();
   const waiverAt = new Date();
-  const feeSnapshots = buildFeeSnapshotFields(fees, {
-    fxFeeUsdt: feeBreakdown?.fxFeeUsdt ?? 0,
-    gasFeeUsdt: feeBreakdown?.gasFeeUsdt ?? 0,
-    transferFeeUsdt: feeBreakdown?.transferFeeUsdt ?? 0,
-    otherFeeUsdt: feeBreakdown?.baseOtherFeeUsdt ?? feeBreakdown?.otherFeeUsdt ?? 0,
-  });
+  const feeSnapshots = buildFeeSnapshotFields(
+    fees,
+    {
+      fxFeeUsdt: feeBreakdown?.fxFeeUsdt ?? 0,
+      gasFeeUsdt: feeBreakdown?.gasFeeUsdt ?? 0,
+      transferFeeUsdt: feeBreakdown?.transferFeeUsdt ?? 0,
+      otherFeeUsdt: feeBreakdown?.baseOtherFeeUsdt ?? feeBreakdown?.otherFeeUsdt ?? 0,
+    },
+    feeBreakdown?.operatingFeeUsdt ?? 0,
+  );
 
   const ticket = await prisma.$transaction(async (tx) => {
     const created = await tx.transactionTicket.create({

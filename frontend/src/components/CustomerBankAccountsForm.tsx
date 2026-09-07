@@ -3,14 +3,14 @@
 import { useT } from '@/context/LocaleProvider';
 
 export type RegisterBankAccount = {
-  currency: 'KRW' | 'JPY' | 'THB' | 'CNY';
+  currency: 'KRW' | 'JPY' | 'THB' | 'CNY' | 'HKD';
   bankName: string;
   accountNumber: string;
   accountHolder: string;
   branchName: string;
 };
 
-const BANK_CURRENCIES = ['KRW', 'JPY', 'THB', 'CNY'] as const;
+const BANK_CURRENCIES = ['KRW', 'JPY', 'THB', 'CNY', 'HKD'] as const;
 
 export function emptyBankAccounts(): RegisterBankAccount[] {
   return BANK_CURRENCIES.map((currency) => ({
