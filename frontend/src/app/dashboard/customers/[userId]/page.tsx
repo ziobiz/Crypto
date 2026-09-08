@@ -5,10 +5,8 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthProvider';
 import { useT } from '@/context/LocaleProvider';
-import { api, hqPolicyApi, type CustomerFeeShare, type KycCase, type ManagedUser } from '@/lib/api';
+import { api, type KycCase, type ManagedUser } from '@/lib/api';
 import { KycFileLink } from '@/components/KycFileLink';
-import { CustomerFeeShareEditor, emptyFeeShare, feeShareFromHq } from '@/components/CustomerFeeShareEditor';
-import { escrowShareTotalsMatch, formatEscrowShareMismatch, parseEscrowShareMismatch } from '@/lib/escrow-share-totals';
 import { formatDate } from '@/lib/format';
 import type { MessageKey } from '@/i18n/messages';
 
@@ -37,8 +35,6 @@ export default function CustomerKycDetailPage() {
   const t = useT();
   const [kyc, setKyc] = useState<KycCase | null>(null);
   const [profile, setProfile] = useState<ManagedUser | null>(null);
-  const [feeShare, setFeeShare] = useState<CustomerFeeShare>(emptyFeeShare());
-  const [feeShareCustom, setFeeShareCustom] = useState(false);
   const [reason, setReason] = useState('');
   const [hqNote, setHqNote] = useState('');
   const [draftAction, setDraftAction] = useState<'APPROVE' | 'REJECT' | null>(null);
@@ -48,22 +44,7 @@ export default function CustomerKycDetailPage() {
 
   const load = () => {
     api.kyc.getByUser(userId).then(setKyc).catch(console.error);
-    api.users.get(userId).then((u) => {
-      setProfile(u);
-      const share = u.customerProfile?.feeShare;
-      if (share) {
-        setFeeShare(share);
-        setFeeShareCustom(true);
-      } else {
-        setFeeShareCustom(false);
-        hqPolicyApi
-          .getCommission()
-          .then((c) =>
-            setFeeShare(feeShareFromHq(c.orgShare)),
-          )
-          .catch(console.error);
-      }
-    }).catch(console.error);
+    api.users.get(userId).then(setProfile).catch(console.error);
   };
 
   useEffect(() => {
@@ -76,7 +57,7 @@ export default function CustomerKycDetailPage() {
   if (!kyc) return <p className="pg-hint">{t('common.loading')}</p>;
 
   const isHq = user?.role === 'SUPER_ADMIN';
-  const canEditFeeShare = user?.role === 'SUPER_ADMIN' || user?.role === 'ORG_STAFF';
+  const canEditCustomer = user?.role === 'SUPER_ADMIN' || user?.role === 'ORG_STAFF';
 
   async function saveReview() {
     if (!draftAction) {
@@ -97,33 +78,6 @@ export default function CustomerKycDetailPage() {
       setMsg(t('kyc.reviewSaved'));
     } catch (e) {
       setMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function saveFeeShare() {
-    if (!profile) return;
-    setLoading(true);
-    setMsg('');
-    try {
-      const check = escrowShareTotalsMatch(feeShare);
-      if (!check.ok) {
-        const text = formatEscrowShareMismatch(t, check);
-        window.alert(text);
-        setMsg(text);
-        return;
-      }
-      const next = await api.users.update(profile.id, { feeShare });
-      setProfile(next);
-      setFeeShareCustom(Boolean(next.customerProfile?.feeShare));
-      setMsg(t('feeShare.saved'));
-    } catch (e) {
-      const raw = e instanceof Error ? e.message : t('users.saveFailed');
-      const parsed = parseEscrowShareMismatch(raw);
-      const text = parsed ? formatEscrowShareMismatch(t, parsed) : raw;
-      if (parsed) window.alert(text);
-      setMsg(text);
     } finally {
       setLoading(false);
     }
@@ -185,7 +139,7 @@ export default function CustomerKycDetailPage() {
                 <input
                   type="checkbox"
                   checked={profile.customerProfile.simulatorEnabled !== false}
-                  disabled={loading || !canEditFeeShare}
+                  disabled={loading || !canEditCustomer}
                   onChange={async (e) => {
                     if (!profile) return;
                     setLoading(true);
@@ -213,7 +167,7 @@ export default function CustomerKycDetailPage() {
                 <span className="font-medium">{t('customers.sRate.title')}</span>
                 <select
                   className="pg-select mt-1 w-full max-w-xs"
-                  disabled={loading || !canEditFeeShare}
+                  disabled={loading || !canEditCustomer}
                   value={profile.customerProfile.simulatorRateMode ?? 'LIVE'}
                   onChange={async (e) => {
                     if (!profile) return;
@@ -316,19 +270,12 @@ export default function CustomerKycDetailPage() {
       )}
       {profile && (
         <div className="pg-card">
-          <div className="pg-card-head">
-            {t('feeShare.title')}
-            <span className="ml-2 text-[11px] font-normal text-slate-500">
-              {feeShareCustom ? t('feeShare.custom') : t('feeShare.usingDefault')}
-            </span>
-          </div>
+          <div className="pg-card-head">{t('feeShare.title')}</div>
           <div className="pg-card-body space-y-3">
-            <CustomerFeeShareEditor value={feeShare} onChange={setFeeShare} canEdit={canEditFeeShare} />
-            {canEditFeeShare && (
-              <button type="button" className="pg-btn pg-btn-primary" disabled={loading} onClick={saveFeeShare}>
-                {t('feeShare.save')}
-              </button>
-            )}
+            <p className="pg-hint">{t('feeShare.manageInFees')}</p>
+            <Link href="/dashboard/customers/fees" className="pg-btn pg-btn-secondary text-sm">
+              {t('customers.hub.fees')}
+            </Link>
           </div>
         </div>
       )}

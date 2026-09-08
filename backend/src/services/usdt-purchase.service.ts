@@ -22,8 +22,8 @@ import { computeExpectedCompleteAt, type HqSlaConfig } from '../constants/hq-pol
 import { evaluateUsdtAmountVariance } from '../lib/usdt-amount-guard';
 import {
   resolveFeesForAmount,
-  commissionPoolFromSnapshots,
-  getFeeDiagramDisplay,
+  grossUsdtFromPurchaseSnapshots,
+  getFeeDiagramDisplayForCustomer,
 } from './transaction-fee.service';
 import { buildFeeSnapshotFields } from '../lib/fee-component';
 import {
@@ -32,6 +32,8 @@ import {
   breakdownFromTarget,
   getLocalPremiumContext,
   resolveFeesForPurchase,
+  withOperatingFeeRates,
+  loadOperatingFeeRatesForQuote,
   type ResolvedTransactionFees,
 } from './usdt-fee-breakdown.service';
 import {
@@ -177,6 +179,7 @@ async function quoteFromTarget(
   targetUsdt: number,
   rate: number,
   feePolicy?: Parameters<typeof resolveFeesForAmount>[3],
+  customerProfileId?: string | null,
 ): Promise<{
   fees: ResolvedTransactionFees;
   fiatAmount: number;
@@ -192,12 +195,19 @@ async function quoteFromTarget(
       localPremium = null;
     }
   }
-  let baseFees = await resolveFeesForAmount(wallet, currency, 0, feePolicy);
+  const opRates = await loadOperatingFeeRatesForQuote({ customerProfileId });
+  let baseFees = withOperatingFeeRates(
+    await resolveFeesForAmount(wallet, currency, 0, feePolicy),
+    opRates,
+  );
   let fees: ResolvedTransactionFees =
     localPremium != null ? applyLocalPremiumToBaseFees(baseFees, localPremium, 0) : baseFees;
   let breakdown = breakdownFromTarget(targetUsdt, rate, fees);
 
-  baseFees = await resolveFeesForAmount(wallet, currency, breakdown.requiredFiat, feePolicy);
+  baseFees = withOperatingFeeRates(
+    await resolveFeesForAmount(wallet, currency, breakdown.requiredFiat, feePolicy),
+    opRates,
+  );
   if (hasLocalPremium && localPremium) {
     try {
       localPremium = await getLocalPremiumContext(currency as LocalPremiumCurrency);
@@ -241,11 +251,11 @@ export async function previewUsdtTransactionFees(
 
   const sessionPolicy = await hqPolicyService.getSessionPolicy();
   const currency = input.fiatCurrency ?? sessionPolicy.defaultUsdtFiatCurrency ?? 'JPY';
-  const feeDiagramDisplay = await getFeeDiagramDisplay();
+  const feeDiagramDisplay = await getFeeDiagramDisplayForCustomer(user.customerProfileId);
   const { rate } = await fetchUsdtFiatRate(currency);
 
   if (input.targetUsdtAmount != null && input.targetUsdtAmount > 0) {
-    const quoted = await quoteFromTarget(wallet, currency, input.targetUsdtAmount, rate);
+    const quoted = await quoteFromTarget(wallet, currency, input.targetUsdtAmount, rate, undefined, user.customerProfileId);
     let transactionLimits;
     if (user.customerProfileId && quoted.fiatAmount > 0) {
       const profile = await prisma.customerProfile.findUnique({
@@ -279,7 +289,7 @@ export async function previewUsdtTransactionFees(
   }
 
   const fiatAmount = input.fiatAmount ?? 0;
-  const fees = await resolveFeesForPurchase(wallet, currency, fiatAmount, rate);
+  const fees = await resolveFeesForPurchase(wallet, currency, fiatAmount, rate, { customerProfileId: user.customerProfileId });
   const breakdown =
     fiatAmount > 0 ? breakdownFromFiat(fiatAmount, rate, fees) : undefined;
   const localPremium =
@@ -340,7 +350,7 @@ export async function simulateHqUsdtQuote(input: {
 }) {
   const sessionPolicy = await hqPolicyService.getSessionPolicy();
   const currency = input.fiatCurrency ?? sessionPolicy.defaultUsdtFiatCurrency ?? 'JPY';
-  const feeDiagramDisplay = await getFeeDiagramDisplay();
+  const feeDiagramDisplay = await getFeeDiagramDisplayForCustomer(null);
   const { rate, source, fetchedAt } = await fetchUsdtFiatRate(currency);
   const network = input.network?.trim();
   if (!network) {
@@ -453,7 +463,7 @@ export async function createUsdtPurchaseTicket(
   let localPremiumSnapshot: LocalMarketPremiumAnalysis | null = null;
 
   if (input.targetUsdtAmount != null && input.targetUsdtAmount > 0) {
-    const quoted = await quoteFromTarget(wallet, currency, input.targetUsdtAmount, rate);
+    const quoted = await quoteFromTarget(wallet, currency, input.targetUsdtAmount, rate, undefined, user.customerProfileId);
     fees = quoted.fees;
     fiatAmount = quoted.fiatAmount;
     feeBreakdown = quoted.breakdown;
@@ -467,7 +477,7 @@ export async function createUsdtPurchaseTicket(
     max = range.max;
   } else {
     fiatAmount = input.fiatAmount!;
-    fees = await resolveFeesForPurchase(wallet, currency, fiatAmount, rate);
+    fees = await resolveFeesForPurchase(wallet, currency, fiatAmount, rate, { customerProfileId: user.customerProfileId });
     feeBreakdown = breakdownFromFiat(fiatAmount, rate, fees);
     expected = feeBreakdown.netUsdt;
     if (isLocalPremiumCurrency(currency)) {
@@ -823,7 +833,8 @@ export async function transitionUsdtPurchaseStatus(
       const detail = await tx.usdtPurchaseDetail.findUniqueOrThrow({
         where: { ticketId },
       });
-      const commissionPool = commissionPoolFromSnapshots(detail);
+      // 운영수수료 = 환산 USDT × 합계% + 합계 건당 → 조직 배분 기준은 환산 USDT
+      const commissionPool = grossUsdtFromPurchaseSnapshots(detail);
       await settleCommission(tx, {
         ticketId,
         ticketType: TicketType.USDT_PURCHASE,

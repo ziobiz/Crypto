@@ -209,7 +209,7 @@ export async function createUsdtCardPurchase(
     cardFeeFiat = split.cardFeeFiat;
     fiatAmount = split.fiatForConversion;
     validateCardChargeAmount(cardPolicy, currency, cardChargeFiat);
-    fees = await resolveFeesForPurchase(wallet, currency, fiatAmount, rate);
+    fees = await resolveFeesForPurchase(wallet, currency, fiatAmount, rate, { customerProfileId: user.customerProfileId });
     feeBreakdown = breakdownFromFiat(fiatAmount, rate, fees);
     expected = feeBreakdown.netUsdt;
     const range = calculateExpectedUsdtRange(fiatAmount, rate, fees);

@@ -123,6 +123,14 @@ enum SimulatorRateMode {
   SAND
 }
 
+/// 고객 USDT 수수료 도식 청구방식
+enum FeeBillingMethod {
+  FOLLOW_HQ
+  INTEGRATED
+  ITEMIZED
+  HYBRID
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ORGANIZATION — 5단계 영업 조직 트리
 // ─────────────────────────────────────────────────────────────────────────────
@@ -218,6 +226,7 @@ model User {
   createdUsers    User[] @relation("UserCreatedBy")
   managementLogs  UserManagementLog[] @relation("UserMgmtLogs")
   mgmtActions     UserManagementLog[] @relation("UserMgmtChangedBy")
+  customerFeeHistories CustomerFeeHistory[] @relation("CustomerFeeChangedBy")
 
   // 에스크로 거래에서의 역할
   escrowAsBuyer  TradeEscrowDetail[] @relation("EscrowBuyer")
@@ -274,11 +283,15 @@ model CustomerProfile {
   simulatorEnabled Boolean @default(true)
   /// 시뮬레이터 수수료 체계 — LIVE=실제, SAND=시뮬레이터 전용 (본사 기본값보다 우선)
   simulatorRateMode SimulatorRateMode @default(LIVE)
+  /// 수수료 청구방식 — FOLLOW_HQ면 본사 기본(INTEGRATED/ITEMIZED/HYBRID)
+  feeBillingMethod FeeBillingMethod @default(FOLLOW_HQ)
 
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   tickets TransactionTicket[]
+  feePolicies CustomerFeePolicy[]
+  feeHistories CustomerFeeHistory[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -286,6 +299,69 @@ model CustomerProfile {
   @@index([recruitingOrgId])
   @@index([businessNumber])
   @@map("customer_profiles")
+}
+
+/// HQ 운영수수료 타입 템플릿 (A/B/DEFAULT 등)
+model FeeTypeTemplate {
+  id         String   @id @default(cuid())
+  /// USDT_PURCHASE | TRADE_ESCROW — 종류별 독립 타입
+  ticketKind String
+  code       String
+  name       String
+  isDefault  Boolean  @default(false)
+  sortOrder  Int      @default(0)
+  /// HqOrgSharePolicy shape (해당 ticketKind 배분만 사용)
+  config     Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([ticketKind, code])
+  @@index([ticketKind, isDefault])
+  @@index([ticketKind, sortOrder])
+  @@map("fee_type_templates")
+}
+
+/// 고객별 티켓종류(USDT/무역) 수수료 정책 — 적용시작일 기준 최신 유효
+model CustomerFeePolicy {
+  id                 String   @id @default(cuid())
+  customerProfileId  String
+  customerProfile    CustomerProfile @relation(fields: [customerProfileId], references: [id], onDelete: Cascade)
+  /// USDT_PURCHASE | TRADE_ESCROW
+  ticketKind         String
+  /// 템플릿 code 또는 MANUAL
+  feeTypeCode        String
+  feeTypeName        String?
+  operatingPercent   Decimal  @db.Decimal(10, 6)
+  operatingFixedUsdt Decimal  @db.Decimal(18, 8) @default(0)
+  /// HqOrgShareByType
+  shares             Json
+  applyStartDate     DateTime @db.Date
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([customerProfileId, ticketKind, applyStartDate])
+  @@index([ticketKind, applyStartDate])
+  @@map("customer_fee_policies")
+}
+
+model CustomerFeeHistory {
+  id                String   @id @default(cuid())
+  customerProfileId String
+  customerProfile   CustomerProfile @relation(fields: [customerProfileId], references: [id], onDelete: Cascade)
+  ticketKind        String
+  /// CREATE | UPDATE | DELETE | TYPE_ASSIGN
+  action            String
+  feeTypeCode       String?
+  applyStartDate    DateTime? @db.Date
+  beforeJson        Json?
+  afterJson         Json?
+  changedByUserId   String?
+  changedBy         User?    @relation("CustomerFeeChangedBy", fields: [changedByUserId], references: [id])
+  createdAt         DateTime @default(now())
+
+  @@index([customerProfileId, ticketKind, createdAt])
+  @@index([createdAt])
+  @@map("customer_fee_histories")
 }
 
 enum KycStatus {

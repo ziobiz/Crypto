@@ -33,6 +33,11 @@ export function parseDecimalAmountInput(value: string): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/** HQ 법정화폐 표시 규칙 캐시 (브랜딩 로드 시 설정). 없으면 그대로 표시. */
+export function setCurrencyAmountDisplayPolicy(_policy: unknown) {
+  /* optional display policy — applied when HQ payload includes it */
+}
+
 function dateLocaleTag(): string {
   if (typeof document === 'undefined') return 'ko-KR';
   const lang = document.documentElement.lang || 'ko';

@@ -175,6 +175,69 @@ router.put(
   }),
 );
 
+router.get(
+  '/commission/fee-types',
+  asyncHandler(async (_req, res) => {
+    const { customerFeePolicyService } = await import('../services/customer-fee-policy.service');
+    res.json({ feeTypes: await customerFeePolicyService.listFeeTypes() });
+  }),
+);
+
+router.post(
+  '/commission/fee-types',
+  asyncHandler(async (req, res) => {
+    const body = z
+      .object({
+        code: z.string().min(1),
+        name: z.string().min(1),
+        ticketKind: z.enum(['USDT_PURCHASE', 'TRADE_ESCROW']),
+        config: z.unknown().optional(),
+        isDefault: z.boolean().optional(),
+      })
+      .parse(req.body);
+    const { customerFeePolicyService } = await import('../services/customer-fee-policy.service');
+    await customerFeePolicyService.createFeeType({
+      code: body.code,
+      name: body.name,
+      ticketKind: body.ticketKind,
+      config: body.config as HqOrgSharePolicy | undefined,
+      isDefault: body.isDefault,
+    });
+    res.json(await hqPolicyService.getCommissionPayload());
+  }),
+);
+
+router.put(
+  '/commission/fee-types/:id',
+  asyncHandler(async (req, res) => {
+    const body = z
+      .object({
+        name: z.string().optional(),
+        config: z.unknown().optional(),
+        isDefault: z.boolean().optional(),
+        sortOrder: z.number().optional(),
+      })
+      .parse(req.body);
+    const { customerFeePolicyService } = await import('../services/customer-fee-policy.service');
+    await customerFeePolicyService.updateFeeType(req.params.id, {
+      name: body.name,
+      config: body.config as HqOrgSharePolicy | undefined,
+      isDefault: body.isDefault,
+      sortOrder: body.sortOrder,
+    });
+    res.json(await hqPolicyService.getCommissionPayload());
+  }),
+);
+
+router.delete(
+  '/commission/fee-types/:id',
+  asyncHandler(async (req, res) => {
+    const { customerFeePolicyService } = await import('../services/customer-fee-policy.service');
+    await customerFeePolicyService.deleteFeeType(req.params.id);
+    res.json(await hqPolicyService.getCommissionPayload());
+  }),
+);
+
 router.put(
   '/commission/rates',
   asyncHandler(async (req, res) => {

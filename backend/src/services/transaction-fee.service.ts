@@ -12,6 +12,7 @@ import {
   SYMBOL_FEE_CURRENCIES,
   defaultGasNetworkPolicy,
   gasFeeUsdtForNetwork,
+  normalizeFeeBillingPresentation,
   normalizeGasNetworkPolicy,
 } from '../constants/hq-policy';
 import { mergeLiveFeesWithSandboxBasic, sandboxBasicDeltas, applySandboxGasDelta } from '../lib/sandbox-fee-merge';
@@ -104,7 +105,13 @@ export function tierToTransactionFees(tier: SymbolFeeTierRow): TransactionFees {
 export function normalizeFeeDiagramDisplay(
   raw?: Partial<FeeDiagramDisplayConfig>,
 ): FeeDiagramDisplayConfig {
-  return { ...DEFAULT_FEE_DIAGRAM_DISPLAY, ...raw };
+  return {
+    ...DEFAULT_FEE_DIAGRAM_DISPLAY,
+    ...raw,
+    defaultFeeBillingMethod: normalizeFeeBillingPresentation(
+      raw?.defaultFeeBillingMethod ?? DEFAULT_FEE_DIAGRAM_DISPLAY.defaultFeeBillingMethod,
+    ),
+  };
 }
 
 /** 저장된 본사정책 + 구 필드 마이그레이션 */
@@ -196,6 +203,27 @@ export type FeePolicyScope = 'live' | 'sandbox';
 export async function getFeeDiagramDisplay(): Promise<FeeDiagramDisplayConfig> {
   const risk = await getCommissionRiskConfig();
   return risk.feeDiagramDisplay ?? normalizeFeeDiagramDisplay();
+}
+
+/** 고객·본사 기본을 반영한 도식 표시 설정 (billingMethod 해석 포함) */
+export async function getFeeDiagramDisplayForCustomer(
+  customerProfileId?: string | null,
+): Promise<FeeDiagramDisplayConfig> {
+  const base = await getFeeDiagramDisplay();
+  const hqDefault = normalizeFeeBillingPresentation(base.defaultFeeBillingMethod);
+  if (!customerProfileId) {
+    return { ...base, billingMethod: hqDefault };
+  }
+  const profile = await prisma.customerProfile.findUnique({
+    where: { id: customerProfileId },
+    select: { feeBillingMethod: true },
+  });
+  const method = profile?.feeBillingMethod;
+  const billingMethod =
+    !method || method === 'FOLLOW_HQ'
+      ? hqDefault
+      : normalizeFeeBillingPresentation(method);
+  return { ...base, billingMethod };
 }
 
 export async function getGasNetworkPolicy() {
@@ -330,7 +358,7 @@ export function totalFixedFeesUsdt(grossUsdt: number, fees: TransactionFees): nu
   return amounts.gasFeeUsdt + amounts.transferFeeUsdt + amounts.otherFeeUsdt;
 }
 
-/** 티켓 스냅샷 기준 총 수수료 풀 (USDT) */
+/** 티켓 스냅샷 기준 총 수수료 풀 (USDT) — FX·가스·송금·기타 (운영수수료 제외) */
 export function commissionPoolFromSnapshots(detail: {
   fiatAmount: unknown;
   exchangeRate: unknown;
@@ -361,4 +389,14 @@ export function commissionPoolFromSnapshots(detail: {
     0;
   const other = Number(detail.otherFeeSnapshot) || 0;
   return Number((fxFee + gas + transfer + other).toFixed(8));
+}
+
+/** USDT 매입 환산 총액(수수료 전) — 운영수수료(합계%+건당) 배분 기준 */
+export function grossUsdtFromPurchaseSnapshots(detail: {
+  fiatAmount: unknown;
+  exchangeRate: unknown;
+}): number {
+  const rate = Number(detail.exchangeRate);
+  if (!(rate > 0)) return 0;
+  return Number((Number(detail.fiatAmount) / rate).toFixed(8));
 }

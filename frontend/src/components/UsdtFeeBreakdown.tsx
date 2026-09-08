@@ -20,6 +20,7 @@ export type UsdtFeeBreakdown = {
   localPremiumPercent?: number;
   kimchiPremiumFeeUsdt?: number;
   kimchiPremiumPercent?: number;
+  operatingFeeUsdt?: number;
   fairExchangeRate?: number;
 };
 
@@ -27,6 +28,8 @@ type FeeRates = Partial<TransactionFees> & {
   baseOtherFeeUsdt?: number;
   localPremiumPercent?: number;
   kimchiPremiumPercent?: number;
+  operatingFeePercent?: number;
+  operatingFeeFixedUsdt?: number;
 };
 
 type FeeStep = {
@@ -41,6 +44,15 @@ function isLocalPremiumCurrency(currency: string) {
   return (LOCAL_PREMIUM_CURRENCIES as readonly string[]).includes(currency);
 }
 
+function formatOperatingFeeRate(fees?: FeeRates): string {
+  const pct = fees?.operatingFeePercent ?? 0;
+  const fixed = fees?.operatingFeeFixedUsdt ?? 0;
+  const parts: string[] = [];
+  if (pct > 0) parts.push(`${pct}%`);
+  if (fixed > 0) parts.push(`${fixed} USDT`);
+  return parts.length > 0 ? parts.join(' + ') : '—';
+}
+
 const DEFAULT_DISPLAY: FeeDiagramDisplayConfig = {
   gross: true,
   fxFee: true,
@@ -48,9 +60,11 @@ const DEFAULT_DISPLAY: FeeDiagramDisplayConfig = {
   transferFee: true,
   otherFee: true,
   localPremium: true,
+  operatingFee: true,
   net: true,
   requiredFiat: true,
   showRates: true,
+  defaultFeeBillingMethod: 'ITEMIZED',
 };
 
 export function UsdtFeeBreakdownPanel({
@@ -78,93 +92,147 @@ export function UsdtFeeBreakdownPanel({
 }) {
   const t = useT();
   const cfg = { ...DEFAULT_DISPLAY, ...display };
+  const billingMethod = cfg.billingMethod ?? cfg.defaultFeeBillingMethod ?? 'ITEMIZED';
   const premiumPct = breakdown.localPremiumPercent ?? breakdown.kimchiPremiumPercent ?? 0;
   const premiumFee = breakdown.localPremiumFeeUsdt ?? breakdown.kimchiPremiumFeeUsdt ?? 0;
   const showLocalPremium = isLocalPremiumCurrency(currency) && premiumPct > 0;
   const baseOther = breakdown.baseOtherFeeUsdt ?? fees?.baseOtherFeeUsdt ?? breakdown.otherFeeUsdt;
+  const operatingFeeUsdt = breakdown.operatingFeeUsdt ?? 0;
 
   const premiumFeeLabel =
     currency === 'KRW'
       ? t('usdt.kimchiPremiumFee', { pct: premiumPct.toFixed(2) })
       : t('usdt.localPremiumFee', { currency, pct: premiumPct.toFixed(2) });
 
-  const allSteps: FeeStep[] = [
-    {
+  const itemizedFeeParts: Array<{ key: string; amount: number; rate?: string; label: string; tone: string }> = [];
+  if (cfg.fxFee) {
+    itemizedFeeParts.push({
+      key: 'fxFee',
+      amount: breakdown.fxFeeUsdt,
+      rate: fees ? formatFeeComponentLabel(fees, 'fx') : '—',
+      label: t('usdt.fxFee'),
+      tone: 'bg-amber-50',
+    });
+  }
+  if (cfg.gasFee) {
+    itemizedFeeParts.push({
+      key: 'gasFee',
+      amount: breakdown.gasFeeUsdt,
+      rate: fees ? formatFeeComponentLabel(fees, 'gas') : '—',
+      label: t('usdt.gasFee'),
+      tone: 'bg-orange-50',
+    });
+  }
+  if (cfg.transferFee) {
+    itemizedFeeParts.push({
+      key: 'transferFee',
+      amount: breakdown.transferFeeUsdt,
+      rate: fees ? formatFeeComponentLabel(fees, 'transfer') : '—',
+      label: t('usdt.transferFee'),
+      tone: 'bg-orange-50',
+    });
+  }
+  if (cfg.otherFee) {
+    if (showLocalPremium) {
+      itemizedFeeParts.push({
+        key: 'otherFeeBase',
+        amount: baseOther,
+        rate: fees ? formatFeeComponentLabel(fees, 'other') : '—',
+        label: t('usdt.otherFeeBase'),
+        tone: 'bg-orange-50',
+      });
+      if (cfg.localPremium) {
+        itemizedFeeParts.push({
+          key: 'localPremium',
+          amount: premiumFee,
+          rate: `${premiumPct.toFixed(2)}%`,
+          label: premiumFeeLabel,
+          tone: 'bg-rose-50',
+        });
+      }
+    } else {
+      itemizedFeeParts.push({
+        key: 'otherFee',
+        amount: breakdown.otherFeeUsdt,
+        rate: fees ? formatFeeComponentLabel(fees, 'other') : '—',
+        label: t('usdt.otherFee'),
+        tone: 'bg-orange-50',
+      });
+    }
+  } else if (cfg.localPremium && showLocalPremium) {
+    itemizedFeeParts.push({
+      key: 'localPremium',
+      amount: premiumFee,
+      rate: `${premiumPct.toFixed(2)}%`,
+      label: premiumFeeLabel,
+      tone: 'bg-rose-50',
+    });
+  }
+  if (cfg.operatingFee) {
+    itemizedFeeParts.push({
+      key: 'operatingFee',
+      amount: operatingFeeUsdt,
+      rate: formatOperatingFeeRate(fees),
+      label: t('usdt.operatingFee'),
+      tone: 'bg-sky-50',
+    });
+  }
+
+  const integratedTotal = itemizedFeeParts.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  const integratedRate = cfg.showRates
+    ? itemizedFeeParts
+        .map((p) => p.rate)
+        .filter((r) => r && r !== '—')
+        .join(' · ') || '—'
+    : undefined;
+
+  const allSteps: FeeStep[] = [];
+  if (cfg.gross) {
+    allSteps.push({
       key: 'gross',
       label: t('usdt.fee.gross'),
       rate: '—',
       value: `${breakdown.grossUsdt.toFixed(4)} USDT`,
       tone: 'bg-slate-100',
-    },
-    {
-      key: 'fxFee',
-      label: t('usdt.fxFee'),
-      rate: fees ? formatFeeComponentLabel(fees, 'fx') : '—',
-      value: `− ${breakdown.fxFeeUsdt.toFixed(4)} USDT`,
-      tone: 'bg-amber-50',
-    },
-    {
-      key: 'gasFee',
-      label: t('usdt.gasFee'),
-      rate: fees ? formatFeeComponentLabel(fees, 'gas') : '—',
-      value: `− ${breakdown.gasFeeUsdt.toFixed(4)} USDT`,
-      tone: 'bg-orange-50',
-    },
-    {
-      key: 'transferFee',
-      label: t('usdt.transferFee'),
-      rate: fees ? formatFeeComponentLabel(fees, 'transfer') : '—',
-      value: `− ${breakdown.transferFeeUsdt.toFixed(4)} USDT`,
-      tone: 'bg-orange-50',
-    },
-    ...(showLocalPremium
-      ? [
-          {
-            key: 'otherFeeBase',
-            label: t('usdt.otherFeeBase'),
-            rate: fees ? formatFeeComponentLabel(fees, 'other') : '—',
-            value: `− ${baseOther.toFixed(4)} USDT`,
-            tone: 'bg-orange-50',
-          },
-          {
-            key: 'localPremium',
-            label: premiumFeeLabel,
-            rate: `${premiumPct.toFixed(2)}%`,
-            value: `− ${premiumFee.toFixed(4)} USDT`,
-            tone: 'bg-rose-50',
-          },
-        ]
-      : [
-          {
-            key: 'otherFee',
-            label: t('usdt.otherFee'),
-            rate: fees ? formatFeeComponentLabel(fees, 'other') : '—',
-            value: `− ${breakdown.otherFeeUsdt.toFixed(4)} USDT`,
-            tone: 'bg-orange-50',
-          },
-        ]),
-    {
+    });
+  }
+
+  const showIntegrated = billingMethod === 'INTEGRATED' || billingMethod === 'HYBRID';
+  const showItemized = billingMethod === 'ITEMIZED' || billingMethod === 'HYBRID';
+
+  if (showIntegrated) {
+    allSteps.push({
+      key: 'integratedFee',
+      label: t('usdt.fee.integratedTotal'),
+      rate: integratedRate,
+      value: `− ${integratedTotal.toFixed(4)} USDT`,
+      tone: 'bg-violet-50',
+    });
+  }
+
+  if (showItemized) {
+    for (const p of itemizedFeeParts) {
+      allSteps.push({
+        key: p.key,
+        label: p.label,
+        rate: p.rate,
+        value: `− ${Number(p.amount).toFixed(4)} USDT`,
+        tone: p.tone,
+      });
+    }
+  }
+
+  if (cfg.net) {
+    allSteps.push({
       key: 'net',
       label: t('usdt.fee.net'),
       rate: '—',
       value: `${breakdown.netUsdt.toFixed(4)} USDT`,
       tone: 'bg-emerald-50 border-emerald-200',
-    },
-  ];
-
-  const visibleKeys = new Set<string>();
-  if (cfg.gross) visibleKeys.add('gross');
-  if (cfg.fxFee) visibleKeys.add('fxFee');
-  if (cfg.gasFee) visibleKeys.add('gasFee');
-  if (cfg.transferFee) visibleKeys.add('transferFee');
-  if (cfg.otherFee) {
-    visibleKeys.add('otherFee');
-    visibleKeys.add('otherFeeBase');
+    });
   }
-  if (cfg.localPremium) visibleKeys.add('localPremium');
-  if (cfg.net) visibleKeys.add('net');
 
-  const steps = allSteps.filter((s) => visibleKeys.has(s.key));
+  const steps = allSteps;
 
   const premiumNoteKey = `usdt.localPremiumNote.${currency}` as
     | 'usdt.localPremiumNote.KRW'
@@ -178,9 +246,10 @@ export function UsdtFeeBreakdownPanel({
         <span className="text-[10px] text-gray-500">
           1 USDT = {exchangeRate.toLocaleString()} {currency}
           {source ? ` · ${source}` : ''}
+          {` · ${t(`feeBilling.${billingMethod}` as 'feeBilling.INTEGRATED' | 'feeBilling.ITEMIZED' | 'feeBilling.HYBRID')}`}
         </span>
       </div>
-      {showLocalPremium && breakdown.fairExchangeRate && cfg.localPremium && (
+      {showLocalPremium && breakdown.fairExchangeRate && cfg.localPremium && showItemized && (
         <p className="mt-2 text-[10px] text-rose-700">
           {currency === 'KRW'
             ? t('usdt.kimchiPremiumNote', {
@@ -215,7 +284,7 @@ export function UsdtFeeBreakdownPanel({
             >
               <span className="text-[11px] text-gray-600">{s.label}</span>
               {cfg.showRates && (
-                <span className="text-center text-[11px] text-gray-500 tabular-nums min-w-[5rem]">
+                <span className="text-center text-[11px] text-gray-500 tabular-nums min-w-[5rem] break-all">
                   {s.rate}
                 </span>
               )}

@@ -1,5 +1,3 @@
-import type { SymbolFeeCurrency } from '../constants/hq-policy';
-
 export type ChartFiatCurrency = 'KRW' | 'JPY' | 'THB' | 'CNY';
 
 export const CHART_FIAT_CURRENCIES: ChartFiatCurrency[] = ['KRW', 'JPY', 'THB', 'CNY'];

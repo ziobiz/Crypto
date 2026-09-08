@@ -496,21 +496,12 @@ export const hqPolicyService = {
       include: { organization: { select: { id: true, code: true, name: true, type: true } } },
       orderBy: [{ ticketType: 'asc' }, { organization: { code: 'asc' } }],
     });
+    const { customerFeePolicyService } = await import('./customer-fee-policy.service');
+    await customerFeePolicyService.ensureFeeTypeTemplatesSeeded();
+    const feeTypes = await customerFeePolicyService.listFeeTypes();
+    const defaultType = feeTypes.find((t) => t.isDefault) ?? feeTypes[0];
     const orgShareRaw = await getConfig(HQ_CONFIG_KEYS.orgShare, defaultOrgSharePolicy());
-    const orgShare = normalizeOrgSharePolicy(orgShareRaw);
-    const profiles = await prisma.customerProfile.findMany({
-      where: { feeShare: { not: Prisma.JsonNull }, user: { deletedAt: null } },
-      select: {
-        feeShare: true,
-        user: { select: { id: true, email: true, name: true } },
-      },
-      take: 500,
-    });
-    const customerFeeShareOverrides = profiles.flatMap((p) => {
-      const share = persistableCustomerFeeShare(p.feeShare, orgShare);
-      if (!share) return [];
-      return [{ userId: p.user.id, email: p.user.email, name: p.user.name, feeShare: share }];
-    });
+    const orgShare = normalizeOrgSharePolicy(defaultType?.config ?? orgShareRaw);
     return {
       risk,
       feeTiers,
@@ -522,7 +513,13 @@ export const hqPolicyService = {
       kimchiPremium,
       rates,
       orgShare,
-      customerFeeShareOverrides,
+      feeTypes,
+      customerFeeShareOverrides: [] as Array<{
+        userId: string;
+        email: string;
+        name: string;
+        feeShare: ReturnType<typeof persistableCustomerFeeShare>;
+      }>,
       gasNetworks: normalizeGasNetworkPolicy(
         await getConfig(HQ_CONFIG_KEYS.gasNetworks, defaultGasNetworkPolicy()),
       ),
@@ -628,6 +625,8 @@ export const hqPolicyService = {
       entityType: 'HQ_ORG_SHARE',
       summary: '조직 단계별 수수료 배분 저장',
     });
+    const { customerFeePolicyService } = await import('./customer-fee-policy.service');
+    await customerFeePolicyService.syncDefaultFromOrgShare(normalized);
     return this.getCommissionPayload();
   },
 
@@ -1010,6 +1009,7 @@ export const hqPolicyService = {
         ['/dashboard/ledger', 'VIEW'],
         ['/dashboard/users', 'MODIFY'],
         ['/dashboard/customers', 'MODIFY'],
+        ['/dashboard/customers/fees', 'MODIFY'],
         ['/dashboard/simulator-logs', 'VIEW'],
         ['/dashboard/hq-policy/cost-analysis', 'MODIFY'],
         ['/dashboard/hq-policy/profit-analysis', 'MODIFY'],

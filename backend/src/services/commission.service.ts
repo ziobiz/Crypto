@@ -18,7 +18,7 @@ import {
   type HqOrgSharePolicy,
   type HqOrgShareSlice,
 } from '../constants/hq-policy';
-import { commissionPoolFromSnapshots } from './transaction-fee.service';
+import { grossUsdtFromPurchaseSnapshots } from './transaction-fee.service';
 
 export interface SettlementContext {
   ticketId: string;
@@ -32,11 +32,16 @@ type TxClient = Prisma.TransactionClient;
 type ChainOrg = { id: string; name: string; type: OrgType; path: string };
 
 async function loadOrgSharePolicy(): Promise<HqOrgSharePolicy> {
-  const { prisma } = await import('../lib/prisma');
-  const row = await prisma.systemConfig.findUnique({
-    where: { key: HQ_CONFIG_KEYS.orgShare },
-  });
-  return normalizeOrgSharePolicy((row?.value as HqOrgSharePolicy | null) ?? null);
+  const { customerFeePolicyService } = await import('./customer-fee-policy.service');
+  try {
+    return await customerFeePolicyService.getMergedDefaultConfig();
+  } catch {
+    const { prisma } = await import('../lib/prisma');
+    const row = await prisma.systemConfig.findUnique({
+      where: { key: HQ_CONFIG_KEYS.orgShare },
+    });
+    return normalizeOrgSharePolicy((row?.value as HqOrgSharePolicy | null) ?? null);
+  }
 }
 
 function sliceFor(
@@ -166,10 +171,16 @@ async function previewLines(
   ticketType: TicketType,
   commissionPool: number,
   feeShareRaw?: unknown,
+  customerProfileId?: string | null,
 ): Promise<{ totalRatePercent: number; commissionPool: number; lines: CommissionPreviewLine[] }> {
   const { prisma } = await import('../lib/prisma');
+  const { customerFeePolicyService } = await import('./customer-fee-policy.service');
   const policy = await loadOrgSharePolicy();
-  const customerShare = feeShareRaw ? normalizeCustomerFeeShare(feeShareRaw, policy) : normalizeCustomerFeeShare(null, policy);
+  const resolved = await customerFeePolicyService.resolveCustomerFeeShare({
+    customerProfileId,
+    feeShareRaw,
+  });
+  const customerShare = resolved.share;
   const chain = await buildOrgChain(prisma, recruitingOrgId);
   const allocated = await allocateCommissionShares(prisma, chain, policy, ticketType, customerShare);
   const lines: CommissionPreviewLine[] = [];
@@ -186,7 +197,7 @@ async function previewLines(
       ratePercent: row.slice.poolPercent,
       perTicketUsdt: row.slice.perTicketUsdt,
       amount,
-      inherited: !feeShareRaw,
+      inherited: resolved.source === 'default',
     });
   }
 
@@ -224,12 +235,15 @@ export async function settleCommission(
     return;
   }
 
-  const policyRow = await tx.systemConfig.findUnique({
-    where: { key: HQ_CONFIG_KEYS.orgShare },
-  });
-  const policy = normalizeOrgSharePolicy((policyRow?.value as HqOrgSharePolicy | null) ?? null);
+  const policy = await loadOrgSharePolicy();
+  const { customerFeePolicyService } = await import('./customer-fee-policy.service');
   const chain = await buildOrgChain(tx, ticket.customer.recruitingOrgId);
-  const customerShare = normalizeCustomerFeeShare(ticket.customer.feeShare, policy);
+  const resolved = await customerFeePolicyService.resolveCustomerFeeShare({
+    customerProfileId: ticket.customer.id,
+    feeShareRaw: ticket.customer.feeShare,
+    asOf: ticket.createdAt,
+  });
+  const customerShare = resolved.share;
   const allocated = await allocateCommissionShares(tx, chain, policy, ctx.ticketType, customerShare);
   const escrowTradeAmount =
     ctx.ticketType === TicketType.TRADE_ESCROW && ticket.tradeEscrow
@@ -266,15 +280,20 @@ export async function previewCommissionPool(
   ticketType: TicketType,
   tradeAmount: number,
   feeShareRaw?: unknown,
+  customerProfileId?: string | null,
 ): Promise<{ totalRatePercent: number; commissionPool: number; lines: CommissionPreviewLine[] }> {
-  const policy = await loadOrgSharePolicy();
-  const share = normalizeCustomerFeeShare(feeShareRaw, policy);
+  const { customerFeePolicyService } = await import('./customer-fee-policy.service');
+  const resolved = await customerFeePolicyService.resolveCustomerFeeShare({
+    customerProfileId,
+    feeShareRaw,
+  });
+  const share = resolved.share;
   const pool =
     ticketType === TicketType.TRADE_ESCROW
       ? Number(((tradeAmount * share.escrowFeePercent) / 100 + share.escrowPerTicketUsdt).toFixed(8))
       : tradeAmount;
   const linesBase = ticketType === TicketType.TRADE_ESCROW ? tradeAmount : pool;
-  const preview = await previewLines(recruitingOrgId, ticketType, linesBase, feeShareRaw);
+  const preview = await previewLines(recruitingOrgId, ticketType, linesBase, feeShareRaw, customerProfileId);
   return { ...preview, commissionPool: pool };
 }
 
@@ -487,6 +506,7 @@ async function getPendingCommission(organizationId: string, orgPath: string) {
       },
       customer: {
         select: {
+          id: true,
           recruitingOrgId: true,
           feeShare: true,
           user: { select: { name: true, email: true } },
@@ -518,7 +538,7 @@ async function getPendingCommission(organizationId: string, orgPath: string) {
     let currency: CurrencyCode = CurrencyCode.USDT;
     let status = '';
     if (ticket.type === TicketType.USDT_PURCHASE && ticket.usdtPurchase) {
-      pool = commissionPoolFromSnapshots(ticket.usdtPurchase);
+      pool = grossUsdtFromPurchaseSnapshots(ticket.usdtPurchase);
       currency = CurrencyCode.USDT;
       status = ticket.usdtPurchase.status;
     } else if (ticket.type === TicketType.TRADE_ESCROW && ticket.tradeEscrow) {
@@ -529,7 +549,13 @@ async function getPendingCommission(organizationId: string, orgPath: string) {
     if (pool <= 0) continue;
 
     const chain = await buildOrgChain(prisma, ticket.customer.recruitingOrgId);
-    const customerShare = normalizeCustomerFeeShare(ticket.customer.feeShare, policy);
+    const { customerFeePolicyService } = await import('./customer-fee-policy.service');
+    const resolved = await customerFeePolicyService.resolveCustomerFeeShare({
+      customerProfileId: ticket.customer.id,
+      feeShareRaw: ticket.customer.feeShare,
+      asOf: ticket.createdAt,
+    });
+    const customerShare = resolved.share;
     const allocated = await allocateCommissionShares(prisma, chain, policy, ticket.type, customerShare);
     const mine = allocated.find((row) => row.org.id === organizationId);
     if (!mine) continue;

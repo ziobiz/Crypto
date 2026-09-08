@@ -156,6 +156,10 @@ const RULES: RouteRule[] = [
   },
   { test: (p) => p.startsWith('/dashboard/kyc'), meta: { titleKey: 'nav.kyc', trail: [] } },
   {
+    test: (p) => p.startsWith('/dashboard/customers/fees'),
+    meta: { titleKey: 'customers.hub.fees', trail: [{ labelKey: 'nav.customers', href: D.customers }] },
+  },
+  {
     test: (p) => /^\/dashboard\/customers\/[^/]+$/.test(p),
     meta: { titleKey: 'page.customerDetail', trail: [{ labelKey: 'nav.customers', href: D.customers }] },
   },

@@ -189,6 +189,7 @@ export async function previewEscrowFees(user: AuthUser, amount: number, currency
     TicketType.TRADE_ESCROW,
     amount,
     customer.feeShare,
+    user.customerProfileId,
   );
   return {
     amount,
@@ -268,6 +269,7 @@ export async function createTradeEscrowTicket(
     TicketType.TRADE_ESCROW,
     input.amount,
     applicantProfile.feeShare,
+    user.customerProfileId,
   );
 
   const initiatorIsBuyer = input.myRole === 'BUYER';

@@ -466,7 +466,7 @@ router.post(
       m.getHqTransactionFees(),
     );
 
-    await prisma.user.create({
+    const created = await prisma.user.create({
       data: {
         email: data.email,
         passwordHash,
@@ -511,7 +511,15 @@ router.post(
           },
         },
       },
+      select: { id: true, customerProfile: { select: { id: true } } },
     });
+    if (created.customerProfile?.id) {
+      const { customerFeePolicyService } = await import('../services/customer-fee-policy.service');
+      await customerFeePolicyService.seedDefaultPoliciesForCustomer(
+        created.customerProfile.id,
+        created.id,
+      );
+    }
 
     res.status(201).json({
       ok: true,

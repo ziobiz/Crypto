@@ -1,10 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useT } from '@/context/LocaleProvider';
-import { hqPolicyApi, type HqCommissionRiskConfig, type HqGasNetworkPolicy, type SymbolFeeTierRow } from '@/lib/api';
+import {
+  hqPolicyApi,
+  type FeeTypeTemplate,
+  type HqCommissionRiskConfig,
+  type HqGasNetworkPolicy,
+  type SymbolFeeTierRow,
+} from '@/lib/api';
 import { PolicyNumberInput } from '@/components/policy/PolicyNumberInput';
 import { SimulatorSandboxFeePreview } from '@/components/hq-policy/SimulatorSandboxFeePreview';
+import { sumOrgShareTable } from '@/lib/escrow-share-totals';
 import type { MessageKey } from '@/i18n/messages';
 
 const EMPTY_SANDBOX: HqCommissionRiskConfig = {
@@ -46,21 +53,38 @@ const FEE_FIELDS: Array<{
   { key: 'defaultOtherFeeUsdt', labelKey: 'hq.commission.otherFee', unitKey: 'hq.commission.unitUsdt', tone: 'other', step: '0.01' },
 ];
 
+function defaultUsdtOperatingFee(feeTypes: FeeTypeTemplate[]) {
+  const usdtTypes = feeTypes.filter((f) => (f.ticketKind ?? 'USDT_PURCHASE') === 'USDT_PURCHASE');
+  const def = usdtTypes.find((f) => f.isDefault) ?? usdtTypes[0] ?? null;
+  if (!def) return null;
+  const totals = sumOrgShareTable(def.config.USDT_PURCHASE);
+  return {
+    id: def.id,
+    name: def.name || def.code,
+    code: def.code,
+    poolPercent: totals.poolPercent,
+    perTicketUsdt: totals.perTicketUsdt,
+  };
+}
+
 export function SimulatorCommissionPanel() {
   const t = useT();
   const [risk, setRisk] = useState<HqCommissionRiskConfig | null>(null);
   const [liveTiers, setLiveTiers] = useState<SymbolFeeTierRow[]>([]);
   const [gasNetworks, setGasNetworks] = useState<HqGasNetworkPolicy | null>(null);
+  const [feeTypes, setFeeTypes] = useState<FeeTypeTemplate[]>([]);
   const [savingRisk, setSavingRisk] = useState(false);
   const [riskMsg, setRiskMsg] = useState('');
 
+  const operatingDefault = useMemo(() => defaultUsdtOperatingFee(feeTypes), [feeTypes]);
+
   useEffect(() => {
-    hqPolicyApi
-      .getCommission()
-      .then((c) => {
+    Promise.all([hqPolicyApi.getCommission(), hqPolicyApi.listFeeTypes()])
+      .then(([c, types]) => {
         setRisk(withSandboxDefaults(c.simulatorRisk));
         setLiveTiers([...(c.feeTiers ?? [])]);
         setGasNetworks(c.gasNetworks ?? null);
+        setFeeTypes(types.feeTypes ?? c.feeTypes ?? []);
       })
       .catch(console.error);
   }, []);
@@ -75,6 +99,7 @@ export function SimulatorCommissionPanel() {
       setRisk(withSandboxDefaults(next.simulatorRisk));
       setLiveTiers([...(next.feeTiers ?? liveTiers)]);
       setGasNetworks(next.gasNetworks ?? gasNetworks);
+      if (next.feeTypes?.length) setFeeTypes(next.feeTypes);
       setRiskMsg(t('hq.saved'));
     } catch (e) {
       setRiskMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
@@ -100,6 +125,10 @@ export function SimulatorCommissionPanel() {
 
   if (!risk) return null;
 
+  const operatingLabel = operatingDefault
+    ? `${operatingDefault.name} · ${operatingDefault.poolPercent}% + ${operatingDefault.perTicketUsdt} USDT`
+    : t('hq.commission.simulatorOperatingFeeEmpty');
+
   return (
     <div className="pg-card">
       <div className="pg-card-head">{t('hq.commission.simulatorTitle')}</div>
@@ -112,7 +141,7 @@ export function SimulatorCommissionPanel() {
         <div className="space-y-3">
           <p className="pg-label">{t('hq.commission.simulatorDefaultSection')}</p>
           <p className="pg-hint text-xs">{t('hq.commission.simulatorDefaultDesc')}</p>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             {FEE_FIELDS.map((field) => (
               <div key={field.key} className="pg-sim-fee-field">
                 <span className="pg-sim-fee-field-label">
@@ -127,6 +156,13 @@ export function SimulatorCommissionPanel() {
                 />
               </div>
             ))}
+            <div className="pg-sim-fee-field">
+              <span className="pg-sim-fee-field-label">{t('hq.commission.operatingFeeTotal')}</span>
+              <select className="pg-input pg-sim-fee-input pg-sim-fee-input--other w-full text-xs" value={operatingDefault?.id ?? ''} disabled>
+                <option value={operatingDefault?.id ?? ''}>{operatingLabel}</option>
+              </select>
+              <p className="mt-1 text-[10px] text-slate-500">{t('hq.commission.simulatorOperatingFeeHint')}</p>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <button
@@ -145,6 +181,7 @@ export function SimulatorCommissionPanel() {
           liveTiers={liveTiers}
           sandboxRisk={risk}
           gasNetworks={gasNetworks}
+          operatingFee={operatingDefault}
         />
       </div>
     </div>

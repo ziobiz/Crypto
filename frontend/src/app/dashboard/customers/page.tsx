@@ -2,22 +2,21 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthProvider';
 import { useT } from '@/context/LocaleProvider';
 import {
   api,
-  hqPolicyApi,
+  customerFeesApi,
   type CreateUserInput,
-  type CustomerFeeShare,
+  type FeeTypeTemplate,
   type ManagedUser,
   type Organization,
   type UpdateUserInput,
 } from '@/lib/api';
 import type { MessageKey } from '@/i18n/messages';
 import { WALLET_NETWORKS } from '@/constants/wallet-networks';
-import { CustomerFeeShareEditor, emptyFeeShare, feeShareFromHq } from '@/components/CustomerFeeShareEditor';
 import { ReferenceClocks } from '@/components/ReferenceClocks';
-import { escrowShareTotalsMatch, formatEscrowShareMismatch, parseEscrowShareMismatch } from '@/lib/escrow-share-totals';
 import { SRateBadge } from '@/components/SRateBadge';
 import { detailRowProps } from '@/lib/table-row-detail';
 
@@ -40,6 +39,9 @@ const emptyCreate: CreateUserInput = {
   walletLabel: '',
   simulatorEnabled: true,
   simulatorRateMode: 'LIVE',
+  usdtFeeTypeCode: '',
+  tradeFeeTypeCode: '',
+  feeBillingMethod: 'FOLLOW_HQ',
 };
 
 function kycBadgeClass(status?: string | null): string {
@@ -56,9 +58,34 @@ function kycStatusKey(status?: string | null): MessageKey {
   return 'kyc.status.NOT_SUBMITTED';
 }
 
+function effectiveFeeTypeName(
+  policies:
+    | Array<{
+        ticketKind: string;
+        feeTypeCode: string;
+        feeTypeName: string | null;
+        applyStartDate: string;
+      }>
+    | undefined
+    | null,
+  ticketKind: 'USDT_PURCHASE' | 'TRADE_ESCROW',
+): string | null {
+  if (!policies?.length) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  for (const p of policies) {
+    if (p.ticketKind !== ticketKind) continue;
+    const start = new Date(p.applyStartDate);
+    if (Number.isNaN(start.getTime()) || start > today) continue;
+    return (p.feeTypeName || p.feeTypeCode || '').trim() || null;
+  }
+  return null;
+}
+
 export default function CustomersPage() {
   const { user: me } = useAuth();
   const t = useT();
+  const router = useRouter();
   const isSuperAdmin = me?.role === 'SUPER_ADMIN';
   const canRegisterCustomer =
     isSuperAdmin ||
@@ -83,7 +110,7 @@ export default function CustomersPage() {
   const [statusReason, setStatusReason] = useState('');
   const [initialIsActive, setInitialIsActive] = useState(true);
   const [form, setForm] = useState<CreateUserInput>(emptyCreate);
-  const [feeShare, setFeeShare] = useState<CustomerFeeShare>(emptyFeeShare());
+  const [feeTypes, setFeeTypes] = useState<FeeTypeTemplate[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -135,6 +162,7 @@ export default function CustomersPage() {
         isActive: detail.isActive,
         simulatorEnabled: detail.customerProfile?.simulatorEnabled !== false,
         simulatorRateMode: detail.customerProfile?.simulatorRateMode ?? 'LIVE',
+        feeBillingMethod: detail.customerProfile?.feeBillingMethod ?? 'FOLLOW_HQ',
       });
       setInitialIsActive(detail.isActive);
       setNewPassword('');
@@ -201,24 +229,16 @@ export default function CustomersPage() {
     e.preventDefault();
     setMsg('');
     try {
-      const check = escrowShareTotalsMatch(feeShare);
-      if (!check.ok) {
-        const text = formatEscrowShareMismatch(t, check);
-        window.alert(text);
-        setMsg(text);
-        return;
-      }
-      await api.users.create({ ...form, role: 'CUSTOMER', feeShare });
+      await api.users.create({
+        ...form,
+        role: 'CUSTOMER',
+      });
       setModal(null);
       setForm(emptyCreate);
       setMsg(t('customers.created'));
       load();
     } catch (err) {
-      const raw = err instanceof Error ? err.message : t('users.createFailed');
-      const parsed = parseEscrowShareMismatch(raw);
-      const text = parsed ? formatEscrowShareMismatch(t, parsed) : raw;
-      if (parsed) window.alert(text);
-      setMsg(text);
+      setMsg(err instanceof Error ? err.message : t('users.createFailed'));
     }
   }
 
@@ -235,13 +255,28 @@ export default function CustomersPage() {
             type="button"
             onClick={() => {
               setForm(emptyCreate);
-              setFeeShare(emptyFeeShare());
               setModal('create');
               setMsg('');
-              hqPolicyApi
-                .getCommission()
-                .then((c) => setFeeShare(feeShareFromHq(c.orgShare)))
-                .catch(console.error);
+              void customerFeesApi
+                .listTypes()
+                .then((r) => {
+                  setFeeTypes(r.feeTypes);
+                  const usdtDef =
+                    r.feeTypes.find((f) => f.ticketKind === 'USDT_PURCHASE' && f.isDefault)?.code ??
+                    r.feeTypes.find((f) => (f.ticketKind ?? 'USDT_PURCHASE') === 'USDT_PURCHASE')
+                      ?.code ??
+                    '';
+                  const tradeDef =
+                    r.feeTypes.find((f) => f.ticketKind === 'TRADE_ESCROW' && f.isDefault)?.code ??
+                    r.feeTypes.find((f) => f.ticketKind === 'TRADE_ESCROW')?.code ??
+                    '';
+                  setForm({
+                    ...emptyCreate,
+                    usdtFeeTypeCode: usdtDef,
+                    tradeFeeTypeCode: tradeDef,
+                  });
+                })
+                .catch(() => setFeeTypes([]));
             }}
             className="pg-btn pg-btn-primary"
           >
@@ -304,27 +339,34 @@ export default function CustomersPage() {
               <th>{t('customers.col.sRate')}</th>
               <th>{t('customers.col.simulator')}</th>
               <th>{t('customers.col.kyc')}</th>
+              <th>{t('customers.col.feeType')}</th>
+              <th>{t('customers.col.billingMethod')}</th>
               <th>{t('users.col.actions')}</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={9} className="pg-empty">
+                <td colSpan={11} className="pg-empty">
                   {t('common.loading')}
                 </td>
               </tr>
             ) : users.length === 0 ? (
               <tr>
-                <td colSpan={9} className="pg-empty">
+                <td colSpan={11} className="pg-empty">
                   {t('customers.empty')}
                 </td>
               </tr>
             ) : (
-              users.map((u) => (
+              users.map((u) => {
+                const usdtFee = effectiveFeeTypeName(u.customerProfile?.feePolicies, 'USDT_PURCHASE');
+                const tradeFee = effectiveFeeTypeName(u.customerProfile?.feePolicies, 'TRADE_ESCROW');
+                return (
                 <tr
                   key={u.id}
-                  {...detailRowProps(t('table.dblclickHint'), () => void openEdit(u))}
+                  {...detailRowProps(t('table.dblclickHint'), () =>
+                    router.push(`/dashboard/customers/${u.id}`),
+                  )}
                 >
                   <td>{u.email}</td>
                   <td>{u.name}</td>
@@ -365,6 +407,23 @@ export default function CustomersPage() {
                     </span>
                   </td>
                   <td>
+                    <div className="text-[11px] leading-snug text-gray-700">
+                      <div>
+                        <span className="text-gray-500">{t('ticket.USDT_PURCHASE')}: </span>
+                        {usdtFee ?? '—'}
+                      </div>
+                      <div>
+                        <span className="text-gray-500">{t('ticket.TRADE_ESCROW')}: </span>
+                        {tradeFee ?? '—'}
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    {t(
+                      `feeBilling.${u.customerProfile?.feeBillingMethod ?? 'FOLLOW_HQ'}` as MessageKey,
+                    )}
+                  </td>
+                  <td>
                     <div className="pg-table-actions">
                       <button type="button" onClick={() => void openEdit(u)} className="pg-action-chip pg-action-chip-edit">
                         {t('users.edit')}
@@ -384,7 +443,8 @@ export default function CustomersPage() {
                     </div>
                   </td>
                 </tr>
-              ))
+              );
+              })
             )}
           </tbody>
         </table>
@@ -598,10 +658,64 @@ export default function CustomersPage() {
                 </label>
               </div>
               <div className="pg-inset-panel">
-                <p className="pg-inset-title">{t('feeShare.title')}</p>
-                <div className="mt-2">
-                  <CustomerFeeShareEditor value={feeShare} onChange={setFeeShare} canEdit />
+                <p className="pg-inset-title">{t('customers.hub.fees')}</p>
+                <p className="mt-1 pg-hint">{t('customers.feeType.hint')}</p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <label className="pg-field">
+                    <span className="pg-field-label">{t('customers.feeType.usdt')}</span>
+                    <select
+                      className="pg-input mt-1"
+                      value={form.usdtFeeTypeCode ?? ''}
+                      onChange={(e) => setForm({ ...form, usdtFeeTypeCode: e.target.value })}
+                    >
+                      {feeTypes
+                        .filter((f) => (f.ticketKind ?? 'USDT_PURCHASE') === 'USDT_PURCHASE')
+                        .map((f) => (
+                        <option key={f.id} value={f.code}>
+                          {f.name}
+                          {f.isDefault ? ` · ${t('hq.commission.feeTypeDefault')}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="pg-field">
+                    <span className="pg-field-label">{t('customers.feeType.trade')}</span>
+                    <select
+                      className="pg-input mt-1"
+                      value={form.tradeFeeTypeCode ?? ''}
+                      onChange={(e) => setForm({ ...form, tradeFeeTypeCode: e.target.value })}
+                    >
+                      {feeTypes
+                        .filter((f) => f.ticketKind === 'TRADE_ESCROW')
+                        .map((f) => (
+                        <option key={f.id} value={f.code}>
+                          {f.name}
+                          {f.isDefault ? ` · ${t('hq.commission.feeTypeDefault')}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
+                <label className="pg-field mt-3">
+                  <span className="pg-field-label">{t('customers.col.billingMethod')}</span>
+                  <select
+                    className="pg-input mt-1"
+                    value={form.feeBillingMethod ?? 'FOLLOW_HQ'}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        feeBillingMethod: e.target.value as CreateUserInput['feeBillingMethod'],
+                      })
+                    }
+                  >
+                    <option value="FOLLOW_HQ">{t('feeBilling.FOLLOW_HQ')}</option>
+                    <option value="INTEGRATED">{t('feeBilling.INTEGRATED')}</option>
+                    <option value="ITEMIZED">{t('feeBilling.ITEMIZED')}</option>
+                    <option value="HYBRID">{t('feeBilling.HYBRID')}</option>
+                  </select>
+                  <span className="mt-1 block text-xs text-slate-500">{t('customers.billingMethod.hint')}</span>
+                </label>
+                <p className="mt-2 pg-hint text-xs">{t('feeShare.manageInFees')}</p>
               </div>
               <label className="pg-field">
                 <span className="pg-field-label">
@@ -702,6 +816,25 @@ export default function CustomersPage() {
                     <option value="LIVE">{t('customers.sRate.live')}</option>
                     <option value="SAND">{t('customers.sRate.sand')}</option>
                   </select>
+                </label>
+                <label className="pg-field mt-2">
+                  <span className="pg-field-label">{t('customers.col.billingMethod')}</span>
+                  <select
+                    value={editForm.feeBillingMethod ?? 'FOLLOW_HQ'}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        feeBillingMethod: e.target.value as UpdateUserInput['feeBillingMethod'],
+                      })
+                    }
+                    className="pg-input mt-1"
+                  >
+                    <option value="FOLLOW_HQ">{t('feeBilling.FOLLOW_HQ')}</option>
+                    <option value="INTEGRATED">{t('feeBilling.INTEGRATED')}</option>
+                    <option value="ITEMIZED">{t('feeBilling.ITEMIZED')}</option>
+                    <option value="HYBRID">{t('feeBilling.HYBRID')}</option>
+                  </select>
+                  <span className="mt-1 block text-xs text-slate-500">{t('customers.billingMethod.hint')}</span>
                 </label>
               </div>
               <label className="pg-field">

@@ -5,20 +5,10 @@ import { AppError } from '../lib/errors';
 import { initialPasswordFromEmail, normalizeEmail } from '../lib/password-policy';
 import { clearUserTotp } from './otp.service';
 import { getHqTransactionFees } from './transaction-fee.service';
-import { getOrgSharePolicyCached } from './commission.service';
-import { persistableCustomerFeeShare, normalizeCustomerFeeShare, assertEscrowShareTotals } from '../constants/hq-policy';
 import type { AuthUser } from '../types/auth';
 import { logAdminChange, sanitizeUserSnapshot, type AuditContext } from './admin-change-log.service';
 import { isHqChiefAdmin, isHqRootAdminEmail, isStaffManagerRole } from '../constants/hq-admin';
 import { nextUserPurgeAt } from './deletion.service';
-
-function requireEscrowShareTotals(raw: unknown, policy: Awaited<ReturnType<typeof getOrgSharePolicyCached>>) {
-  try {
-    assertEscrowShareTotals(normalizeCustomerFeeShare(raw, policy));
-  } catch (e) {
-    throw new AppError(400, e instanceof Error ? e.message : 'ESCROW_SHARE_MISMATCH', 'ESCROW_SHARE_MISMATCH');
-  }
-}
 
 const CUSTOMER_REGISTER_ORG_TYPES: OrgType[] = [
   OrgType.HEAD_OFFICE,
@@ -48,8 +38,18 @@ const userSelect = {
       businessName: true,
       simulatorEnabled: true,
       simulatorRateMode: true,
+      feeBillingMethod: true,
       recruitingOrg: { select: { id: true, code: true, name: true, path: true } },
       feeShare: true,
+      feePolicies: {
+        select: {
+          ticketKind: true,
+          feeTypeCode: true,
+          feeTypeName: true,
+          applyStartDate: true,
+        },
+        orderBy: [{ applyStartDate: 'desc' }, { createdAt: 'desc' }],
+      },
     },
   },
   wallets: {
@@ -272,7 +272,52 @@ export const userService = {
       prisma.user.count({ where }),
     ]);
 
-    return { items, total, page, limit, pages: Math.ceil(total / limit) };
+    // 고객 목록: 정책 없을 때 기본 수수료유형 이름 표시용
+    let defaultFeeTypeName: string | null = null;
+    const needsDefault = items.some(
+      (u) =>
+        u.customerProfile &&
+        (!u.customerProfile.feePolicies || u.customerProfile.feePolicies.length === 0),
+    );
+    if (needsDefault) {
+      try {
+        const { customerFeePolicyService } = await import('./customer-fee-policy.service');
+        const usdtDef = await customerFeePolicyService.getDefaultFeeType('USDT_PURCHASE');
+        const tradeDef = await customerFeePolicyService.getDefaultFeeType('TRADE_ESCROW');
+        defaultFeeTypeName = usdtDef.name;
+        // trade name stored separately via enriched policies below
+        void tradeDef;
+      } catch {
+        defaultFeeTypeName = null;
+      }
+    }
+
+    const enriched = items.map((u) => {
+      if (!u.customerProfile || !defaultFeeTypeName) return u;
+      if (u.customerProfile.feePolicies && u.customerProfile.feePolicies.length > 0) return u;
+      return {
+        ...u,
+        customerProfile: {
+          ...u.customerProfile,
+          feePolicies: [
+            {
+              ticketKind: 'USDT_PURCHASE',
+              feeTypeCode: 'DEFAULT',
+              feeTypeName: defaultFeeTypeName,
+              applyStartDate: new Date(0),
+            },
+            {
+              ticketKind: 'TRADE_ESCROW',
+              feeTypeCode: 'DEFAULT',
+              feeTypeName: defaultFeeTypeName,
+              applyStartDate: new Date(0),
+            },
+          ],
+        },
+      };
+    });
+
+    return { items: enriched, total, page, limit, pages: Math.ceil(total / limit) };
   },
 
   async getById(actor: AuthUser, id: string) {
@@ -314,8 +359,11 @@ export const userService = {
       walletLabel?: string;
       reason: string;
       feeShare?: unknown;
+      usdtFeeTypeCode?: string;
+      tradeFeeTypeCode?: string;
       simulatorEnabled?: boolean;
       simulatorRateMode?: 'LIVE' | 'SAND';
+      feeBillingMethod?: 'FOLLOW_HQ' | 'INTEGRATED' | 'ITEMIZED' | 'HYBRID';
     },
     audit?: AuditContext,
   ) {
@@ -362,9 +410,6 @@ export const userService = {
     if (data.role === UserRole.CUSTOMER) {
       const hqFees = await getHqTransactionFees();
       const network = data.walletNetwork?.trim() || 'TRC20';
-      const policy = await getOrgSharePolicyCached();
-      requireEscrowShareTotals(data.feeShare, policy);
-      const feeShare = persistableCustomerFeeShare(data.feeShare, policy);
       created = await prisma.user.create({
         data: {
           email,
@@ -385,7 +430,7 @@ export const userService = {
               businessNumber: data.businessNumber,
               simulatorEnabled: data.simulatorEnabled !== false,
               simulatorRateMode: data.simulatorRateMode ?? 'LIVE',
-              ...(feeShare ? { feeShare } : {}),
+              feeBillingMethod: data.feeBillingMethod ?? 'FOLLOW_HQ',
             },
           },
           bankAccounts: {
@@ -412,6 +457,17 @@ export const userService = {
         },
         select: userSelect,
       });
+      if (created.customerProfile?.id) {
+        const { customerFeePolicyService } = await import('./customer-fee-policy.service');
+        await customerFeePolicyService.seedDefaultPoliciesForCustomer(
+          created.customerProfile.id,
+          actor.id,
+          {
+            usdtFeeTypeCode: data.usdtFeeTypeCode,
+            tradeFeeTypeCode: data.tradeFeeTypeCode,
+          },
+        );
+      }
     } else {
       created = await prisma.user.create({
         data: {
@@ -481,6 +537,7 @@ export const userService = {
       feeShare?: unknown;
       simulatorEnabled?: boolean;
       simulatorRateMode?: 'LIVE' | 'SAND';
+      feeBillingMethod?: 'FOLLOW_HQ' | 'INTEGRATED' | 'ITEMIZED' | 'HYBRID';
     },
     audit?: AuditContext,
   ) {
@@ -543,24 +600,22 @@ export const userService = {
 
     const customerProfileUpdate: {
       recruitingOrgId?: string;
-      feeShare?: Prisma.InputJsonValue;
       simulatorEnabled?: boolean;
       simulatorRateMode?: 'LIVE' | 'SAND';
+      feeBillingMethod?: 'FOLLOW_HQ' | 'INTEGRATED' | 'ITEMIZED' | 'HYBRID';
     } = {};
     if (data.recruitingOrgId && existing.customerProfile) {
       customerProfileUpdate.recruitingOrgId = data.recruitingOrgId;
     }
-    if (data.feeShare !== undefined && existing.customerProfile) {
-      const policy = await getOrgSharePolicyCached();
-      requireEscrowShareTotals(data.feeShare, policy);
-      const feeShare = persistableCustomerFeeShare(data.feeShare, policy);
-      customerProfileUpdate.feeShare = (feeShare ?? Prisma.JsonNull) as Prisma.InputJsonValue;
-    }
+    // feeShare 수정은 고객관리 > 수수료관리에서만 수행
     if (data.simulatorEnabled !== undefined && existing.customerProfile) {
       customerProfileUpdate.simulatorEnabled = data.simulatorEnabled;
     }
     if (data.simulatorRateMode !== undefined && existing.customerProfile) {
       customerProfileUpdate.simulatorRateMode = data.simulatorRateMode;
+    }
+    if (data.feeBillingMethod !== undefined && existing.customerProfile) {
+      customerProfileUpdate.feeBillingMethod = data.feeBillingMethod;
     }
 
     const user = await prisma.user.update({

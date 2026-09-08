@@ -450,6 +450,29 @@
     background-color: rgba(248, 250, 252, 0.65);
   }
 
+  /* 고객 수수료관리: 매입+무역 세트로 교차 색 (기본 even 줄무늬 비활성) */
+  .pg-table.pg-table-customer-sets tbody tr:nth-child(even) {
+    background-color: transparent;
+  }
+
+  .pg-table.pg-table-customer-sets tbody tr.pg-fee-set-a {
+    background-color: #fff;
+  }
+
+  .pg-table.pg-table-customer-sets tbody tr.pg-fee-set-b {
+    background-color: rgba(248, 250, 252, 0.9);
+  }
+
+  .pg-table.pg-table-customer-sets tbody tr.pg-fee-set-a:hover,
+  .pg-table.pg-table-customer-sets tbody tr.pg-fee-set-b:hover {
+    background-color: var(--shell-table-row-hover);
+  }
+
+  .pg-table.pg-table-customer-sets td.pg-fee-customer-cell {
+    vertical-align: middle;
+    font-weight: 600;
+  }
+
   .pg-table tbody tr.pg-row-detail {
     cursor: pointer;
   }

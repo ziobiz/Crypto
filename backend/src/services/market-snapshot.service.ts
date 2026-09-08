@@ -19,7 +19,7 @@ export async function collectMarketSnapshots(): Promise<void> {
       fetchAllExchangeMarketStats(),
       Promise.all(
         CHART_FIAT_CURRENCIES.map(async (currency) => {
-          const result = await fetchUsdtFiatRateWithPolicy(currency as ChartFiatCurrency);
+          const result = await fetchUsdtFiatRateWithPolicy(currency as any);
           return { currency, ...result };
         }),
       ),

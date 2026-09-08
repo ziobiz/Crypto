@@ -9,6 +9,7 @@ import ledgerRoutes from './routes/ledger.routes';
 import organizationRoutes from './routes/organization.routes';
 import attachmentRoutes from './routes/attachment.routes';
 import userRoutes from './routes/user.routes';
+import customerFeeRoutes from './routes/customer-fee.routes';
 import hqPolicyRoutes from './routes/hq-policy.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import kycRoutes from './routes/kyc.routes';
@@ -106,6 +107,7 @@ export function createApiApp(): express.Application {
   app.use('/api/organizations', organizationRoutes);
   app.use('/api/attachments', attachmentRoutes);
   app.use('/api/users', userRoutes);
+  app.use('/api/customer-fees', customerFeeRoutes);
   app.use('/api/hq-policy', hqPolicyRoutes);
   app.use('/api/dashboard', dashboardRoutes);
   app.use('/api/kyc', kycRoutes);

@@ -608,6 +608,9 @@ export type ProfitAnalysisRow = {
   profitUsdt: number | null;
 };
 
+export type FeeBillingPresentation = 'INTEGRATED' | 'ITEMIZED' | 'HYBRID';
+export type FeeBillingMethod = 'FOLLOW_HQ' | FeeBillingPresentation;
+
 export interface FeeDiagramDisplayConfig {
   gross: boolean;
   fxFee: boolean;
@@ -615,9 +618,15 @@ export interface FeeDiagramDisplayConfig {
   transferFee: boolean;
   otherFee: boolean;
   localPremium: boolean;
+  /** 운영수수료 — 표시만 제어. 정산은 항상 적용 */
+  operatingFee: boolean;
   net: boolean;
   requiredFiat: boolean;
   showRates: boolean;
+  /** 본사 기본 청구방식 */
+  defaultFeeBillingMethod?: FeeBillingPresentation;
+  /** 해석된 청구방식 (API) */
+  billingMethod?: FeeBillingPresentation;
 }
 
 export interface RegisterBankAccountInput {
@@ -777,8 +786,15 @@ export interface ManagedUser {
     businessName?: string | null;
     simulatorEnabled?: boolean;
     simulatorRateMode?: 'LIVE' | 'SAND';
+    feeBillingMethod?: FeeBillingMethod;
     recruitingOrg?: { id: string; code: string; name: string };
     feeShare?: CustomerFeeShare | null;
+    feePolicies?: Array<{
+      ticketKind: string;
+      feeTypeCode: string;
+      feeTypeName: string | null;
+      applyStartDate: string;
+    }>;
   } | null;
   wallets?: { id: string; label?: string | null; address: string; network: string; isDefault: boolean }[];
   bankAccounts?: {
@@ -836,9 +852,14 @@ export interface CreateUserInput {
   walletNetwork?: string;
   walletLabel?: string;
   feeShare?: CustomerFeeShare;
+  /** 고객 등록 시 USDT 매입 수수료 타입. 비우면 HQ 기본 타입 */
+  usdtFeeTypeCode?: string;
+  /** 고객 등록 시 무역거래 수수료 타입. 비우면 HQ 기본 타입 */
+  tradeFeeTypeCode?: string;
   /** USDT 시뮬레이터 허용 (기본 true). false면 본사 권한보다 우선 차단 */
   simulatorEnabled?: boolean;
   simulatorRateMode?: 'LIVE' | 'SAND';
+  feeBillingMethod?: FeeBillingMethod;
 }
 
 export interface UpdateUserInput {
@@ -852,6 +873,7 @@ export interface UpdateUserInput {
   feeShare?: CustomerFeeShare;
   simulatorEnabled?: boolean;
   simulatorRateMode?: 'LIVE' | 'SAND';
+  feeBillingMethod?: FeeBillingMethod;
 }
 
 export interface Wallet {
@@ -975,6 +997,8 @@ export interface UsdtFeePreview {
     kimchiPremiumFeeUsdt?: number;
     baseOtherFeeUsdt?: number;
     fairExchangeRate?: number;
+    operatingFeePercent?: number;
+    operatingFeeFixedUsdt?: number;
   };
   fiatAmount: number;
   exchangeRate: number;
@@ -990,6 +1014,7 @@ export interface UsdtFeePreview {
     localPremiumPercent?: number;
     kimchiPremiumFeeUsdt?: number;
     kimchiPremiumPercent?: number;
+    operatingFeeUsdt?: number;
     netUsdt: number;
     requiredFiat: number;
     fairExchangeRate?: number;
@@ -1396,6 +1421,32 @@ export const hqPolicyApi = {
       method: 'PUT',
       body: JSON.stringify({ orgShare }),
     }),
+  listFeeTypes: () =>
+    request<{ feeTypes: FeeTypeTemplate[] }>('/api/hq-policy/commission/fee-types'),
+  createFeeType: (body: {
+    code: string;
+    name: string;
+    ticketKind: FeeTicketKind;
+    config?: HqOrgSharePolicy;
+    isDefault?: boolean;
+  }) =>
+    request<{ feeTypes: FeeTypeTemplate[] } & HqCommissionPayload>('/api/hq-policy/commission/fee-types', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  updateFeeType: (
+    id: string,
+    body: { name?: string; config?: HqOrgSharePolicy; isDefault?: boolean; sortOrder?: number },
+  ) =>
+    request<{ feeTypes: FeeTypeTemplate[] } & HqCommissionPayload>(
+      `/api/hq-policy/commission/fee-types/${id}`,
+      { method: 'PUT', body: JSON.stringify(body) },
+    ),
+  deleteFeeType: (id: string) =>
+    request<{ feeTypes: FeeTypeTemplate[] } & HqCommissionPayload>(
+      `/api/hq-policy/commission/fee-types/${id}`,
+      { method: 'DELETE' },
+    ),
   saveGasNetworks: (gasNetworks: HqGasNetworkPolicy) =>
     request<HqCommissionPayload>('/api/hq-policy/commission/gas-networks', {
       method: 'PUT',
@@ -1654,6 +1705,8 @@ export type TransactionFees = {
   otherFeeMode: FeeMode;
   otherFeePercent: number;
   otherFeeUsdt: number;
+  operatingFeePercent?: number;
+  operatingFeeFixedUsdt?: number;
 };
 
 export interface HqCommissionRiskConfig {
@@ -1743,6 +1796,71 @@ export type HqGasNetworkPolicy = {
   }>;
 };
 
+export type FeeTicketKind = 'USDT_PURCHASE' | 'TRADE_ESCROW';
+
+export interface FeeTypeTemplate {
+  id: string;
+  ticketKind: FeeTicketKind;
+  code: string;
+  name: string;
+  isDefault: boolean;
+  sortOrder: number;
+  config: HqOrgSharePolicy;
+}
+
+export interface CustomerFeeGridRow {
+  id?: string;
+  customerProfileId: string;
+  userId: string;
+  customerName: string;
+  customerEmail: string;
+  ticketKind: FeeTicketKind;
+  feeTypeCode: string;
+  feeTypeName: string | null;
+  operatingPercent: number;
+  operatingFixedUsdt: number;
+  shares: HqOrgShareByType;
+  applyStartDate: string;
+  totalPercent: number;
+  totalFixedUsdt: number;
+}
+
+export interface CustomerFeeHistoryRow {
+  id: string;
+  ticketKind: string;
+  action: string;
+  feeTypeCode: string | null;
+  applyStartDate: string | null;
+  beforeJson: unknown;
+  afterJson: unknown;
+  changedBy: { id: string; name: string; email: string } | null;
+  createdAt: string;
+}
+
+export const customerFeesApi = {
+  listTypes: () => request<{ feeTypes: FeeTypeTemplate[] }>('/api/customer-fees/fee-types'),
+  list: (ticketKind: FeeTicketKind) =>
+    request<{ ticketKind: FeeTicketKind; feeTypes: FeeTypeTemplate[]; rows: CustomerFeeGridRow[] }>(
+      `/api/customer-fees?ticketKind=${ticketKind}`,
+    ),
+  save: (body: {
+    customerProfileId: string;
+    ticketKind: FeeTicketKind;
+    feeTypeCode?: string;
+    operatingPercent?: number;
+    operatingFixedUsdt?: number;
+    shares?: HqOrgShareByType;
+    applyStartDate: string;
+    assignTypeOnly?: boolean;
+  }) => request<CustomerFeeGridRow>('/api/customer-fees', { method: 'POST', body: JSON.stringify(body) }),
+  remove: (body: { customerProfileId: string; ticketKind: FeeTicketKind; policyId?: string }) =>
+    request<{ ok: boolean }>('/api/customer-fees', { method: 'DELETE', body: JSON.stringify(body) }),
+  history: (customerProfileId: string, ticketKind: FeeTicketKind) =>
+    request<{ rows: CustomerFeeHistoryRow[] }>(
+      `/api/customer-fees/history?customerProfileId=${encodeURIComponent(customerProfileId)}&ticketKind=${ticketKind}`,
+    ),
+};
+
 export interface HqCommissionPayload {
   risk: HqCommissionRiskConfig;
   feeTiers: SymbolFeeTierRow[];
@@ -1759,6 +1877,7 @@ export interface HqCommissionPayload {
     organization: { id: string; code: string; name: string; type: string };
   }>;
   orgShare: HqOrgSharePolicy;
+  feeTypes?: FeeTypeTemplate[];
   gasNetworks?: HqGasNetworkPolicy;
   customerFeeShareOverrides?: Array<{
     userId: string;
@@ -1770,6 +1889,7 @@ export interface HqCommissionPayload {
 
 export interface BrandingResponse {
   siteName: string;
+  currencyAmountDisplay?: unknown;
   tabTitle?: string;
   logoUrl: string | null;
   authLogoUrl: string | null;

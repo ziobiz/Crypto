@@ -17,12 +17,18 @@ type SimulatorSandboxFeePreviewProps = {
   liveTiers: SymbolFeeTierRow[];
   sandboxRisk: HqCommissionRiskConfig;
   gasNetworks: HqGasNetworkPolicy | null;
+  operatingFee?: {
+    name: string;
+    poolPercent: number;
+    perTicketUsdt: number;
+  } | null;
 };
 
 export function SimulatorSandboxFeePreview({
   liveTiers,
   sandboxRisk,
   gasNetworks,
+  operatingFee,
 }: SimulatorSandboxFeePreviewProps) {
   const t = useT();
   const [feeCurrency, setFeeCurrency] = useState<SymbolFeeCurrency>('KRW');
@@ -40,6 +46,9 @@ export function SimulatorSandboxFeePreview({
 
   const activeGasGroup = gasNetworks?.activeGroup ?? 'DEFAULT';
   const gasRows = gasNetworks?.networks ?? [];
+  const operatingLabel = operatingFee
+    ? `${operatingFee.name} · ${operatingFee.poolPercent}% + ${operatingFee.perTicketUsdt} USDT`
+    : '—';
 
   return (
     <div className="space-y-6">
@@ -47,6 +56,7 @@ export function SimulatorSandboxFeePreview({
         <p className="pg-label">{t('hq.commission.simulatorTierSection')}</p>
         <p className="pg-hint">{t('hq.commission.simulatorTierPreviewDesc')}</p>
         <p className="pg-callout pg-callout-muted">{t('hq.commission.simulatorTierPreviewHint')}</p>
+        <p className="pg-hint text-xs">{t('hq.commission.simulatorOperatingFeeHint')}</p>
 
         <div className="pg-segment-bar">
           {FEE_CURRENCIES.map((c) => (
@@ -70,6 +80,7 @@ export function SimulatorSandboxFeePreview({
                 <th>{t('hq.commission.fxFee')}</th>
                 <th>{t('hq.commission.transferFee')}</th>
                 <th>{t('hq.commission.otherFee')}</th>
+                <th>{t('hq.commission.operatingFeeTotal')}</th>
               </tr>
             </thead>
             <tbody>
@@ -88,11 +99,14 @@ export function SimulatorSandboxFeePreview({
                   <td>
                     <PolicyCellValue>{formatSandboxFeeCell(row, deltas, 'other')}</PolicyCellValue>
                   </td>
+                  <td>
+                    <PolicyCellValue>{operatingLabel}</PolicyCellValue>
+                  </td>
                 </tr>
               ))}
               {currencyTiers.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center pg-hint">
+                  <td colSpan={6} className="py-8 text-center pg-hint">
                     {t('hq.commission.tierEmpty')}
                   </td>
                 </tr>

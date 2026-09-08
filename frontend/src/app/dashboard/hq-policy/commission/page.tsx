@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useT } from '@/context/LocaleProvider';
 import {
   api,
@@ -12,9 +11,8 @@ import {
   type HqCommissionPayload,
   type HqCommissionRiskConfig,
   type HqExchangeRateSourcePolicy,
-  type HqOrgLevel,
-  type HqOrgSharePolicy,
   type HqGasNetworkPolicy,
+  type FeeTypeTemplate,
   type GasFeeGroupId,
   type CurrencyTransactionLimits,
   type CustomerTransactionLimitsPolicy,
@@ -29,14 +27,8 @@ import { PolicyTableActions } from '@/components/policy/PolicyTableActions';
 import { FeeDualInput } from '@/components/policy/FeeDualInput';
 import { PolicyCellValue } from '@/components/policy/PolicyCellValue';
 import { PolicyNumberInput } from '@/components/policy/PolicyNumberInput';
-import { detailRowProps } from '@/lib/table-row-detail';
-import {
-  escrowShareTotalsMatch,
-  formatEscrowShareMismatch,
-  parseEscrowShareMismatch,
-  sumOrgShareTable,
-} from '@/lib/escrow-share-totals';
 import { SimulatorCommissionPanel } from '@/components/hq-policy/SimulatorCommissionPanel';
+import { FeeTypeTemplateGrid } from '@/components/hq-policy/FeeTypeTemplateGrid';
 
 type OrgRateRow = {
   organizationId: string;
@@ -48,24 +40,23 @@ type OrgRateRow = {
   tradeEscrow: string;
 };
 
-const ORG_LEVELS: HqOrgLevel[] = [
-  'HEAD_OFFICE',
-  'MASTER_DISTRIBUTOR',
-  'REGIONAL_BRANCH',
-  'AGENCY',
-  'SALES_OFFICE',
-];
 const FEE_CURRENCIES: SymbolFeeCurrency[] = ['KRW', 'JPY', 'THB', 'CNY', 'USD'];
 const LIMIT_CUSTOMER_TYPES = ['INDIVIDUAL', 'CORPORATE'] as const;
 type LimitCustomerType = (typeof LIMIT_CUSTOMER_TYPES)[number];
 
-const FEE_DIAGRAM_KEYS: Array<{ key: keyof FeeDiagramDisplayConfig; labelKey: MessageKey }> = [
+type FeeDiagramToggleKey = Exclude<
+  keyof FeeDiagramDisplayConfig,
+  'showRates' | 'defaultFeeBillingMethod' | 'billingMethod'
+>;
+
+const FEE_DIAGRAM_KEYS: Array<{ key: FeeDiagramToggleKey; labelKey: MessageKey }> = [
   { key: 'gross', labelKey: 'hq.commission.feeDiagram.gross' },
   { key: 'fxFee', labelKey: 'hq.commission.feeDiagram.fxFee' },
   { key: 'gasFee', labelKey: 'hq.commission.feeDiagram.gasFee' },
   { key: 'transferFee', labelKey: 'hq.commission.feeDiagram.transferFee' },
   { key: 'otherFee', labelKey: 'hq.commission.feeDiagram.otherFee' },
   { key: 'localPremium', labelKey: 'hq.commission.feeDiagram.localPremium' },
+  { key: 'operatingFee', labelKey: 'hq.commission.feeDiagram.operatingFee' },
   { key: 'net', labelKey: 'hq.commission.feeDiagram.net' },
   { key: 'requiredFiat', labelKey: 'hq.commission.feeDiagram.requiredFiat' },
 ];
@@ -97,9 +88,11 @@ const DEFAULT_FEE_DIAGRAM: FeeDiagramDisplayConfig = {
   transferFee: true,
   otherFee: true,
   localPremium: true,
+  operatingFee: true,
   net: true,
   requiredFiat: true,
   showRates: true,
+  defaultFeeBillingMethod: 'ITEMIZED',
 };
 
 function withFeeDiagramDefaults(risk: HqCommissionRiskConfig): HqCommissionRiskConfig {
@@ -254,13 +247,10 @@ function mergeWithOrganizations(
 
 export default function HqCommissionPage() {
   const t = useT();
-  const router = useRouter();
   const [data, setData] = useState<HqCommissionPayload | null>(null);
   const [risk, setRisk] = useState<HqCommissionRiskConfig | null>(null);
   const [orgRows, setOrgRows] = useState<OrgRateRow[]>([]);
-  const [orgShare, setOrgShare] = useState<HqOrgSharePolicy | null>(null);
-  const [savingShare, setSavingShare] = useState(false);
-  const [shareMsg, setShareMsg] = useState('');
+  const [feeTypes, setFeeTypes] = useState<FeeTypeTemplate[]>([]);
   const [feeTiers, setFeeTiers] = useState<SymbolFeeTierRow[]>([]);
   const [exchangeRateSources, setExchangeRateSources] = useState<HqExchangeRateSourcePolicy | null>(null);
   const [exchangeRatePreview, setExchangeRatePreview] = useState<ExchangeRatePreviewRow[]>([]);
@@ -332,7 +322,8 @@ export default function HqCommissionPage() {
         })));
         const baseRows = buildOrgRows(commission);
         setOrgRows(mergeWithOrganizations(baseRows, commission, orgs));
-        setOrgShare(commission.orgShare);
+        const types = commission.feeTypes ?? [];
+        setFeeTypes(types);
         setGasNetworks(commission.gasNetworks ?? DEFAULT_GAS_NETWORKS);
         setFeeTiers(commission.feeTiers ?? []);
         setExchangeRateSources(commission.exchangeRateSources);
@@ -773,6 +764,51 @@ export default function HqCommissionPage() {
                 {t('hq.commission.showFeeRatesOff')}
               </label>
             </div>
+            <div className="border-t border-slate-100 pt-3 space-y-2">
+              <p className="pg-label text-sm">{t('hq.commission.defaultBillingMethod')}</p>
+              <p className="pg-hint text-xs">{t('hq.commission.defaultBillingMethodDesc')}</p>
+              <div className="flex flex-wrap items-center gap-3">
+                <select
+                  className="pg-input max-w-xs text-sm"
+                  value={
+                    risk.feeDiagramDisplay?.defaultFeeBillingMethod ??
+                    DEFAULT_FEE_DIAGRAM.defaultFeeBillingMethod
+                  }
+                  onChange={(e) =>
+                    setRisk((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            feeDiagramDisplay: {
+                              ...DEFAULT_FEE_DIAGRAM,
+                              ...prev.feeDiagramDisplay,
+                              defaultFeeBillingMethod: e.target.value as
+                                | 'INTEGRATED'
+                                | 'ITEMIZED'
+                                | 'HYBRID',
+                            },
+                          }
+                        : prev,
+                    )
+                  }
+                >
+                  <option value="ITEMIZED">{t('feeBilling.ITEMIZED')}</option>
+                  <option value="INTEGRATED">{t('feeBilling.INTEGRATED')}</option>
+                  <option value="HYBRID">{t('feeBilling.HYBRID')}</option>
+                </select>
+                <span className="text-xs text-slate-600">
+                  {t('hq.commission.currentDefaultBilling')}:{' '}
+                  <strong>
+                    {t(
+                      `feeBilling.${
+                        risk.feeDiagramDisplay?.defaultFeeBillingMethod ??
+                        DEFAULT_FEE_DIAGRAM.defaultFeeBillingMethod
+                      }` as MessageKey,
+                    )}
+                  </strong>
+                </span>
+              </div>
+            </div>
             <p className="pg-hint text-[10px]">{t('hq.commission.feeDiagramSaveHint')}</p>
           </div>
         </div>
@@ -807,6 +843,17 @@ export default function HqCommissionPage() {
               ))}
             </div>
             <p className="pg-hint text-[10px]">{t('hq.commission.feeDiagramSaveHint')}</p>
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+              <button
+                type="button"
+                onClick={saveRisk}
+                disabled={savingRisk || hasPolicyEditInProgress()}
+                className="pg-btn pg-btn-primary text-xs disabled:opacity-50"
+              >
+                {savingRisk ? t('hq.saving') : t('hq.commission.saveRisk')}
+              </button>
+              {msg && <span className="pg-hint">{msg}</span>}
+            </div>
           </div>
         </div>
 
@@ -1250,232 +1297,23 @@ export default function HqCommissionPage() {
         <div className="pg-section-pad space-y-3">
           <p className="pg-hint">{t('hq.commission.orgShareDesc')}</p>
           <p className="pg-callout pg-callout-muted">{t('hq.commission.vacantShareHint')}</p>
-          {orgShare && (
-            <>
-              <div className="pg-card pg-table-wrap">
-                <p className="border-b border-gray-200 px-3 py-2 text-[13px] font-bold">
-                  {t('ticket.USDT_PURCHASE')}
-                </p>
-                <p className="px-3 pt-2 pg-hint">{t('hq.commission.usdtShareHint')}</p>
-                <table className="pg-table">
-                  <thead>
-                    <tr>
-                      <th>{t('hq.commission.type')}</th>
-                      <th>{t('hq.commission.poolPercent')}</th>
-                      <th>{t('hq.commission.perTicketUsdt')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {ORG_LEVELS.map((level) => (
-                      <tr key={level}>
-                        <td>{t(`org.${level}` as MessageKey)}</td>
-                        <td>
-                          <PolicyNumberInput
-                            min={0}
-                            max={100}
-                            step="0.0001"
-                            value={orgShare.USDT_PURCHASE[level].poolPercent}
-                            onChange={(n) =>
-                              setOrgShare({
-                                ...orgShare,
-                                USDT_PURCHASE: {
-                                  ...orgShare.USDT_PURCHASE,
-                                  [level]: { ...orgShare.USDT_PURCHASE[level], poolPercent: n },
-                                },
-                              })
-                            }
-                            className="pg-input w-28"
-                          />
-                        </td>
-                        <td>
-                          <PolicyNumberInput
-                            min={0}
-                            step="0.0001"
-                            value={orgShare.USDT_PURCHASE[level].perTicketUsdt}
-                            onChange={(n) =>
-                              setOrgShare({
-                                ...orgShare,
-                                USDT_PURCHASE: {
-                                  ...orgShare.USDT_PURCHASE,
-                                  [level]: { ...orgShare.USDT_PURCHASE[level], perTicketUsdt: n },
-                                },
-                              })
-                            }
-                            className="pg-input w-28"
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <p className="pg-hint">{t('hq.commission.escrowPoolHint')}</p>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="block">
-                  <span className="pg-label">{t('hq.commission.escrowFeePercent')}</span>
-                  <PolicyNumberInput
-                    min={0}
-                    max={100}
-                    step="0.0001"
-                    value={orgShare.escrowFeePercent}
-                    onChange={(n) => setOrgShare({ ...orgShare, escrowFeePercent: n })}
-                    className="pg-input mt-1 w-full"
-                  />
-                </label>
-                <label className="block">
-                  <span className="pg-label">{t('hq.commission.escrowPerTicket')}</span>
-                  <PolicyNumberInput
-                    min={0}
-                    step="0.0001"
-                    value={orgShare.escrowPerTicketUsdt}
-                    onChange={(n) => setOrgShare({ ...orgShare, escrowPerTicketUsdt: n })}
-                    className="pg-input mt-1 w-full"
-                  />
-                </label>
-              </div>
-
-              <div className="pg-card pg-table-wrap">
-                <p className="border-b border-gray-200 px-3 py-2 text-[13px] font-bold">
-                  {t('ticket.TRADE_ESCROW')}
-                </p>
-                <p className="px-3 pt-2 pg-hint">{t('hq.commission.escrowShareHint')}</p>
-                <table className="pg-table">
-                  <thead>
-                    <tr>
-                      <th>{t('hq.commission.type')}</th>
-                      <th>{t('hq.commission.poolPercent')}</th>
-                      <th>{t('hq.commission.perTicketUsdt')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {ORG_LEVELS.map((level) => (
-                      <tr key={level}>
-                        <td>{t(`org.${level}` as MessageKey)}</td>
-                        <td>
-                          <PolicyNumberInput
-                            min={0}
-                            max={100}
-                            step="0.0001"
-                            value={orgShare.TRADE_ESCROW[level].poolPercent}
-                            onChange={(n) =>
-                              setOrgShare({
-                                ...orgShare,
-                                TRADE_ESCROW: {
-                                  ...orgShare.TRADE_ESCROW,
-                                  [level]: { ...orgShare.TRADE_ESCROW[level], poolPercent: n },
-                                },
-                              })
-                            }
-                            className="pg-input w-28"
-                          />
-                        </td>
-                        <td>
-                          <PolicyNumberInput
-                            min={0}
-                            step="0.0001"
-                            value={orgShare.TRADE_ESCROW[level].perTicketUsdt}
-                            onChange={(n) =>
-                              setOrgShare({
-                                ...orgShare,
-                                TRADE_ESCROW: {
-                                  ...orgShare.TRADE_ESCROW,
-                                  [level]: { ...orgShare.TRADE_ESCROW[level], perTicketUsdt: n },
-                                },
-                              })
-                            }
-                            className="pg-input w-28"
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <p className="px-3 py-2 pg-hint">
-                  {t('hq.commission.escrowShareSum', {
-                    actualPct: sumOrgShareTable(orgShare.TRADE_ESCROW).poolPercent,
-                    expectedPct: orgShare.escrowFeePercent,
-                    actualUsdt: sumOrgShareTable(orgShare.TRADE_ESCROW).perTicketUsdt,
-                    expectedUsdt: orgShare.escrowPerTicketUsdt,
-                  })}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={async () => {
-                  setSavingShare(true);
-                  setShareMsg('');
-                  const check = escrowShareTotalsMatch(orgShare);
-                  if (!check.ok) {
-                    const text = formatEscrowShareMismatch(t, check);
-                    window.alert(text);
-                    setShareMsg(text);
-                    setSavingShare(false);
-                    return;
-                  }
-                  try {
-                    const next = await hqPolicyApi.saveOrgShare(orgShare);
-                    setData(next);
-                    setOrgShare(next.orgShare);
-                    setShareMsg(t('hq.commission.orgShareSaved'));
-                  } catch (e) {
-                    const raw = e instanceof Error ? e.message : t('hq.saveFailed');
-                    const parsed = parseEscrowShareMismatch(raw);
-                    const text = parsed ? formatEscrowShareMismatch(t, parsed) : raw;
-                    if (parsed) window.alert(text);
-                    setShareMsg(text);
-                  } finally {
-                    setSavingShare(false);
-                  }
-                }}
-                disabled={savingShare}
-                className="pg-btn pg-btn-primary disabled:opacity-50"
-              >
-                {savingShare ? t('hq.saving') : t('hq.commission.saveOrgShare')}
-              </button>
-              {shareMsg && <p className="pg-hint">{shareMsg}</p>}
-            </>
-          )}
+          <FeeTypeTemplateGrid
+            feeTypes={feeTypes}
+            onChanged={(next) => {
+              setData(next);
+              setFeeTypes(next.feeTypes ?? []);
+            }}
+          />
         </div>
       </section>
 
       <section className="pg-section">
         <div className="pg-section-head">{t('hq.commission.orgRatesTitle')}</div>
         <div className="pg-section-pad space-y-3">
-          <p className="pg-hint">{t('hq.commission.customerOverridesHint')}</p>
-          {(data?.customerFeeShareOverrides ?? []).length === 0 ? (
-            <p className="pg-hint">{t('hq.commission.customerOverridesEmpty')}</p>
-          ) : (
-            <div className="pg-card pg-table-wrap">
-              <table className="pg-table">
-                <thead>
-                  <tr>
-                    <th>{t('hq.commission.customer')}</th>
-                    <th>{t('auth.email')}</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {(data?.customerFeeShareOverrides ?? []).map((row) => (
-                    <tr
-                      key={row.userId}
-                      {...detailRowProps(t('table.dblclickHint'), () =>
-                        router.push(`/dashboard/customers/${row.userId}`),
-                      )}
-                    >
-                      <td>{row.name}</td>
-                      <td className="font-mono text-[12px]">{row.email}</td>
-                      <td>
-                        <Link href={`/dashboard/customers/${row.userId}`} className="pg-btn pg-btn-secondary text-xs">
-                          {t('hq.commission.openCustomerShare')}
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <p className="pg-hint">{t('hq.commission.orgRatesMoved')}</p>
+          <Link href="/dashboard/customers/fees" className="pg-btn pg-btn-secondary text-sm">
+            {t('hq.commission.openCustomerFees')}
+          </Link>
         </div>
       </section>
 

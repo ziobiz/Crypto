@@ -53,8 +53,11 @@ const createSchema = z.object({
   walletLabel: z.preprocess(emptyToUndef, z.string().optional()),
   reason: z.string().min(1, '등록 사유가 필요합니다'),
   feeShare: z.unknown().optional(),
+  usdtFeeTypeCode: z.preprocess(emptyToUndef, z.string().min(1).optional()),
+  tradeFeeTypeCode: z.preprocess(emptyToUndef, z.string().min(1).optional()),
   simulatorEnabled: z.boolean().optional(),
   simulatorRateMode: z.enum(['LIVE', 'SAND']).optional(),
+  feeBillingMethod: z.enum(['FOLLOW_HQ', 'INTEGRATED', 'ITEMIZED', 'HYBRID']).optional(),
 });
 
 const updateSchema = z.object({
@@ -68,6 +71,7 @@ const updateSchema = z.object({
   feeShare: z.unknown().optional(),
   simulatorEnabled: z.boolean().optional(),
   simulatorRateMode: z.enum(['LIVE', 'SAND']).optional(),
+  feeBillingMethod: z.enum(['FOLLOW_HQ', 'INTEGRATED', 'ITEMIZED', 'HYBRID']).optional(),
 });
 
 const passwordSchema = z.object({

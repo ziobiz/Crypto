@@ -31,6 +31,7 @@ export const HQ_PAGE_CATALOG = [
   { path: '/dashboard/kyc', label: '인증센터', group: '업무' },
   { path: '/dashboard/users', label: '사용자관리', group: '사용자관리' },
   { path: '/dashboard/customers', label: '고객관리', group: '사용자관리' },
+  { path: '/dashboard/customers/fees', label: '수수료관리', group: '사용자관리' },
   { path: '/dashboard/hq-policy/access', label: '접근·권한', group: '본사정책' },
   { path: '/dashboard/hq-policy/org-columns', label: '조직·화면', group: '본사정책' },
   { path: '/dashboard/hq-policy/commission', label: '수수료·리스크', group: '본사정책' },
@@ -89,6 +90,7 @@ export const HQ_CONFIG_KEYS = {
   deletion: 'hq.deletion.policy',
   orgShare: 'hq.commission.org_share',
   gasNetworks: 'hq.commission.gas_networks',
+  currencyAmountDisplay: 'hq.commission.currency_amount_display',
   /** USDT 시뮬레이터 전용 수수료·리스크 (실거래와 분리) */
   simulatorCommissionRisk: 'hq.commission.simulator_risk',
   simulatorFeeTiers: 'hq.commission.simulator_fee_tiers',
@@ -141,6 +143,17 @@ export function defaultOrgSharePolicy(): HqOrgSharePolicy {
   };
 }
 
+/** 운영수수료 = %분 + 고정분 (둘 다 있으면 합산) */
+export function computeOperatingFeeUsdt(
+  baseAmountUsdt: number,
+  percent: number,
+  fixedUsdt: number,
+): number {
+  const fromPct = percent > 0 ? (baseAmountUsdt * percent) / 100 : 0;
+  const fromFixed = fixedUsdt > 0 ? fixedUsdt : 0;
+  return Number((fromPct + fromFixed).toFixed(8));
+}
+
 export function roundShareTotal(n: number): number {
   return Number(n.toFixed(4));
 }
@@ -183,6 +196,16 @@ export function assertEscrowShareTotals(share: {
   throw new Error(
     `ESCROW_SHARE_MISMATCH:${check.expectedPct}:${check.actualPct}:${check.expectedUsdt}:${check.actualUsdt}`,
   );
+}
+
+/** 무역거래 단계 배분 합계를 고객 수수료 풀 값으로 맞춤 (타입 그리드 저장용) */
+export function syncEscrowPoolFromShares(policy: HqOrgSharePolicy): HqOrgSharePolicy {
+  const totals = sumOrgShareTable(policy.TRADE_ESCROW);
+  return {
+    ...policy,
+    escrowFeePercent: totals.poolPercent,
+    escrowPerTicketUsdt: totals.perTicketUsdt,
+  };
 }
 
 export function normalizeOrgSharePolicy(raw: Partial<HqOrgSharePolicy> | null | undefined): HqOrgSharePolicy {
@@ -467,6 +490,12 @@ export function gasFeeUsdtForNetwork(
   return Math.max(0, fallback);
 }
 
+/** HQ 기본 청구방식 (본사설정따름이 가리키는 값) — FOLLOW_HQ 제외 */
+export type FeeBillingPresentation = 'INTEGRATED' | 'ITEMIZED' | 'HYBRID';
+
+/** 고객 프로필 청구방식 (FOLLOW_HQ 포함) */
+export type FeeBillingMethod = 'FOLLOW_HQ' | FeeBillingPresentation;
+
 /** USDT 매입 수수료·비용 도식 — 항목별 표시 여부 */
 export type FeeDiagramDisplayConfig = {
   gross: boolean;
@@ -475,10 +504,16 @@ export type FeeDiagramDisplayConfig = {
   transferFee: boolean;
   otherFee: boolean;
   localPremium: boolean;
+  /** 운영수수료(합계%+건당) — 표시만 제어, 정산은 항상 적용 */
+  operatingFee: boolean;
   net: boolean;
   requiredFiat: boolean;
   /** 도식 중앙 수수료율 열 */
   showRates: boolean;
+  /** 본사 기본 청구방식 (통합/개별/하이브리드) */
+  defaultFeeBillingMethod: FeeBillingPresentation;
+  /** 요청에 대해 해석된 청구방식 (API가 고객·본사 기본을 반영해 채움) */
+  billingMethod?: FeeBillingPresentation;
 };
 
 export const DEFAULT_FEE_DIAGRAM_DISPLAY: FeeDiagramDisplayConfig = {
@@ -488,10 +523,26 @@ export const DEFAULT_FEE_DIAGRAM_DISPLAY: FeeDiagramDisplayConfig = {
   transferFee: true,
   otherFee: true,
   localPremium: true,
+  operatingFee: true,
   net: true,
   requiredFiat: true,
   showRates: true,
+  defaultFeeBillingMethod: 'ITEMIZED',
 };
+
+export function normalizeFeeBillingPresentation(
+  raw?: string | null,
+): FeeBillingPresentation {
+  if (raw === 'INTEGRATED' || raw === 'HYBRID' || raw === 'ITEMIZED') return raw;
+  return 'ITEMIZED';
+}
+
+export function normalizeFeeBillingMethod(raw?: string | null): FeeBillingMethod {
+  if (raw === 'FOLLOW_HQ' || raw === 'INTEGRATED' || raw === 'HYBRID' || raw === 'ITEMIZED') {
+    return raw;
+  }
+  return 'FOLLOW_HQ';
+}
 
 export const IDLE_TIMEOUT_MINUTES_OPTIONS = [10, 30, 60, 90, 120] as const;
 export type IdleTimeoutMinutes = (typeof IDLE_TIMEOUT_MINUTES_OPTIONS)[number];

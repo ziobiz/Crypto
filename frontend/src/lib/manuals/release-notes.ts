@@ -3,6 +3,366 @@ import type { PlatformReleaseNote } from './version';
 /** 본사정책 → 운영관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
 export const PLATFORM_RELEASE_NOTES: PlatformReleaseNote[] = [
   {
+    version: '2.6.47',
+    kind: 'minor',
+    date: '2026-09-08',
+    items: {
+      KR: [
+        '고객 등록·수정에 수수료 청구방식(본사설정따름/통합/개별/하이브리드) 추가. 고객목록에 청구방식 열 표시.',
+        '본사 수수료리스크: 세팅된 수수료율 카드에 본사 기본 청구방식 설정. 도식은 청구방식에 따라 합산·항목별·둘 다 표시.',
+      ],
+      US: [
+        'Customer fee billing method (Follow HQ / Integrated / Itemized / Hybrid) on register/edit and list.',
+        'HQ commission risk: default billing method next to fee-rate settings; diagram shows combined, itemized, or both.',
+      ],
+      JP: [
+        '顧客に請求方式（本社準拠/統合/個別/ハイブリッド）を追加。一覧に表示。',
+        '本社手数料リスクに既定請求方式。図は合計・明細・両方を表示。',
+      ],
+      CH: [
+        '客户增加计费方式（跟随总部/合并/明细/混合），列表显示。',
+        '总部风险政策增加默认计费方式；费用图按方式显示合计、明细或两者。',
+      ],
+      TH: [
+        'เพิ่มวิธีเรียกเก็บค่าธรรมเนียมลูกค้า (ตาม HQ/รวม/แยก/ไฮบริด) และคอลัมน์ในรายการ',
+        'ตั้งค่าวิธีเริ่มต้นที่ HQ และแสดงแผนภาพตามโหมด',
+      ],
+    },
+  },
+  {
+    version: '2.6.46',
+    kind: 'minor',
+    date: '2026-09-08',
+    items: {
+      KR: [
+        '수수료리스크: 세팅된 수수료율·수수료·비용 도식 표시 바로 아래에 「리스크 정책 저장」을 추가해 바로 반영할 수 있습니다.',
+      ],
+      US: [
+        'Commission risk: add Save risk policy directly under fee-rate / fee-diagram visibility settings.',
+      ],
+      JP: [
+        '手数料リスク: 料率・図表示設定の直下に「リスク政策保存」を追加。',
+      ],
+      CH: [
+        '手续费风险：在费率/费用图显示设置正下方增加「风险政策保存」。',
+      ],
+      TH: [
+        'ความเสี่ยงค่าธรรมเนียม: เพิ่มปุ่มบันทึกนโยบายความเสี่ยงใต้การตั้งค่าอัตรา/แผนภาพทันที',
+      ],
+    },
+  },
+  {
+    version: '2.6.45',
+    kind: 'minor',
+    date: '2026-09-08',
+    items: {
+      KR: [
+        '시뮬레이터 수수료(Sandbox): 기타 수수료 옆에 운영수수료(총본사 기본수수료)를 자동 표시. LIVE·SAND 시뮬레이션에 동일 적용.',
+        '수수료·비용 도식: 「운영 수수료」표시 기본 켜짐. 「세팅된 수수료율 노출」은 %열만 제어함을 안내 문구로 명확화.',
+      ],
+      US: [
+        'Sandbox simulator fees: show operating fee from HQ default fee type next to other fees; applied to LIVE and SAND.',
+        'Fee diagram: operating fee visible by default; clarify that fee-rate toggle only controls the % column.',
+      ],
+      JP: [
+        'Sandbox手数料に運営手数料（本社基本タイプ）を自動表示。LIVE/SAND共通適用。',
+        '手数料図の運営手数料を既定表示。料率表示は%列のみ制御と明記。',
+      ],
+      CH: [
+        'Sandbox 手续费旁自动显示运营手续费（总部默认类型），LIVE/SAND 共用。',
+        '费用图默认显示运营手续费；说明「费率显示」仅控制百分比列。',
+      ],
+      TH: [
+        'แสดงค่าธรรมเนียมดำเนินงานจากประเภทเริ่มต้นข้าง Other ใน Sandbox และใช้กับ LIVE/SAND',
+        'แผนภาพค่าธรรมเนียมแสดง Operating เป็นค่าเริ่มต้น และชี้ว่าการแสดงอัตราควบคุมเฉพาะคอลัมน์ %',
+      ],
+    },
+  },
+  {
+    version: '2.6.44',
+    kind: 'minor',
+    date: '2026-09-08',
+    items: {
+      KR: [
+        '수수료관리: 고객명 아래에 로그인 아이디(이메일)를 함께 표시합니다.',
+      ],
+      US: [
+        'Fee management: show login id (email) under the customer name.',
+      ],
+      JP: [
+        '手数料管理: 顧客名の下にログインID（メール）を表示。',
+      ],
+      CH: [
+        '手续费管理：在客户名下方显示登录账号（邮箱）。',
+      ],
+      TH: [
+        'จัดการค่าธรรมเนียม: แสดงอีเมล (รหัสเข้าใช้) ใต้ชื่อลูกค้า',
+      ],
+    },
+  },
+  {
+    version: '2.6.43',
+    kind: 'minor',
+    date: '2026-09-08',
+    items: {
+      KR: [
+        '고객목록: 행 더블클릭 시 수정이 아니라 고객 상세(서류·인증)를 엽니다. 수정은 관리의 수정 버튼만 사용합니다.',
+      ],
+      US: [
+        'Customer list: double-click opens customer detail (docs/KYC), not edit. Edit only via the Edit action.',
+      ],
+      JP: [
+        '顧客一覧: ダブルクリックは詳細（書類・認証）。修正は管理の修正ボタンのみ。',
+      ],
+      CH: [
+        '客户列表：双击打开客户详情（文件/认证），不打开修改；修改仅通过管理中的修改按钮。',
+      ],
+      TH: [
+        'รายชื่อลูกค้า: ดับเบิลคลิกเปิดรายละเอียด (เอกสาร/KYC) ไม่ใช่แก้ไข — แก้ไขเฉพาะปุ่มแก้ไข',
+      ],
+    },
+  },
+  {
+    version: '2.6.42',
+    kind: 'minor',
+    date: '2026-09-08',
+    items: {
+      KR: [
+        '수수료관리: 고객명을 매입·무역 한 세트로 합치고, 세트 단위로 기존 표 줄무늬 색톤을 번갈아 표시합니다.',
+      ],
+      US: [
+        'Fee management: merge customer name across buy/trade rows; alternate table stripe tones by customer set.',
+      ],
+      JP: [
+        '手数料管理: 顧客名を買取・貿易のセットで結合し、セット単位で既存の縞色を交互表示。',
+      ],
+      CH: [
+        '手续费管理：客户名跨买入/贸易合并为一组，按组交替使用现有表格条纹色。',
+      ],
+      TH: [
+        'จัดการค่าธรรมเนียม: รวมชื่อลูกค้าข้ามแถวซื้อ/ค้า และสลับสีแถบตารางตามชุดลูกค้า',
+      ],
+    },
+  },
+  {
+    version: '2.6.41',
+    kind: 'minor',
+    date: '2026-09-08',
+    items: {
+      KR: [
+        '총본사 수수료 타입: 생성창을 맨 위에 두고, USDT/무역을 종류별로 분리. 선택한 종류 표에만 타입이 추가됩니다.',
+      ],
+      US: [
+        'HQ fee types: single create bar at top; USDT and trade types are separate — create adds only to the selected kind.',
+      ],
+      JP: [
+        '手数料タイプ作成欄を最上段に。USDT/貿易は別タイプ。選択した種類の表にのみ追加。',
+      ],
+      CH: [
+        '手续费类型创建栏移到最上方；USDT 与贸易类型分开，仅添加到所选种类。',
+      ],
+      TH: [
+        'ย้ายช่องสร้างประเภทขึ้นบนสุด แยกประเภท USDT/ค้า และเพิ่มเฉพาะชนิดที่เลือก',
+      ],
+    },
+  },
+  {
+    version: '2.6.40',
+    kind: 'minor',
+    date: '2026-09-08',
+    items: {
+      KR: [
+        '수수료관리: 고객·거래(매입/무역)·수수료유형·단계별 %/건당·운영수수료합계를 한 표로 표시. 기본 유형은 하늘색.',
+        '고객목록 더블클릭 시 상세가 아니라 수정 화면을 엽니다.',
+      ],
+      US: [
+        'Fee management: one table with customer, trade (buy/trade), fee type, org %/fixed, and operating fee total; default type rows in sky blue.',
+        'Customer list double-click opens edit (not detail).',
+      ],
+      JP: [
+        '手数料管理を顧客・取引・類型・段階配分の一表に。既定タイプは水色。顧客一覧ダブルクリックは修正。',
+      ],
+      CH: [
+        '手续费管理改为客户·交易·类型·分层分成一表；默认类型天蓝色。客户列表双击打开修改。',
+      ],
+      TH: [
+        'จัดการค่าธรรมเนียมเป็นตารางเดียว (ลูกค้า/ธุรกรรม/ประเภท/ส่วนแบ่ง) ดับเบิลคลิกรายชื่อลูกค้าเปิดแก้ไข',
+      ],
+    },
+  },
+  {
+    version: '2.6.39',
+    kind: 'minor',
+    date: '2026-09-08',
+    items: {
+      KR: [
+        '총본사 수수료 배분·수수료관리 버튼 크기를 수수료·리스크 「수정」과 동일(text-xs)로 통일.',
+        '사이드바 「조직관리」 붙여쓰기. 고객목록 인증·관리 사이에 수수료유형(USDT/무역) 열 추가.',
+      ],
+      US: [
+        'Unified HQ fee-share / fee-management action buttons to the same text-xs size as risk-policy Edit.',
+        'Nav label Organizations compacted in KR; customer list adds Fee type between Verification and Actions.',
+      ],
+      JP: [
+        '手数料配分・手数料管理ボタンサイズをリスク政策の修正と同じに統一。',
+        '顧客一覧の認証と管理の間に手数料類型列を追加。',
+      ],
+      CH: [
+        '统一总部手续费分配/管理按钮尺寸；客户列表在认证与管理之间增加手续费类型列。',
+      ],
+      TH: [
+        'ปรับขนาดปุ่มค่าธรรมเนียมให้เท่ากัน และเพิ่มคอลัมน์ประเภทค่าธรรมเนียมในรายชื่อลูกค้า',
+      ],
+    },
+  },
+  {
+    version: '2.6.38',
+    kind: 'minor',
+    date: '2026-09-07',
+    items: {
+      KR: [
+        '수수료 타입: 표마다 종류(USDT/무역)·이름·생성하기. 기본 타입은 하늘색 행, 타입 열은 이름만 표시.',
+        '운영수수료 = 합계% + 합계 건당을 거래금액에 부과·정산. 수수료 도식에 「운영 수수료」표시 옵션 추가(기본 숨김, 정산은 항상 적용).',
+      ],
+      US: [
+        'Fee types: per-table kind (USDT/trade) + name + Create. Default row highlighted in sky blue; type column shows name only.',
+        'Operating fee = total % + fixed on trade amount (always settled). Fee diagram adds an Operating fee visibility toggle (hidden by default).',
+      ],
+      JP: [
+        '手数料タイプ: 表ごとに種類・名前・作成。既定行は水色、タイプ列は名前のみ。',
+        '運営手数料＝合計%＋件当を取引額に課金・精算。手数料内訳に運営手数料表示オプション（既定は非表示、精算は常時）。',
+      ],
+      CH: [
+        '手续费类型：每表可选种类+名称+创建；默认行天蓝色，类型列仅显示名称。',
+        '运营手续费=合计%+按笔固定，始终从交易额计费结算。手续费明细增加运营手续费显示开关（默认隐藏）。',
+      ],
+      TH: [
+        'ประเภทค่าธรรมเนียม: แต่ละตารางเลือกชนิด+ชื่อ+สร้าง แถวค่าเริ่มต้นสีฟ้าอ่อน คอลัมน์แสดงเฉพาะชื่อ',
+        'ค่าธรรมเนียมดำเนินงาน=%รวม+คงที่ คิดจากยอดเสมอ แผนภาพมีตัวเลือกแสดง (ค่าเริ่มต้นซ่อน)',
+      ],
+    },
+  },
+  {
+    version: '2.6.37',
+    kind: 'minor',
+    date: '2026-09-07',
+    items: {
+      KR: [
+        '본사·고객 수수료 배분 표: %와 건당 컬럼을 분리하고, 글꼴을 섹션 제목과 같은 크기로 줄였습니다. 관리 버튼은 가운데 정렬합니다.',
+      ],
+      US: [
+        'HQ and customer fee tables: split % and per-ticket columns, match section-head font size, and center manage actions.',
+      ],
+      JP: [
+        '本社・顧客手数料表: %と件当を列分離し、フォントをセクション見出しと同じ大きさに。管理ボタンは中央揃え。',
+      ],
+      CH: [
+        '总部与客户手续费表：% 与按笔分列，字号与区块标题一致，管理按钮居中。',
+      ],
+      TH: [
+        'ตารางค่าธรรมเนียม HQ/ลูกค้า: แยกคอลัมน์ % กับต่อรายการ ลดขนาดตัวอักษรให้เท่าหัวข้อ และจัดปุ่มจัดการกึ่งกลาง',
+      ],
+    },
+  },
+  {
+    version: '2.6.36',
+    kind: 'minor',
+    date: '2026-09-07',
+    items: {
+      KR: [
+        '총본사 수수료 타입: USDT 매입·무역 에스크로 표를 분리했습니다. 합계 %는 운영수수료율(거래금액 × 합계%)이며, 단계 열은 그 수수료 배분입니다.',
+      ],
+      US: [
+        'HQ fee types: separate USDT purchase and trade escrow tables. Total % is the operating fee rate (trade amount × total %); level columns split that fee.',
+      ],
+      JP: [
+        '手数料タイプ: USDT購入と貿易エスクローを別表に。合計%は運営手数料率（取引金額×合計%）で、段階列はその配分です。',
+      ],
+      CH: [
+        '手续费类型：USDT 采购与贸易托管分表。合计 % 为运营手续费率（交易金额×合计%），各级列为其分成。',
+      ],
+      TH: [
+        'ประเภทค่าธรรมเนียม: แยกตารางซื้อ USDT และการค้า รวม % คืออัตราค่าธรรมเนียมดำเนินงาน (ยอด×รวม %) คอลัมน์ขั้นคือการแบ่งส่วน',
+      ],
+    },
+  },
+  {
+    version: '2.6.35',
+    kind: 'minor',
+    date: '2026-09-07',
+    items: {
+      KR: [
+        '총본사 기본 고정 수수료 배분을 표형으로 단순화했습니다. 타입 추가 후 행에서 %·건당을 수정·저장하며, USDT 매입과 무역거래가 동일합니다.',
+      ],
+      US: [
+        'HQ default fee share is a simple grid: add a type, then edit/save % and per-ticket values. Same table for USDT purchase and trade escrow.',
+      ],
+      JP: [
+        '総本社の基本手数料配分を表形式に簡素化。タイプ追加後、行で%・件当を修正・保存。USDT購入と貿易は同じ表です。',
+      ],
+      CH: [
+        '总部默认手续费分成改为表格：添加类型后在行内修改/保存 % 与按笔金额。USDT 采购与贸易同一表。',
+      ],
+      TH: [
+        'ส่วนแบ่งค่าธรรมเนียมเริ่มต้นของ HQ เป็นตารางง่าย: เพิ่มประเภทแล้วแก้/บันทึก % และต่อรายการ ซื้อ USDT และการค้าใช้ตารางเดียวกัน',
+      ],
+    },
+  },
+  {
+    version: '2.6.34',
+    kind: 'minor',
+    date: '2026-09-07',
+    items: {
+      KR: [
+        '고객 등록 시 USDT 매입·무역거래 수수료 타입을 각각 선택합니다. 선택하지 않으면 본사 기본 타입이 적용됩니다.',
+      ],
+      US: [
+        'When registering a customer, choose fee types for USDT purchase and trade escrow. If unset, the HQ default type is applied.',
+      ],
+      JP: [
+        '顧客登録時にUSDT購入・貿易取引の手数料タイプをそれぞれ選択します。未選択なら本社の既定タイプが適用されます。',
+      ],
+      CH: [
+        '登记客户时可分别选择 USDT 采购与贸易交易手续费类型。未选择则套用总部默认类型。',
+      ],
+      TH: [
+        'ตอนลงทะเบียนลูกค้า เลือกประเภทค่าธรรมเนียมซื้อ USDT และการค้าได้ หากไม่เลือกจะใช้ประเภทเริ่มต้นของ HQ',
+      ],
+    },
+  },
+  {
+    version: '2.6.33',
+    kind: 'minor',
+    date: '2026-09-07',
+    items: {
+      KR: [
+        '본사정책에서 수수료 타입을 여러 개 만들고 기본 타입을 지정합니다.',
+        '고객관리 > 수수료관리에서 USDT 매입·무역 수수료를 타입 선택·%+고정·적용시작일·이력으로 관리합니다. 숫자를 바꾸면 Manual로 바뀌며 정산에 최우선 적용됩니다.',
+        '신규 고객 등록 시 수수료를 건드리지 않으며 기본 타입이 자동 부여됩니다.',
+      ],
+      US: [
+        'Create multiple HQ fee types and mark one as the default.',
+        'Customer management > Fee management: USDT purchase and trade escrow fees with type, % + fixed, start date, and history. Editing values switches to Manual and takes priority at settlement.',
+        'New customers are registered with the default type; fee edits happen only in Fee management.',
+      ],
+      JP: [
+        '本社ポリシーで複数の手数料タイプを作成し、既定タイプを指定します。',
+        '顧客管理 > 手数料管理でUSDT購入・貿易手数料をタイプ選択・%+固定・適用開始日・履歴で管理。数値変更時はManualになり精算で最優先です。',
+        '新規顧客登録では手数料を編集せず、既定タイプが自動付与されます。',
+      ],
+      CH: [
+        '在总部政策中创建多种手续费类型并指定默认类型。',
+        '客户管理 > 手续费管理：USDT采购与贸易手续费支持类型、%+固定、适用开始日与变更记录。改数字会变为 Manual，结算时优先。',
+        '新客户登记不编辑手续费，自动套用默认类型。',
+      ],
+      TH: [
+        'สร้างประเภทค่าธรรมเนียมหลายแบบที่นโยบาย HQ และตั้งค่าเริ่มต้น',
+        'จัดการลูกค้า > จัดการค่าธรรมเนียม: ค่าธรรมเนียมซื้อ USDT และการค้า พร้อมประเภท %+คงที่ วันเริ่มใช้ และประวัติ แก้ตัวเลขจะเป็น Manual และมีสิทธิ์สูงสุดตอนชำระ',
+        'ลูกค้าใหม่ไม่แก้ค่าธรรมเนียมตอนลงทะเบียน ได้ประเภทเริ่มต้นอัตโนมัติ',
+      ],
+    },
+  },
+  {
     version: '2.6.26',
     kind: 'minor',
     date: '2026-08-31',
