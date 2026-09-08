@@ -22,7 +22,7 @@ async function getConfigRow<T>(key: string, fallback: T): Promise<T> {
 
 export function normalizeCurfexConfig(raw: Partial<HqCurfexConfig>): HqCurfexConfig {
   const base = DEFAULT_CURFEX_CONFIG();
-  const allowed = new Set<string>(['JPY', 'KRW', 'THB', 'CNY']);
+  const allowed = new Set<string>(['JPY', 'KRW', 'THB', 'CNY', 'HKD']);
   const currencies = Array.isArray(raw.currencies) && raw.currencies.length
     ? (raw.currencies.filter((c) => allowed.has(String(c))) as NonNullable<HqCurfexConfig['currencies']>)
     : base.currencies;

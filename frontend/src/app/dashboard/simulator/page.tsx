@@ -12,9 +12,9 @@ import { UsdtFeeBreakdownPanel } from '@/components/UsdtFeeBreakdown';
 import { FormattedAmountInput } from '@/components/FormattedAmountInput';
 import { ContentCard } from '@/components/layout/ContentCard';
 import { HqPolicyHubNav } from '@/components/layout/HqPolicyHubNav';
-import { formatDate } from '@/lib/format';
+import { formatCurrency, formatDate } from '@/lib/format';
 
-const FIAT_CURRENCIES = ['KRW', 'JPY', 'THB', 'CNY'] as const;
+const FIAT_CURRENCIES = ['KRW', 'JPY', 'THB', 'CNY', 'HKD'] as const;
 type FiatCurrency = (typeof FIAT_CURRENCIES)[number];
 type InputMode = 'fiat' | 'target';
 type SimulatorFeeMode = 'LIVE' | 'SAND';
@@ -130,6 +130,7 @@ export default function UsdtSimulatorPage() {
   const [history, setHistory] = useState<SimHistoryItem[]>([]);
   const [error, setError] = useState('');
   const lastSaved = useRef('');
+  const previewSeq = useRef(0);
 
   useEffect(() => {
     if (user && user.pageAccess?.['/dashboard/simulator'] === 'NONE') {
@@ -172,6 +173,7 @@ export default function UsdtSimulatorPage() {
       setError('');
       return;
     }
+    const seq = ++previewSeq.current;
     const params =
       inputMode === 'fiat'
         ? { fiatCurrency, fiatAmount, network, ...(hq ? { feeMode } : {}) }
@@ -179,6 +181,7 @@ export default function UsdtSimulatorPage() {
     api.usdt
       .simulate(params)
       .then((p) => {
+        if (seq !== previewSeq.current) return;
         if (!p.breakdown) {
           setPreview(null);
           setError(t('simulator.targetFailed'));
@@ -189,8 +192,12 @@ export default function UsdtSimulatorPage() {
         setError('');
       })
       .catch((e) => {
+        if (seq !== previewSeq.current) return;
+        setPreview(null);
+        setPreviewAt(null);
         const code = e instanceof ApiError ? e.code : undefined;
         if (code === 'NETWORK_REQUIRED') setError(t('simulator.networkRequired'));
+        else if (code === 'DEPOSIT_BELOW_FEES') setError(t('simulator.depositBelowFees'));
         else setError(e instanceof Error ? e.message : t('common.loadFailed'));
       });
   }, [ready, inputMode, fiatAmount, targetUsdt, fiatCurrency, network, feeMode, hq, t]);
@@ -368,6 +375,7 @@ export default function UsdtSimulatorPage() {
               onChange={setTargetUsdt}
             />
             <span className="pg-hint mt-1 block">{t('simulator.targetHint')}</span>
+            <span className="pg-hint mt-1 block">{t('simulator.receiveUsdtHint')}</span>
           </label>
         )}
 
@@ -483,7 +491,7 @@ function SimpleSimSummary({
       <div>
         <div className="pg-hint">{t('simulator.needFiat')}</div>
         <div className="font-semibold">
-          {n(requiredFiat).toLocaleString()} {currency}
+          {formatCurrency(n(requiredFiat), currency)}
         </div>
       </div>
       <div>

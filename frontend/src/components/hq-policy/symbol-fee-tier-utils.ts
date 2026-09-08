@@ -1,6 +1,6 @@
 import type { HqCommissionRiskConfig, SymbolFeeCurrency, SymbolFeeTierRow } from '@/lib/api';
 
-export const FEE_CURRENCIES: SymbolFeeCurrency[] = ['KRW', 'JPY', 'THB', 'CNY', 'USD'];
+export const FEE_CURRENCIES: SymbolFeeCurrency[] = ['KRW', 'JPY', 'THB', 'CNY', 'HKD', 'USD'];
 
 export function newTierId() {
   return `tier-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;

@@ -6,17 +6,19 @@ import { initialPasswordFromEmail, normalizeEmail } from '../lib/password-policy
 import { clearUserTotp } from './otp.service';
 import { getHqTransactionFees } from './transaction-fee.service';
 import { getOrgSharePolicyCached } from './commission.service';
-import { persistableCustomerFeeShare, normalizeCustomerFeeShare, assertEscrowShareTotals } from '../constants/hq-policy';
+import { persistableCustomerFeeShare, normalizeCustomerFeeShare, assertOperatingSharePolicy } from '../constants/hq-policy';
 import type { AuthUser } from '../types/auth';
 import { logAdminChange, sanitizeUserSnapshot, type AuditContext } from './admin-change-log.service';
 import { isHqChiefAdmin, isHqRootAdminEmail, isStaffManagerRole } from '../constants/hq-admin';
 import { nextUserPurgeAt } from './deletion.service';
 
-function requireEscrowShareTotals(raw: unknown, policy: Awaited<ReturnType<typeof getOrgSharePolicyCached>>) {
+function requireOperatingShareTotals(raw: unknown, policy: Awaited<ReturnType<typeof getOrgSharePolicyCached>>) {
   try {
-    assertEscrowShareTotals(normalizeCustomerFeeShare(raw, policy));
+    assertOperatingSharePolicy(normalizeCustomerFeeShare(raw, policy));
   } catch (e) {
-    throw new AppError(400, e instanceof Error ? e.message : 'ESCROW_SHARE_MISMATCH', 'ESCROW_SHARE_MISMATCH');
+    const msg = e instanceof Error ? e.message : 'SHARE_MISMATCH';
+    const code = msg.startsWith('USDT_SHARE_MISMATCH') ? 'USDT_SHARE_MISMATCH' : 'ESCROW_SHARE_MISMATCH';
+    throw new AppError(400, msg, code);
   }
 }
 
@@ -112,7 +114,7 @@ export type UserListQuery = {
 
 function assertCanManageUsers(actor: AuthUser): void {
   if (!isStaffManagerRole(actor.role)) {
-    throw new AppError(403, '사용자 관리 권한이 없습니다', 'FORBIDDEN');
+    throw new AppError(403, 'ì¬ì©ì ê´ë¦¬ ê¶íì´ ììµëë¤', 'FORBIDDEN');
   }
 }
 
@@ -132,7 +134,7 @@ function listScope(actor: AuthUser, staffOnly?: boolean): Prisma.UserWhereInput 
   if ((actor.role === UserRole.ORG_STAFF || actor.role === UserRole.SETTLEMENT_ADMIN) && actor.organizationPath) {
     return orgSubtreeFilter(actor.organizationPath);
   }
-  throw new AppError(403, '조직 정보가 없어 사용자를 조회할 수 없습니다', 'FORBIDDEN');
+  throw new AppError(403, 'ì¡°ì§ ì ë³´ê° ìì´ ì¬ì©ìë¥¼ ì¡°íí  ì ììµëë¤', 'FORBIDDEN');
 }
 
 function assertTargetInScope(actor: AuthUser, target: {
@@ -143,47 +145,47 @@ function assertTargetInScope(actor: AuthUser, target: {
   if (actor.role === UserRole.SUPER_ADMIN) return;
   if (target.role && target.role !== UserRole.CUSTOMER && isStaffManagerRole(actor.role)) return;
   const path = actor.organizationPath;
-  if (!path) throw new AppError(403, '권한이 없습니다', 'FORBIDDEN');
+  if (!path) throw new AppError(403, 'ê¶íì´ ììµëë¤', 'FORBIDDEN');
 
   const orgPath = target.organization?.path;
   const recruitPath = target.customerProfile?.recruitingOrg?.path;
   const ok =
     (orgPath && orgPath.startsWith(path)) ||
     (recruitPath && recruitPath.startsWith(path));
-  if (!ok) throw new AppError(403, '해당 사용자에 접근할 수 없습니다', 'FORBIDDEN');
+  if (!ok) throw new AppError(403, 'í´ë¹ ì¬ì©ìì ì ê·¼í  ì ììµëë¤', 'FORBIDDEN');
 }
 
 function assertCanAssignRole(actor: AuthUser, role: UserRole): void {
   if (role === UserRole.SUPER_ADMIN) {
-    throw new AppError(403, '총괄관리자는 추가로 생성할 수 없습니다', 'FORBIDDEN');
+    throw new AppError(403, 'ì´ê´ê´ë¦¬ìë ì¶ê°ë¡ ìì±í  ì ììµëë¤', 'FORBIDDEN');
   }
   if (role === UserRole.ORGANIZER) {
     if (!isHqChiefAdmin(actor)) {
-      throw new AppError(403, 'Organizer는 총괄관리자만 부여할 수 있습니다', 'FORBIDDEN');
+      throw new AppError(403, 'Organizerë ì´ê´ê´ë¦¬ìë§ ë¶ì¬í  ì ììµëë¤', 'FORBIDDEN');
     }
     return;
   }
   if (role === UserRole.ORG_STAFF || role === UserRole.SETTLEMENT_ADMIN) {
     if (isStaffManagerRole(actor.role)) return;
-    throw new AppError(403, '이 역할의 사용자를 생성·수정할 권한이 없습니다', 'FORBIDDEN');
+    throw new AppError(403, 'ì´ ì­í ì ì¬ì©ìë¥¼ ìì±Â·ìì í  ê¶íì´ ììµëë¤', 'FORBIDDEN');
   }
   if (role === UserRole.CUSTOMER) {
     assertCanRegisterCustomer(actor);
     return;
   }
-  throw new AppError(403, '이 역할의 사용자를 생성·수정할 권한이 없습니다', 'FORBIDDEN');
+  throw new AppError(403, 'ì´ ì­í ì ì¬ì©ìë¥¼ ìì±Â·ìì í  ê¶íì´ ììµëë¤', 'FORBIDDEN');
 }
 
 async function assertStaffOrganization(role: UserRole, organizationId: string | undefined | null): Promise<void> {
   if (!organizationId) {
-    throw new AppError(400, '소속 조직이 필요합니다', 'VALIDATION');
+    throw new AppError(400, 'ìì ì¡°ì§ì´ íìí©ëë¤', 'VALIDATION');
   }
   const org = await prisma.organization.findFirst({
     where: { id: organizationId, deletedAt: null },
   });
-  if (!org) throw new AppError(404, '조직을 찾을 수 없습니다', 'NOT_FOUND');
+  if (!org) throw new AppError(404, 'ì¡°ì§ì ì°¾ì ì ììµëë¤', 'NOT_FOUND');
   if (role === UserRole.ORGANIZER && org.type !== OrgType.HEAD_OFFICE) {
-    throw new AppError(400, 'Organizer는 총본사 조직에만 소속될 수 있습니다', 'VALIDATION');
+    throw new AppError(400, 'Organizerë ì´ë³¸ì¬ ì¡°ì§ìë§ ììë  ì ììµëë¤', 'VALIDATION');
   }
 }
 
@@ -196,17 +198,17 @@ function assertCanRegisterCustomer(actor: AuthUser): void {
   ) {
     return;
   }
-  throw new AppError(403, '고객 회원가입은 총판 이상 조직만 처리할 수 있습니다', 'FORBIDDEN');
+  throw new AppError(403, 'ê³ ê° íìê°ìì ì´í ì´ì ì¡°ì§ë§ ì²ë¦¬í  ì ììµëë¤', 'FORBIDDEN');
 }
 
 async function assertOrgInScope(actor: AuthUser, organizationId: string | null | undefined): Promise<void> {
   if (!organizationId) return;
   const org = await prisma.organization.findUnique({ where: { id: organizationId } });
-  if (!org) throw new AppError(404, '조직을 찾을 수 없습니다', 'NOT_FOUND');
+  if (!org) throw new AppError(404, 'ì¡°ì§ì ì°¾ì ì ììµëë¤', 'NOT_FOUND');
   if (isStaffManagerRole(actor.role)) return;
   const path = actor.organizationPath;
   if (!path || !org.path.startsWith(path)) {
-    throw new AppError(403, '소속 조직 범위를 벗어났습니다', 'FORBIDDEN');
+    throw new AppError(403, 'ìì ì¡°ì§ ë²ìë¥¼ ë²ì´ë¬ìµëë¤', 'FORBIDDEN');
   }
 }
 
@@ -288,7 +290,7 @@ export const userService = {
         },
       },
     });
-    if (!user || user.deletedAt) throw new AppError(404, '사용자를 찾을 수 없습니다', 'NOT_FOUND');
+    if (!user || user.deletedAt) throw new AppError(404, 'ì¬ì©ìë¥¼ ì°¾ì ì ììµëë¤', 'NOT_FOUND');
     assertTargetInScope(actor, user);
     return user;
   },
@@ -321,14 +323,14 @@ export const userService = {
   ) {
     assertCanManageUsers(actor);
     assertCanAssignRole(actor, data.role);
-    const registerReason = assertReason(data.reason, '사용자 등록 사유가 필요합니다');
+    const registerReason = assertReason(data.reason, 'ì¬ì©ì ë±ë¡ ì¬ì ê° íìí©ëë¤');
 
     const email = normalizeEmail(data.email);
     const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) throw new AppError(409, '이미 등록된 이메일입니다', 'CONFLICT');
+    if (existing) throw new AppError(409, 'ì´ë¯¸ ë±ë¡ë ì´ë©ì¼ìëë¤', 'CONFLICT');
 
     if (data.role === UserRole.SUPER_ADMIN) {
-      throw new AppError(403, '총괄관리자는 추가로 생성할 수 없습니다', 'FORBIDDEN');
+      throw new AppError(403, 'ì´ê´ê´ë¦¬ìë ì¶ê°ë¡ ìì±í  ì ììµëë¤', 'FORBIDDEN');
     }
 
     if (
@@ -343,13 +345,13 @@ export const userService = {
     if (data.role === UserRole.CUSTOMER) {
       assertCanRegisterCustomer(actor);
       if (!data.recruitingOrgId) {
-        throw new AppError(400, '고객은 유치 영업점이 필요합니다', 'VALIDATION');
+        throw new AppError(400, 'ê³ ê°ì ì ì¹ ììì ì´ íìí©ëë¤', 'VALIDATION');
       }
       if (!data.bankName?.trim() || !data.accountNumber?.trim() || !data.accountHolder?.trim()) {
-        throw new AppError(400, '입금 통장 정보(은행명·계좌번호·예금주)가 필요합니다', 'VALIDATION');
+        throw new AppError(400, 'ìê¸ íµì¥ ì ë³´(ìíëªÂ·ê³ì¢ë²í¸Â·ìê¸ì£¼)ê° íìí©ëë¤', 'VALIDATION');
       }
       if (!data.walletAddress?.trim()) {
-        throw new AppError(400, 'USDT 수령 지갑 주소가 필요합니다', 'VALIDATION');
+        throw new AppError(400, 'USDT ìë ¹ ì§ê° ì£¼ìê° íìí©ëë¤', 'VALIDATION');
       }
       await assertOrgInScope(actor, data.recruitingOrgId);
     }
@@ -362,9 +364,6 @@ export const userService = {
     if (data.role === UserRole.CUSTOMER) {
       const hqFees = await getHqTransactionFees();
       const network = data.walletNetwork?.trim() || 'TRC20';
-      const policy = await getOrgSharePolicyCached();
-      requireEscrowShareTotals(data.feeShare, policy);
-      const feeShare = persistableCustomerFeeShare(data.feeShare, policy);
       created = await prisma.user.create({
         data: {
           email,
@@ -385,7 +384,6 @@ export const userService = {
               businessNumber: data.businessNumber,
               simulatorEnabled: data.simulatorEnabled !== false,
               simulatorRateMode: data.simulatorRateMode ?? 'LIVE',
-              ...(feeShare ? { feeShare } : {}),
             },
           },
           bankAccounts: {
@@ -399,7 +397,7 @@ export const userService = {
           },
           wallets: {
             create: {
-              label: data.walletLabel?.trim() || '메인 USDT 지갑',
+              label: data.walletLabel?.trim() || 'Main USDT wallet',
               address: data.walletAddress!.trim(),
               network,
               isDefault: true,
@@ -412,6 +410,13 @@ export const userService = {
         },
         select: userSelect,
       });
+      if (created.customerProfile?.id) {
+        const { seedCustomerFeePolicies } = await import('./customer-fee-policy.service');
+        await seedCustomerFeePolicies({
+          customerProfileId: created.customerProfile.id,
+          changedByUserId: actor.id,
+        });
+      }
     } else {
       created = await prisma.user.create({
         data: {
@@ -445,7 +450,7 @@ export const userService = {
         entityType: 'USER',
         entityId: created.id,
         entityLabel: created.email,
-        summary: `사용자 등록: ${created.email} — ${registerReason} (관리자: ${audit.actor.email})`,
+        summary: `ì¬ì©ì ë±ë¡: ${created.email} â ${registerReason} (ê´ë¦¬ì: ${audit.actor.email})`,
         after: { ...sanitizeUserSnapshot(created as unknown as Record<string, unknown>), reason: registerReason },
         ipAddress: audit.ipAddress,
         userAgent: audit.userAgent,
@@ -490,19 +495,19 @@ export const userService = {
       where: { id },
       select: userSelect,
     });
-    if (!existing || existing.deletedAt) throw new AppError(404, '사용자를 찾을 수 없습니다', 'NOT_FOUND');
+    if (!existing || existing.deletedAt) throw new AppError(404, 'ì¬ì©ìë¥¼ ì°¾ì ì ììµëë¤', 'NOT_FOUND');
     assertTargetInScope(actor, existing);
 
     if (isHqRootAdminEmail(existing.email) || existing.role === UserRole.SUPER_ADMIN) {
       if (data.role && data.role !== UserRole.SUPER_ADMIN) {
-        throw new AppError(403, '총괄관리자 역할은 변경할 수 없습니다', 'FORBIDDEN');
+        throw new AppError(403, 'ì´ê´ê´ë¦¬ì ì­í ì ë³ê²½í  ì ììµëë¤', 'FORBIDDEN');
       }
       data.role = undefined;
     }
 
     if (data.role) assertCanAssignRole(actor, data.role);
     if (data.role === UserRole.SUPER_ADMIN) {
-      throw new AppError(403, '총괄관리자 역할은 지정할 수 없습니다', 'FORBIDDEN');
+      throw new AppError(403, 'ì´ê´ê´ë¦¬ì ì­í ì ì§ì í  ì ììµëë¤', 'FORBIDDEN');
     }
 
     const nextRole = data.role ?? existing.role;
@@ -519,7 +524,7 @@ export const userService = {
     if (data.recruitingOrgId) await assertOrgInScope(actor, data.recruitingOrgId);
 
     if (isHqRootAdminEmail(existing.email) && data.isActive === false) {
-      throw new AppError(400, '총괄관리자 계정은 비활성화할 수 없습니다', 'VALIDATION');
+      throw new AppError(400, 'ì´ê´ê´ë¦¬ì ê³ì ì ë¹íì±íí  ì ììµëë¤', 'VALIDATION');
     }
 
     if (existing.role === UserRole.SUPER_ADMIN && data.isActive === false) {
@@ -527,7 +532,7 @@ export const userService = {
         where: { role: UserRole.SUPER_ADMIN, isActive: true, deletedAt: null, id: { not: id } },
       });
       if (activeAdmins === 0) {
-        throw new AppError(400, '활성 총본사 관리자가 최소 1명 필요합니다', 'VALIDATION');
+        throw new AppError(400, 'íì± ì´ë³¸ì¬ ê´ë¦¬ìê° ìµì 1ëª íìí©ëë¤', 'VALIDATION');
       }
     }
 
@@ -537,25 +542,19 @@ export const userService = {
     if (statusChanging) {
       statusReason = assertReason(
         data.statusReason,
-        data.isActive ? '계정 활성화 사유가 필요합니다' : '계정 비활성화 사유가 필요합니다',
+        data.isActive ? 'ê³ì  íì±í ì¬ì ê° íìí©ëë¤' : 'ê³ì  ë¹íì±í ì¬ì ê° íìí©ëë¤',
       );
     }
 
     const customerProfileUpdate: {
       recruitingOrgId?: string;
-      feeShare?: Prisma.InputJsonValue;
       simulatorEnabled?: boolean;
       simulatorRateMode?: 'LIVE' | 'SAND';
     } = {};
     if (data.recruitingOrgId && existing.customerProfile) {
       customerProfileUpdate.recruitingOrgId = data.recruitingOrgId;
     }
-    if (data.feeShare !== undefined && existing.customerProfile) {
-      const policy = await getOrgSharePolicyCached();
-      requireEscrowShareTotals(data.feeShare, policy);
-      const feeShare = persistableCustomerFeeShare(data.feeShare, policy);
-      customerProfileUpdate.feeShare = (feeShare ?? Prisma.JsonNull) as Prisma.InputJsonValue;
-    }
+    // feeShare edits moved to customer fee management (/dashboard/customers/fees)
     if (data.simulatorEnabled !== undefined && existing.customerProfile) {
       customerProfileUpdate.simulatorEnabled = data.simulatorEnabled;
     }
@@ -589,8 +588,8 @@ export const userService = {
 
     if (audit) {
       const summary = statusChanging
-        ? `사용자 ${data.isActive ? '활성화' : '비활성화'}: ${user.email} — ${statusReason} (관리자: ${audit.actor.email})`
-        : `사용자 정보 수정: ${user.email} (관리자: ${audit.actor.email})`;
+        ? `ì¬ì©ì ${data.isActive ? 'íì±í' : 'ë¹íì±í'}: ${user.email} â ${statusReason} (ê´ë¦¬ì: ${audit.actor.email})`
+        : `ì¬ì©ì ì ë³´ ìì : ${user.email} (ê´ë¦¬ì: ${audit.actor.email})`;
       await logAdminChange({
         actor: audit.actor,
         action: AdminChangeAction.UPDATE,
@@ -626,7 +625,7 @@ export const userService = {
       where: { id },
       select: { id: true, email: true, organization: { select: { path: true } }, customerProfile: { select: { recruitingOrg: { select: { path: true } } } } },
     });
-    if (!existing) throw new AppError(404, '사용자를 찾을 수 없습니다', 'NOT_FOUND');
+    if (!existing) throw new AppError(404, 'ì¬ì©ìë¥¼ ì°¾ì ì ììµëë¤', 'NOT_FOUND');
     assertTargetInScope(actor, existing);
 
     const autoGenerated = !password?.trim();
@@ -649,7 +648,7 @@ export const userService = {
         entityType: 'USER',
         entityId: existing.id,
         entityLabel: existing.email,
-        summary: `비밀번호 초기화: ${existing.email} (관리자: ${audit.actor.email})`,
+        summary: `ë¹ë°ë²í¸ ì´ê¸°í: ${existing.email} (ê´ë¦¬ì: ${audit.actor.email})`,
         after: { passwordReset: true, autoGenerated },
         ipAddress: audit.ipAddress,
         userAgent: audit.userAgent,
@@ -671,7 +670,7 @@ export const userService = {
         customerProfile: { select: { recruitingOrg: { select: { path: true } } } },
       },
     });
-    if (!existing) throw new AppError(404, '사용자를 찾을 수 없습니다', 'NOT_FOUND');
+    if (!existing) throw new AppError(404, 'ì¬ì©ìë¥¼ ì°¾ì ì ììµëë¤', 'NOT_FOUND');
     assertTargetInScope(actor, existing);
     await clearUserTotp(id);
 
@@ -682,7 +681,7 @@ export const userService = {
         entityType: 'USER',
         entityId: existing.id,
         entityLabel: existing.email,
-        summary: `OTP 초기화: ${existing.email} (관리자: ${audit.actor.email})`,
+        summary: `OTP ì´ê¸°í: ${existing.email} (ê´ë¦¬ì: ${audit.actor.email})`,
         before: { totpEnabled: existing.totpEnabled },
         after: { totpEnabled: false },
         ipAddress: audit.ipAddress,
@@ -695,20 +694,20 @@ export const userService = {
 
   async softDelete(actor: AuthUser, id: string, audit?: AuditContext) {
     assertCanManageUsers(actor);
-    if (actor.id === id) throw new AppError(403, '본인 계정은 삭제할 수 없습니다', 'FORBIDDEN');
+    if (actor.id === id) throw new AppError(403, 'ë³¸ì¸ ê³ì ì ì­ì í  ì ììµëë¤', 'FORBIDDEN');
 
     const existing = await prisma.user.findUnique({
       where: { id },
       select: userSelect,
     });
-    if (!existing || existing.deletedAt) throw new AppError(404, '사용자를 찾을 수 없습니다', 'NOT_FOUND');
+    if (!existing || existing.deletedAt) throw new AppError(404, 'ì¬ì©ìë¥¼ ì°¾ì ì ììµëë¤', 'NOT_FOUND');
     assertTargetInScope(actor, existing);
 
     if (existing.isActive) {
-      throw new AppError(400, '비활성 사용자만 삭제할 수 있습니다', 'VALIDATION');
+      throw new AppError(400, 'ë¹íì± ì¬ì©ìë§ ì­ì í  ì ììµëë¤', 'VALIDATION');
     }
     if (existing.role === UserRole.SUPER_ADMIN || isHqRootAdminEmail(existing.email)) {
-      throw new AppError(403, '총괄관리자 계정은 삭제할 수 없습니다', 'FORBIDDEN');
+      throw new AppError(403, 'ì´ê´ê´ë¦¬ì ê³ì ì ì­ì í  ì ììµëë¤', 'FORBIDDEN');
     }
 
     const deletedAt = new Date();
@@ -725,7 +724,7 @@ export const userService = {
     await logUserManagement({
       userId: id,
       action: UserManagementAction.DELETE,
-      reason: '삭제 처리',
+      reason: 'ì­ì  ì²ë¦¬',
       changedById: actor.id,
     });
 
@@ -736,7 +735,7 @@ export const userService = {
         entityType: 'USER',
         entityId: id,
         entityLabel: existing.email,
-        summary: `사용자 삭제 처리: ${existing.email} (관리자: ${audit.actor.email})`,
+        summary: `ì¬ì©ì ì­ì  ì²ë¦¬: ${existing.email} (ê´ë¦¬ì: ${audit.actor.email})`,
         before: sanitizeUserSnapshot(existing as unknown as Record<string, unknown>),
         ipAddress: audit.ipAddress,
         userAgent: audit.userAgent,
@@ -768,9 +767,9 @@ export const userService = {
       where: { id },
       select: { ...userSelect, deletedAt: true, purgeAt: true },
     });
-    if (!existing) throw new AppError(404, '사용자를 찾을 수 없습니다', 'NOT_FOUND');
+    if (!existing) throw new AppError(404, 'ì¬ì©ìë¥¼ ì°¾ì ì ììµëë¤', 'NOT_FOUND');
     if (!existing.deletedAt) {
-      throw new AppError(400, '삭제 처리된 사용자만 복원할 수 있습니다', 'VALIDATION');
+      throw new AppError(400, 'ì­ì  ì²ë¦¬ë ì¬ì©ìë§ ë³µìí  ì ììµëë¤', 'VALIDATION');
     }
 
     const restored = await prisma.user.update({
@@ -786,7 +785,7 @@ export const userService = {
     await logUserManagement({
       userId: id,
       action: UserManagementAction.ACTIVATE,
-      reason: '삭제 처리 복원',
+      reason: 'ì­ì  ì²ë¦¬ ë³µì',
       changedById: actor.id,
     });
 
@@ -797,7 +796,7 @@ export const userService = {
         entityType: 'USER',
         entityId: id,
         entityLabel: existing.email,
-        summary: `사용자 복원: ${existing.email} (관리자: ${audit.actor.email})`,
+        summary: `ì¬ì©ì ë³µì: ${existing.email} (ê´ë¦¬ì: ${audit.actor.email})`,
         before: sanitizeUserSnapshot(existing as unknown as Record<string, unknown>),
         after: sanitizeUserSnapshot(restored as unknown as Record<string, unknown>),
         ipAddress: audit.ipAddress,

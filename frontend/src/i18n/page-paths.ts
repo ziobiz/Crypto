@@ -11,6 +11,7 @@ export const HQ_PAGE_PATH_KEYS: Record<string, MessageKey> = {
   '/dashboard/wallets': 'hq.page.wallets',
   '/dashboard/users': 'hq.page.users',
   '/dashboard/customers': 'nav.customers',
+  '/dashboard/customers/fees': 'nav.customerFees',
   '/dashboard/organizations': 'hq.page.orgs',
   '/dashboard/org-fees': 'hq.page.orgFees',
   '/dashboard/hq-policy/access': 'hq.page.access',

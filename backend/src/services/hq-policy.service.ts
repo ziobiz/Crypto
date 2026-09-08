@@ -30,7 +30,7 @@ import {
   defaultOrgSharePolicy,
   normalizeOrgSharePolicy,
   persistableCustomerFeeShare,
-  assertEscrowShareTotals,
+  assertOperatingSharePolicy,
   defaultGasNetworkPolicy,
   normalizeGasNetworkPolicy,
   type HqGasNetworkPolicy,
@@ -38,6 +38,12 @@ import {
   defaultWorkflowDisplay,
   normalizeWorkflowDisplay,
 } from '../constants/hq-policy';
+import {
+  defaultCurrencyAmountDisplayPolicy,
+  normalizeCurrencyAmountDisplayPolicy,
+  type HqCurrencyAmountDisplayPolicy,
+} from '../lib/currency-amount';
+import { clearCurrencyAmountDisplayPolicyCache } from './usdt-fee-breakdown.service';
 import {
   defaultEmailOtpConfig,
   getEmailOtpConfig,
@@ -244,7 +250,7 @@ function normalizeDepositReceivingAccounts(
   raw?: HqPlatformConfig['depositReceivingAccounts'],
 ): HqPlatformConfig['depositReceivingAccounts'] {
   const out: NonNullable<HqPlatformConfig['depositReceivingAccounts']> = {};
-  for (const cur of ['KRW', 'JPY', 'THB', 'CNY'] as const) {
+  for (const cur of ['KRW', 'JPY', 'THB', 'CNY', 'HKD'] as const) {
     const a = raw?.[cur];
     if (!a) continue;
     out[cur] = {
@@ -260,12 +266,13 @@ function normalizeDepositReceivingAccounts(
 
 export function resolveUsdtCurrencyTradePolicy(
   accounts?: HqPlatformConfig['depositReceivingAccounts'],
-): Record<'KRW' | 'JPY' | 'THB' | 'CNY', { transfer: boolean; card: boolean }> {
+): Record<'KRW' | 'JPY' | 'THB' | 'CNY' | 'HKD', { transfer: boolean; card: boolean }> {
   return {
     KRW: { transfer: accounts?.KRW?.transferEnabled !== false, card: accounts?.KRW?.cardEnabled !== false },
     JPY: { transfer: accounts?.JPY?.transferEnabled !== false, card: accounts?.JPY?.cardEnabled !== false },
     THB: { transfer: accounts?.THB?.transferEnabled !== false, card: accounts?.THB?.cardEnabled !== false },
     CNY: { transfer: accounts?.CNY?.transferEnabled !== false, card: accounts?.CNY?.cardEnabled !== false },
+    HKD: { transfer: accounts?.HKD?.transferEnabled !== false, card: accounts?.HKD?.cardEnabled !== false },
   };
 }
 
@@ -496,8 +503,14 @@ export const hqPolicyService = {
       include: { organization: { select: { id: true, code: true, name: true, type: true } } },
       orderBy: [{ ticketType: 'asc' }, { organization: { code: 'asc' } }],
     });
-    const orgShareRaw = await getConfig(HQ_CONFIG_KEYS.orgShare, defaultOrgSharePolicy());
-    const orgShare = normalizeOrgSharePolicy(orgShareRaw);
+    const {
+      ensureDefaultFeeTypeTemplate,
+      listFeeTypeTemplates,
+      loadEffectiveOrgSharePolicy,
+    } = await import('./customer-fee-policy.service');
+    await ensureDefaultFeeTypeTemplate();
+    const orgShare = await loadEffectiveOrgSharePolicy();
+    const feeTypes = await listFeeTypeTemplates();
     const profiles = await prisma.customerProfile.findMany({
       where: { feeShare: { not: Prisma.JsonNull }, user: { deletedAt: null } },
       select: {
@@ -522,11 +535,28 @@ export const hqPolicyService = {
       kimchiPremium,
       rates,
       orgShare,
+      feeTypes,
       customerFeeShareOverrides,
       gasNetworks: normalizeGasNetworkPolicy(
         await getConfig(HQ_CONFIG_KEYS.gasNetworks, defaultGasNetworkPolicy()),
       ),
+      currencyAmountDisplay: normalizeCurrencyAmountDisplayPolicy(
+        await getConfig(HQ_CONFIG_KEYS.currencyAmountDisplay, defaultCurrencyAmountDisplayPolicy()),
+      ),
     };
+  },
+
+  async saveCurrencyAmountDisplay(audit: AuditContext, policy: HqCurrencyAmountDisplayPolicy) {
+    const normalized = normalizeCurrencyAmountDisplayPolicy(policy);
+    await putConfigWithAudit(audit, {
+      key: HQ_CONFIG_KEYS.currencyAmountDisplay,
+      value: normalized,
+      description: '법정화폐 소수·절상/절사/반올림',
+      entityType: 'HQ_CURRENCY_AMOUNT',
+      summary: '통화별 금액 표시 규칙 저장',
+    });
+    clearCurrencyAmountDisplayPolicyCache();
+    return this.getCommissionPayload();
   },
 
   async saveCommissionRisk(audit: AuditContext, risk: HqCommissionRiskConfig) {
@@ -617,9 +647,11 @@ export const hqPolicyService = {
   async saveOrgSharePolicy(audit: AuditContext, policy: HqOrgSharePolicy) {
     const normalized = normalizeOrgSharePolicy(policy);
     try {
-      assertEscrowShareTotals(normalized);
+      assertOperatingSharePolicy(normalized);
     } catch (e) {
-      throw new AppError(400, e instanceof Error ? e.message : 'ESCROW_SHARE_MISMATCH', 'ESCROW_SHARE_MISMATCH');
+      const msg = e instanceof Error ? e.message : 'SHARE_MISMATCH';
+      const code = msg.startsWith('USDT_SHARE_MISMATCH') ? 'USDT_SHARE_MISMATCH' : 'ESCROW_SHARE_MISMATCH';
+      throw new AppError(400, msg, code);
     }
     await putConfigWithAudit(audit, {
       key: HQ_CONFIG_KEYS.orgShare,
@@ -628,6 +660,13 @@ export const hqPolicyService = {
       entityType: 'HQ_ORG_SHARE',
       summary: '조직 단계별 수수료 배분 저장',
     });
+    // Keep default FeeTypeTemplate in sync with legacy org_share key
+    const {
+      ensureDefaultFeeTypeTemplate,
+      updateFeeTypeTemplate,
+    } = await import('./customer-fee-policy.service');
+    const def = await ensureDefaultFeeTypeTemplate();
+    await updateFeeTypeTemplate(def.id, { config: normalized, isDefault: true });
     return this.getCommissionPayload();
   },
 
@@ -862,6 +901,9 @@ export const hqPolicyService = {
       defaultUsdtFiatCurrency: config.defaultUsdtFiatCurrency ?? 'JPY',
       baseTimezone: config.baseTimezone ?? 'Asia/Seoul',
       serviceTimezone: config.serviceTimezone ?? 'Asia/Seoul',
+      currencyAmountDisplay: normalizeCurrencyAmountDisplayPolicy(
+        await getConfig(HQ_CONFIG_KEYS.currencyAmountDisplay, defaultCurrencyAmountDisplayPolicy()),
+      ),
     };
   },
 
@@ -1010,6 +1052,7 @@ export const hqPolicyService = {
         ['/dashboard/ledger', 'VIEW'],
         ['/dashboard/users', 'MODIFY'],
         ['/dashboard/customers', 'MODIFY'],
+        ['/dashboard/customers/fees', 'MODIFY'],
         ['/dashboard/simulator-logs', 'VIEW'],
         ['/dashboard/hq-policy/cost-analysis', 'MODIFY'],
         ['/dashboard/hq-policy/profit-analysis', 'MODIFY'],

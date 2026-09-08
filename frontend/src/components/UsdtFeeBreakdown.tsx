@@ -3,6 +3,7 @@
 import { useT } from '@/context/LocaleProvider';
 import type { FeeDiagramDisplayConfig, TransactionFees } from '@/lib/api';
 import { formatFeeComponentLabel } from '@/lib/fee-component';
+import { formatCurrency } from '@/lib/format';
 
 const LOCAL_PREMIUM_CURRENCIES = ['KRW', 'THB', 'JPY'] as const;
 
@@ -20,6 +21,7 @@ export type UsdtFeeBreakdown = {
   localPremiumPercent?: number;
   kimchiPremiumFeeUsdt?: number;
   kimchiPremiumPercent?: number;
+  operatingFeeUsdt?: number;
   fairExchangeRate?: number;
 };
 
@@ -27,6 +29,8 @@ type FeeRates = Partial<TransactionFees> & {
   baseOtherFeeUsdt?: number;
   localPremiumPercent?: number;
   kimchiPremiumPercent?: number;
+  operatingFeePercent?: number;
+  operatingFeeFixedUsdt?: number;
 };
 
 type FeeStep = {
@@ -48,6 +52,7 @@ const DEFAULT_DISPLAY: FeeDiagramDisplayConfig = {
   transferFee: true,
   otherFee: true,
   localPremium: true,
+  operatingFee: true,
   net: true,
   requiredFiat: true,
   showRates: true,
@@ -82,6 +87,15 @@ export function UsdtFeeBreakdownPanel({
   const premiumFee = breakdown.localPremiumFeeUsdt ?? breakdown.kimchiPremiumFeeUsdt ?? 0;
   const showLocalPremium = isLocalPremiumCurrency(currency) && premiumPct > 0;
   const baseOther = breakdown.baseOtherFeeUsdt ?? fees?.baseOtherFeeUsdt ?? breakdown.otherFeeUsdt;
+  const operatingFeeUsdt = breakdown.operatingFeeUsdt ?? 0;
+  const opPct = Number(fees?.operatingFeePercent) || 0;
+  const opFixed = Number(fees?.operatingFeeFixedUsdt) || 0;
+  const operatingRateLabel = (() => {
+    const parts: string[] = [];
+    if (opPct > 0) parts.push(`${opPct}%`);
+    if (opFixed > 0) parts.push(`${opFixed} USDT`);
+    return parts.length ? parts.join(' + ') : '0';
+  })();
 
   const premiumFeeLabel =
     currency === 'KRW'
@@ -144,6 +158,13 @@ export function UsdtFeeBreakdownPanel({
           },
         ]),
     {
+      key: 'operatingFee',
+      label: t('usdt.operatingFee'),
+      rate: operatingRateLabel,
+      value: `− ${operatingFeeUsdt.toFixed(4)} USDT`,
+      tone: 'bg-sky-50',
+    },
+    {
       key: 'net',
       label: t('usdt.fee.net'),
       rate: '—',
@@ -162,6 +183,7 @@ export function UsdtFeeBreakdownPanel({
     visibleKeys.add('otherFeeBase');
   }
   if (cfg.localPremium) visibleKeys.add('localPremium');
+  if (cfg.operatingFee) visibleKeys.add('operatingFee');
   if (cfg.net) visibleKeys.add('net');
 
   const steps = allSteps.filter((s) => visibleKeys.has(s.key));
@@ -230,7 +252,7 @@ export function UsdtFeeBreakdownPanel({
             {isCardPayment ? t('usdt.fee.fiatForConversion') : t('usdt.fee.requiredFiat')}
           </p>
           <p className="text-lg font-bold text-blue-800 tabular-nums text-center">
-            {breakdown.requiredFiat.toLocaleString()} {currency}
+            {formatCurrency(breakdown.requiredFiat, currency)}
           </p>
         </div>
       )}
@@ -242,14 +264,14 @@ export function UsdtFeeBreakdownPanel({
                 {t('usdt.cardFee', { pct: (cardFeePercent ?? 0).toFixed(2) })}
               </p>
               <p className="text-base font-semibold text-violet-900 tabular-nums text-center">
-                + {cardFeeFiat.toLocaleString()} {currency}
+                + {formatCurrency(cardFeeFiat, currency)}
               </p>
             </div>
           )}
           <div className="rounded border border-indigo-200 bg-indigo-50 px-3 py-2">
             <p className="text-gray-700 font-medium">{t('usdt.fee.cardChargeTotal')}</p>
             <p className="text-xl font-bold text-indigo-900 tabular-nums text-center">
-              {cardChargeFiat.toLocaleString()} {currency}
+              {formatCurrency(cardChargeFiat, currency)}
             </p>
           </div>
         </div>

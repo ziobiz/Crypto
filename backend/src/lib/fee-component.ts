@@ -119,17 +119,25 @@ function legacyFeeModes(raw: Partial<TransactionFees>): Pick<
 }
 
 export function buildFeeSnapshotFields(
-  fees: TransactionFees,
+  fees: TransactionFees & {
+    operatingFeePercent?: number;
+    operatingFeeFixedUsdt?: number;
+  },
   amounts: Record<`${FeeComponentKey}FeeUsdt`, number>,
+  operatingFeeUsdt = 0,
 ) {
   const policy = normalizeTransactionFees(fees);
   return {
-    feePolicySnapshot: policy,
+    feePolicySnapshot: {
+      ...policy,
+      operatingFeePercent: Math.max(0, Number(fees.operatingFeePercent) || 0),
+      operatingFeeFixedUsdt: Math.max(0, Number(fees.operatingFeeFixedUsdt) || 0),
+    },
     fxFeePercentSnapshot: policy.fxFeeMode === 'percent' ? policy.fxFeePercent : 0,
     gasFeeSnapshot: amounts.gasFeeUsdt,
     transferFeeSnapshot: amounts.transferFeeUsdt,
     otherFeeSnapshot: amounts.otherFeeUsdt,
-    platformFeeSnapshot: 0,
+    platformFeeSnapshot: Number(operatingFeeUsdt.toFixed(8)),
   };
 }
 

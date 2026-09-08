@@ -1,4 +1,7 @@
 import { getApiBaseUrl } from './api-base';
+import type { HqCurrencyAmountDisplayPolicy } from './currency-amount';
+
+export type { HqCurrencyAmountDisplayPolicy };
 
 const API_URL = getApiBaseUrl();
 
@@ -529,7 +532,7 @@ export interface MeResponse extends User {
 
 export interface SessionPolicy {
   idleTimeoutMinutes: number;
-  defaultUsdtFiatCurrency: 'KRW' | 'JPY' | 'THB' | 'CNY';
+  defaultUsdtFiatCurrency: 'KRW' | 'JPY' | 'THB' | 'CNY' | 'HKD';
 }
 
 export type SimulatorRunRow = {
@@ -615,13 +618,14 @@ export interface FeeDiagramDisplayConfig {
   transferFee: boolean;
   otherFee: boolean;
   localPremium: boolean;
+  operatingFee: boolean;
   net: boolean;
   requiredFiat: boolean;
   showRates: boolean;
 }
 
 export interface RegisterBankAccountInput {
-  currency: 'KRW' | 'JPY' | 'THB' | 'CNY';
+  currency: 'KRW' | 'JPY' | 'THB' | 'CNY' | 'HKD';
   bankName: string;
   accountNumber: string;
   accountHolder: string;
@@ -835,8 +839,8 @@ export interface CreateUserInput {
   walletAddress?: string;
   walletNetwork?: string;
   walletLabel?: string;
-  feeShare?: CustomerFeeShare;
-  /** USDT 시뮬레이터 허용 (기본 true). false면 본사 권한보다 우선 차단 */
+  feeShare?: CustomerFeeShare | null;
+  /** USDT ?��??�이???�용 (기본 true). false�?본사 권한보다 ?�선 차단 */
   simulatorEnabled?: boolean;
   simulatorRateMode?: 'LIVE' | 'SAND';
 }
@@ -849,7 +853,7 @@ export interface UpdateUserInput {
   isActive?: boolean;
   recruitingOrgId?: string;
   statusReason?: string;
-  feeShare?: CustomerFeeShare;
+  feeShare?: CustomerFeeShare | null;
   simulatorEnabled?: boolean;
   simulatorRateMode?: 'LIVE' | 'SAND';
 }
@@ -909,7 +913,7 @@ export interface UsdtCurrencyTradeFlags {
 export interface UsdtDepositContext {
   receivingAccounts: Partial<
     Record<
-      'KRW' | 'JPY' | 'THB' | 'CNY',
+      'KRW' | 'JPY' | 'THB' | 'CNY' | 'HKD',
       {
         bankName: string;
         accountNumber: string;
@@ -919,8 +923,8 @@ export interface UsdtDepositContext {
       }
     >
   >;
-  currencyTrade?: Record<'KRW' | 'JPY' | 'THB' | 'CNY', UsdtCurrencyTradeFlags>;
-  curfexEnabledCurrencies?: Array<'JPY' | 'KRW' | 'THB' | 'CNY'>;
+  currencyTrade?: Record<'KRW' | 'JPY' | 'THB' | 'CNY' | 'HKD', UsdtCurrencyTradeFlags>;
+  curfexEnabledCurrencies?: Array<'JPY' | 'KRW' | 'THB' | 'CNY' | 'HKD'>;
   registeredBank: { bankName: string; accountNumber: string; accountHolder: string } | null;
   depositWindowHours: number;
 }
@@ -990,6 +994,7 @@ export interface UsdtFeePreview {
     localPremiumPercent?: number;
     kimchiPremiumFeeUsdt?: number;
     kimchiPremiumPercent?: number;
+    operatingFeeUsdt?: number;
     netUsdt: number;
     requiredFiat: number;
     fairExchangeRate?: number;
@@ -998,6 +1003,8 @@ export interface UsdtFeePreview {
   kimchiPremium?: KimchiPremiumInfo;
   transactionLimits?: TransactionLimitSummary;
   feeDiagramDisplay?: FeeDiagramDisplayConfig;
+  quoteExpiresInSeconds?: number;
+  quotedAt?: string;
   paymentMethod?: 'CARD';
   cardFeePercent?: number;
   cardFeeFiat?: number;
@@ -1010,7 +1017,7 @@ export interface UsdtCardPaymentContext {
   enabled: boolean;
   cardFeePercent: number;
   limits: Record<SymbolFeeCurrency, { min: number; max: number }>;
-  currencyTrade?: Record<'KRW' | 'JPY' | 'THB' | 'CNY', UsdtCurrencyTradeFlags>;
+  currencyTrade?: Record<'KRW' | 'JPY' | 'THB' | 'CNY' | 'HKD', UsdtCurrencyTradeFlags>;
   icopayConfigured: boolean;
   userPhone: string | null;
   userPhoneCountryCode: string | null;
@@ -1229,7 +1236,7 @@ export interface DashboardResponse {
 
 export type ChartRange = '7d' | '30d' | '12m';
 
-export type ChartFiatCurrency = 'KRW' | 'JPY' | 'THB' | 'CNY';
+export type ChartFiatCurrency = 'KRW' | 'JPY' | 'THB' | 'CNY' | 'HKD';
 
 export interface ExchangeStatSnapshot {
   rate: number;
@@ -1333,6 +1340,8 @@ export interface HqOrgShareSlice {
 export type HqOrgShareByType = Record<HqOrgLevel, HqOrgShareSlice>;
 
 export interface HqOrgSharePolicy {
+  usdtOperatingFeePercent: number;
+  usdtOperatingFeeUsdt: number;
   escrowFeePercent: number;
   escrowPerTicketUsdt: number;
   USDT_PURCHASE: HqOrgShareByType;
@@ -1340,10 +1349,51 @@ export interface HqOrgSharePolicy {
 }
 
 export type CustomerFeeShare = {
+  usdtOperatingFeePercent: number;
+  usdtOperatingFeeUsdt: number;
   escrowFeePercent: number;
   escrowPerTicketUsdt: number;
   USDT_PURCHASE: HqOrgShareByType;
   TRADE_ESCROW: HqOrgShareByType;
+};
+
+export type FeeTypeTemplate = {
+  id: string;
+  code: string;
+  name: string;
+  isDefault: boolean;
+  sortOrder: number;
+  config: HqOrgSharePolicy;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type CustomerFeeGridRow = {
+  customerProfileId: string;
+  userId: string;
+  customerName: string;
+  customerEmail: string;
+  policyId: string | null;
+  feeTypeCode: string;
+  feeTypeName: string | null;
+  operatingPercent: number;
+  operatingFixedUsdt: number;
+  shares: HqOrgShareByType;
+  applyStartDate: string;
+  totalPercent: number;
+  totalFixedUsdt: number;
+};
+
+export type CustomerFeeHistoryRow = {
+  id: string;
+  ticketKind: string;
+  action: string;
+  feeTypeCode: string | null;
+  applyStartDate: string | null;
+  beforeJson: unknown;
+  afterJson: unknown;
+  changedBy: { id: string; name: string; email: string } | null;
+  createdAt: string;
 };
 
 export interface CommissionGridRow {
@@ -1396,6 +1446,22 @@ export const hqPolicyApi = {
       method: 'PUT',
       body: JSON.stringify({ orgShare }),
     }),
+  createFeeType: (body: { code: string; name: string; config?: HqOrgSharePolicy; isDefault?: boolean }) =>
+    request<FeeTypeTemplate>('/api/customer-fees/types', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  updateFeeType: (
+    id: string,
+    body: { name?: string; config?: HqOrgSharePolicy; isDefault?: boolean; sortOrder?: number },
+  ) =>
+    request<FeeTypeTemplate>(`/api/customer-fees/types/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+  deleteFeeType: (id: string) =>
+    request<{ ok: boolean }>(`/api/customer-fees/types/${id}`, { method: 'DELETE' }),
+  listFeeTypes: () => request<{ feeTypes: FeeTypeTemplate[] }>('/api/customer-fees/types'),
   saveGasNetworks: (gasNetworks: HqGasNetworkPolicy) =>
     request<HqCommissionPayload>('/api/hq-policy/commission/gas-networks', {
       method: 'PUT',
@@ -1410,6 +1476,11 @@ export const hqPolicyApi = {
     request<HqCommissionPayload>('/api/hq-policy/commission/simulator/fee-tiers', {
       method: 'PUT',
       body: JSON.stringify({ feeTiers }),
+    }),
+  saveCurrencyAmountDisplay: (currencyAmountDisplay: HqCurrencyAmountDisplayPolicy) =>
+    request<HqCommissionPayload>('/api/hq-policy/commission/currency-amount-display', {
+      method: 'PUT',
+      body: JSON.stringify({ currencyAmountDisplay }),
     }),
   saveCommissionRates: (
     rates: Array<{
@@ -1547,6 +1618,43 @@ export const hqPolicyApi = {
   },
 };
 
+export const customerFeesApi = {
+  list: (ticketKind: 'USDT_PURCHASE' | 'TRADE_ESCROW') =>
+    request<{
+      ticketKind: string;
+      feeTypes: FeeTypeTemplate[];
+      rows: CustomerFeeGridRow[];
+    }>(`/api/customer-fees?ticketKind=${ticketKind}`),
+  history: (customerProfileId: string, ticketKind?: 'USDT_PURCHASE' | 'TRADE_ESCROW') => {
+    const qs = new URLSearchParams({ customerProfileId });
+    if (ticketKind) qs.set('ticketKind', ticketKind);
+    return request<{ rows: CustomerFeeHistoryRow[] }>(`/api/customer-fees/history?${qs}`);
+  },
+  save: (body: {
+    customerProfileId: string;
+    ticketKind: 'USDT_PURCHASE' | 'TRADE_ESCROW';
+    feeTypeCode?: string;
+    operatingPercent?: number;
+    operatingFixedUsdt?: number;
+    shares?: HqOrgShareByType;
+    applyStartDate: string;
+    forceManual?: boolean;
+  }) =>
+    request<{ ok: boolean; policy: unknown }>('/api/customer-fees', {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+  remove: (body: {
+    customerProfileId: string;
+    ticketKind: 'USDT_PURCHASE' | 'TRADE_ESCROW';
+    policyId?: string;
+  }) =>
+    request<{ ok: boolean }>('/api/customer-fees', {
+      method: 'DELETE',
+      body: JSON.stringify(body),
+    }),
+};
+
 export type AdminChangeLogItem = {
   id: string;
   action: 'CREATE' | 'UPDATE' | 'DELETE';
@@ -1676,9 +1784,11 @@ export interface HqCommissionRiskConfig {
   transactionLimits: CustomerTransactionLimitsPolicy;
   notes?: string;
   defaultPlatformFeeUsdt?: number;
+  /** USDT quote validity seconds (recommended 180–300) */
+  quoteExpirySeconds?: number;
 }
 
-export type SymbolFeeCurrency = 'KRW' | 'JPY' | 'THB' | 'CNY' | 'USD';
+export type SymbolFeeCurrency = 'KRW' | 'JPY' | 'THB' | 'CNY' | 'HKD' | 'USD';
 
 export interface SymbolFeeTierRow extends TransactionFees {
   id: string;
@@ -1759,7 +1869,9 @@ export interface HqCommissionPayload {
     organization: { id: string; code: string; name: string; type: string };
   }>;
   orgShare: HqOrgSharePolicy;
+  feeTypes?: FeeTypeTemplate[];
   gasNetworks?: HqGasNetworkPolicy;
+  currencyAmountDisplay?: HqCurrencyAmountDisplayPolicy;
   customerFeeShareOverrides?: Array<{
     userId: string;
     email: string;
@@ -1782,11 +1894,12 @@ export interface BrandingResponse {
     Record<'KR' | 'JP' | 'US' | 'CH' | 'TH', { title: string; body: string }>
   >;
   customerRegistrationEnabled: boolean;
-  defaultUsdtFiatCurrency?: 'KRW' | 'JPY' | 'THB' | 'CNY';
-  /** 기준시간 IANA TZ */
+  defaultUsdtFiatCurrency?: 'KRW' | 'JPY' | 'THB' | 'CNY' | 'HKD';
+  /** 기�??�간 IANA TZ */
   baseTimezone?: string;
-  /** 서비스기준시간 IANA TZ */
+  /** ?�비?�기준?�간 IANA TZ */
   serviceTimezone?: string;
+  currencyAmountDisplay?: HqCurrencyAmountDisplayPolicy;
 }
 
 export interface HqPlatformConfig {
@@ -1796,7 +1909,7 @@ export interface HqPlatformConfig {
   sslCertPath?: string;
   redirectRootToPrimary: boolean;
   siteName: string;
-  /** 브라우저 탭. 비우면 siteName */
+  /** 브라?��? ?? 비우�?siteName */
   tabTitle?: string;
   logoUrl?: string;
   authLogoUrl?: string;
@@ -1810,11 +1923,11 @@ export interface HqPlatformConfig {
   >;
   customerRegistrationEnabled?: boolean;
   idleTimeoutMinutes?: number;
-  defaultUsdtFiatCurrency?: 'KRW' | 'JPY' | 'THB' | 'CNY';
+  defaultUsdtFiatCurrency?: 'KRW' | 'JPY' | 'THB' | 'CNY' | 'HKD';
   simulatorRetentionMonths?: number;
   depositReceivingAccounts?: Partial<
     Record<
-      'KRW' | 'JPY' | 'THB' | 'CNY',
+      'KRW' | 'JPY' | 'THB' | 'CNY' | 'HKD',
       {
         bankName: string;
         accountNumber: string;
@@ -1875,7 +1988,7 @@ export interface HqCurfexConfig {
   apiBaseUrl?: string;
   walletName?: string;
   /** Currencies that use CURFEX (default JPY). Others stay on fixed accounts. */
-  currencies?: Array<'JPY' | 'KRW' | 'THB' | 'CNY'>;
+  currencies?: Array<'JPY' | 'KRW' | 'THB' | 'CNY' | 'HKD'>;
   sandbox?: boolean;
   webhookSecret?: string;
   autoApproveOnDeposit?: boolean;

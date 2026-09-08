@@ -9,6 +9,7 @@ import {
   hqPolicyApi,
   type ExchangeRatePreviewRow,
   type ExchangeRateSourceId,
+  type FeeTypeTemplate,
   type HqCommissionPayload,
   type HqCommissionRiskConfig,
   type HqExchangeRateSourcePolicy,
@@ -24,7 +25,7 @@ import {
 } from '@/lib/api';
 import type { MessageKey } from '@/i18n/messages';
 import { FormattedAmountInput } from '@/components/FormattedAmountInput';
-import { formatAmountInput } from '@/lib/format';
+import { formatAmountInput, setCurrencyAmountDisplayPolicy } from '@/lib/format';
 import { PolicyTableActions } from '@/components/policy/PolicyTableActions';
 import { FeeDualInput } from '@/components/policy/FeeDualInput';
 import { PolicyCellValue } from '@/components/policy/PolicyCellValue';
@@ -33,10 +34,14 @@ import { detailRowProps } from '@/lib/table-row-detail';
 import {
   escrowShareTotalsMatch,
   formatEscrowShareMismatch,
+  formatUsdtShareMismatch,
   parseEscrowShareMismatch,
   sumOrgShareTable,
+  usdtShareTotalsMatch,
 } from '@/lib/escrow-share-totals';
 import { SimulatorCommissionPanel } from '@/components/hq-policy/SimulatorCommissionPanel';
+import { CurrencyAmountDisplayPanel } from '@/components/hq-policy/CurrencyAmountDisplayPanel';
+import type { HqCurrencyAmountDisplayPolicy } from '@/lib/currency-amount';
 
 type OrgRateRow = {
   organizationId: string;
@@ -55,7 +60,7 @@ const ORG_LEVELS: HqOrgLevel[] = [
   'AGENCY',
   'SALES_OFFICE',
 ];
-const FEE_CURRENCIES: SymbolFeeCurrency[] = ['KRW', 'JPY', 'THB', 'CNY', 'USD'];
+const FEE_CURRENCIES: SymbolFeeCurrency[] = ['KRW', 'JPY', 'THB', 'CNY', 'HKD', 'USD'];
 const LIMIT_CUSTOMER_TYPES = ['INDIVIDUAL', 'CORPORATE'] as const;
 type LimitCustomerType = (typeof LIMIT_CUSTOMER_TYPES)[number];
 
@@ -66,6 +71,7 @@ const FEE_DIAGRAM_KEYS: Array<{ key: keyof FeeDiagramDisplayConfig; labelKey: Me
   { key: 'transferFee', labelKey: 'hq.commission.feeDiagram.transferFee' },
   { key: 'otherFee', labelKey: 'hq.commission.feeDiagram.otherFee' },
   { key: 'localPremium', labelKey: 'hq.commission.feeDiagram.localPremium' },
+  { key: 'operatingFee', labelKey: 'hq.commission.feeDiagram.operatingFee' },
   { key: 'net', labelKey: 'hq.commission.feeDiagram.net' },
   { key: 'requiredFiat', labelKey: 'hq.commission.feeDiagram.requiredFiat' },
 ];
@@ -97,6 +103,7 @@ const DEFAULT_FEE_DIAGRAM: FeeDiagramDisplayConfig = {
   transferFee: true,
   otherFee: true,
   localPremium: true,
+  operatingFee: true,
   net: true,
   requiredFiat: true,
   showRates: true,
@@ -259,6 +266,10 @@ export default function HqCommissionPage() {
   const [risk, setRisk] = useState<HqCommissionRiskConfig | null>(null);
   const [orgRows, setOrgRows] = useState<OrgRateRow[]>([]);
   const [orgShare, setOrgShare] = useState<HqOrgSharePolicy | null>(null);
+  const [feeTypes, setFeeTypes] = useState<FeeTypeTemplate[]>([]);
+  const [selectedFeeTypeId, setSelectedFeeTypeId] = useState<string | null>(null);
+  const [newFeeTypeCode, setNewFeeTypeCode] = useState('');
+  const [newFeeTypeName, setNewFeeTypeName] = useState('');
   const [savingShare, setSavingShare] = useState(false);
   const [shareMsg, setShareMsg] = useState('');
   const [feeTiers, setFeeTiers] = useState<SymbolFeeTierRow[]>([]);
@@ -283,6 +294,7 @@ export default function HqCommissionPage() {
   const [savingGas, setSavingGas] = useState(false);
   const [gasMsg, setGasMsg] = useState('');
   const [savingRates, setSavingRates] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
   const [ratesMsg, setRatesMsg] = useState('');
   const [error, setError] = useState('');
@@ -333,6 +345,11 @@ export default function HqCommissionPage() {
         const baseRows = buildOrgRows(commission);
         setOrgRows(mergeWithOrganizations(baseRows, commission, orgs));
         setOrgShare(commission.orgShare);
+        const types = commission.feeTypes ?? [];
+        setFeeTypes(types);
+        const def = types.find((x) => x.isDefault) ?? types[0];
+        setSelectedFeeTypeId(def?.id ?? null);
+        if (def?.config) setOrgShare(def.config);
         setGasNetworks(commission.gasNetworks ?? DEFAULT_GAS_NETWORKS);
         setFeeTiers(commission.feeTiers ?? []);
         setExchangeRateSources(commission.exchangeRateSources);
@@ -1071,6 +1088,19 @@ export default function HqCommissionPage() {
               <span className="pg-label">{t('hq.commission.riskEnabled')}</span>
             </label>
 
+            <label className="block max-w-xs">
+              <span className="pg-label">{t('hq.commission.quoteExpirySeconds')}</span>
+              <p className="pg-hint text-xs">{t('hq.commission.quoteExpiryDesc')}</p>
+              <PolicyNumberInput
+                min={60}
+                max={600}
+                step="30"
+                value={risk.quoteExpirySeconds ?? 240}
+                onChange={(n) => setRisk({ ...risk, quoteExpirySeconds: Math.max(60, Math.min(600, n)) })}
+                className="pg-input mt-1 w-full"
+              />
+            </label>
+
             <div className="space-y-2">
               <p className="pg-label">{t('hq.commission.limitsTitle')}</p>
               <p className="pg-hint text-xs">{t('hq.commission.limitsDesc')}</p>
@@ -1250,18 +1280,146 @@ export default function HqCommissionPage() {
         <div className="pg-section-pad space-y-3">
           <p className="pg-hint">{t('hq.commission.orgShareDesc')}</p>
           <p className="pg-callout pg-callout-muted">{t('hq.commission.vacantShareHint')}</p>
+          <div className="flex flex-wrap items-end gap-2 rounded border border-slate-200 bg-slate-50 p-3">
+            <label className="text-sm">
+              <span className="pg-label">{t('hq.commission.feeTypeSelect')}</span>
+              <select
+                className="pg-input mt-1 block min-w-[180px]"
+                value={selectedFeeTypeId ?? ''}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setSelectedFeeTypeId(id);
+                  const ft = feeTypes.find((x) => x.id === id);
+                  if (ft) setOrgShare(ft.config);
+                }}
+              >
+                {feeTypes.map((ft) => (
+                  <option key={ft.id} value={ft.id}>
+                    {ft.name} ({ft.code})
+                    {ft.isDefault ? ` · ${t('customerFees.default')}` : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              className="pg-btn pg-btn-secondary text-xs"
+              disabled={!selectedFeeTypeId || feeTypes.find((x) => x.id === selectedFeeTypeId)?.isDefault}
+              onClick={async () => {
+                if (!selectedFeeTypeId) return;
+                if (!window.confirm(t('hq.commission.confirmDeleteFeeType'))) return;
+                try {
+                  await hqPolicyApi.deleteFeeType(selectedFeeTypeId);
+                  const next = await hqPolicyApi.getCommission();
+                  setData(next);
+                  setFeeTypes(next.feeTypes ?? []);
+                  const def = next.feeTypes?.find((x) => x.isDefault) ?? next.feeTypes?.[0];
+                  setSelectedFeeTypeId(def?.id ?? null);
+                  setOrgShare(def?.config ?? next.orgShare);
+                  setShareMsg(t('hq.commission.feeTypeDeleted'));
+                } catch (e) {
+                  setShareMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
+                }
+              }}
+            >
+              {t('common.delete')}
+            </button>
+            <button
+              type="button"
+              className="pg-btn pg-btn-secondary text-xs"
+              disabled={!selectedFeeTypeId}
+              onClick={async () => {
+                if (!selectedFeeTypeId) return;
+                try {
+                  await hqPolicyApi.updateFeeType(selectedFeeTypeId, { isDefault: true });
+                  const next = await hqPolicyApi.getCommission();
+                  setData(next);
+                  setFeeTypes(next.feeTypes ?? []);
+                  setShareMsg(t('hq.commission.feeTypeDefaultSet'));
+                } catch (e) {
+                  setShareMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
+                }
+              }}
+            >
+              {t('hq.commission.setDefaultFeeType')}
+            </button>
+            <div className="flex flex-wrap items-end gap-1">
+              <input
+                className="pg-input w-24"
+                placeholder={t('hq.commission.feeTypeCode')}
+                value={newFeeTypeCode}
+                onChange={(e) => setNewFeeTypeCode(e.target.value)}
+              />
+              <input
+                className="pg-input w-32"
+                placeholder={t('hq.commission.feeTypeName')}
+                value={newFeeTypeName}
+                onChange={(e) => setNewFeeTypeName(e.target.value)}
+              />
+              <button
+                type="button"
+                className="pg-btn pg-btn-primary text-xs"
+                onClick={async () => {
+                  if (!newFeeTypeCode.trim() || !newFeeTypeName.trim() || !orgShare) return;
+                  try {
+                    const created = await hqPolicyApi.createFeeType({
+                      code: newFeeTypeCode.trim(),
+                      name: newFeeTypeName.trim(),
+                      config: orgShare,
+                    });
+                    const next = await hqPolicyApi.getCommission();
+                    setData(next);
+                    setFeeTypes(next.feeTypes ?? []);
+                    setSelectedFeeTypeId(created.id);
+                    setOrgShare(created.config);
+                    setNewFeeTypeCode('');
+                    setNewFeeTypeName('');
+                    setShareMsg(t('hq.commission.feeTypeCreated'));
+                  } catch (e) {
+                    setShareMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
+                  }
+                }}
+              >
+                {t('hq.commission.addFeeType')}
+              </button>
+            </div>
+          </div>
           {orgShare && (
             <>
               <div className="pg-card pg-table-wrap">
                 <p className="border-b border-gray-200 px-3 py-2 text-[13px] font-bold">
                   {t('ticket.USDT_PURCHASE')}
                 </p>
-                <p className="px-3 pt-2 pg-hint">{t('hq.commission.usdtShareHint')}</p>
+                <p className="px-3 pt-2 pg-hint">{t('hq.commission.usdtOperatingHint')}</p>
+                <div className="grid gap-3 px-3 py-3 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="pg-label">{t('hq.commission.usdtOperatingFeePercent')}</span>
+                    <PolicyNumberInput
+                      min={0}
+                      max={100}
+                      step="0.0001"
+                      value={orgShare.usdtOperatingFeePercent}
+                      onChange={(n) => setOrgShare({ ...orgShare, usdtOperatingFeePercent: n })}
+                      className="pg-input mt-1 w-full"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="pg-label">{t('hq.commission.usdtOperatingFeeUsdt')}</span>
+                    <PolicyNumberInput
+                      min={0}
+                      step="0.0001"
+                      value={orgShare.usdtOperatingFeeUsdt}
+                      onChange={(n) => setOrgShare({ ...orgShare, usdtOperatingFeeUsdt: n })}
+                      className="pg-input mt-1 w-full"
+                    />
+                  </label>
+                </div>
+                <p className="px-3 pg-hint">{t('hq.commission.usdtShareHint')}</p>
                 <table className="pg-table">
                   <thead>
                     <tr>
                       <th>{t('hq.commission.type')}</th>
-                      <th>{t('hq.commission.poolPercent')}</th>
+                      <th>{t('hq.commission.absoluteSharePercent')}</th>
                       <th>{t('hq.commission.perTicketUsdt')}</th>
                     </tr>
                   </thead>
@@ -1308,6 +1466,14 @@ export default function HqCommissionPage() {
                     ))}
                   </tbody>
                 </table>
+                <p className="px-3 py-2 pg-hint">
+                  {t('hq.commission.usdtShareSum', {
+                    actualPct: sumOrgShareTable(orgShare.USDT_PURCHASE).poolPercent,
+                    expectedPct: orgShare.usdtOperatingFeePercent,
+                    actualUsdt: sumOrgShareTable(orgShare.USDT_PURCHASE).perTicketUsdt,
+                    expectedUsdt: orgShare.usdtOperatingFeeUsdt,
+                  })}
+                </p>
               </div>
 
               <p className="pg-hint">{t('hq.commission.escrowPoolHint')}</p>
@@ -1344,7 +1510,7 @@ export default function HqCommissionPage() {
                   <thead>
                     <tr>
                       <th>{t('hq.commission.type')}</th>
-                      <th>{t('hq.commission.poolPercent')}</th>
+                      <th>{t('hq.commission.absoluteSharePercent')}</th>
                       <th>{t('hq.commission.perTicketUsdt')}</th>
                     </tr>
                   </thead>
@@ -1405,6 +1571,14 @@ export default function HqCommissionPage() {
                 onClick={async () => {
                   setSavingShare(true);
                   setShareMsg('');
+                  const usdtCheck = usdtShareTotalsMatch(orgShare);
+                  if (!usdtCheck.ok) {
+                    const text = formatUsdtShareMismatch(t, usdtCheck);
+                    window.alert(text);
+                    setShareMsg(text);
+                    setSavingShare(false);
+                    return;
+                  }
                   const check = escrowShareTotalsMatch(orgShare);
                   if (!check.ok) {
                     const text = formatEscrowShareMismatch(t, check);
@@ -1414,14 +1588,31 @@ export default function HqCommissionPage() {
                     return;
                   }
                   try {
-                    const next = await hqPolicyApi.saveOrgShare(orgShare);
-                    setData(next);
-                    setOrgShare(next.orgShare);
-                    setShareMsg(t('hq.commission.orgShareSaved'));
+                    if (selectedFeeTypeId) {
+                      await hqPolicyApi.updateFeeType(selectedFeeTypeId, { config: orgShare });
+                      const next = await hqPolicyApi.getCommission();
+                      setData(next);
+                      setOrgShare(
+                        next.feeTypes?.find((x) => x.id === selectedFeeTypeId)?.config ??
+                          next.orgShare,
+                      );
+                      setFeeTypes(next.feeTypes ?? []);
+                      setShareMsg(t('hq.commission.orgShareSaved'));
+                    } else {
+                      const next = await hqPolicyApi.saveOrgShare(orgShare);
+                      setData(next);
+                      setOrgShare(next.orgShare);
+                      setFeeTypes(next.feeTypes ?? []);
+                      setShareMsg(t('hq.commission.orgShareSaved'));
+                    }
                   } catch (e) {
                     const raw = e instanceof Error ? e.message : t('hq.saveFailed');
                     const parsed = parseEscrowShareMismatch(raw);
-                    const text = parsed ? formatEscrowShareMismatch(t, parsed) : raw;
+                    const text = parsed
+                      ? raw.startsWith('USDT_SHARE_MISMATCH')
+                        ? formatUsdtShareMismatch(t, parsed)
+                        : formatEscrowShareMismatch(t, parsed)
+                      : raw;
                     if (parsed) window.alert(text);
                     setShareMsg(text);
                   } finally {
@@ -1478,6 +1669,21 @@ export default function HqCommissionPage() {
           )}
         </div>
       </section>
+
+      <CurrencyAmountDisplayPanel
+        value={data?.currencyAmountDisplay}
+        saving={saving}
+        onSave={async (policy: HqCurrencyAmountDisplayPolicy) => {
+          setSaving(true);
+          try {
+            const next = await hqPolicyApi.saveCurrencyAmountDisplay(policy);
+            setData(next);
+            setCurrencyAmountDisplayPolicy(next.currencyAmountDisplay ?? policy);
+          } finally {
+            setSaving(false);
+          }
+        }}
+      />
 
       <SimulatorCommissionPanel />
     </div>

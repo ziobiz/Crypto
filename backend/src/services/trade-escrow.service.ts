@@ -180,7 +180,7 @@ export async function previewEscrowFees(user: AuthUser, amount: number, currency
   }
   const customer = await prisma.customerProfile.findUnique({
     where: { id: user.customerProfileId },
-    select: { recruitingOrgId: true, feeShare: true },
+    select: { id: true, recruitingOrgId: true, feeShare: true },
   });
   if (!customer) throw new AppError(404, 'Customer profile not found', 'NOT_FOUND');
 
@@ -189,6 +189,7 @@ export async function previewEscrowFees(user: AuthUser, amount: number, currency
     TicketType.TRADE_ESCROW,
     amount,
     customer.feeShare,
+    customer.id,
   );
   return {
     amount,
@@ -261,13 +262,14 @@ export async function createTradeEscrowTicket(
 
   const applicantProfile = await prisma.customerProfile.findUniqueOrThrow({
     where: { id: user.customerProfileId },
-    select: { recruitingOrgId: true, feeShare: true },
+    select: { id: true, recruitingOrgId: true, feeShare: true },
   });
   const feePreview = await previewCommissionPool(
     applicantProfile.recruitingOrgId,
     TicketType.TRADE_ESCROW,
     input.amount,
     applicantProfile.feeShare,
+    applicantProfile.id,
   );
 
   const initiatorIsBuyer = input.myRole === 'BUYER';

@@ -23,7 +23,7 @@ import {
 } from '@/lib/api';
 import type { MessageKey } from '@/i18n/messages';
 
-const FIAT_CURRENCIES: ChartFiatCurrency[] = ['KRW', 'JPY', 'THB', 'CNY'];
+const FIAT_CURRENCIES: ChartFiatCurrency[] = ['KRW', 'JPY', 'THB', 'CNY', 'HKD'];
 const RANGE_OPTIONS: ChartRange[] = ['7d', '30d', '12m'];
 
 const CURRENCY_COLORS: Record<ChartFiatCurrency, string> = {
@@ -31,6 +31,7 @@ const CURRENCY_COLORS: Record<ChartFiatCurrency, string> = {
   JPY: '#7c3aed',
   THB: '#059669',
   CNY: '#dc2626',
+  HKD: '#ea580c',
 };
 
 const RANGE_LABEL_KEYS: Record<ChartRange, MessageKey> = {
@@ -41,7 +42,7 @@ const RANGE_LABEL_KEYS: Record<ChartRange, MessageKey> = {
 
 function formatRate(currency: ChartFiatCurrency, rate: number) {
   return rate.toLocaleString(undefined, {
-    maximumFractionDigits: currency === 'JPY' ? 2 : 0,
+    maximumFractionDigits: currency === 'JPY' || currency === 'HKD' || currency === 'CNY' || currency === 'THB' ? 2 : 0,
   });
 }
 

@@ -386,7 +386,7 @@ export default function HqPlatformPage() {
             <p className="text-sm font-semibold text-slate-800">{t('hq.platform.depositAccounts')}</p>
             <p className="mt-1 text-xs text-slate-600">{t('hq.platform.depositAccountsDesc')}</p>
           </div>
-          {(['KRW', 'JPY', 'THB', 'CNY'] as const).map((cur) => {
+          {(['KRW', 'JPY', 'THB', 'CNY', 'HKD'] as const).map((cur) => {
             const acct = config.depositReceivingAccounts?.[cur] ?? {
               bankName: '',
               accountNumber: '',

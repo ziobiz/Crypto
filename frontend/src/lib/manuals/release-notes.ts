@@ -3,6 +3,195 @@ import type { PlatformReleaseNote } from './version';
 /** 본사정책 → 운영관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
 export const PLATFORM_RELEASE_NOTES: PlatformReleaseNote[] = [
   {
+    version: '2.6.33',
+    kind: 'minor',
+    date: '2026-09-08',
+    items: {
+      KR: [
+        '총본사 운영수수료 타입(템플릿) 다중 정의 — 고객관리>수수료관리에서 타입 선택/%+고정·적용시작일·히스토리·Manual 전환',
+        '신규 고객은 기본 수수료 타입 자동 부여, 정산·견적은 수수료관리 정책을 최우선 적용 (USDT·무역 각각)',
+      ],
+      US: [
+        'Multiple HQ operating-fee type templates; Customer > Fee management with type/%+fixed, effective date, history, Manual on edit',
+        'New customers get the default fee type; settlement/quotes prefer fee-management policies (USDT + trade escrow)',
+      ],
+      JP: [
+        '総本社運営手数料タイプ（テンプレート）を複数定義。顧客管理>手数料管理でタイプ/%+固定・適用開始日・履歴・編集時Manual',
+        '新規顧客はデフォルトタイプ自動付与。精算・見積は手数料管理ポリシーを最優先（USDT・貿易）',
+      ],
+      CH: [
+        '总本部可定义多种运营手续费类型；客户管理>手续费管理支持类型/%+固定、适用开始日、历史、编辑转 Manual',
+        '新客户自动赋予默认类型；结算与报价优先使用手续费管理策略（USDT+贸易）',
+      ],
+      TH: [
+        'HQ กำหนดประเภทค่าธรรมเนียมดำเนินงานหลายแบบ; ลูกค้า>จัดการค่าธรรมเนียม: ประเภท/%+คงที่ วันเริ่มใช้ ประวัติ Manual เมื่อแก้',
+        'ลูกค้าใหม่ได้ประเภทเริ่มต้นอัตโนมัติ; ชำระ/ใบเสนอราคาใช้นโยบายจัดการค่าธรรมเนียมก่อน (USDT+เอสโครว์)',
+      ],
+    },
+  },
+  {
+    version: '2.6.32',
+    kind: 'minor',
+    date: '2026-09-07',
+    items: {
+      KR: [
+        '운영수수료 배분을 풀 100% → 절대%(예: 총 3.5%=총본사 2%+…)로 변경, 고객별 본사따름/직접입력',
+        '견적 유효시간(3~5분) 타이머·만료 재조회, 통화별 최소/최대 입금 한도 기본값·경고 강화',
+      ],
+      US: [
+        'Operating-fee share is absolute % (e.g. 3.5% = HQ 2% + …), not a 100% pool; per-customer HQ/custom mode',
+        'Quote expiry timer (3–5 min) with refresh; stronger per-currency min/max deposit limits',
+      ],
+      JP: [
+        '運営手数料配分をプール100%から絶対%（例3.5%=総本社2%+…）へ。顧客ごと本社準拠/直接入力',
+        '見積有効時間（3〜5分）タイマー・再取得、通貨別最小/最大入金制限の強化',
+      ],
+      CH: [
+        '运营手续费分成改为绝对%（如3.5%=总部2%+…），非100%池；客户可跟随总部或自定义',
+        '报价有效时间（3–5分钟）倒计时与重查；强化各币种最小/最大入金限制',
+      ],
+      TH: [
+        'ส่วนแบ่งค่าดำเนินงานเป็น % จริง (เช่น 3.5%=HQ 2%+…) ไม่ใช่พูล 100%; ลูกค้าเลือกตาม HQ หรือป้อนเอง',
+        'ตัวจับเวลาอายุใบเสนอราคา (3–5 นาที) และดึงใหม่; จำกัดฝากขั้นต่ำ/สูงสุดตามสกุลเงิน',
+      ],
+    },
+  },
+  {
+    version: '2.6.31',
+    kind: 'minor',
+    date: '2026-09-07',
+    items: {
+      KR: [
+        '조직 배분 풀을 운영수수료(%+고정)만으로 분리 — FX·가스·송금·기타(로컬/김치 프리미엄)는 원가로 배분 제외',
+        'USDT 매입·무역 에스크로에 운영수수료 항목 추가, 수수료 도식·본사/고객 배분 UI 반영',
+      ],
+      US: [
+        'Org commission pool = operating fee only (% + fixed); FX/gas/transfer/other (incl. local premium) are costs, not shared',
+        'Add operating fee for USDT purchase & trade escrow; update fee diagram and HQ/customer share UI',
+      ],
+      JP: [
+        '組織配分プールを運営手数料（%+固定）のみに分離。FX・ガス・送金・その他（ローカル/キムチ含む）は原価で配分対象外',
+        'USDT購入・貿易エスクローに運営手数料を追加。手数料図・本社/顧客配分UI反映',
+      ],
+      CH: [
+        '组织分成池仅含运营手续费（%+固定）；FX/Gas/汇款/其他（含本地溢价）为成本，不参与分成',
+        'USDT 采购与贸易托管新增运营手续费；手续费图示与总部/客户分成 UI 同步',
+      ],
+      TH: [
+        'พูลส่วนแบ่งองค์กรใช้เฉพาะค่าธรรมเนียมดำเนินงาน (%+คงที่) — FX/แก๊ส/โอน/อื่นๆ (รวมพรีเมียม) เป็นต้นทุนไม่แบ่ง',
+        'เพิ่มค่าธรรมเนียมดำเนินงานซื้อ USDT และเอสโครว์ อัปเดตแผนภาพและ UI ส่วนแบ่ง HQ/ลูกค้า',
+      ],
+    },
+  },
+  {
+    version: '2.6.30',
+    kind: 'minor',
+    date: '2026-09-07',
+    items: {
+      KR: [
+        '입금액이 고정 수수료보다 작으면 실수령 0 표시 대신 DEPOSIT_BELOW_FEES로 차단 (시뮬·라이브)',
+        '받을 USDT 역산 시 통화 절상으로 실수령이 목표보다 약간 큰 것은 정상임을 안내',
+      ],
+      US: [
+        'Block fiat quotes when deposit is below fixed fees (no more silent 0 USDT) — sim + live',
+        'Clarify that slight net above target after currency ceil is expected',
+      ],
+      JP: [
+        '入金が固定手数料未満の場合、受取0表示ではなくDEPOSIT_BELOW_FEESで遮断（シミュ/本番）',
+        '受取USDT逆算で通貨切上げにより実受取が目標よりやや多いのは正常と案内',
+      ],
+      CH: [
+        '入金低于固定手续费时不再显示到账0，改为 DEPOSIT_BELOW_FEES 拦截（模拟+正式）',
+        '说明目标 USDT 反算因货币进一导致实收略高于目标为正常',
+      ],
+      TH: [
+        'บล็อกเมื่อเงินฝากต่ำกว่าค่าธรรมเนียมคงที่ ไม่แสดง USDT=0 เงียบๆ (จำลอง+จริง)',
+        'ชี้แจงว่าได้ USDT มากกว่าเป้าหมายเล็กน้อยหลังปัดขึ้นเป็นเรื่องปกติ',
+      ],
+    },
+  },
+  {
+    version: '2.6.29',
+    kind: 'minor',
+    date: '2026-09-07',
+    items: {
+      KR: [
+        '수수료내역(정산금액) 관리 열 가운데 정렬',
+        'HKD 통화 추가 — CoinGecko USDT/HKD 실시간 시세·시뮬/라이브·수수료·표시 규칙 연동',
+      ],
+      US: [
+        'Currency-amount actions column centered',
+        'HKD added with CoinGecko USDT/HKD live rates (sim + live)',
+      ],
+      JP: [
+        '手数料明細（精算）管理列を中央揃え',
+        'HKD追加 — CoinGecko USDT/HKDリアルタイム連動',
+      ],
+      CH: [
+        '手续费明细（结算）管理列居中对齐',
+        '新增 HKD — CoinGecko USDT/HKD 实时行情联动',
+      ],
+      TH: [
+        'จัดกึ่งกลางคอลัมน์จัดการในรายละเอียดค่าธรรมเนียม',
+        'เพิ่ม HKD พร้อมเรท CoinGecko USDT/HKD แบบเรียลไทม์',
+      ],
+    },
+  },
+  {
+    version: '2.6.28',
+    kind: 'minor',
+    date: '2026-09-07',
+    items: {
+      KR: [
+        '받을 USDT = 수수료 차감 후 실수령 — 입금액 역산·절상으로 목표 수령 보장 (시뮬/라이브)',
+        '시뮬레이터 입력 레이스 수정: 이전 응답이 최신 금액을 덮지 않음',
+      ],
+      US: [
+        'Target USDT = net after fees; reverse-calc deposit with ceil so net ≥ target (sim + live)',
+        'Simulator race fix: stale responses no longer overwrite newer amounts',
+      ],
+      JP: [
+        '受取USDT＝手数料差引後の実受取。入金逆算＋切上げで目標以上を保証（シミュ/本番）',
+        'シミュレーター入力レース修正：古い応答が最新金額を上書きしない',
+      ],
+      CH: [
+        '目标 USDT＝扣费后实收；反向计算入金并以进一保证实收≥目标（模拟+正式）',
+        '模拟器输入竞态修复：旧响应不再覆盖新金额',
+      ],
+      TH: [
+        'USDT ที่รับ = สุทธิหลังหักค่าธรรมเนียม คำนวณย้อนเงินฝาก+ปัดขึ้นให้ได้ ≥ เป้าหมาย (จำลอง+จริง)',
+        'แก้ race ของตัวจำลอง: คำตอบเก่าไม่ทับจำนวนใหม่',
+      ],
+    },
+  },
+  {
+    version: '2.6.27',
+    kind: 'minor',
+    date: '2026-09-07',
+    items: {
+      KR: [
+        '통화별 금액 표시 규칙(소수 자릿수·절상/버림/반올림) — 본사정책 수수료·리스크에서 설정',
+        '기본: KRW·JPY 소수 없음+절상, THB·CNY·USD 2자리+반올림 — 시뮬레이터·라이브 공통 적용',
+      ],
+      US: [
+        'Per-currency amount display rules (decimals + ceil/floor/round) in HQ commission policy',
+        'Defaults: KRW/JPY 0 decimals+ceil; THB/CNY/USD 2+round — simulator and live',
+      ],
+      JP: [
+        '通貨別金額表示ルール（小数桁・切上げ/切捨て/四捨五入）を本社手数料方針に追加',
+        '既定: KRW・JPYは小数なし+切上げ、THB・CNY・USDは2桁+四捨五入 — シミュレーターと本番共通',
+      ],
+      CH: [
+        '按货币金额显示规则（小数位与进位/截断/四舍五入）— 总部手续费策略可配置',
+        '默认：KRW/JPY 无小数+进一；THB/CNY/USD 2位+四舍五入 — 模拟与正式共用',
+      ],
+      TH: [
+        'กฎแสดงจำนวนเงินรายสกุล (ทศนิยม + ปัดขึ้น/ตัดทิ้ง/ปัดปกติ) ในนโยบายค่าธรรมเนียม HQ',
+        'ค่าเริ่มต้น: KRW/JPY ไม่มีทศนิยม+ปัดขึ้น; THB/CNY/USD 2 หลัก+ปัดปกติ — ใช้ทั้งจำลองและจริง',
+      ],
+    },
+  },
+  {
     version: '2.6.26',
     kind: 'minor',
     date: '2026-08-31',

@@ -15,6 +15,7 @@ const FALLBACK_RATES: Record<SymbolFeeCurrency, number> = {
   JPY: 150,
   THB: 35,
   CNY: 7.2,
+  HKD: 7.8,
 };
 
 export function defaultExchangeRateSourcePolicy(): HqExchangeRateSourcePolicy {
@@ -23,6 +24,8 @@ export function defaultExchangeRateSourcePolicy(): HqExchangeRateSourcePolicy {
     JPY: 'binance_cross',
     THB: 'binance_th',
     CNY: 'exchangerate_api',
+    /** CoinGecko USDT/HKD 실시간 (홍콩 달러 시세) */
+    HKD: 'coingecko',
     USD: 'exchangerate_api',
   };
 }

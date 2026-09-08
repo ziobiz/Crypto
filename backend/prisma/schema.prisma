@@ -114,6 +114,7 @@ enum CurrencyCode {
   JPY
   THB
   CNY
+  HKD
   USDT
 }
 
@@ -218,6 +219,7 @@ model User {
   createdUsers    User[] @relation("UserCreatedBy")
   managementLogs  UserManagementLog[] @relation("UserMgmtLogs")
   mgmtActions     UserManagementLog[] @relation("UserMgmtChangedBy")
+  customerFeeHistories CustomerFeeHistory[] @relation("CustomerFeeChangedBy")
 
   // 에스크로 거래에서의 역할
   escrowAsBuyer  TradeEscrowDetail[] @relation("EscrowBuyer")
@@ -267,7 +269,7 @@ model CustomerProfile {
   recruitingOrgId String
   recruitingOrg   Organization @relation("RecruitingOrg", fields: [recruitingOrgId], references: [id])
 
-  /// 고객별 수수료 배분 (총본사 기본값을 복사 후 고객마다 수정)
+  /// 레거시 고객별 수수료 배분 (CustomerFeePolicy로 이관 후 읽기 fallback 전용)
   feeShare Json?
 
   /// USDT 시뮬레이터 사용 허용 (고객별). false면 본사 권한 매트릭스보다 우선해 차단
@@ -279,6 +281,8 @@ model CustomerProfile {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   tickets TransactionTicket[]
+  feePolicies CustomerFeePolicy[]
+  feeHistories CustomerFeeHistory[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -286,6 +290,66 @@ model CustomerProfile {
   @@index([recruitingOrgId])
   @@index([businessNumber])
   @@map("customer_profiles")
+}
+
+/// HQ 운영수수료 타입 템플릿 (A/B/DEFAULT 등)
+model FeeTypeTemplate {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  isDefault Boolean  @default(false)
+  sortOrder Int      @default(0)
+  /// HqOrgSharePolicy shape
+  config    Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isDefault])
+  @@index([sortOrder])
+  @@map("fee_type_templates")
+}
+
+/// 고객별 티켓종류(USDT/무역) 수수료 정책 — 적용시작일 기준 최신 유효
+model CustomerFeePolicy {
+  id                 String   @id @default(cuid())
+  customerProfileId  String
+  customerProfile    CustomerProfile @relation(fields: [customerProfileId], references: [id], onDelete: Cascade)
+  /// USDT_PURCHASE | TRADE_ESCROW
+  ticketKind         String
+  /// 템플릿 code 또는 MANUAL
+  feeTypeCode        String
+  feeTypeName        String?
+  operatingPercent   Decimal  @db.Decimal(10, 6)
+  operatingFixedUsdt Decimal  @db.Decimal(18, 8) @default(0)
+  /// HqOrgShareByType
+  shares             Json
+  applyStartDate     DateTime @db.Date
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([customerProfileId, ticketKind, applyStartDate])
+  @@index([ticketKind, applyStartDate])
+  @@map("customer_fee_policies")
+}
+
+model CustomerFeeHistory {
+  id                String   @id @default(cuid())
+  customerProfileId String
+  customerProfile   CustomerProfile @relation(fields: [customerProfileId], references: [id], onDelete: Cascade)
+  ticketKind        String
+  /// CREATE | UPDATE | DELETE | TYPE_ASSIGN
+  action            String
+  feeTypeCode       String?
+  applyStartDate    DateTime? @db.Date
+  beforeJson        Json?
+  afterJson         Json?
+  changedByUserId   String?
+  changedBy         User?    @relation("CustomerFeeChangedBy", fields: [changedByUserId], references: [id])
+  createdAt         DateTime @default(now())
+
+  @@index([customerProfileId, ticketKind, createdAt])
+  @@index([createdAt])
+  @@map("customer_fee_histories")
 }
 
 enum KycStatus {

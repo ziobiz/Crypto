@@ -31,6 +31,7 @@ export const HQ_PAGE_CATALOG = [
   { path: '/dashboard/kyc', label: '인증센터', group: '업무' },
   { path: '/dashboard/users', label: '사용자관리', group: '사용자관리' },
   { path: '/dashboard/customers', label: '고객관리', group: '사용자관리' },
+  { path: '/dashboard/customers/fees', label: '수수료관리', group: '사용자관리' },
   { path: '/dashboard/hq-policy/access', label: '접근·권한', group: '본사정책' },
   { path: '/dashboard/hq-policy/org-columns', label: '조직·화면', group: '본사정책' },
   { path: '/dashboard/hq-policy/commission', label: '수수료·리스크', group: '본사정책' },
@@ -93,6 +94,8 @@ export const HQ_CONFIG_KEYS = {
   simulatorCommissionRisk: 'hq.commission.simulator_risk',
   simulatorFeeTiers: 'hq.commission.simulator_fee_tiers',
   workflowDisplay: 'hq.workflow.display',
+  /** 법정화폐 소수 자릿수·절상/절사/반올림 (시뮬·실거래 공통) */
+  currencyAmountDisplay: 'hq.commission.currency_amount_display',
 } as const;
 
 export type HqOrgShareSlice = {
@@ -105,7 +108,13 @@ export type HqOrgShareSlice = {
 export type HqOrgShareByType = Record<HqOrgLevel, HqOrgShareSlice>;
 
 export type HqOrgSharePolicy = {
-  /** 에스크로 고객 부담 수수료율 (% of 거래금액). USDT 매입은 티켓 수수료 스냅샷 풀 사용 */
+  /**
+   * USDT 매입 운영수수료 (플랫폼 수익·조직 배분 풀).
+   * % + 고정 USDT 합산. FX·가스·송금·기타(로컬/김치 프리미엄 포함)는 원가이며 배분 대상이 아님.
+   */
+  usdtOperatingFeePercent: number;
+  usdtOperatingFeeUsdt: number;
+  /** 무역 에스크로 운영수수료 (% of 거래금액 + 건당 고정). 조직 배분 합과 일치해야 함 */
   escrowFeePercent: number;
   escrowPerTicketUsdt: number;
   USDT_PURCHASE: HqOrgShareByType;
@@ -117,17 +126,20 @@ export function defaultOrgShareSlice(): HqOrgShareSlice {
 }
 
 export function defaultOrgShareByType(): HqOrgShareByType {
+  /** USDT: 절대 % (운영수수료 합과 일치). 기본 운영 3.5% = 2.0+0.7+0.4+0.25+0.15 */
   return {
-    HEAD_OFFICE: { poolPercent: 40, perTicketUsdt: 0 },
-    MASTER_DISTRIBUTOR: { poolPercent: 25, perTicketUsdt: 0 },
-    REGIONAL_BRANCH: { poolPercent: 15, perTicketUsdt: 0 },
-    AGENCY: { poolPercent: 12, perTicketUsdt: 0 },
-    SALES_OFFICE: { poolPercent: 8, perTicketUsdt: 0 },
+    HEAD_OFFICE: { poolPercent: 2, perTicketUsdt: 0 },
+    MASTER_DISTRIBUTOR: { poolPercent: 0.7, perTicketUsdt: 0 },
+    REGIONAL_BRANCH: { poolPercent: 0.4, perTicketUsdt: 0 },
+    AGENCY: { poolPercent: 0.25, perTicketUsdt: 0 },
+    SALES_OFFICE: { poolPercent: 0.15, perTicketUsdt: 0 },
   };
 }
 
 export function defaultOrgSharePolicy(): HqOrgSharePolicy {
   return {
+    usdtOperatingFeePercent: 3.5,
+    usdtOperatingFeeUsdt: 0,
     escrowFeePercent: 1.5,
     escrowPerTicketUsdt: 0,
     USDT_PURCHASE: defaultOrgShareByType(),
@@ -139,6 +151,17 @@ export function defaultOrgSharePolicy(): HqOrgSharePolicy {
       SALES_OFFICE: { poolPercent: 0.12, perTicketUsdt: 0 },
     },
   };
+}
+
+/** 운영수수료 = %분 + 고정분 (둘 다 있으면 합산) */
+export function computeOperatingFeeUsdt(
+  baseAmountUsdt: number,
+  percent: number,
+  fixedUsdt: number,
+): number {
+  const fromPct = percent > 0 ? (baseAmountUsdt * percent) / 100 : 0;
+  const fromFixed = fixedUsdt > 0 ? fixedUsdt : 0;
+  return Number((fromPct + fromFixed).toFixed(8));
 }
 
 export function roundShareTotal(n: number): number {
@@ -173,6 +196,35 @@ export function escrowShareTotalsMatch(share: {
   };
 }
 
+/** USDT: 단계별 절대 %·고정 합 = 운영수수료 (%·고정). 풀 100% 배분이 아님 */
+export function usdtShareTotalsMatch(share: {
+  usdtOperatingFeePercent: number;
+  usdtOperatingFeeUsdt: number;
+  USDT_PURCHASE: HqOrgShareByType;
+}): { ok: boolean; expectedPct: number; actualPct: number; expectedUsdt: number; actualUsdt: number } {
+  const expectedPct = roundShareTotal(Number(share.usdtOperatingFeePercent) || 0);
+  const expectedUsdt = roundShareTotal(Number(share.usdtOperatingFeeUsdt) || 0);
+  const actual = sumOrgShareTable(share.USDT_PURCHASE);
+  return {
+    ok: actual.poolPercent === expectedPct && actual.perTicketUsdt === expectedUsdt,
+    expectedPct,
+    actualPct: actual.poolPercent,
+    expectedUsdt,
+    actualUsdt: actual.perTicketUsdt,
+  };
+}
+
+export function operatingShareExceeds(share: {
+  operatingPercent: number;
+  operatingUsdt: number;
+  table: HqOrgShareByType;
+}): boolean {
+  const actual = sumOrgShareTable(share.table);
+  const expectedPct = roundShareTotal(Number(share.operatingPercent) || 0);
+  const expectedUsdt = roundShareTotal(Number(share.operatingUsdt) || 0);
+  return actual.poolPercent > expectedPct + 1e-9 || actual.perTicketUsdt > expectedUsdt + 1e-9;
+}
+
 export function assertEscrowShareTotals(share: {
   escrowFeePercent: number;
   escrowPerTicketUsdt: number;
@@ -183,6 +235,62 @@ export function assertEscrowShareTotals(share: {
   throw new Error(
     `ESCROW_SHARE_MISMATCH:${check.expectedPct}:${check.actualPct}:${check.expectedUsdt}:${check.actualUsdt}`,
   );
+}
+
+export function assertUsdtShareTotals(share: {
+  usdtOperatingFeePercent: number;
+  usdtOperatingFeeUsdt: number;
+  USDT_PURCHASE: HqOrgShareByType;
+}): void {
+  const check = usdtShareTotalsMatch(share);
+  if (check.ok) return;
+  throw new Error(
+    `USDT_SHARE_MISMATCH:${check.expectedPct}:${check.actualPct}:${check.expectedUsdt}:${check.actualUsdt}`,
+  );
+}
+
+export function assertOperatingSharePolicy(share: {
+  usdtOperatingFeePercent: number;
+  usdtOperatingFeeUsdt: number;
+  escrowFeePercent: number;
+  escrowPerTicketUsdt: number;
+  USDT_PURCHASE: HqOrgShareByType;
+  TRADE_ESCROW: HqOrgShareByType;
+}): void {
+  assertUsdtShareTotals(share);
+  assertEscrowShareTotals(share);
+}
+
+/** 구버전(풀 100% 배분) → 절대 % 배분으로 변환 */
+export function migrateUsdtPoolSharesToAbsolute(
+  byType: HqOrgShareByType,
+  operatingPercent: number,
+): HqOrgShareByType {
+  const sum = sumOrgShareTable(byType).poolPercent;
+  if (!(operatingPercent > 0) || !(sum >= 99 && sum <= 101)) {
+    return byType;
+  }
+  const out = { ...byType };
+  let allocated = 0;
+  const levels = [...HQ_ORG_LEVELS];
+  for (let i = 0; i < levels.length; i++) {
+    const level = levels[i]!;
+    const raw = Number(byType[level]?.poolPercent) || 0;
+    if (i === levels.length - 1) {
+      out[level] = {
+        poolPercent: roundShareTotal(Math.max(0, operatingPercent - allocated)),
+        perTicketUsdt: Number(byType[level]?.perTicketUsdt) || 0,
+      };
+    } else {
+      const pct = roundShareTotal((raw / 100) * operatingPercent);
+      allocated = roundShareTotal(allocated + pct);
+      out[level] = {
+        poolPercent: pct,
+        perTicketUsdt: Number(byType[level]?.perTicketUsdt) || 0,
+      };
+    }
+  }
+  return out;
 }
 
 export function normalizeOrgSharePolicy(raw: Partial<HqOrgSharePolicy> | null | undefined): HqOrgSharePolicy {
@@ -200,15 +308,36 @@ export function normalizeOrgSharePolicy(raw: Partial<HqOrgSharePolicy> | null | 
     }
     return out;
   };
+
+  let usdtOperatingFeePercent = Number(raw.usdtOperatingFeePercent ?? base.usdtOperatingFeePercent) || 0;
+  let USDT_PURCHASE = mergeLevel('USDT_PURCHASE');
+  const usdtSum = sumOrgShareTable(USDT_PURCHASE).poolPercent;
+
+  // 구버전: 단계 합≈100(풀 배분) → 운영수수료 절대%로 환산
+  if (usdtSum >= 99 && usdtSum <= 101) {
+    if (!(usdtOperatingFeePercent > 0)) usdtOperatingFeePercent = base.usdtOperatingFeePercent;
+    USDT_PURCHASE = migrateUsdtPoolSharesToAbsolute(USDT_PURCHASE, usdtOperatingFeePercent);
+  } else if (
+    !(Number(raw.usdtOperatingFeePercent) > 0) &&
+    usdtSum > 0 &&
+    Math.abs(usdtSum - base.usdtOperatingFeePercent) < 0.0001
+  ) {
+    usdtOperatingFeePercent = base.usdtOperatingFeePercent;
+  }
+
   return {
+    usdtOperatingFeePercent,
+    usdtOperatingFeeUsdt: Number(raw.usdtOperatingFeeUsdt ?? base.usdtOperatingFeeUsdt) || 0,
     escrowFeePercent: Number(raw.escrowFeePercent ?? base.escrowFeePercent) || 0,
     escrowPerTicketUsdt: Number(raw.escrowPerTicketUsdt ?? base.escrowPerTicketUsdt) || 0,
-    USDT_PURCHASE: mergeLevel('USDT_PURCHASE'),
+    USDT_PURCHASE,
     TRADE_ESCROW: mergeLevel('TRADE_ESCROW'),
   };
 }
 
 export type CustomerFeeShare = {
+  usdtOperatingFeePercent: number;
+  usdtOperatingFeeUsdt: number;
   escrowFeePercent: number;
   escrowPerTicketUsdt: number;
   USDT_PURCHASE: HqOrgShareByType;
@@ -218,6 +347,8 @@ export type CustomerFeeShare = {
 export function defaultCustomerFeeShare(policy?: HqOrgSharePolicy | null): CustomerFeeShare {
   const p = normalizeOrgSharePolicy(policy);
   return {
+    usdtOperatingFeePercent: p.usdtOperatingFeePercent,
+    usdtOperatingFeeUsdt: p.usdtOperatingFeeUsdt,
     escrowFeePercent: p.escrowFeePercent,
     escrowPerTicketUsdt: p.escrowPerTicketUsdt,
     USDT_PURCHASE: { ...p.USDT_PURCHASE },
@@ -226,6 +357,8 @@ export function defaultCustomerFeeShare(policy?: HqOrgSharePolicy | null): Custo
 }
 
 export function customerFeeShareEquals(a: CustomerFeeShare, b: CustomerFeeShare): boolean {
+  if (Number(a.usdtOperatingFeePercent) !== Number(b.usdtOperatingFeePercent)) return false;
+  if (Number(a.usdtOperatingFeeUsdt) !== Number(b.usdtOperatingFeeUsdt)) return false;
   if (Number(a.escrowFeePercent) !== Number(b.escrowFeePercent)) return false;
   if (Number(a.escrowPerTicketUsdt) !== Number(b.escrowPerTicketUsdt)) return false;
   for (const ticket of ['USDT_PURCHASE', 'TRADE_ESCROW'] as const) {
@@ -269,6 +402,14 @@ export function normalizeCustomerFeeShare(
     return out;
   };
   return {
+    usdtOperatingFeePercent:
+      src.usdtOperatingFeePercent === undefined || src.usdtOperatingFeePercent === null
+        ? base.usdtOperatingFeePercent
+        : Number(src.usdtOperatingFeePercent) || 0,
+    usdtOperatingFeeUsdt:
+      src.usdtOperatingFeeUsdt === undefined || src.usdtOperatingFeeUsdt === null
+        ? base.usdtOperatingFeeUsdt
+        : Number(src.usdtOperatingFeeUsdt) || 0,
     escrowFeePercent:
       src.escrowFeePercent === undefined || src.escrowFeePercent === null
         ? base.escrowFeePercent
@@ -277,7 +418,18 @@ export function normalizeCustomerFeeShare(
       src.escrowPerTicketUsdt === undefined || src.escrowPerTicketUsdt === null
         ? base.escrowPerTicketUsdt
         : Number(src.escrowPerTicketUsdt) || 0,
-    USDT_PURCHASE: merge('USDT_PURCHASE'),
+    USDT_PURCHASE: (() => {
+      const table = merge('USDT_PURCHASE');
+      const op =
+        src.usdtOperatingFeePercent === undefined || src.usdtOperatingFeePercent === null
+          ? base.usdtOperatingFeePercent
+          : Number(src.usdtOperatingFeePercent) || 0;
+      const sum = sumOrgShareTable(table).poolPercent;
+      if (sum >= 99 && sum <= 101 && op > 0) {
+        return migrateUsdtPoolSharesToAbsolute(table, op);
+      }
+      return table;
+    })(),
     TRADE_ESCROW: merge('TRADE_ESCROW'),
   };
 }
@@ -351,6 +503,11 @@ export type HqCommissionRiskConfig = {
   notes?: string;
   /** @deprecated — defaultTransferFeeUsdt 로 이전 */
   defaultPlatformFeeUsdt?: number;
+  /**
+   * USDT 견적(환율) 유효 시간(초). 만료 시 재조회 필요.
+   * 권장 180~300 (3~5분). 기본 240.
+   */
+  quoteExpirySeconds?: number;
 };
 
 export type TransactionFees = {
@@ -475,6 +632,8 @@ export type FeeDiagramDisplayConfig = {
   transferFee: boolean;
   otherFee: boolean;
   localPremium: boolean;
+  /** 운영수수료(플랫폼 수익·배분 풀) */
+  operatingFee: boolean;
   net: boolean;
   requiredFiat: boolean;
   /** 도식 중앙 수수료율 열 */
@@ -488,6 +647,7 @@ export const DEFAULT_FEE_DIAGRAM_DISPLAY: FeeDiagramDisplayConfig = {
   transferFee: true,
   otherFee: true,
   localPremium: true,
+  operatingFee: true,
   net: true,
   requiredFiat: true,
   showRates: true,
@@ -497,7 +657,7 @@ export const IDLE_TIMEOUT_MINUTES_OPTIONS = [10, 30, 60, 90, 120] as const;
 export type IdleTimeoutMinutes = (typeof IDLE_TIMEOUT_MINUTES_OPTIONS)[number];
 
 /** 시볼(티켓) 수수료 — 통화·금액 구간별 (PG 수수료정책 표) */
-export const SYMBOL_FEE_CURRENCIES = ['KRW', 'JPY', 'THB', 'CNY', 'USD'] as const;
+export const SYMBOL_FEE_CURRENCIES = ['KRW', 'JPY', 'THB', 'CNY', 'HKD', 'USD'] as const;
 export type SymbolFeeCurrency = (typeof SYMBOL_FEE_CURRENCIES)[number];
 
 export type SymbolFeeTierRow = {
@@ -537,7 +697,7 @@ export type ExchangeRateSourceId = (typeof EXCHANGE_RATE_SOURCES)[number];
 
 export type HqExchangeRateSourcePolicy = Record<SymbolFeeCurrency, ExchangeRateSourceId>;
 
-export const USDT_FIAT_CURRENCIES = ['KRW', 'JPY', 'THB', 'CNY'] as const;
+export const USDT_FIAT_CURRENCIES = ['KRW', 'JPY', 'THB', 'CNY', 'HKD'] as const;
 export type UsdtFiatCurrency = (typeof USDT_FIAT_CURRENCIES)[number];
 
 export type DepositReceivingAccount = {
@@ -586,7 +746,7 @@ export type HqPlatformConfig = {
   /** 미사용 자동 로그아웃 (분) — 10·30·60·90·120 */
   idleTimeoutMinutes?: number;
   /** USDT 매입 기본 구매 통화 */
-  defaultUsdtFiatCurrency?: 'KRW' | 'JPY' | 'THB' | 'CNY';
+  defaultUsdtFiatCurrency?: 'KRW' | 'JPY' | 'THB' | 'CNY' | 'HKD';
   /** 시뮬레이터 기록 자동 삭제 보관 개월 (기본 3) */
   simulatorRetentionMonths?: number;
   /** 고객 입금용 회사 수취 계좌 (통화별) */
@@ -626,6 +786,7 @@ export const DEFAULT_CARD_PAYMENT_CONFIG = (): HqCardPaymentConfig => ({
     JPY: { min: 1_000, max: 500_000 },
     THB: { min: 500, max: 200_000 },
     CNY: { min: 100, max: 50_000 },
+    HKD: { min: 100, max: 80_000 },
     USD: { min: 10, max: 10_000 },
   },
 });
@@ -643,7 +804,7 @@ export const DEFAULT_ICOPAY_CONFIG = (): HqIcopayConfig => ({
  * enabled=true 이면 currencies에 포함된 통화의 이체 매입 시 API로 건별 계좌 발급.
  * 선택되지 않은 통화는 CURFEX ON이어도 고정 계좌 + 입금 영수증.
  */
-export const CURFEX_CURRENCY_OPTIONS = ['JPY', 'KRW', 'THB', 'CNY'] as const;
+export const CURFEX_CURRENCY_OPTIONS = ['JPY', 'KRW', 'THB', 'CNY', 'HKD'] as const;
 export type CurfexCurrency = (typeof CURFEX_CURRENCY_OPTIONS)[number];
 
 export type HqCurfexConfig = {

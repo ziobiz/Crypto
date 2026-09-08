@@ -10,6 +10,7 @@ import {
   DEFAULT_FEE_DIAGRAM_DISPLAY,
   HQ_CONFIG_KEYS,
   SYMBOL_FEE_CURRENCIES,
+  computeOperatingFeeUsdt,
   defaultGasNetworkPolicy,
   gasFeeUsdtForNetwork,
   normalizeGasNetworkPolicy,
@@ -28,6 +29,7 @@ const DEFAULT_THRESHOLDS: Record<SymbolFeeCurrency, number[]> = {
   JPY: [100_000, 1_000_000, 99_999_999_999],
   THB: [50_000, 500_000, 99_999_999_999],
   CNY: [10_000, 100_000, 99_999_999_999],
+  HKD: [10_000, 100_000, 99_999_999_999],
   USD: [1_000, 10_000, 99_999_999_999],
 };
 
@@ -137,6 +139,11 @@ export function normalizeCommissionRisk(raw: Partial<HqCommissionRiskConfig>): H
       raw.maxTicketAmountKrw ?? 100_000_000,
     ),
     notes: raw.notes ?? '',
+    quoteExpirySeconds: (() => {
+      const n = Number(raw.quoteExpirySeconds);
+      if (!Number.isFinite(n)) return 240;
+      return Math.min(600, Math.max(60, Math.round(n)));
+    })(),
   };
 }
 
@@ -330,7 +337,7 @@ export function totalFixedFeesUsdt(grossUsdt: number, fees: TransactionFees): nu
   return amounts.gasFeeUsdt + amounts.transferFeeUsdt + amounts.otherFeeUsdt;
 }
 
-/** 티켓 스냅샷 기준 총 수수료 풀 (USDT) */
+/** 티켓 스냅샷 기준 조직 배분 풀 = 운영수수료만 (원가 수수료 제외) */
 export function commissionPoolFromSnapshots(detail: {
   fiatAmount: unknown;
   exchangeRate: unknown;
@@ -341,24 +348,25 @@ export function commissionPoolFromSnapshots(detail: {
   otherFeeSnapshot?: unknown;
   platformFeeSnapshot?: unknown;
 }): number {
+  const stored = Number(detail.platformFeeSnapshot);
+  if (Number.isFinite(stored) && stored > 0) {
+    return Number(stored.toFixed(8));
+  }
+
   const rate = Number(detail.exchangeRate);
   const gross = rate > 0 ? Number(detail.fiatAmount) / rate : 0;
   if (detail.feePolicySnapshot && typeof detail.feePolicySnapshot === 'object') {
-    const amounts = computeFeeAmounts(
-      gross,
-      normalizeTransactionFees(detail.feePolicySnapshot as TransactionFees),
-    );
-    return Number(
-      (amounts.fxFeeUsdt + amounts.gasFeeUsdt + amounts.transferFeeUsdt + amounts.otherFeeUsdt).toFixed(8),
-    );
+    const snap = detail.feePolicySnapshot as {
+      operatingFeePercent?: unknown;
+      operatingFeeFixedUsdt?: unknown;
+    };
+    const opPct = Number(snap.operatingFeePercent) || 0;
+    const opFixed = Number(snap.operatingFeeFixedUsdt) || 0;
+    if (opPct > 0 || opFixed > 0) {
+      return computeOperatingFeeUsdt(gross, opPct, opFixed);
+    }
   }
-  const fxPct = Number(detail.fxFeePercentSnapshot ?? 0);
-  const fxFee = (gross * fxPct) / 100;
-  const gas = Number(detail.gasFeeSnapshot) || 0;
-  const transfer =
-    Number(detail.transferFeeSnapshot) ||
-    Number(detail.platformFeeSnapshot) ||
-    0;
-  const other = Number(detail.otherFeeSnapshot) || 0;
-  return Number((fxFee + gas + transfer + other).toFixed(8));
+
+  // FX·가스·송금·기타는 원가 — 배분 풀에 넣지 않음
+  return 0;
 }

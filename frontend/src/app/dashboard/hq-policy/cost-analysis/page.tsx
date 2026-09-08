@@ -9,7 +9,7 @@ import { ContentCard } from '@/components/layout/ContentCard';
 import { SensitiveOtpGate } from '@/components/SensitiveOtpGate';
 import { formatDate } from '@/lib/format';
 
-const FIATS = ['KRW', 'JPY', 'THB', 'CNY'] as const;
+const FIATS = ['KRW', 'JPY', 'THB', 'CNY', 'HKD'] as const;
 
 function canAccess(role?: string) {
   return role === 'SUPER_ADMIN' || role === 'ORGANIZER';

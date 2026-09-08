@@ -42,7 +42,7 @@ export function UsdtRatePanel({ compact = false }: { compact?: boolean }) {
     return <p className="pg-hint">{t('dashboard.rateLoading')}</p>;
   }
 
-  const items = ['KRW', 'JPY', 'THB', 'CNY'].map((key) => ({
+  const items = ['KRW', 'JPY', 'THB', 'CNY', 'HKD'].map((key) => ({
     key,
     rate: rates.rates[key]?.rate ?? 0,
     source: rates.rates[key]?.source ?? rates.source,
@@ -54,12 +54,14 @@ export function UsdtRatePanel({ compact = false }: { compact?: boolean }) {
         <h2 className="text-[11px] font-semibold text-gray-900">{t('dashboard.usdtLiveRate')}</h2>
         <span className="pg-hint">{new Date(rates.fetchedAt).toLocaleTimeString()}</span>
       </div>
-      <div className={`grid gap-2 ${compact ? 'grid-cols-2 sm:grid-cols-4' : 'sm:grid-cols-4'}`}>
+      <div className={`grid gap-2 ${compact ? 'grid-cols-2 sm:grid-cols-5' : 'sm:grid-cols-5'}`}>
         {items.map((item) => (
           <div key={item.key} className="rounded border border-blue-100 bg-blue-50/40 px-3 py-2">
             <p className="text-[10px] text-gray-500">USDT / {item.key}</p>
             <p className="text-sm font-bold text-blue-700 tabular-nums">
-              {item.rate.toLocaleString(undefined, { maximumFractionDigits: item.key === 'JPY' ? 2 : 0 })}
+              {item.rate.toLocaleString(undefined, {
+                maximumFractionDigits: item.key === 'KRW' ? 0 : 2,
+              })}
             </p>
             <p className="text-[9px] text-gray-400">{item.source}</p>
           </div>

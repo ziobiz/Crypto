@@ -1,8 +1,8 @@
 import type { SymbolFeeCurrency } from '../constants/hq-policy';
 
-export type ChartFiatCurrency = 'KRW' | 'JPY' | 'THB' | 'CNY';
+export type ChartFiatCurrency = 'KRW' | 'JPY' | 'THB' | 'CNY' | 'HKD';
 
-export const CHART_FIAT_CURRENCIES: ChartFiatCurrency[] = ['KRW', 'JPY', 'THB', 'CNY'];
+export const CHART_FIAT_CURRENCIES: ChartFiatCurrency[] = ['KRW', 'JPY', 'THB', 'CNY', 'HKD'];
 
 export type ExchangeMarketStats = {
   currency: ChartFiatCurrency;
@@ -127,6 +127,24 @@ async function fetchCnyOkx(): Promise<ExchangeMarketStats | null> {
   };
 }
 
+async function fetchHkdCoinGecko(): Promise<ExchangeMarketStats | null> {
+  const data = await fetchJson<{
+    tether?: { hkd?: number; hkd_24h_change?: number };
+  }>('https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=hkd&include_24hr_change=true');
+  const rate = data?.tether?.hkd;
+  if (!rate || rate <= 0) return null;
+  const change = data?.tether?.hkd_24h_change;
+  return {
+    currency: 'HKD',
+    rate,
+    volume24hUsdt: null,
+    volume24hQuote: null,
+    changePercent24h: Number.isFinite(change) ? Number(change) : null,
+    source: 'coingecko',
+    fetchedAt: new Date(),
+  };
+}
+
 export async function fetchExchangeMarketStats(
   currency: ChartFiatCurrency,
 ): Promise<ExchangeMarketStats | null> {
@@ -139,6 +157,8 @@ export async function fetchExchangeMarketStats(
       return fetchThbBinanceTh();
     case 'CNY':
       return fetchCnyOkx();
+    case 'HKD':
+      return fetchHkdCoinGecko();
     default:
       return null;
   }
