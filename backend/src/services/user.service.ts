@@ -364,9 +364,6 @@ export const userService = {
     if (data.role === UserRole.CUSTOMER) {
       const hqFees = await getHqTransactionFees();
       const network = data.walletNetwork?.trim() || 'TRC20';
-      const policy = await getOrgSharePolicyCached();
-      requireOperatingShareTotals(data.feeShare, policy);
-      const feeShare = persistableCustomerFeeShare(data.feeShare, policy);
       created = await prisma.user.create({
         data: {
           email,
@@ -387,7 +384,6 @@ export const userService = {
               businessNumber: data.businessNumber,
               simulatorEnabled: data.simulatorEnabled !== false,
               simulatorRateMode: data.simulatorRateMode ?? 'LIVE',
-              ...(feeShare ? { feeShare } : {}),
             },
           },
           bankAccounts: {
@@ -401,7 +397,7 @@ export const userService = {
           },
           wallets: {
             create: {
-              label: data.walletLabel?.trim() || 'ë©ì¸ USDT ì§ê°',
+              label: data.walletLabel?.trim() || 'Main USDT wallet',
               address: data.walletAddress!.trim(),
               network,
               isDefault: true,
@@ -414,6 +410,13 @@ export const userService = {
         },
         select: userSelect,
       });
+      if (created.customerProfile?.id) {
+        const { seedCustomerFeePolicies } = await import('./customer-fee-policy.service');
+        await seedCustomerFeePolicies({
+          customerProfileId: created.customerProfile.id,
+          changedByUserId: actor.id,
+        });
+      }
     } else {
       created = await prisma.user.create({
         data: {
@@ -545,23 +548,13 @@ export const userService = {
 
     const customerProfileUpdate: {
       recruitingOrgId?: string;
-      feeShare?: Prisma.InputJsonValue;
       simulatorEnabled?: boolean;
       simulatorRateMode?: 'LIVE' | 'SAND';
     } = {};
     if (data.recruitingOrgId && existing.customerProfile) {
       customerProfileUpdate.recruitingOrgId = data.recruitingOrgId;
     }
-    if (data.feeShare !== undefined && existing.customerProfile) {
-      if (data.feeShare === null) {
-        customerProfileUpdate.feeShare = Prisma.JsonNull as unknown as Prisma.InputJsonValue;
-      } else {
-        const policy = await getOrgSharePolicyCached();
-        requireOperatingShareTotals(data.feeShare, policy);
-        const feeShare = persistableCustomerFeeShare(data.feeShare, policy);
-        customerProfileUpdate.feeShare = (feeShare ?? Prisma.JsonNull) as Prisma.InputJsonValue;
-      }
-    }
+    // feeShare edits moved to customer fee management (/dashboard/customers/fees)
     if (data.simulatorEnabled !== undefined && existing.customerProfile) {
       customerProfileUpdate.simulatorEnabled = data.simulatorEnabled;
     }

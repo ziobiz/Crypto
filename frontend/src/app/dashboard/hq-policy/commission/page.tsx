@@ -9,6 +9,7 @@ import {
   hqPolicyApi,
   type ExchangeRatePreviewRow,
   type ExchangeRateSourceId,
+  type FeeTypeTemplate,
   type HqCommissionPayload,
   type HqCommissionRiskConfig,
   type HqExchangeRateSourcePolicy,
@@ -265,6 +266,10 @@ export default function HqCommissionPage() {
   const [risk, setRisk] = useState<HqCommissionRiskConfig | null>(null);
   const [orgRows, setOrgRows] = useState<OrgRateRow[]>([]);
   const [orgShare, setOrgShare] = useState<HqOrgSharePolicy | null>(null);
+  const [feeTypes, setFeeTypes] = useState<FeeTypeTemplate[]>([]);
+  const [selectedFeeTypeId, setSelectedFeeTypeId] = useState<string | null>(null);
+  const [newFeeTypeCode, setNewFeeTypeCode] = useState('');
+  const [newFeeTypeName, setNewFeeTypeName] = useState('');
   const [savingShare, setSavingShare] = useState(false);
   const [shareMsg, setShareMsg] = useState('');
   const [feeTiers, setFeeTiers] = useState<SymbolFeeTierRow[]>([]);
@@ -340,6 +345,11 @@ export default function HqCommissionPage() {
         const baseRows = buildOrgRows(commission);
         setOrgRows(mergeWithOrganizations(baseRows, commission, orgs));
         setOrgShare(commission.orgShare);
+        const types = commission.feeTypes ?? [];
+        setFeeTypes(types);
+        const def = types.find((x) => x.isDefault) ?? types[0];
+        setSelectedFeeTypeId(def?.id ?? null);
+        if (def?.config) setOrgShare(def.config);
         setGasNetworks(commission.gasNetworks ?? DEFAULT_GAS_NETWORKS);
         setFeeTiers(commission.feeTiers ?? []);
         setExchangeRateSources(commission.exchangeRateSources);
@@ -1270,6 +1280,110 @@ export default function HqCommissionPage() {
         <div className="pg-section-pad space-y-3">
           <p className="pg-hint">{t('hq.commission.orgShareDesc')}</p>
           <p className="pg-callout pg-callout-muted">{t('hq.commission.vacantShareHint')}</p>
+          <div className="flex flex-wrap items-end gap-2 rounded border border-slate-200 bg-slate-50 p-3">
+            <label className="text-sm">
+              <span className="pg-label">{t('hq.commission.feeTypeSelect')}</span>
+              <select
+                className="pg-input mt-1 block min-w-[180px]"
+                value={selectedFeeTypeId ?? ''}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setSelectedFeeTypeId(id);
+                  const ft = feeTypes.find((x) => x.id === id);
+                  if (ft) setOrgShare(ft.config);
+                }}
+              >
+                {feeTypes.map((ft) => (
+                  <option key={ft.id} value={ft.id}>
+                    {ft.name} ({ft.code})
+                    {ft.isDefault ? ` · ${t('customerFees.default')}` : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              className="pg-btn pg-btn-secondary text-xs"
+              disabled={!selectedFeeTypeId || feeTypes.find((x) => x.id === selectedFeeTypeId)?.isDefault}
+              onClick={async () => {
+                if (!selectedFeeTypeId) return;
+                if (!window.confirm(t('hq.commission.confirmDeleteFeeType'))) return;
+                try {
+                  await hqPolicyApi.deleteFeeType(selectedFeeTypeId);
+                  const next = await hqPolicyApi.getCommission();
+                  setData(next);
+                  setFeeTypes(next.feeTypes ?? []);
+                  const def = next.feeTypes?.find((x) => x.isDefault) ?? next.feeTypes?.[0];
+                  setSelectedFeeTypeId(def?.id ?? null);
+                  setOrgShare(def?.config ?? next.orgShare);
+                  setShareMsg(t('hq.commission.feeTypeDeleted'));
+                } catch (e) {
+                  setShareMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
+                }
+              }}
+            >
+              {t('common.delete')}
+            </button>
+            <button
+              type="button"
+              className="pg-btn pg-btn-secondary text-xs"
+              disabled={!selectedFeeTypeId}
+              onClick={async () => {
+                if (!selectedFeeTypeId) return;
+                try {
+                  await hqPolicyApi.updateFeeType(selectedFeeTypeId, { isDefault: true });
+                  const next = await hqPolicyApi.getCommission();
+                  setData(next);
+                  setFeeTypes(next.feeTypes ?? []);
+                  setShareMsg(t('hq.commission.feeTypeDefaultSet'));
+                } catch (e) {
+                  setShareMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
+                }
+              }}
+            >
+              {t('hq.commission.setDefaultFeeType')}
+            </button>
+            <div className="flex flex-wrap items-end gap-1">
+              <input
+                className="pg-input w-24"
+                placeholder={t('hq.commission.feeTypeCode')}
+                value={newFeeTypeCode}
+                onChange={(e) => setNewFeeTypeCode(e.target.value)}
+              />
+              <input
+                className="pg-input w-32"
+                placeholder={t('hq.commission.feeTypeName')}
+                value={newFeeTypeName}
+                onChange={(e) => setNewFeeTypeName(e.target.value)}
+              />
+              <button
+                type="button"
+                className="pg-btn pg-btn-primary text-xs"
+                onClick={async () => {
+                  if (!newFeeTypeCode.trim() || !newFeeTypeName.trim() || !orgShare) return;
+                  try {
+                    const created = await hqPolicyApi.createFeeType({
+                      code: newFeeTypeCode.trim(),
+                      name: newFeeTypeName.trim(),
+                      config: orgShare,
+                    });
+                    const next = await hqPolicyApi.getCommission();
+                    setData(next);
+                    setFeeTypes(next.feeTypes ?? []);
+                    setSelectedFeeTypeId(created.id);
+                    setOrgShare(created.config);
+                    setNewFeeTypeCode('');
+                    setNewFeeTypeName('');
+                    setShareMsg(t('hq.commission.feeTypeCreated'));
+                  } catch (e) {
+                    setShareMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
+                  }
+                }}
+              >
+                {t('hq.commission.addFeeType')}
+              </button>
+            </div>
+          </div>
           {orgShare && (
             <>
               <div className="pg-card pg-table-wrap">
@@ -1474,10 +1588,23 @@ export default function HqCommissionPage() {
                     return;
                   }
                   try {
-                    const next = await hqPolicyApi.saveOrgShare(orgShare);
-                    setData(next);
-                    setOrgShare(next.orgShare);
-                    setShareMsg(t('hq.commission.orgShareSaved'));
+                    if (selectedFeeTypeId) {
+                      await hqPolicyApi.updateFeeType(selectedFeeTypeId, { config: orgShare });
+                      const next = await hqPolicyApi.getCommission();
+                      setData(next);
+                      setOrgShare(
+                        next.feeTypes?.find((x) => x.id === selectedFeeTypeId)?.config ??
+                          next.orgShare,
+                      );
+                      setFeeTypes(next.feeTypes ?? []);
+                      setShareMsg(t('hq.commission.orgShareSaved'));
+                    } else {
+                      const next = await hqPolicyApi.saveOrgShare(orgShare);
+                      setData(next);
+                      setOrgShare(next.orgShare);
+                      setFeeTypes(next.feeTypes ?? []);
+                      setShareMsg(t('hq.commission.orgShareSaved'));
+                    }
                   } catch (e) {
                     const raw = e instanceof Error ? e.message : t('hq.saveFailed');
                     const parsed = parseEscrowShareMismatch(raw);

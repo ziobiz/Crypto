@@ -6,24 +6,14 @@ import { useAuth } from '@/context/AuthProvider';
 import { useT } from '@/context/LocaleProvider';
 import {
   api,
-  hqPolicyApi,
   type CreateUserInput,
-  type CustomerFeeShare,
   type ManagedUser,
   type Organization,
   type UpdateUserInput,
 } from '@/lib/api';
 import type { MessageKey } from '@/i18n/messages';
 import { WALLET_NETWORKS } from '@/constants/wallet-networks';
-import { CustomerFeeShareEditor, emptyFeeShare, feeShareFromHq } from '@/components/CustomerFeeShareEditor';
 import { ReferenceClocks } from '@/components/ReferenceClocks';
-import {
-  escrowShareTotalsMatch,
-  formatEscrowShareMismatch,
-  formatUsdtShareMismatch,
-  parseEscrowShareMismatch,
-  usdtShareTotalsMatch,
-} from '@/lib/escrow-share-totals';
 import { SRateBadge } from '@/components/SRateBadge';
 import { detailRowProps } from '@/lib/table-row-detail';
 
@@ -89,9 +79,6 @@ export default function CustomersPage() {
   const [statusReason, setStatusReason] = useState('');
   const [initialIsActive, setInitialIsActive] = useState(true);
   const [form, setForm] = useState<CreateUserInput>(emptyCreate);
-  const [feeShare, setFeeShare] = useState<CustomerFeeShare>(emptyFeeShare());
-  const [feeShareUseHq, setFeeShareUseHq] = useState(true);
-  const [hqFeeShareDefault, setHqFeeShareDefault] = useState<CustomerFeeShare | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -209,35 +196,16 @@ export default function CustomersPage() {
     e.preventDefault();
     setMsg('');
     try {
-      const usdtCheck = usdtShareTotalsMatch(feeShare);
-      if (!usdtCheck.ok) {
-        const text = formatUsdtShareMismatch(t, usdtCheck);
-        window.alert(text);
-        setMsg(text);
-        return;
-      }
-      const check = escrowShareTotalsMatch(feeShare);
-      if (!check.ok) {
-        const text = formatEscrowShareMismatch(t, check);
-        window.alert(text);
-        setMsg(text);
-        return;
-      }
       await api.users.create({
         ...form,
         role: 'CUSTOMER',
-        feeShare: feeShareUseHq ? undefined : feeShare,
       });
       setModal(null);
       setForm(emptyCreate);
       setMsg(t('customers.created'));
       load();
     } catch (err) {
-      const raw = err instanceof Error ? err.message : t('users.createFailed');
-      const parsed = parseEscrowShareMismatch(raw);
-      const text = parsed ? formatEscrowShareMismatch(t, parsed) : raw;
-      if (parsed) window.alert(text);
-      setMsg(text);
+      setMsg(err instanceof Error ? err.message : t('users.createFailed'));
     }
   }
 
@@ -254,18 +222,8 @@ export default function CustomersPage() {
             type="button"
             onClick={() => {
               setForm(emptyCreate);
-              setFeeShare(emptyFeeShare());
-              setFeeShareUseHq(true);
               setModal('create');
               setMsg('');
-              hqPolicyApi
-                .getCommission()
-                .then((c) => {
-                  const d = feeShareFromHq(c.orgShare);
-                  setHqFeeShareDefault(d);
-                  setFeeShare(d);
-                })
-                .catch(console.error);
             }}
             className="pg-btn pg-btn-primary"
           >
@@ -621,19 +579,11 @@ export default function CustomersPage() {
                   <span className="mt-1 block text-xs text-slate-500">{t('customers.sRate.hint')}</span>
                 </label>
               </div>
-              <div className="pg-inset-panel">
-                <p className="pg-inset-title">{t('feeShare.title')}</p>
-                <div className="mt-2">
-                  <CustomerFeeShareEditor
-                    value={feeShare}
-                    onChange={setFeeShare}
-                    canEdit
-                    useHqDefault={feeShareUseHq}
-                    onUseHqDefaultChange={setFeeShareUseHq}
-                    hqDefault={hqFeeShareDefault}
-                  />
-                </div>
-              </div>
+              <p className="pg-hint">
+                <a href="/dashboard/customers/fees" className="pg-link">
+                  {t('customerFees.manageLink')}
+                </a>
+              </p>
               <label className="pg-field">
                 <span className="pg-field-label">
                   {t('users.registerReason')}

@@ -55,14 +55,20 @@ import { normalizeCustomerFeeShare } from '../constants/hq-policy';
 
 async function loadCustomerFeeShareRaw(customerProfileId: string | null | undefined) {
   if (!customerProfileId) return null;
-  const profile = await prisma.customerProfile.findUnique({
-    where: { id: customerProfileId },
-    select: { feeShare: true },
-  });
-  return profile?.feeShare ?? null;
+  const { resolveCustomerFeeShare } = await import('./customer-fee-policy.service');
+  return resolveCustomerFeeShare({ customerProfileId });
 }
 
-async function operatingRatesFromFeeShare(feeShareRaw?: unknown) {
+async function operatingRatesFromFeeShare(feeShareRaw?: unknown, customerProfileId?: string | null) {
+  if (customerProfileId) {
+    const share = await loadCustomerFeeShareRaw(customerProfileId);
+    if (share) {
+      return {
+        operatingFeePercent: share.usdtOperatingFeePercent,
+        operatingFeeFixedUsdt: share.usdtOperatingFeeUsdt,
+      };
+    }
+  }
   const policy = await getOrgSharePolicyCached();
   const share = normalizeCustomerFeeShare(feeShareRaw ?? null, policy);
   return {
@@ -227,6 +233,7 @@ async function quoteFromTarget(
   rate: number,
   feePolicy?: Parameters<typeof resolveFeesForAmount>[3],
   feeShare?: unknown,
+  customerProfileId?: string | null,
 ): Promise<{
   fees: ResolvedTransactionFees;
   fiatAmount: number;
@@ -242,7 +249,7 @@ async function quoteFromTarget(
       localPremium = null;
     }
   }
-  const opRates = await operatingRatesFromFeeShare(feeShare);
+  const opRates = await operatingRatesFromFeeShare(feeShare, customerProfileId);
   let baseFees = await resolveFeesForAmount(wallet, currency, 0, feePolicy);
   let fees: ResolvedTransactionFees = withOperatingFeeRates(
     localPremium != null ? applyLocalPremiumToBaseFees(baseFees, localPremium, 0) : baseFees,
@@ -315,6 +322,7 @@ export async function previewUsdtTransactionFees(
       rate,
       undefined,
       feeShare,
+      user.customerProfileId,
     );
     let transactionLimits;
     if (user.customerProfileId && quoted.fiatAmount > 0) {
@@ -352,7 +360,10 @@ export async function previewUsdtTransactionFees(
 
   const amountPolicy = await getCurrencyAmountDisplayPolicy();
   const fiatAmount = applyCurrencyAmount(input.fiatAmount ?? 0, currency, amountPolicy);
-  const fees = await resolveFeesForPurchase(wallet, currency, fiatAmount, rate, { feeShare });
+  const fees = await resolveFeesForPurchase(wallet, currency, fiatAmount, rate, {
+    feeShare,
+    customerProfileId: user.customerProfileId ?? undefined,
+  });
   const breakdown =
     fiatAmount > 0 ? breakdownFromFiat(fiatAmount, rate, fees) : undefined;
   if (breakdown) {
@@ -549,6 +560,7 @@ export async function createUsdtPurchaseTicket(
       rate,
       undefined,
       feeShare,
+      user.customerProfileId,
     );
     fees = quoted.fees;
     fiatAmount = quoted.fiatAmount;
@@ -564,7 +576,10 @@ export async function createUsdtPurchaseTicket(
   } else {
     const amountPolicy = await getCurrencyAmountDisplayPolicy();
     fiatAmount = applyCurrencyAmount(input.fiatAmount!, currency, amountPolicy);
-    fees = await resolveFeesForPurchase(wallet, currency, fiatAmount, rate, { feeShare });
+    fees = await resolveFeesForPurchase(wallet, currency, fiatAmount, rate, {
+      feeShare,
+      customerProfileId: user.customerProfileId ?? undefined,
+    });
     feeBreakdown = breakdownFromFiat(fiatAmount, rate, fees);
     assertDepositCoversFees(feeBreakdown, rate, fees, currency, amountPolicy);
     expected = feeBreakdown.netUsdt;

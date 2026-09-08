@@ -31,6 +31,7 @@ export const HQ_PAGE_CATALOG = [
   { path: '/dashboard/kyc', label: '인증센터', group: '업무' },
   { path: '/dashboard/users', label: '사용자관리', group: '사용자관리' },
   { path: '/dashboard/customers', label: '고객관리', group: '사용자관리' },
+  { path: '/dashboard/customers/fees', label: '수수료관리', group: '사용자관리' },
   { path: '/dashboard/hq-policy/access', label: '접근·권한', group: '본사정책' },
   { path: '/dashboard/hq-policy/org-columns', label: '조직·화면', group: '본사정책' },
   { path: '/dashboard/hq-policy/commission', label: '수수료·리스크', group: '본사정책' },

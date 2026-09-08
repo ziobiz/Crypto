@@ -1357,6 +1357,45 @@ export type CustomerFeeShare = {
   TRADE_ESCROW: HqOrgShareByType;
 };
 
+export type FeeTypeTemplate = {
+  id: string;
+  code: string;
+  name: string;
+  isDefault: boolean;
+  sortOrder: number;
+  config: HqOrgSharePolicy;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type CustomerFeeGridRow = {
+  customerProfileId: string;
+  userId: string;
+  customerName: string;
+  customerEmail: string;
+  policyId: string | null;
+  feeTypeCode: string;
+  feeTypeName: string | null;
+  operatingPercent: number;
+  operatingFixedUsdt: number;
+  shares: HqOrgShareByType;
+  applyStartDate: string;
+  totalPercent: number;
+  totalFixedUsdt: number;
+};
+
+export type CustomerFeeHistoryRow = {
+  id: string;
+  ticketKind: string;
+  action: string;
+  feeTypeCode: string | null;
+  applyStartDate: string | null;
+  beforeJson: unknown;
+  afterJson: unknown;
+  changedBy: { id: string; name: string; email: string } | null;
+  createdAt: string;
+};
+
 export interface CommissionGridRow {
   organizationId: string;
   code: string;
@@ -1407,6 +1446,22 @@ export const hqPolicyApi = {
       method: 'PUT',
       body: JSON.stringify({ orgShare }),
     }),
+  createFeeType: (body: { code: string; name: string; config?: HqOrgSharePolicy; isDefault?: boolean }) =>
+    request<FeeTypeTemplate>('/api/customer-fees/types', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  updateFeeType: (
+    id: string,
+    body: { name?: string; config?: HqOrgSharePolicy; isDefault?: boolean; sortOrder?: number },
+  ) =>
+    request<FeeTypeTemplate>(`/api/customer-fees/types/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+  deleteFeeType: (id: string) =>
+    request<{ ok: boolean }>(`/api/customer-fees/types/${id}`, { method: 'DELETE' }),
+  listFeeTypes: () => request<{ feeTypes: FeeTypeTemplate[] }>('/api/customer-fees/types'),
   saveGasNetworks: (gasNetworks: HqGasNetworkPolicy) =>
     request<HqCommissionPayload>('/api/hq-policy/commission/gas-networks', {
       method: 'PUT',
@@ -1561,6 +1616,43 @@ export const hqPolicyApi = {
       `/api/hq-policy/ops/release-logs${qs ? `?${qs}` : ''}`,
     );
   },
+};
+
+export const customerFeesApi = {
+  list: (ticketKind: 'USDT_PURCHASE' | 'TRADE_ESCROW') =>
+    request<{
+      ticketKind: string;
+      feeTypes: FeeTypeTemplate[];
+      rows: CustomerFeeGridRow[];
+    }>(`/api/customer-fees?ticketKind=${ticketKind}`),
+  history: (customerProfileId: string, ticketKind?: 'USDT_PURCHASE' | 'TRADE_ESCROW') => {
+    const qs = new URLSearchParams({ customerProfileId });
+    if (ticketKind) qs.set('ticketKind', ticketKind);
+    return request<{ rows: CustomerFeeHistoryRow[] }>(`/api/customer-fees/history?${qs}`);
+  },
+  save: (body: {
+    customerProfileId: string;
+    ticketKind: 'USDT_PURCHASE' | 'TRADE_ESCROW';
+    feeTypeCode?: string;
+    operatingPercent?: number;
+    operatingFixedUsdt?: number;
+    shares?: HqOrgShareByType;
+    applyStartDate: string;
+    forceManual?: boolean;
+  }) =>
+    request<{ ok: boolean; policy: unknown }>('/api/customer-fees', {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+  remove: (body: {
+    customerProfileId: string;
+    ticketKind: 'USDT_PURCHASE' | 'TRADE_ESCROW';
+    policyId?: string;
+  }) =>
+    request<{ ok: boolean }>('/api/customer-fees', {
+      method: 'DELETE',
+      body: JSON.stringify(body),
+    }),
 };
 
 export type AdminChangeLogItem = {
@@ -1777,6 +1869,7 @@ export interface HqCommissionPayload {
     organization: { id: string; code: string; name: string; type: string };
   }>;
   orgShare: HqOrgSharePolicy;
+  feeTypes?: FeeTypeTemplate[];
   gasNetworks?: HqGasNetworkPolicy;
   currencyAmountDisplay?: HqCurrencyAmountDisplayPolicy;
   customerFeeShareOverrides?: Array<{

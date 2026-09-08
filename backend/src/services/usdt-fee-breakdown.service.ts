@@ -262,15 +262,29 @@ export function breakdownFromTarget(
   };
 }
 
-async function loadOperatingFeeRates(feeShareRaw?: unknown): Promise<{
+async function loadOperatingFeeRates(options?: {
+  feeShare?: unknown;
+  customerProfileId?: string;
+}): Promise<{
   operatingFeePercent: number;
   operatingFeeFixedUsdt: number;
 }> {
+  if (options?.customerProfileId) {
+    const { resolveCustomerFeeShare } = await import('./customer-fee-policy.service');
+    const share = await resolveCustomerFeeShare({
+      customerProfileId: options.customerProfileId,
+      feeShareRaw: options.feeShare,
+    });
+    return {
+      operatingFeePercent: share.usdtOperatingFeePercent,
+      operatingFeeFixedUsdt: share.usdtOperatingFeeUsdt,
+    };
+  }
   const row = await prisma.systemConfig.findUnique({
     where: { key: HQ_CONFIG_KEYS.orgShare },
   });
   const policy = normalizeOrgSharePolicy((row?.value as HqOrgSharePolicy | null) ?? null);
-  const share = normalizeCustomerFeeShare(feeShareRaw ?? null, policy);
+  const share = normalizeCustomerFeeShare(options?.feeShare ?? null, policy);
   return {
     operatingFeePercent: share.usdtOperatingFeePercent,
     operatingFeeFixedUsdt: share.usdtOperatingFeeUsdt,
@@ -296,10 +310,14 @@ export async function resolveFeesForPurchase(
   options?: {
     feePolicy?: import('./transaction-fee.service').FeePolicyScope;
     feeShare?: unknown;
+    customerProfileId?: string;
   },
 ): Promise<ResolvedTransactionFees> {
   const base = await resolveFeesForAmount(wallet, currency, fiatAmount, options);
-  const op = await loadOperatingFeeRates(options?.feeShare);
+  const op = await loadOperatingFeeRates({
+    feeShare: options?.feeShare,
+    customerProfileId: options?.customerProfileId,
+  });
   let fees: ResolvedTransactionFees = withOperatingFeeRates(base, op);
   if (!isLocalPremiumCurrency(currency)) return fees;
 

@@ -503,8 +503,14 @@ export const hqPolicyService = {
       include: { organization: { select: { id: true, code: true, name: true, type: true } } },
       orderBy: [{ ticketType: 'asc' }, { organization: { code: 'asc' } }],
     });
-    const orgShareRaw = await getConfig(HQ_CONFIG_KEYS.orgShare, defaultOrgSharePolicy());
-    const orgShare = normalizeOrgSharePolicy(orgShareRaw);
+    const {
+      ensureDefaultFeeTypeTemplate,
+      listFeeTypeTemplates,
+      loadEffectiveOrgSharePolicy,
+    } = await import('./customer-fee-policy.service');
+    await ensureDefaultFeeTypeTemplate();
+    const orgShare = await loadEffectiveOrgSharePolicy();
+    const feeTypes = await listFeeTypeTemplates();
     const profiles = await prisma.customerProfile.findMany({
       where: { feeShare: { not: Prisma.JsonNull }, user: { deletedAt: null } },
       select: {
@@ -529,6 +535,7 @@ export const hqPolicyService = {
       kimchiPremium,
       rates,
       orgShare,
+      feeTypes,
       customerFeeShareOverrides,
       gasNetworks: normalizeGasNetworkPolicy(
         await getConfig(HQ_CONFIG_KEYS.gasNetworks, defaultGasNetworkPolicy()),
@@ -653,6 +660,13 @@ export const hqPolicyService = {
       entityType: 'HQ_ORG_SHARE',
       summary: '조직 단계별 수수료 배분 저장',
     });
+    // Keep default FeeTypeTemplate in sync with legacy org_share key
+    const {
+      ensureDefaultFeeTypeTemplate,
+      updateFeeTypeTemplate,
+    } = await import('./customer-fee-policy.service');
+    const def = await ensureDefaultFeeTypeTemplate();
+    await updateFeeTypeTemplate(def.id, { config: normalized, isDefault: true });
     return this.getCommissionPayload();
   },
 
@@ -1038,6 +1052,7 @@ export const hqPolicyService = {
         ['/dashboard/ledger', 'VIEW'],
         ['/dashboard/users', 'MODIFY'],
         ['/dashboard/customers', 'MODIFY'],
+        ['/dashboard/customers/fees', 'MODIFY'],
         ['/dashboard/simulator-logs', 'VIEW'],
         ['/dashboard/hq-policy/cost-analysis', 'MODIFY'],
         ['/dashboard/hq-policy/profit-analysis', 'MODIFY'],

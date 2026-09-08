@@ -3,6 +3,33 @@ import type { PlatformReleaseNote } from './version';
 /** 본사정책 → 운영관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
 export const PLATFORM_RELEASE_NOTES: PlatformReleaseNote[] = [
   {
+    version: '2.6.33',
+    kind: 'minor',
+    date: '2026-09-08',
+    items: {
+      KR: [
+        '총본사 운영수수료 타입(템플릿) 다중 정의 — 고객관리>수수료관리에서 타입 선택/%+고정·적용시작일·히스토리·Manual 전환',
+        '신규 고객은 기본 수수료 타입 자동 부여, 정산·견적은 수수료관리 정책을 최우선 적용 (USDT·무역 각각)',
+      ],
+      US: [
+        'Multiple HQ operating-fee type templates; Customer > Fee management with type/%+fixed, effective date, history, Manual on edit',
+        'New customers get the default fee type; settlement/quotes prefer fee-management policies (USDT + trade escrow)',
+      ],
+      JP: [
+        '総本社運営手数料タイプ（テンプレート）を複数定義。顧客管理>手数料管理でタイプ/%+固定・適用開始日・履歴・編集時Manual',
+        '新規顧客はデフォルトタイプ自動付与。精算・見積は手数料管理ポリシーを最優先（USDT・貿易）',
+      ],
+      CH: [
+        '总本部可定义多种运营手续费类型；客户管理>手续费管理支持类型/%+固定、适用开始日、历史、编辑转 Manual',
+        '新客户自动赋予默认类型；结算与报价优先使用手续费管理策略（USDT+贸易）',
+      ],
+      TH: [
+        'HQ กำหนดประเภทค่าธรรมเนียมดำเนินงานหลายแบบ; ลูกค้า>จัดการค่าธรรมเนียม: ประเภท/%+คงที่ วันเริ่มใช้ ประวัติ Manual เมื่อแก้',
+        'ลูกค้าใหม่ได้ประเภทเริ่มต้นอัตโนมัติ; ชำระ/ใบเสนอราคาใช้นโยบายจัดการค่าธรรมเนียมก่อน (USDT+เอสโครว์)',
+      ],
+    },
+  },
+  {
     version: '2.6.32',
     kind: 'minor',
     date: '2026-09-07',

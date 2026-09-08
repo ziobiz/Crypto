@@ -232,7 +232,10 @@ export async function createUsdtCardPurchase(
     cardFeeFiat = split.cardFeeFiat;
     fiatAmount = split.fiatForConversion;
     validateCardChargeAmount(cardPolicy, currency, cardChargeFiat);
-    fees = await resolveFeesForPurchase(wallet, currency, fiatAmount, rate, { feeShare });
+    fees = await resolveFeesForPurchase(wallet, currency, fiatAmount, rate, {
+      feeShare,
+      customerProfileId: user.customerProfileId ?? undefined,
+    });
     feeBreakdown = breakdownFromFiat(fiatAmount, rate, fees);
     if (isDepositBelowFees(feeBreakdown)) {
       const minFiat = minFiatForNetUsdt(1, rate, fees, currency, amountPolicy);
