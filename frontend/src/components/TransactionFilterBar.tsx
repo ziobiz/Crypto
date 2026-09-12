@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { useT } from '@/context/LocaleProvider';
-import { DateQuickKey, rangeForQuick } from '@/lib/date-range';
+import { DateQuickKey, rangeForQuick, toYmd } from '@/lib/date-range';
 import type { ListAggregateSummary } from '@/lib/ledger-summary';
 import type { MessageKey } from '@/i18n/messages';
 
@@ -18,6 +18,7 @@ export type TransactionFilterState = {
   status: string;
 };
 
+/** Empty search fields; dates intentionally blank (legacy). Prefer defaultTxFilter(). */
 export const EMPTY_TX_FILTER: TransactionFilterState = {
   dateField: 'createdAt',
   dateFrom: '',
@@ -27,6 +28,20 @@ export const EMPTY_TX_FILTER: TransactionFilterState = {
   keyword: '',
   status: '',
 };
+
+/** Default list filter: start/end = today (avoids browser “연도-월-일” placeholder; locale-safe). */
+export function defaultTxFilter(now = new Date()): TransactionFilterState {
+  const today = toYmd(now);
+  return {
+    dateField: 'createdAt',
+    dateFrom: today,
+    dateTo: today,
+    quick: 'today',
+    searchField: 'all',
+    keyword: '',
+    status: '',
+  };
+}
 
 const QUICKS: { key: DateQuickKey; labelKey: MessageKey }[] = [
   { key: 'today', labelKey: 'filter.quick.today' },
@@ -78,14 +93,14 @@ export function TransactionFilterBar({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="pg-tx-filter space-y-2">
       <div className="pg-card">
         <div className="pg-card-body space-y-2.5">
           <div className="flex flex-wrap items-end gap-2">
             <label className="min-w-[8rem]">
               <span className="pg-label">{t('filter.dateField')}</span>
               <select
-                className="pg-select mt-0.5"
+                className="pg-select pg-tx-field mt-0.5"
                 value={value.dateField}
                 onChange={(e) => onChange({ ...value, dateField: e.target.value })}
               >
@@ -100,27 +115,27 @@ export function TransactionFilterBar({
               <span className="pg-label">{t('filter.dateFrom')}</span>
               <input
                 type="date"
-                className="pg-input mt-0.5 w-[9.5rem]"
+                className="pg-input pg-tx-field mt-0.5 w-[9.5rem]"
                 value={value.dateFrom}
                 onChange={(e) => onChange({ ...value, dateFrom: e.target.value, quick: '' })}
               />
             </label>
-            <span className="pb-1.5 text-slate-400">~</span>
+            <span className="pb-1 text-slate-400">~</span>
             <label>
               <span className="pg-label">{t('filter.dateTo')}</span>
               <input
                 type="date"
-                className="pg-input mt-0.5 w-[9.5rem]"
+                className="pg-input pg-tx-field mt-0.5 w-[9.5rem]"
                 value={value.dateTo}
                 onChange={(e) => onChange({ ...value, dateTo: e.target.value, quick: '' })}
               />
             </label>
-            <div className="flex flex-wrap gap-1 pb-0.5">
+            <div className="flex flex-wrap items-center gap-1 pb-0.5">
               {QUICKS.map((q) => (
                 <button
                   key={q.key}
                   type="button"
-                  className={`rounded border px-2 py-1 text-[11px] ${
+                  className={`pg-tx-quick ${
                     value.quick === q.key
                       ? 'border-amber-400 bg-amber-200 font-semibold text-amber-950'
                       : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
@@ -137,7 +152,7 @@ export function TransactionFilterBar({
             <label className="min-w-[8rem]">
               <span className="pg-label">{t('filter.searchField')}</span>
               <select
-                className="pg-select mt-0.5"
+                className="pg-select pg-tx-field mt-0.5"
                 value={value.searchField}
                 onChange={(e) => onChange({ ...value, searchField: e.target.value })}
               >
@@ -151,7 +166,7 @@ export function TransactionFilterBar({
             <label className="min-w-[8rem] w-[14rem] shrink-0">
               <span className="pg-label">{t('filter.keyword')}</span>
               <input
-                className="pg-input mt-0.5 w-full"
+                className="pg-input pg-tx-field mt-0.5 w-full"
                 value={value.keyword}
                 onChange={(e) => onChange({ ...value, keyword: e.target.value })}
                 onKeyDown={(e) => {
@@ -163,7 +178,7 @@ export function TransactionFilterBar({
             <label className="min-w-[8rem]">
               <span className="pg-label">{t('filter.status')}</span>
               <select
-                className="pg-select mt-0.5"
+                className="pg-select pg-tx-field mt-0.5"
                 value={value.status}
                 onChange={(e) => onChange({ ...value, status: e.target.value })}
               >
@@ -175,10 +190,10 @@ export function TransactionFilterBar({
                 ))}
               </select>
             </label>
-            <button type="button" className="pg-btn pg-btn-primary" onClick={onSearch}>
+            <button type="button" className="pg-btn pg-btn-primary pg-tx-field-btn" onClick={onSearch}>
               {t('filter.search')}
             </button>
-            <button type="button" className="pg-btn pg-btn-secondary" onClick={onReset}>
+            <button type="button" className="pg-btn pg-btn-secondary pg-tx-field-btn" onClick={onReset}>
               {t('filter.reset')}
             </button>
           </div>
@@ -190,7 +205,7 @@ export function TransactionFilterBar({
       <div className="flex flex-nowrap items-center justify-end gap-1 overflow-x-auto">
         {onHqCountryChange != null && (
           <select
-            className="pg-btn pg-btn-secondary !inline-flex !h-auto !w-auto min-w-[6.75rem] shrink-0 cursor-pointer whitespace-nowrap !py-1.5 text-[11px] leading-none"
+            className="pg-btn pg-btn-secondary pg-tx-hq-select shrink-0 cursor-pointer whitespace-nowrap"
             value={hqCountry ?? ''}
             onChange={(e) => onHqCountryChange(e.target.value)}
             title={t('filter.hqSettings')}
@@ -207,7 +222,7 @@ export function TransactionFilterBar({
         {onRefresh && (
           <button
             type="button"
-            className="pg-btn pg-btn-secondary shrink-0 whitespace-nowrap text-[11px]"
+            className="pg-btn pg-btn-secondary shrink-0 whitespace-nowrap"
             onClick={onRefresh}
           >
             {t('filter.refresh')}
@@ -215,7 +230,7 @@ export function TransactionFilterBar({
         )}
         <button
           type="button"
-          className={`pg-btn shrink-0 whitespace-nowrap text-[11px] ${
+          className={`pg-btn shrink-0 whitespace-nowrap ${
             sortDir === 'desc' ? 'pg-btn-primary' : 'pg-btn-secondary'
           }`}
           onClick={() => onSortDir('desc')}
@@ -224,7 +239,7 @@ export function TransactionFilterBar({
         </button>
         <button
           type="button"
-          className={`pg-btn shrink-0 whitespace-nowrap text-[11px] ${
+          className={`pg-btn shrink-0 whitespace-nowrap ${
             sortDir === 'asc' ? 'pg-btn-primary' : 'pg-btn-secondary'
           }`}
           onClick={() => onSortDir('asc')}
@@ -234,7 +249,7 @@ export function TransactionFilterBar({
         {onExcel && (
           <button
             type="button"
-            className="pg-btn pg-btn-primary shrink-0 whitespace-nowrap text-[11px]"
+            className="pg-btn pg-btn-primary shrink-0 whitespace-nowrap"
             onClick={onExcel}
           >
             {t('filter.excel')}
@@ -256,7 +271,7 @@ export function AggregateSummaryBar({ data }: { data: ListAggregateSummary }) {
   const t = useT();
   const sep = <span className="mx-2 text-sky-300">|</span>;
   return (
-    <div className="rounded-lg border border-sky-200 bg-sky-50/80 px-3 py-2 text-[12px] leading-relaxed text-indigo-950">
+    <div className="rounded-lg border border-sky-200 bg-sky-50/80 px-3 py-2 leading-relaxed text-indigo-950">
       <div className="flex flex-wrap items-center gap-y-1">
         <span>
           {t('filter.countLabel')}: <strong>{data.count}</strong>

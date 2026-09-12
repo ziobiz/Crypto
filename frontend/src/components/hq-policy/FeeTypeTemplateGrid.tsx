@@ -13,6 +13,7 @@ import {
 } from '@/lib/api';
 import type { MessageKey } from '@/i18n/messages';
 import { sumOrgShareTable } from '@/lib/escrow-share-totals';
+import { localizeFeeTypeLabel } from '@/lib/fee-type-label';
 
 const ORG_LEVELS: HqOrgLevel[] = [
   'HEAD_OFFICE',
@@ -288,7 +289,9 @@ export function FeeTypeTemplateGrid({ feeTypes, onChanged }: Props) {
                             onChange={(e) => setDraft({ ...draft, name: e.target.value })}
                           />
                         ) : (
-                          <div className="font-medium">{row.name}</div>
+                          <div className="font-medium">
+                            {localizeFeeTypeLabel(row.code, row.name, t)}
+                          </div>
                         )}
                       </td>
                       {ORG_LEVELS.map((lv) => (

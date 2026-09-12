@@ -12,7 +12,7 @@ import { UsdtFeeBreakdownPanel } from '@/components/UsdtFeeBreakdown';
 import { FormattedAmountInput } from '@/components/FormattedAmountInput';
 import { ContentCard } from '@/components/layout/ContentCard';
 import { HqPolicyHubNav } from '@/components/layout/HqPolicyHubNav';
-import { formatDate } from '@/lib/format';
+import { formatDate, formatFiatAmount, setCurrencyAmountDisplayPolicy } from '@/lib/format';
 
 const FIAT_CURRENCIES = ['KRW', 'JPY', 'THB', 'CNY'] as const;
 type FiatCurrency = (typeof FIAT_CURRENCIES)[number];
@@ -183,6 +183,9 @@ export default function UsdtSimulatorPage() {
           setPreview(null);
           setError(t('simulator.targetFailed'));
           return;
+        }
+        if (p.currencyAmountDisplay) {
+          setCurrencyAmountDisplayPolicy(p.currencyAmountDisplay);
         }
         setPreview(p);
         setPreviewAt(new Date().toISOString());
@@ -483,7 +486,7 @@ function SimpleSimSummary({
       <div>
         <div className="pg-hint">{t('simulator.needFiat')}</div>
         <div className="font-semibold">
-          {n(requiredFiat).toLocaleString()} {currency}
+          {formatFiatAmount(n(requiredFiat), currency)}
         </div>
       </div>
       <div>

@@ -111,6 +111,19 @@ router.put(
 );
 
 router.put(
+  '/commission/currency-amount-display',
+  asyncHandler(async (req, res) => {
+    const body = req.body as { currencyAmountDisplay?: unknown };
+    if (!body.currencyAmountDisplay || typeof body.currencyAmountDisplay !== 'object') {
+      res.status(400).json({ error: 'currencyAmountDisplay required' });
+      return;
+    }
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await hqPolicyService.saveCurrencyAmountDisplay(audit, body.currencyAmountDisplay as never));
+  }),
+);
+
+router.put(
   '/commission/fee-tiers',
   asyncHandler(async (req, res) => {
     const body = req.body as { feeTiers?: SymbolFeeTierPolicy };

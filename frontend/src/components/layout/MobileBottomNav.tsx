@@ -32,7 +32,7 @@ export function MobileBottomNav() {
             <li key={item.href}>
               <Link
                 href={item.href}
-                className={`flex min-h-[52px] flex-col items-center justify-center gap-0.5 px-1 text-[10px] font-medium sm:text-xs ${
+                className={`flex min-h-[52px] flex-col items-center justify-center gap-0.5 px-1 text-[13px] font-medium ${
                   active ? 'text-blue-600' : 'text-gray-500'
                 }`}
               >

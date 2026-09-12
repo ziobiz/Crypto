@@ -17,6 +17,7 @@ import {
   type CurrencyTransactionLimits,
   type CustomerTransactionLimitsPolicy,
   type FeeDiagramDisplayConfig,
+  type HqCurrencyAmountDisplayPolicy,
   type SymbolFeeCurrency,
   type SymbolFeeTierRow,
 } from '@/lib/api';
@@ -80,6 +81,18 @@ const DEFAULT_GAS_NETWORKS: HqGasNetworkPolicy = {
     { code: 'SOL', fees: { DEFAULT: 1, A: 0, B: 0, C: 0 } },
   ],
 };
+
+const DEFAULT_CURRENCY_AMOUNT: HqCurrencyAmountDisplayPolicy = {
+  default: { decimals: 2, mode: 'ROUND' },
+  KRW: { decimals: 0, mode: 'FLOOR' },
+  JPY: { decimals: 0, mode: 'FLOOR' },
+  THB: { decimals: 2, mode: 'ROUND' },
+  CNY: { decimals: 2, mode: 'ROUND' },
+  HKD: { decimals: 2, mode: 'ROUND' },
+  USD: { decimals: 2, mode: 'ROUND' },
+};
+
+const AMOUNT_CURRENCIES = ['KRW', 'JPY', 'THB', 'CNY', 'USD'] as const;
 
 const DEFAULT_FEE_DIAGRAM: FeeDiagramDisplayConfig = {
   gross: true,
@@ -272,6 +285,9 @@ export default function HqCommissionPage() {
   const [gasNetworks, setGasNetworks] = useState<HqGasNetworkPolicy>(DEFAULT_GAS_NETWORKS);
   const [savingGas, setSavingGas] = useState(false);
   const [gasMsg, setGasMsg] = useState('');
+  const [currencyAmount, setCurrencyAmount] = useState<HqCurrencyAmountDisplayPolicy>(DEFAULT_CURRENCY_AMOUNT);
+  const [savingCurrencyAmount, setSavingCurrencyAmount] = useState(false);
+  const [currencyAmountMsg, setCurrencyAmountMsg] = useState('');
   const [savingRates, setSavingRates] = useState(false);
   const [msg, setMsg] = useState('');
   const [ratesMsg, setRatesMsg] = useState('');
@@ -328,9 +344,33 @@ export default function HqCommissionPage() {
         setFeeTiers(commission.feeTiers ?? []);
         setExchangeRateSources(commission.exchangeRateSources);
         setExchangeRatePreview(commission.exchangeRatePreview ?? []);
+        setCurrencyAmount({
+          ...DEFAULT_CURRENCY_AMOUNT,
+          ...(commission.currencyAmountDisplay ?? {}),
+        });
       })
       .catch((e) => setError(e instanceof Error ? e.message : t('common.loadFailed')));
   }, [t]);
+
+  async function saveCurrencyAmountDisplay() {
+    setSavingCurrencyAmount(true);
+    setCurrencyAmountMsg('');
+    try {
+      const next = await hqPolicyApi.saveCurrencyAmountDisplay(currencyAmount);
+      setData(next);
+      setCurrencyAmount({
+        ...DEFAULT_CURRENCY_AMOUNT,
+        ...(next.currencyAmountDisplay ?? {}),
+      });
+      const { setCurrencyAmountDisplayPolicy } = await import('@/lib/format');
+      setCurrencyAmountDisplayPolicy(next.currencyAmountDisplay ?? DEFAULT_CURRENCY_AMOUNT);
+      setCurrencyAmountMsg(t('hq.saved'));
+    } catch (e) {
+      setCurrencyAmountMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
+    } finally {
+      setSavingCurrencyAmount(false);
+    }
+  }
 
   const currencyTiers = useMemo(() => {
     const byId = new Map(
@@ -810,6 +850,82 @@ export default function HqCommissionPage() {
               </div>
             </div>
             <p className="pg-hint text-[10px]">{t('hq.commission.feeDiagramSaveHint')}</p>
+          </div>
+        </div>
+
+        <div className="pg-card">
+          <div className="pg-card-head">{t('hq.commission.currencyAmountTitle')}</div>
+          <div className="pg-card-body space-y-3">
+            <p className="pg-hint text-xs">{t('hq.commission.currencyAmountDesc')}</p>
+            <div className="pg-table-wrap overflow-x-auto">
+              <table className="pg-table text-sm">
+                <thead>
+                  <tr>
+                    <th>{t('hq.commission.currencyAmount.currency')}</th>
+                    <th>{t('hq.commission.currencyAmount.decimals')}</th>
+                    <th>{t('hq.commission.currencyAmount.mode')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {AMOUNT_CURRENCIES.map((ccy) => {
+                    const rule = currencyAmount[ccy] ?? currencyAmount.default;
+                    return (
+                      <tr key={ccy}>
+                        <td className="font-mono font-medium">{ccy}</td>
+                        <td>
+                          <input
+                            type="number"
+                            min={0}
+                            max={8}
+                            className="pg-input !w-20 !text-xs"
+                            value={rule.decimals}
+                            onChange={(e) =>
+                              setCurrencyAmount((prev) => ({
+                                ...prev,
+                                [ccy]: {
+                                  ...rule,
+                                  decimals: Math.max(0, Math.min(8, Number(e.target.value) || 0)),
+                                },
+                              }))
+                            }
+                          />
+                        </td>
+                        <td>
+                          <select
+                            className="pg-input !text-xs max-w-[10rem]"
+                            value={rule.mode}
+                            onChange={(e) =>
+                              setCurrencyAmount((prev) => ({
+                                ...prev,
+                                [ccy]: {
+                                  ...rule,
+                                  mode: e.target.value as 'ROUND' | 'CEIL' | 'FLOOR',
+                                },
+                              }))
+                            }
+                          >
+                            <option value="ROUND">{t('hq.commission.currencyAmount.modeRound')}</option>
+                            <option value="CEIL">{t('hq.commission.currencyAmount.modeCeil')}</option>
+                            <option value="FLOOR">{t('hq.commission.currencyAmount.modeFloor')}</option>
+                          </select>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                className="pg-btn pg-btn-primary text-xs"
+                disabled={savingCurrencyAmount}
+                onClick={() => void saveCurrencyAmountDisplay()}
+              >
+                {savingCurrencyAmount ? t('hq.saving') : t('hq.commission.currencyAmountSave')}
+              </button>
+              {currencyAmountMsg && <span className="pg-hint">{currencyAmountMsg}</span>}
+            </div>
           </div>
         </div>
 

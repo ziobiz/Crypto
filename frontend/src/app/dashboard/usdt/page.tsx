@@ -10,7 +10,7 @@ import { StatusBadge, buildUsdtStatusContext } from '@/components/StatusBadge';
 import { PageSizeBar } from '@/components/PageSizeBar';
 import { SortableTh } from '@/components/ListTableControls';
 import {
-  EMPTY_TX_FILTER,
+  defaultTxFilter,
   AggregateSummaryBar,
   TransactionFilterBar,
   type TransactionFilterState,
@@ -91,8 +91,8 @@ export default function UsdtListPage() {
   const admin = isOperator(user?.role);
   const { country, setServiceCountry, baseTimezone, serviceTimezone } = useReferenceTimeState();
   const [tickets, setTickets] = useState<UsdtTicket[]>([]);
-  const [draft, setDraft] = useState<TransactionFilterState>(EMPTY_TX_FILTER);
-  const [applied, setApplied] = useState<TransactionFilterState>(EMPTY_TX_FILTER);
+  const [draft, setDraft] = useState<TransactionFilterState>(defaultTxFilter);
+  const [applied, setApplied] = useState<TransactionFilterState>(defaultTxFilter);
   const [sortKey, setSortKey] = useState('createdAt');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [page, setPage] = useState(1);
@@ -249,8 +249,9 @@ export default function UsdtListPage() {
           setPage(1);
         }}
         onReset={() => {
-          setDraft(EMPTY_TX_FILTER);
-          setApplied(EMPTY_TX_FILTER);
+          const next = defaultTxFilter();
+          setDraft(next);
+          setApplied(next);
           setPage(1);
         }}
         onRefresh={load}

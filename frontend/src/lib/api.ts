@@ -923,24 +923,28 @@ export interface AllExchangeRatesResponse {
   disclaimer: string;
 }
 
+export interface DepositReceivingAccountInfo {
+  bankName: string;
+  accountNumber: string;
+  accountHolder: string;
+  bankAddress?: string;
+  bankCode?: string;
+  branchCode?: string;
+  branchName?: string;
+  accountType?: string;
+  notice?: string;
+  noticeI18n?: Partial<Record<'KR' | 'US' | 'JP' | 'CH' | 'TH', string>>;
+  transferEnabled?: boolean;
+  cardEnabled?: boolean;
+}
+
 export interface UsdtCurrencyTradeFlags {
   transfer: boolean;
   card: boolean;
 }
 
 export interface UsdtDepositContext {
-  receivingAccounts: Partial<
-    Record<
-      'KRW' | 'JPY' | 'THB' | 'CNY',
-      {
-        bankName: string;
-        accountNumber: string;
-        accountHolder: string;
-        transferEnabled?: boolean;
-        cardEnabled?: boolean;
-      }
-    >
-  >;
+  receivingAccounts: Partial<Record<'KRW' | 'JPY' | 'THB' | 'CNY', DepositReceivingAccountInfo>>;
   currencyTrade?: Record<'KRW' | 'JPY' | 'THB' | 'CNY', UsdtCurrencyTradeFlags>;
   curfexEnabledCurrencies?: Array<'JPY' | 'KRW' | 'THB' | 'CNY'>;
   registeredBank: { bankName: string; accountNumber: string; accountHolder: string } | null;
@@ -1023,6 +1027,7 @@ export interface UsdtFeePreview {
   kimchiPremium?: KimchiPremiumInfo;
   transactionLimits?: TransactionLimitSummary;
   feeDiagramDisplay?: FeeDiagramDisplayConfig;
+  currencyAmountDisplay?: HqCurrencyAmountDisplayPolicy;
   paymentMethod?: 'CARD';
   cardFeePercent?: number;
   cardFeeFiat?: number;
@@ -1452,6 +1457,11 @@ export const hqPolicyApi = {
       method: 'PUT',
       body: JSON.stringify({ gasNetworks }),
     }),
+  saveCurrencyAmountDisplay: (currencyAmountDisplay: HqCurrencyAmountDisplayPolicy) =>
+    request<HqCommissionPayload>('/api/hq-policy/commission/currency-amount-display', {
+      method: 'PUT',
+      body: JSON.stringify({ currencyAmountDisplay }),
+    }),
   saveSimulatorCommissionRisk: (risk: HqCommissionRiskConfig) =>
     request<HqCommissionPayload>('/api/hq-policy/commission/simulator/risk', {
       method: 'PUT',
@@ -1879,6 +1889,7 @@ export interface HqCommissionPayload {
   orgShare: HqOrgSharePolicy;
   feeTypes?: FeeTypeTemplate[];
   gasNetworks?: HqGasNetworkPolicy;
+  currencyAmountDisplay?: HqCurrencyAmountDisplayPolicy;
   customerFeeShareOverrides?: Array<{
     userId: string;
     email: string;
@@ -1886,6 +1897,18 @@ export interface HqCommissionPayload {
     feeShare: CustomerFeeShare;
   }>;
 }
+
+export type CurrencyAmountMode = 'ROUND' | 'CEIL' | 'FLOOR';
+export type HqCurrencyAmountRule = { decimals: number; mode: CurrencyAmountMode };
+export type HqCurrencyAmountDisplayPolicy = {
+  default: HqCurrencyAmountRule;
+  KRW?: HqCurrencyAmountRule;
+  JPY?: HqCurrencyAmountRule;
+  THB?: HqCurrencyAmountRule;
+  CNY?: HqCurrencyAmountRule;
+  HKD?: HqCurrencyAmountRule;
+  USD?: HqCurrencyAmountRule;
+};
 
 export interface BrandingResponse {
   siteName: string;
@@ -1932,18 +1955,7 @@ export interface HqPlatformConfig {
   idleTimeoutMinutes?: number;
   defaultUsdtFiatCurrency?: 'KRW' | 'JPY' | 'THB' | 'CNY';
   simulatorRetentionMonths?: number;
-  depositReceivingAccounts?: Partial<
-    Record<
-      'KRW' | 'JPY' | 'THB' | 'CNY',
-      {
-        bankName: string;
-        accountNumber: string;
-        accountHolder: string;
-        transferEnabled?: boolean;
-        cardEnabled?: boolean;
-      }
-    >
-  >;
+  depositReceivingAccounts?: Partial<Record<'KRW' | 'JPY' | 'THB' | 'CNY', DepositReceivingAccountInfo>>;
   baseTimezone?: string;
   serviceTimezone?: string;
 }

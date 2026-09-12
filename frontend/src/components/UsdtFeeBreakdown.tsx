@@ -3,6 +3,7 @@
 import { useT } from '@/context/LocaleProvider';
 import type { FeeDiagramDisplayConfig, TransactionFees } from '@/lib/api';
 import { formatFeeComponentLabel } from '@/lib/fee-component';
+import { formatFiatAmount } from '@/lib/format';
 
 const LOCAL_PREMIUM_CURRENCIES = ['KRW', 'THB', 'JPY'] as const;
 
@@ -299,7 +300,7 @@ export function UsdtFeeBreakdownPanel({
             {isCardPayment ? t('usdt.fee.fiatForConversion') : t('usdt.fee.requiredFiat')}
           </p>
           <p className="text-lg font-bold text-blue-800 tabular-nums text-center">
-            {breakdown.requiredFiat.toLocaleString()} {currency}
+            {formatFiatAmount(breakdown.requiredFiat, currency)}
           </p>
         </div>
       )}

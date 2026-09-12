@@ -30,6 +30,8 @@ import {
   applyLocalPremiumToBaseFees,
   breakdownFromFiat,
   breakdownFromTarget,
+  finalizeFiatBreakdown,
+  getCurrencyAmountDisplayPolicy,
   getLocalPremiumContext,
   resolveFeesForPurchase,
   withOperatingFeeRates,
@@ -219,6 +221,10 @@ async function quoteFromTarget(
     fees = baseFees;
   }
   breakdown = breakdownFromTarget(targetUsdt, rate, fees);
+  const amountPolicy = await getCurrencyAmountDisplayPolicy();
+  breakdown = finalizeFiatBreakdown(currency, breakdown, rate, fees, amountPolicy, {
+    preserveTargetNet: true,
+  });
 
   return {
     fees,
@@ -285,13 +291,23 @@ export async function previewUsdtTransactionFees(
       kimchiPremium: quoted.localPremium?.currency === 'KRW' ? quoted.localPremium : undefined,
       transactionLimits,
       feeDiagramDisplay,
+      currencyAmountDisplay: await getCurrencyAmountDisplayPolicy(),
     };
   }
 
   const fiatAmount = input.fiatAmount ?? 0;
   const fees = await resolveFeesForPurchase(wallet, currency, fiatAmount, rate, { customerProfileId: user.customerProfileId });
+  const amountPolicy = await getCurrencyAmountDisplayPolicy();
   const breakdown =
-    fiatAmount > 0 ? breakdownFromFiat(fiatAmount, rate, fees) : undefined;
+    fiatAmount > 0
+      ? finalizeFiatBreakdown(
+          currency,
+          breakdownFromFiat(fiatAmount, rate, fees),
+          rate,
+          fees,
+          amountPolicy,
+        )
+      : undefined;
   const localPremium =
     isLocalPremiumCurrency(currency) && fiatAmount > 0
       ? await getLocalPremiumContext(currency)
@@ -309,7 +325,7 @@ export async function previewUsdtTransactionFees(
         customerId: user.customerProfileId,
         customerType: profile.customerType,
         currency,
-        fiatAmount,
+        fiatAmount: breakdown?.requiredFiat ?? fiatAmount,
       });
       transactionLimits = await getCustomerTransactionLimitSummary(
         user.customerProfileId,
@@ -321,13 +337,14 @@ export async function previewUsdtTransactionFees(
 
   return {
     fees,
-    fiatAmount,
+    fiatAmount: breakdown?.requiredFiat ?? fiatAmount,
     exchangeRate: rate,
     breakdown,
     localPremium: localPremiumInfo,
     kimchiPremium: localPremiumInfo?.currency === 'KRW' ? localPremiumInfo : undefined,
     transactionLimits,
     feeDiagramDisplay,
+    currencyAmountDisplay: amountPolicy,
   };
 }
 
@@ -380,12 +397,23 @@ export async function simulateHqUsdtQuote(input: {
         kimchiPremium: quoted.localPremium?.currency === 'KRW' ? quoted.localPremium : undefined,
         feeDiagramDisplay,
         policyBasis,
+        currencyAmountDisplay: await getCurrencyAmountDisplayPolicy(),
       };
     }
 
     const fiatAmount = input.fiatAmount ?? 0;
     const fees = await resolveFeesForPurchase(wallet, currency, fiatAmount, rate, feeOpts);
-    const breakdown = fiatAmount > 0 ? breakdownFromFiat(fiatAmount, rate, fees) : undefined;
+    const amountPolicy = await getCurrencyAmountDisplayPolicy();
+    const breakdown =
+      fiatAmount > 0
+        ? finalizeFiatBreakdown(
+            currency,
+            breakdownFromFiat(fiatAmount, rate, fees),
+            rate,
+            fees,
+            amountPolicy,
+          )
+        : undefined;
     let localPremiumInfo;
     if (isLocalPremiumCurrency(currency) && fiatAmount > 0) {
       try {
@@ -398,7 +426,7 @@ export async function simulateHqUsdtQuote(input: {
 
     return {
       fees,
-      fiatAmount,
+      fiatAmount: breakdown?.requiredFiat ?? fiatAmount,
       exchangeRate: rate,
       rateSource: source,
       rateFetchedAt: fetchedAt,
@@ -407,6 +435,7 @@ export async function simulateHqUsdtQuote(input: {
       kimchiPremium: localPremiumInfo?.currency === 'KRW' ? localPremiumInfo : undefined,
       feeDiagramDisplay,
       policyBasis,
+      currencyAmountDisplay: amountPolicy,
     };
   } catch (e) {
     if (isAppError(e)) throw e;
@@ -478,7 +507,15 @@ export async function createUsdtPurchaseTicket(
   } else {
     fiatAmount = input.fiatAmount!;
     fees = await resolveFeesForPurchase(wallet, currency, fiatAmount, rate, { customerProfileId: user.customerProfileId });
-    feeBreakdown = breakdownFromFiat(fiatAmount, rate, fees);
+    const amountPolicy = await getCurrencyAmountDisplayPolicy();
+    feeBreakdown = finalizeFiatBreakdown(
+      currency,
+      breakdownFromFiat(fiatAmount, rate, fees),
+      rate,
+      fees,
+      amountPolicy,
+    );
+    fiatAmount = feeBreakdown.requiredFiat;
     expected = feeBreakdown.netUsdt;
     if (isLocalPremiumCurrency(currency)) {
       localPremiumSnapshot = await getLocalPremiumContext(currency);

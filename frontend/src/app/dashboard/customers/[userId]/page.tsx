@@ -41,6 +41,8 @@ export default function CustomerKycDetailPage() {
   const [statusReason, setStatusReason] = useState('');
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState('');
+  const [simEnabled, setSimEnabled] = useState(true);
+  const [simRateMode, setSimRateMode] = useState<'LIVE' | 'SAND'>('LIVE');
 
   const load = () => {
     api.kyc.getByUser(userId).then(setKyc).catch(console.error);
@@ -50,6 +52,35 @@ export default function CustomerKycDetailPage() {
   useEffect(() => {
     load();
   }, [userId]);
+
+  useEffect(() => {
+    if (!profile?.customerProfile) return;
+    setSimEnabled(profile.customerProfile.simulatorEnabled !== false);
+    setSimRateMode(profile.customerProfile.simulatorRateMode === 'SAND' ? 'SAND' : 'LIVE');
+  }, [profile]);
+
+  const simDirty =
+    !!profile?.customerProfile &&
+    (simEnabled !== (profile.customerProfile.simulatorEnabled !== false) ||
+      simRateMode !== (profile.customerProfile.simulatorRateMode === 'SAND' ? 'SAND' : 'LIVE'));
+
+  async function saveSimulatorSettings() {
+    if (!profile) return;
+    setLoading(true);
+    setMsg('');
+    try {
+      const next = await api.users.update(profile.id, {
+        simulatorEnabled: simEnabled,
+        simulatorRateMode: simRateMode,
+      });
+      setProfile(next);
+      setMsg(t('customers.simulator.saved'));
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : t('users.saveFailed'));
+    } finally {
+      setLoading(false);
+    }
+  }
 
   if (user?.role === 'CUSTOMER') {
     return <p className="pg-hint">{t('kyc.hqOnly')}</p>;
@@ -132,65 +163,48 @@ export default function CustomerKycDetailPage() {
             <span className={`pg-badge ${kycBadgeClass(kyc.status)}`}>{t(statusKey(kyc.status))}</span>
           </p>
           {profile?.customerProfile && (
-            <div className="rounded border border-slate-200 bg-slate-50 px-3 py-2">
-              <p className="font-medium text-slate-800">{t('customers.simulator.title')}</p>
-              <p className="mt-1 text-xs text-slate-500">{t('customers.simulator.hint')}</p>
-              <label className="mt-2 flex items-center gap-2">
+            <div className="rounded border border-slate-200 bg-slate-50 px-3 py-3 space-y-3">
+              <div>
+                <p className="font-medium text-slate-800">{t('customers.simulator.title')}</p>
+                <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                  {t('customers.simulator.hint')}
+                </p>
+              </div>
+              <label className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
-                  checked={profile.customerProfile.simulatorEnabled !== false}
+                  checked={simEnabled}
                   disabled={loading || !canEditCustomer}
-                  onChange={async (e) => {
-                    if (!profile) return;
-                    setLoading(true);
-                    setMsg('');
-                    try {
-                      const next = await api.users.update(profile.id, {
-                        simulatorEnabled: e.target.checked,
-                      });
-                      setProfile(next);
-                      setMsg(t('customers.simulator.saved'));
-                    } catch (err) {
-                      setMsg(err instanceof Error ? err.message : t('users.saveFailed'));
-                    } finally {
-                      setLoading(false);
-                    }
-                  }}
+                  onChange={(e) => setSimEnabled(e.target.checked)}
                 />
                 <span>
-                  {profile.customerProfile.simulatorEnabled !== false
-                    ? t('customers.simulator.on')
-                    : t('customers.simulator.off')}
+                  {simEnabled ? t('customers.simulator.on') : t('customers.simulator.off')}
                 </span>
               </label>
-              <label className="mt-3 block text-sm">
-                <span className="font-medium">{t('customers.sRate.title')}</span>
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-sm font-medium text-slate-800">{t('customers.sRate.title')}</span>
                 <select
-                  className="pg-select mt-1 w-full max-w-xs"
+                  className="pg-select h-8 w-[7.5rem] shrink-0 px-2 py-1 text-sm"
                   disabled={loading || !canEditCustomer}
-                  value={profile.customerProfile.simulatorRateMode ?? 'LIVE'}
-                  onChange={async (e) => {
-                    if (!profile) return;
-                    setLoading(true);
-                    setMsg('');
-                    try {
-                      const next = await api.users.update(profile.id, {
-                        simulatorRateMode: e.target.value as 'LIVE' | 'SAND',
-                      });
-                      setProfile(next);
-                      setMsg(t('customers.simulator.saved'));
-                    } catch (err) {
-                      setMsg(err instanceof Error ? err.message : t('users.saveFailed'));
-                    } finally {
-                      setLoading(false);
-                    }
-                  }}
+                  value={simRateMode}
+                  onChange={(e) => setSimRateMode(e.target.value as 'LIVE' | 'SAND')}
+                  aria-label={t('customers.sRate.selectLabel')}
                 >
                   <option value="LIVE">{t('customers.sRate.live')}</option>
                   <option value="SAND">{t('customers.sRate.sand')}</option>
                 </select>
-                <span className="mt-1 block text-xs text-slate-500">{t('customers.sRate.hint')}</span>
-              </label>
+              </div>
+              <p className="text-xs leading-relaxed text-slate-500">{t('customers.sRate.hint')}</p>
+              {canEditCustomer && (
+                <button
+                  type="button"
+                  disabled={loading || !simDirty}
+                  onClick={saveSimulatorSettings}
+                  className="pg-btn pg-btn-primary disabled:opacity-50"
+                >
+                  {loading ? t('common.saving') : t('customers.simulator.save')}
+                </button>
+              )}
             </div>
           )}
           {kyc.submittedAt && (

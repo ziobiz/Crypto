@@ -335,48 +335,98 @@ export const HQ_OPS_MANUAL: ManualDoc = {
     },
     {
       id: 'hq-fiat',
-      title: L('통화별 이체·카드 활성화', 'Per-currency transfer & card', '通貨別 振込・カード', '按币种开关转账与卡', 'เปิด/ปิดโอนและบัตรตามสกุล'),
+      title: L('통화별 이체·카드·고정 수취계좌', 'Per-currency transfer, card & fixed accounts', '通貨別 振込・カード・固定受取口座', '按币种转账·卡·固定收款账户', 'โอน/บัตร/บัญชีคงที่ตามสกุล'),
       bodyHtml: L(
         `<span class="menu-path">본사정책 → 플랫폼 → 고객 입금 수취 계좌 (통화별)</span>
-        <p>KRW·JPY·THB·CNY마다 수취 계좌를 적고, <strong>이체거래</strong>와 <strong>카드결제</strong>를 따로 켭니다.</p>
+        <p>KRW·JPY·THB·CNY마다 <strong>고정 수취 계좌</strong>를 등록하고, <strong>이체거래</strong>·<strong>카드결제</strong>를 따로 켭니다. CURFEX가 꺼진 통화(또는 미적용 통화)에서 고객에게 이 계좌가 안내됩니다.</p>
+        <table><thead><tr><th>항목</th><th>설명</th></tr></thead><tbody>
+        <tr><td>은행명·은행 주소</td><td>예: MUFG Bank, Ltd. / Marunouchi…</td></tr>
+        <tr><td>은행 코드 · 지점 코드</td><td>예: 0005 · 869</td></tr>
+        <tr><td>계좌 유형 · 계좌 번호</td><td>예: Savings / Futsu · 4685448</td></tr>
+        <tr><td>수취인명(예금주)</td><td><strong>半角カタカナ 원문</strong> 그대로 저장 (언어와 무관하게 고객 화면에 동일 표기)</td></tr>
+        <tr><td>고객 화면 중요 안내</td><td>KR/US/JP/CH/TH 언어별 문구. 비우면 기본 번역 사용</td></tr>
+        </tbody></table>
         <ul>
-          <li>이체를 끄면 고객이 그 통화로 <strong>계좌 이체 USDT 매입</strong>을 할 수 없습니다.</li>
-          <li>카드를 끄면 그 통화로 <strong>카드 USDT 매입</strong>을 할 수 없습니다. (운영관리 카드 결제 전체 ON과 별개입니다.)</li>
-          <li>고객 신청 화면에는 켜진 통화만 목록에 나옵니다. API에서도 막힙니다.</li>
+          <li>이체를 끄면 그 통화로 <strong>계좌 이체 USDT 매입</strong> 불가.</li>
+          <li>카드를 끄면 그 통화로 <strong>카드 USDT 매입</strong> 불가 (운영관리 카드 전체 ON과 별개).</li>
+          <li>JPY Payoneer(MUFG)는 「기본값 채우기」로 일괄 입력 후 <strong>브랜드 설정 저장</strong>.</li>
         </ul>
-        <div class="check-box">브랜드 설정 저장으로 함께 저장됩니다. 기존 값은 둘 다 켜진 상태입니다.</div>`,
+        <div class="warn-box"><strong>입금 주의 (고객·운영 공통)</strong><br/>
+        금액을 정상 수령하려면 수취인명을 <strong>표시된 그대로 정확히 복사</strong>해야 합니다 (半角カタカナ). 임의 변경 시 입금 실패·지연 가능.
+        UI 언어를 바꿔도 <strong>수취인명만은 일본어 원문</strong>으로 남습니다. 안내 문구만 해당 언어로 바뀝니다.</div>
+        <div class="check-box">위치는 운영관리가 아니라 <strong>플랫폼</strong>입니다. CURFEX는 운영관리 → 결제관리에서 별도 설정.</div>`,
         `<span class="menu-path">HQ Policy → Platform → Customer deposit accounts</span>
-        <p>For KRW, JPY, THB, CNY enter the receiving account and toggle <strong>bank transfer</strong> and <strong>card payment</strong> separately.</p>
+        <p>For KRW, JPY, THB, CNY register the <strong>fixed receiving account</strong> and toggle <strong>bank transfer</strong> / <strong>card</strong> separately. Shown when CURFEX is off (or not applied) for that currency.</p>
+        <table><thead><tr><th>Field</th><th>Notes</th></tr></thead><tbody>
+        <tr><td>Bank name · address</td><td>e.g. MUFG Bank, Ltd. / Marunouchi…</td></tr>
+        <tr><td>Bank code · branch code</td><td>e.g. 0005 · 869</td></tr>
+        <tr><td>Account type · number</td><td>e.g. Savings / Futsu · 4685448</td></tr>
+        <tr><td>Beneficiary</td><td>Store <strong>half-width katakana exactly</strong>; always shown as-is regardless of UI language</td></tr>
+        <tr><td>Customer notice</td><td>Per KR/US/JP/CH/TH. Blank → built-in translation</td></tr>
+        </tbody></table>
         <ul>
-          <li>Transfer off → customers cannot buy USDT by bank transfer in that currency.</li>
-          <li>Card off → customers cannot buy USDT by card in that currency (independent of the global card switch under Ops → Payment).</li>
-          <li>The application screen lists only enabled currencies; the API also blocks disabled ones.</li>
+          <li>Transfer off → no bank-transfer USDT purchase in that currency.</li>
+          <li>Card off → no card USDT purchase in that currency (independent of Ops → Payment global card switch).</li>
+          <li>Use “Fill JPY Payoneer (MUFG) defaults”, then <strong>Save brand settings</strong>.</li>
         </ul>
-        <div class="check-box">Saved with brand settings. Existing accounts default to both ON.</div>`,
+        <div class="warn-box"><strong>Deposit precautions</strong><br/>
+        To receive funds correctly, customers must <strong>copy the beneficiary name exactly</strong> (half-width katakana). Changing it may fail or delay the deposit.
+        Switching UI language translates the notice only — the <strong>beneficiary name stays Japanese</strong>.</div>
+        <div class="check-box">Configured under <strong>Platform</strong>, not Ops. CURFEX is separate under Ops → Payment.</div>`,
         `<span class="menu-path">本社ポリシー → プラットフォーム → 顧客入金受取口座（通貨別）</span>
-        <p>KRW・JPY・THB・CNYごとに受取口座を記入し、<strong>振込取引</strong>と<strong>カード決済</strong>を個別にON/OFFします。</p>
+        <p>KRW・JPY・THB・CNYごとに<strong>固定受取口座</strong>を登録し、<strong>振込</strong>・<strong>カード</strong>を個別にON/OFFします。CURFEXがOFF（または未適用）の通貨で顧客に案内されます。</p>
+        <table><thead><tr><th>項目</th><th>説明</th></tr></thead><tbody>
+        <tr><td>銀行名・住所</td><td>例: MUFG Bank, Ltd. / Marunouchi…</td></tr>
+        <tr><td>銀行コード・支店コード</td><td>例: 0005 · 869</td></tr>
+        <tr><td>口座種別・口座番号</td><td>例: Savings / Futsu · 4685448</td></tr>
+        <tr><td>受取人名</td><td><strong>半角カタカナ原文</strong>のまま保存（UI言語に関係なく同一表示）</td></tr>
+        <tr><td>顧客向け重要案内</td><td>KR/US/JP/CH/TH別。空欄なら標準翻訳</td></tr>
+        </tbody></table>
         <ul>
-          <li>振込をOFFにすると、その通貨での<strong>口座振込USDT購入</strong>ができません。</li>
-          <li>カードをOFFにすると、その通貨での<strong>カードUSDT購入</strong>ができません（運営管理のカード決済全体ONとは別です）。</li>
-          <li>顧客の申請画面には有効な通貨だけが出ます。APIでも無効通貨は拒否されます。</li>
+          <li>振込OFF → その通貨の<strong>口座振込USDT購入</strong>不可。</li>
+          <li>カードOFF → その通貨の<strong>カードUSDT購入</strong>不可（運営管理の全体カードONとは別）。</li>
+          <li>JPY Payoneer(MUFG)は「デフォルト入力」後に<strong>ブランド設定を保存</strong>。</li>
         </ul>
-        <div class="check-box">ブランド設定の保存と一緒に保存されます。既存値は両方ONです。</div>`,
+        <div class="warn-box"><strong>入金時の注意</strong><br/>
+        正常着金には受取人名を<strong>表示どおり正確にコピー</strong>してください（半角カタカナ）。変更すると失敗・遅延の原因になります。
+        UI言語を変えても<strong>受取人名だけは日本語原文</strong>のままです。案内文だけが翻訳されます。</div>
+        <div class="check-box">場所は運営管理ではなく<strong>プラットフォーム</strong>です。CURFEXは運営管理→決済管理で別設定。</div>`,
         `<span class="menu-path">总部策略 → 平台 → 客户入金收款账户（按币种）</span>
-        <p>为 KRW·JPY·THB·CNY 分别填写收款账户，并单独开关<strong>转账交易</strong>与<strong>卡支付</strong>。</p>
+        <p>为 KRW·JPY·THB·CNY 登记<strong>固定收款账户</strong>，并单独开关<strong>转账</strong>·<strong>卡支付</strong>。当 CURFEX 关闭（或未适用）时向客户展示。</p>
+        <table><thead><tr><th>项目</th><th>说明</th></tr></thead><tbody>
+        <tr><td>银行名·地址</td><td>如 MUFG Bank, Ltd. / Marunouchi…</td></tr>
+        <tr><td>银行代码·分行代码</td><td>如 0005 · 869</td></tr>
+        <tr><td>账户类型·账号</td><td>如 Savings / Futsu · 4685448</td></tr>
+        <tr><td>收款人</td><td>保存<strong>半角片假名原文</strong>；无论界面语言如何均原样显示</td></tr>
+        <tr><td>客户重要提示</td><td>按 KR/US/JP/CH/TH；留空则用内置翻译</td></tr>
+        </tbody></table>
         <ul>
-          <li>关闭转账后，客户无法用该币种做<strong>银行转账 USDT 采购</strong>。</li>
-          <li>关闭卡支付后，客户无法用该币种做<strong>卡付 USDT 采购</strong>（与运营管理中全局卡开关无关）。</li>
-          <li>客户申请页仅列出已开启的币种；API 也会拦截已关闭的币种。</li>
+          <li>关闭转账 → 无法用该币种做<strong>银行转账 USDT 采购</strong>。</li>
+          <li>关闭卡 → 无法用该币种做<strong>卡付 USDT 采购</strong>（与运营管理全局卡开关无关）。</li>
+          <li>JPY Payoneer(MUFG) 可用「一键填充」后<strong>保存品牌设置</strong>。</li>
         </ul>
-        <div class="check-box">与品牌设置一并保存。现有账户默认为两者均开启。</div>`,
+        <div class="warn-box"><strong>入金注意</strong><br/>
+        为确保正常入账，须<strong>精确复制收款人姓名</strong>（半角片假名）。擅自修改可能导致失败或延迟。
+        切换界面语言时，仅提示文翻译；<strong>收款人姓名始终保持日语原文</strong>。</div>
+        <div class="check-box">位置在<strong>平台</strong>，不在运营管理。CURFEX 在运营管理→支付管理单独设置。</div>`,
         `<span class="menu-path">HQ Policy → แพลตฟอร์ม → บัญชีรับเงินลูกค้า (ตามสกุล)</span>
-        <p>กรอกบัญชีรับเงินสำหรับ KRW·JPY·THB·CNY แล้วเปิด/ปิด <strong>การโอน</strong> และ <strong>บัตร</strong> แยกกัน</p>
+        <p>ลงทะเบียน<strong>บัญชีรับคงที่</strong>สำหรับ KRW·JPY·THB·CNY และเปิด/ปิด <strong>โอน</strong>·<strong>บัตร</strong> แยกกัน แสดงเมื่อ CURFEX ปิด (หรือไม่ใช้) ในสกุลนั้น</p>
+        <table><thead><tr><th>รายการ</th><th>คำอธิบาย</th></tr></thead><tbody>
+        <tr><td>ชื่อธนาคาร·ที่อยู่</td><td>เช่น MUFG Bank, Ltd. / Marunouchi…</td></tr>
+        <tr><td>รหัสธนาคาร·สาขา</td><td>เช่น 0005 · 869</td></tr>
+        <tr><td>ประเภท·เลขบัญชี</td><td>เช่น Savings / Futsu · 4685448</td></tr>
+        <tr><td>ชื่อผู้รับ</td><td>เก็บ<strong>คาตาคานะครึ่งความกว้างตามต้นฉบับ</strong> แสดงเหมือนกันทุกภาษา UI</td></tr>
+        <tr><td>ข้อความสำคัญ</td><td>แยก KR/US/JP/CH/TH ว่างแล้วใช้คำแปลเริ่มต้น</td></tr>
+        </tbody></table>
         <ul>
-          <li>ปิดโอน → ลูกค้า<strong>ซื้อ USDT ด้วยโอน</strong>ในสกุลนั้นไม่ได้</li>
-          <li>ปิดบัตร → ลูกค้า<strong>ซื้อ USDT ด้วยบัตร</strong>ในสกุลนั้นไม่ได้ (แยกจากสวิตช์บัตรรวมใน Ops → Payment)</li>
-          <li>หน้าสมัครแสดงเฉพาะสกุลที่เปิด และ API ก็บล็อกสกุลที่ปิด</li>
+          <li>ปิดโอน → ซื้อ USDT ด้วยโอนในสกุลนั้นไม่ได้</li>
+          <li>ปิดบัตร → ซื้อ USDT ด้วยบัตรในสกุลนั้นไม่ได้ (แยกจากสวิตช์บัตรรวม)</li>
+          <li>JPY Payoneer(MUFG) กดเติมค่าเริ่มต้นแล้ว<strong>บันทึกการตั้งค่าแบรนด์</strong></li>
         </ul>
-        <div class="check-box">บันทึกพร้อมการตั้งค่าแบรนด์ ค่าเดิมเปิดทั้งสองอย่าง</div>`
+        <div class="warn-box"><strong>ข้อควรระวังตอนฝาก</strong><br/>
+        เพื่อรับเงินได้ถูกต้อง ต้อง<strong>คัดลอกชื่อผู้รับให้ตรง</strong> (คาตาคานะครึ่งความกว้าง) แก้เองอาจโอนไม่สำเร็จหรือล่าช้า
+        เปลี่ยนภาษา UI จะแปลเฉพาะข้อความเตือน — <strong>ชื่อผู้รับคงเป็นต้นฉบับญี่ปุ่น</strong></div>
+        <div class="check-box">ตั้งที่<strong>แพลตฟอร์ม</strong> ไม่ใช่ Ops CURFEX อยู่ที่ Ops → Payment แยกต่างหาก</div>`
       ),
     },
     {
@@ -1302,6 +1352,57 @@ export const ORG_OPS_MANUAL: ManualDoc = {
       ),
     },
     {
+      id: 'org-deposit-care',
+      title: L('계좌 이체 입금 주의사항', 'Bank deposit precautions', '口座振込入金の注意', '银行转账入金注意', 'ข้อควรระวังการโอนฝาก'),
+      bodyHtml: L(
+        `<span class="menu-path">USDT 매입 → 티켓 상세</span>
+        <p>고정 수취계좌(CURFEX OFF) 또는 티켓에 표시된 계좌로 고객이 입금할 때, 운영자도 아래를 확인해 주세요.</p>
+        <ul>
+          <li><strong>수취인명</strong>은 화면에 표시된 <strong>半角カタカナ 원문</strong>을 그대로 써야 합니다. UI 언어(한국어·영어 등)를 바꿔도 수취인명은 번역되지 않습니다.</li>
+          <li>고객에게 「수취인명 복사」 버튼으로 복사하도록 안내하세요. 임의 입력·띄어쓰기 변경은 입금 실패·지연 원인이 됩니다.</li>
+          <li>은행명·은행코드·지점코드·계좌유형·계좌번호도 티켓 안내와 일치해야 합니다.</li>
+          <li>고정 계좌 건은 등록 통장에서만 송금·입금 증빙 업로드가 필요합니다. CURFEX 건은 건별 계좌만 사용(증빙 없음).</li>
+        </ul>
+        <div class="warn-box">입금자명과 등록 통장 예금주가 다르면 통장 불일치로 거래가 지연·중지될 수 있습니다.</div>`,
+        `<span class="menu-path">USDT purchase → ticket detail</span>
+        <p>When customers deposit to a fixed account (CURFEX OFF) or the account shown on the ticket, operators should verify:</p>
+        <ul>
+          <li>The <strong>beneficiary name</strong> must stay as the on-screen <strong>half-width katakana</strong>. Changing UI language does not translate the name.</li>
+          <li>Ask customers to use <strong>Copy beneficiary</strong>. Manual edits or spacing changes can fail or delay the deposit.</li>
+          <li>Bank name, codes, account type and number must match the ticket guidance.</li>
+          <li>Fixed-account tickets still need deposit proof from the registered bank. CURFEX tickets use the per-ticket account only (no proof).</li>
+        </ul>
+        <div class="warn-box">If the depositor name does not match the registered bank account holder, the trade may be delayed or stopped (bank mismatch).</div>`,
+        `<span class="menu-path">USDT購入 → チケット詳細</span>
+        <p>固定受取口座（CURFEX OFF）またはチケット表示口座への入金時、運営者も以下を確認してください。</p>
+        <ul>
+          <li><strong>受取人名</strong>は画面の<strong>半角カタカナ原文</strong>のままです。UI言語を変えても受取人名は翻訳されません。</li>
+          <li>顧客には「受取人名をコピー」を使わせてください。手入力・スペース変更は失敗・遅延の原因です。</li>
+          <li>銀行名・コード・口座種別・口座番号も案内どおり一致させてください。</li>
+          <li>固定口座件は登録通帳からの送金と入金証憑が必要です。CURFEX件は取引専用口座のみ（証憑なし）。</li>
+        </ul>
+        <div class="warn-box">入金者名と登録通帳の名義が異なると、通帳不一致で遅延・停止することがあります。</div>`,
+        `<span class="menu-path">USDT 采购 → 单据详情</span>
+        <p>客户向固定收款账户（CURFEX 关闭）或单据显示账户入金时，运营也请核对：</p>
+        <ul>
+          <li><strong>收款人姓名</strong>必须使用界面上的<strong>半角片假名原文</strong>。切换界面语言不会翻译收款人姓名。</li>
+          <li>请引导客户使用「复制收款人」。手改或改空格可能导致失败或延迟。</li>
+          <li>银行名、代码、账户类型、账号须与单据指引一致。</li>
+          <li>固定账户单仍须从注册账户汇款并上传凭证；CURFEX 单仅用按单账户（无需凭证）。</li>
+        </ul>
+        <div class="warn-box">入金人姓名与注册账户户名不一致时，可能因账户不符而延迟或中止。</div>`,
+        `<span class="menu-path">ซื้อ USDT → รายละเอียดตั๋ว</span>
+        <p>เมื่อลูกค้าฝากเข้าบัญชีคงที่ (CURFEX ปิด) หรือบัญชีบนตั๋ว ผู้ดำเนินการควรตรวจดังนี้</p>
+        <ul>
+          <li><strong>ชื่อผู้รับ</strong>ต้องเป็น<strong>คาตาคานะครึ่งความกว้างตามหน้าจอ</strong> เปลี่ยนภาษา UI แล้วชื่อผู้รับไม่แปล</li>
+          <li>ให้ลูกค้าใช้ปุ่ม「คัดลอกชื่อผู้รับ」 การพิมพ์เอง/เว้นวรรคผิดอาจโอนไม่สำเร็จหรือล่าช้า</li>
+          <li>ชื่อธนาคาร รหัส ประเภท และเลขบัญชีต้องตรงกับที่แจ้งบนตั๋ว</li>
+          <li>ตั๋วบัญชีคงที่ต้องโอนจากบัญชีที่ลงทะเบียนและอัปโหลดหลักฐาน CURFEX ใช้เฉพาะบัญชีรายตั๋ว (ไม่มีสลิป)</li>
+        </ul>
+        <div class="warn-box">ถ้าชื่อผู้ฝากไม่ตรงกับชื่อบัญชีที่ลงทะเบียน อาจล่าช้าหรือหยุดธุรกรรม (บัญชีไม่ตรง)</div>`
+      ),
+    },
+    {
       id: 'org-curfex',
       title: L('JPY 가상계좌서비스(CURFEX) 입금 처리', 'JPY Virtual Account Service (CURFEX) deposit handling', 'JPY バーチャル口座サービス(CURFEX)入金処理', 'JPY 虚拟账户服务(CURFEX) 入金处理', 'จัดการฝาก JPY บริการบัญชีเสมือน(CURFEX)'),
       bodyHtml: L(
@@ -1581,6 +1682,8 @@ export const CUSTOMER_MANUAL: ManualDoc = {
         <tr><td>가상계좌서비스(CURFEX) (본사 ON)</td><td>티켓에 표시된 <strong>건별 계좌</strong>로만 입금 → <strong>증빙 업로드 없음</strong>. 입금 확인 후 자동으로 다음 단계</td></tr>
         </tbody></table>
         <div class="info-box">가상계좌서비스(CURFEX) 계좌는 「입금 계좌 (가상계좌서비스(CURFEX) 발급)」으로 표시됩니다. 다른 거래 계좌와 섞어 입금하지 마세요.</div>
+        <div class="warn-box"><strong>계좌 이체 입금 시 필수</strong><br/>
+        티켓에 표시된 <strong>수취인명(半角カタカナ)</strong>을 「수취인명 복사」로 그대로 붙여 넣으세요. UI 언어를 한국어·영어로 바꿔도 수취인명은 일본어 원문입니다. 은행명·코드·계좌번호도 안내와 일치해야 정상 입금됩니다.</div>
         <div class="block-box">카드 결제는 완료 후 카드 취소·환불이 불가합니다. 동의 없이는 진행할 수 없습니다.</div>`,
         `<span class="menu-path">USDT → + New application</span>
         <p><strong>Step 6.</strong> Apply after verification pass and wallet setup. Enter target USDT or deposit amount to see the fee diagram.</p>
@@ -1594,6 +1697,8 @@ export const CUSTOMER_MANUAL: ManualDoc = {
         <tr><td>Virtual Account Service (CURFEX) (HQ ON)</td><td>Deposit only to the <strong>per-ticket account</strong> → <strong>no proof upload</strong>. System auto-confirms deposit</td></tr>
         </tbody></table>
         <div class="info-box">Virtual Account Service (CURFEX) accounts are labeled “Deposit account (Virtual Account Service (CURFEX) issued)”. Do not mix with other tickets.</div>
+        <div class="warn-box"><strong>Required for bank transfer</strong><br/>
+        Use <strong>Copy beneficiary</strong> for the on-screen <strong>half-width katakana</strong> name. Changing UI language does not translate the beneficiary. Bank name, codes and account number must also match the ticket.</div>
         <div class="block-box">Card payments are non-refundable after charge. You cannot proceed without agreement.</div>`,
         `<span class="menu-path">USDT購入 → +新規申請</span>
         <p>開始順の<strong>6</strong>です。認証パスとウォレット登録後に申請します。希望受取USDTまたは入金額を入れると手数料・費用の図式が表示されます。</p>
@@ -1607,6 +1712,8 @@ export const CUSTOMER_MANUAL: ManualDoc = {
         <tr><td>バーチャル口座サービス(CURFEX)（本社ON）</td><td>チケット表示の<strong>取引専用口座</strong>へだけ入金 → <strong>証憑アップロードなし</strong>。入金確認後に自動で次工程</td></tr>
         </tbody></table>
         <div class="info-box">バーチャル口座サービス(CURFEX)口座は「入金口座（バーチャル口座サービス(CURFEX)発行）」と表示されます。他の取引口座と混ぜて入金しないでください。</div>
+        <div class="warn-box"><strong>口座振込時の必須事項</strong><br/>
+        チケットの<strong>受取人名（半角カタカナ）</strong>を「受取人名をコピー」でそのまま貼り付けてください。UI言語を変えても受取人名は日本語原文です。銀行名・コード・口座番号も案内どおりにしてください。</div>
         <div class="block-box">カード決済後の取消・返金はできません。同意なしでは進めません。</div>`,
         `<span class="menu-path">USDT 采购 → +新申请</span>
         <p>开工顺序的<strong>第 6 步</strong>。认证通过并登记钱包后再申请。输入希望到账 USDT 或入金额后会显示手续费·费用图示。</p>
@@ -1620,6 +1727,8 @@ export const CUSTOMER_MANUAL: ManualDoc = {
         <tr><td>虚拟账户服务(CURFEX)（总部开启）</td><td>仅向单据显示的<strong>按单账户</strong>入金 → <strong>无需上传凭证</strong>。入金确认后自动进入下一步</td></tr>
         </tbody></table>
         <div class="info-box">虚拟账户服务(CURFEX) 账户显示为「入金账户（虚拟账户服务(CURFEX) 开立）」。请勿与其他交易账户混用。</div>
+        <div class="warn-box"><strong>银行转账必读</strong><br/>
+        请用「复制收款人」粘贴单据上的<strong>半角片假名收款人</strong>。切换界面语言不会翻译收款人姓名。银行名、代码、账号也须与指引一致。</div>
         <div class="block-box">卡支付完成后不可取消·退款。未同意无法继续。</div>`,
         `<span class="menu-path">ซื้อ USDT → +สมัครใหม่</span>
         <p>ขั้น <strong>6</strong> ของลำดับเริ่มงาน สมัครหลังผ่านการยืนยันและลงทะเบียนกระเป๋า ใส่ USDT ที่ต้องการรับหรือยอดฝากแล้วจะเห็นแผนภาพค่าธรรมเนียม</p>
@@ -1633,7 +1742,65 @@ export const CUSTOMER_MANUAL: ManualDoc = {
         <tr><td>บริการบัญชีเสมือน(CURFEX) (HQ เปิด)</td><td>ฝากเฉพาะ<strong>บัญชีรายตั๋ว</strong>ที่แสดง → <strong>ไม่ต้องอัปโหลดสลิป</strong> ระบบยืนยันฝากแล้วไปขั้นถัดไปอัตโนมัติ</td></tr>
         </tbody></table>
         <div class="info-box">บัญชีบริการบัญชีเสมือน(CURFEX) แสดงเป็น「บัญชีฝาก (ออกโดยบริการบัญชีเสมือน(CURFEX))」 อย่าฝากปนกับตั๋วอื่น</div>
+        <div class="warn-box"><strong>จำเป็นเมื่อโอนบัญชี</strong><br/>
+        ใช้ปุ่ม「คัดลอกชื่อผู้รับ」สำหรับ<strong>คาตาคานะครึ่งความกว้าง</strong>บนตั๋ว เปลี่ยนภาษา UI แล้วชื่อผู้รับไม่แปล ชื่อธนาคาร รหัส และเลขบัญชีต้องตรงกับที่แจ้ง</div>
         <div class="block-box">ชำระบัตรแล้วยกเลิก·คืนเงินไม่ได้ โดยไม่ยอมรับจะดำเนินการต่อไม่ได้</div>`
+      ),
+    },
+    {
+      id: 'c-deposit-care',
+      title: L('계좌 입금 시 주의사항 (필수)', 'Bank deposit precautions (required)', '口座入金時の注意（必須）', '银行入金注意（必读）', 'ข้อควรระวังตอนฝาก (จำเป็น)'),
+      bodyHtml: L(
+        `<span class="menu-path">USDT 매입 → 티켓 상세 → 입금 계좌</span>
+        <p>계좌 이체로 USDT를 매입할 때 <strong>반드시</strong> 지켜 주세요.</p>
+        <ol>
+          <li>티켓에 표시된 <strong>은행명·은행 코드·지점 코드·계좌 유형·계좌 번호</strong>를 확인합니다.</li>
+          <li><strong>수취인명</strong>은 「수취인명 복사」로 복사한 뒤 송금 앱에 그대로 붙여 넣습니다. <strong>半角カタカナ</strong> 원문을 바꾸면 안 됩니다.</li>
+          <li>화면 언어를 한국어·영어·중국어 등으로 바꿔도 <strong>수취인명은 항상 일본어 원문</strong>입니다. 안내(빨간 경고) 문구만 해당 언어로 보입니다.</li>
+          <li>가입 시 등록한 본인 통장에서만 송금하세요. 다른 통장 송금은 통장 불일치로 중지될 수 있습니다.</li>
+          <li>고정 계좌: 기한 내 <strong>입금 증빙</strong> 업로드. CURFEX 건별 계좌: 해당 계좌로만 입금·증빙 불필요.</li>
+        </ol>
+        <div class="warn-box">금액을 정상적으로 수령하려면, 수취인 이름을 정확히 복사하여 입력해야 합니다. (半角カタカナ 그대로 사용)</div>`,
+        `<span class="menu-path">USDT purchase → ticket detail → deposit account</span>
+        <p>When buying USDT by bank transfer, you <strong>must</strong>:</p>
+        <ol>
+          <li>Check <strong>bank name, bank code, branch code, account type and account number</strong> on the ticket.</li>
+          <li>Use <strong>Copy beneficiary</strong> and paste into your banking app. Do not alter the <strong>half-width katakana</strong> name.</li>
+          <li>Changing UI language (Korean, English, Chinese, etc.) does <strong>not</strong> translate the beneficiary — only the red notice text changes.</li>
+          <li>Transfer only from your registered bank account. Other accounts may trigger a bank mismatch stop.</li>
+          <li>Fixed account: upload <strong>deposit proof</strong> on time. CURFEX per-ticket account: deposit only there — no proof upload.</li>
+        </ol>
+        <div class="warn-box">To receive the funds correctly, copy and enter the beneficiary name exactly as shown. (Use half-width katakana as-is.)</div>`,
+        `<span class="menu-path">USDT購入 → チケット詳細 → 入金口座</span>
+        <p>口座振込でUSDTを購入するときは<strong>必ず</strong>守ってください。</p>
+        <ol>
+          <li>チケットの<strong>銀行名・銀行コード・支店コード・口座種別・口座番号</strong>を確認します。</li>
+          <li><strong>受取人名</strong>は「受取人名をコピー」でコピーし、送金アプリにそのまま貼り付けます。<strong>半角カタカナ</strong>を変更しないでください。</li>
+          <li>画面言語を韓国語・英語・中国語などに変えても<strong>受取人名は常に日本語原文</strong>です。赤い案内文だけが翻訳されます。</li>
+          <li>登録した本人通帳からのみ送金してください。別口座は通帳不一致で停止されることがあります。</li>
+          <li>固定口座: 期限内に<strong>入金証憑</strong>アップロード。CURFEX取引口座: その口座へだけ入金・証憑不要。</li>
+        </ol>
+        <div class="warn-box">正常に着金するには、受取人名を表示どおり正確にコピーして入力してください。（半角カタカナのまま使用）</div>`,
+        `<span class="menu-path">USDT 采购 → 单据详情 → 入金账户</span>
+        <p>通过银行转账购买 USDT 时<strong>必须</strong>遵守：</p>
+        <ol>
+          <li>核对单据上的<strong>银行名、银行代码、分行代码、账户类型、账号</strong>。</li>
+          <li>用「复制收款人」粘贴到网银，勿改动<strong>半角片假名</strong>收款人姓名。</li>
+          <li>切换界面语言（韩/英/中等）时，<strong>收款人姓名始终为日语原文</strong>，仅红色提示文会翻译。</li>
+          <li>仅从注册本人账户汇款；其他账户可能导致账户不符而中止。</li>
+          <li>固定账户：按时上传<strong>入金凭证</strong>。CURFEX 按单账户：仅向该账户入金，无需凭证。</li>
+        </ol>
+        <div class="warn-box">为确保正常入账，请精确复制并输入收款人姓名。（请原样使用半角片假名）</div>`,
+        `<span class="menu-path">ซื้อ USDT → รายละเอียดตั๋ว → บัญชีฝาก</span>
+        <p>เมื่อซื้อ USDT ด้วยโอนบัญชี <strong>ต้อง</strong>ทำตามนี้</p>
+        <ol>
+          <li>ตรวจ<strong>ชื่อธนาคาร รหัสธนาคาร รหัสสาขา ประเภทบัญชี เลขบัญชี</strong>บนตั๋ว</li>
+          <li>ใช้「คัดลอกชื่อผู้รับ」แล้ววางในแอปธนาคาร ห้ามแก้<strong>คาตาคานะครึ่งความกว้าง</strong></li>
+          <li>เปลี่ยนภาษา UI (เกาหลี อังกฤษ จีน ฯลฯ) แล้ว<strong>ชื่อผู้รับยังเป็นต้นฉบับญี่ปุ่น</strong> มีเฉพาะข้อความเตือนสีแดงที่แปล</li>
+          <li>โอนจากบัญชีที่ลงทะเบียนเท่านั้น บัญชีอื่นอาจหยุดธุรกรรมเพราะบัญชีไม่ตรง</li>
+          <li>บัญชีคงที่: อัปโหลด<strong>หลักฐานฝาก</strong>ตามกำหนด CURFEX รายตั๋ว: ฝากเฉพาะบัญชีนั้น ไม่ต้องอัปโหลดสลิป</li>
+        </ol>
+        <div class="warn-box">เพื่อให้รับเงินได้ถูกต้อง ต้องคัดลอกและใส่ชื่อผู้รับให้ตรงตามที่แสดง (ใช้คาตาคานะแบบครึ่งความกว้างตามเดิม)</div>`
       ),
     },
     {

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthProvider';
-import { useT } from '@/context/LocaleProvider';
+import { useT, useLocale } from '@/context/LocaleProvider';
 import { api, UsdtDepositContext, UsdtTicket, ApiError } from '@/lib/api';
 import { StatusBadge, buildUsdtStatusContext } from '@/components/StatusBadge';
 import { OperatorAmountConfirmModal } from '@/components/OperatorAmountConfirmModal';
@@ -90,6 +90,7 @@ export default function UsdtDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const t = useT();
+  const { locale } = useLocale();
   const [ticket, setTicket] = useState<UsdtTicket | null>(null);
   const [depositCtx, setDepositCtx] = useState<UsdtDepositContext | null>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -142,11 +143,37 @@ export default function UsdtDetailPage() {
   const isCustomer = user?.role === 'CUSTOMER';
   const receivingFixed =
     depositCtx?.receivingAccounts?.[ticket.fiatCurrency as 'KRW' | 'JPY' | 'THB' | 'CNY'];
-  const receiving =
+  const receivingRaw =
     ticket.collectionProvider === 'CURFEX' && ticket.collectionAccount
       ? ticket.collectionAccount
       : receivingFixed;
   const isCurfexAccount = ticket.collectionProvider === 'CURFEX' && !!ticket.collectionAccount;
+  const receiving = receivingRaw
+    ? {
+        bankName: String(receivingRaw.bankName ?? ''),
+        accountNumber: String(receivingRaw.accountNumber ?? ''),
+        accountHolder: String(receivingRaw.accountHolder ?? ''),
+        bankAddress:
+          'bankAddress' in receivingRaw && receivingRaw.bankAddress
+            ? String(receivingRaw.bankAddress)
+            : '',
+        bankCode:
+          'bankCode' in receivingRaw && receivingRaw.bankCode ? String(receivingRaw.bankCode) : '',
+        branchCode:
+          'branchCode' in receivingRaw && receivingRaw.branchCode
+            ? String(receivingRaw.branchCode)
+            : '',
+        accountType:
+          'accountType' in receivingRaw && receivingRaw.accountType
+            ? String(receivingRaw.accountType)
+            : '',
+        notice: 'notice' in receivingRaw && receivingRaw.notice ? String(receivingRaw.notice) : '',
+        noticeI18n:
+          'noticeI18n' in receivingRaw && receivingRaw.noticeI18n && typeof receivingRaw.noticeI18n === 'object'
+            ? (receivingRaw.noticeI18n as Partial<Record<'KR' | 'US' | 'JP' | 'CH' | 'TH', string>>)
+            : undefined,
+      }
+    : null;
 
   const handleUpload = async () => {
     if (!file) return;
@@ -354,20 +381,72 @@ export default function UsdtDetailPage() {
 
       {receiving && !isCard && (
         <div className="pg-card">
-          <div className="pg-card-body pg-callout pg-callout-info">
+          <div className="pg-card-body pg-callout pg-callout-info space-y-2">
             <p className="font-semibold">
               {isCurfexAccount ? t('usdt.curfexAccount') : t('usdt.companyAccount')}
             </p>
-            <p className="mt-1">{receiving.bankName} · {receiving.accountNumber}</p>
-            <p className="pg-muted">{receiving.accountHolder}</p>
+            <dl className="grid gap-1.5 text-xs sm:grid-cols-[7.5rem_1fr]">
+              <dt className="text-slate-500">{t('usdt.deposit.bankName')}</dt>
+              <dd className="font-medium">{receiving.bankName || '—'}</dd>
+              {receiving.bankAddress ? (
+                <>
+                  <dt className="text-slate-500">{t('usdt.deposit.bankAddress')}</dt>
+                  <dd>{receiving.bankAddress}</dd>
+                </>
+              ) : null}
+              {receiving.bankCode ? (
+                <>
+                  <dt className="text-slate-500">{t('usdt.deposit.bankCode')}</dt>
+                  <dd className="font-mono">{receiving.bankCode}</dd>
+                </>
+              ) : null}
+              {receiving.branchCode ? (
+                <>
+                  <dt className="text-slate-500">{t('usdt.deposit.branchCode')}</dt>
+                  <dd className="font-mono">{receiving.branchCode}</dd>
+                </>
+              ) : null}
+              {receiving.accountType ? (
+                <>
+                  <dt className="text-slate-500">{t('usdt.deposit.accountType')}</dt>
+                  <dd>{receiving.accountType}</dd>
+                </>
+              ) : null}
+              <dt className="text-slate-500">{t('usdt.deposit.accountNumber')}</dt>
+              <dd className="font-mono font-semibold">{receiving.accountNumber || '—'}</dd>
+              <dt className="text-slate-500">{t('usdt.deposit.accountHolder')}</dt>
+              <dd className="flex flex-wrap items-center gap-2">
+                <span className="font-mono font-semibold tracking-wide">
+                  {receiving.accountHolder || '—'}
+                </span>
+                {receiving.accountHolder ? (
+                  <button
+                    type="button"
+                    className="rounded border border-slate-300 bg-white px-2 py-0.5 text-[11px] font-semibold hover:bg-slate-50"
+                    onClick={() => {
+                      void navigator.clipboard?.writeText(receiving.accountHolder);
+                    }}
+                  >
+                    {t('usdt.deposit.copyHolder')}
+                  </button>
+                ) : null}
+              </dd>
+            </dl>
+            <div className="rounded border border-red-300 bg-red-50 px-3 py-2 text-xs font-semibold text-red-800 space-y-1">
+              <p>
+                {(receiving.noticeI18n?.[locale] ||
+                  receiving.noticeI18n?.KR ||
+                  receiving.notice ||
+                  t('usdt.deposit.holderCopyWarning')) as string}
+              </p>
+              <p className="font-medium text-red-700/90">{t('usdt.deposit.holderNameStayJp')}</p>
+            </div>
             {isCurfexAccount && ticket.curfexRefNo && (
-              <p className="mt-1 font-mono text-[11px] text-slate-600">
+              <p className="font-mono text-[11px] text-slate-600">
                 {t('usdt.curfexRef')}: {ticket.curfexRefNo}
               </p>
             )}
-            {isCurfexAccount && (
-              <p className="mt-1 pg-hint">{t('usdt.curfexAccountHint')}</p>
-            )}
+            {isCurfexAccount && <p className="pg-hint">{t('usdt.curfexAccountHint')}</p>}
           </div>
         </div>
       )}

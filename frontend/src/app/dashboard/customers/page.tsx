@@ -19,6 +19,7 @@ import { WALLET_NETWORKS } from '@/constants/wallet-networks';
 import { ReferenceClocks } from '@/components/ReferenceClocks';
 import { SRateBadge } from '@/components/SRateBadge';
 import { detailRowProps } from '@/lib/table-row-detail';
+import { localizeFeeTypeLabel } from '@/lib/fee-type-label';
 
 const CUSTOMER_REGISTER_ORG_TYPES = ['HEAD_OFFICE', 'MASTER_DISTRIBUTOR'] as const;
 
@@ -58,7 +59,7 @@ function kycStatusKey(status?: string | null): MessageKey {
   return 'kyc.status.NOT_SUBMITTED';
 }
 
-function effectiveFeeTypeName(
+function effectiveFeeTypeLabel(
   policies:
     | Array<{
         ticketKind: string;
@@ -69,6 +70,7 @@ function effectiveFeeTypeName(
     | undefined
     | null,
   ticketKind: 'USDT_PURCHASE' | 'TRADE_ESCROW',
+  t: (key: MessageKey, vars?: Record<string, string | number>) => string,
 ): string | null {
   if (!policies?.length) return null;
   const today = new Date();
@@ -77,7 +79,8 @@ function effectiveFeeTypeName(
     if (p.ticketKind !== ticketKind) continue;
     const start = new Date(p.applyStartDate);
     if (Number.isNaN(start.getTime()) || start > today) continue;
-    return (p.feeTypeName || p.feeTypeCode || '').trim() || null;
+    const label = localizeFeeTypeLabel(p.feeTypeCode, p.feeTypeName, t);
+    return label === '—' ? null : label;
   }
   return null;
 }
@@ -359,8 +362,16 @@ export default function CustomersPage() {
               </tr>
             ) : (
               users.map((u) => {
-                const usdtFee = effectiveFeeTypeName(u.customerProfile?.feePolicies, 'USDT_PURCHASE');
-                const tradeFee = effectiveFeeTypeName(u.customerProfile?.feePolicies, 'TRADE_ESCROW');
+                const usdtFee = effectiveFeeTypeLabel(
+                  u.customerProfile?.feePolicies,
+                  'USDT_PURCHASE',
+                  t,
+                );
+                const tradeFee = effectiveFeeTypeLabel(
+                  u.customerProfile?.feePolicies,
+                  'TRADE_ESCROW',
+                  t,
+                );
                 return (
                 <tr
                   key={u.id}
@@ -641,20 +652,25 @@ export default function CustomersPage() {
                 </label>
                 <label className="mt-3 block text-sm">
                   <span className="pg-field-label">{t('customers.sRate.title')}</span>
-                  <select
-                    className="pg-select mt-1 w-full max-w-xs"
-                    value={form.simulatorRateMode ?? 'LIVE'}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        simulatorRateMode: e.target.value as 'LIVE' | 'SAND',
-                      })
-                    }
-                  >
-                    <option value="LIVE">{t('customers.sRate.live')}</option>
-                    <option value="SAND">{t('customers.sRate.sand')}</option>
-                  </select>
-                  <span className="mt-1 block text-xs text-slate-500">{t('customers.sRate.hint')}</span>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-3">
+                    <select
+                      className="pg-select h-8 w-[7.5rem] shrink-0 px-2 py-1 text-sm"
+                      value={form.simulatorRateMode ?? 'LIVE'}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          simulatorRateMode: e.target.value as 'LIVE' | 'SAND',
+                        })
+                      }
+                      aria-label={t('customers.sRate.selectLabel')}
+                    >
+                      <option value="LIVE">{t('customers.sRate.live')}</option>
+                      <option value="SAND">{t('customers.sRate.sand')}</option>
+                    </select>
+                    <span className="min-w-0 flex-1 text-xs leading-relaxed text-slate-500">
+                      {t('customers.sRate.hint')}
+                    </span>
+                  </div>
                 </label>
               </div>
               <div className="pg-inset-panel">
@@ -672,7 +688,7 @@ export default function CustomersPage() {
                         .filter((f) => (f.ticketKind ?? 'USDT_PURCHASE') === 'USDT_PURCHASE')
                         .map((f) => (
                         <option key={f.id} value={f.code}>
-                          {f.name}
+                          {localizeFeeTypeLabel(f.code, f.name, t)}
                           {f.isDefault ? ` · ${t('hq.commission.feeTypeDefault')}` : ''}
                         </option>
                       ))}
@@ -689,7 +705,7 @@ export default function CustomersPage() {
                         .filter((f) => f.ticketKind === 'TRADE_ESCROW')
                         .map((f) => (
                         <option key={f.id} value={f.code}>
-                          {f.name}
+                          {localizeFeeTypeLabel(f.code, f.name, t)}
                           {f.isDefault ? ` · ${t('hq.commission.feeTypeDefault')}` : ''}
                         </option>
                       ))}
@@ -803,19 +819,25 @@ export default function CustomersPage() {
                 </label>
                 <label className="pg-field mt-2">
                   <span className="pg-field-label">{t('customers.sRate.title')}</span>
-                  <select
-                    value={editForm.simulatorRateMode ?? 'LIVE'}
-                    onChange={(e) =>
-                      setEditForm({
-                        ...editForm,
-                        simulatorRateMode: e.target.value as 'LIVE' | 'SAND',
-                      })
-                    }
-                    className="pg-input mt-1"
-                  >
-                    <option value="LIVE">{t('customers.sRate.live')}</option>
-                    <option value="SAND">{t('customers.sRate.sand')}</option>
-                  </select>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-3">
+                    <select
+                      value={editForm.simulatorRateMode ?? 'LIVE'}
+                      onChange={(e) =>
+                        setEditForm({
+                          ...editForm,
+                          simulatorRateMode: e.target.value as 'LIVE' | 'SAND',
+                        })
+                      }
+                      className="pg-select h-8 w-[7.5rem] shrink-0 px-2 py-1 text-sm"
+                      aria-label={t('customers.sRate.selectLabel')}
+                    >
+                      <option value="LIVE">{t('customers.sRate.live')}</option>
+                      <option value="SAND">{t('customers.sRate.sand')}</option>
+                    </select>
+                    <span className="min-w-0 flex-1 text-xs leading-relaxed text-slate-500">
+                      {t('customers.sRate.hint')}
+                    </span>
+                  </div>
                 </label>
                 <label className="pg-field mt-2">
                   <span className="pg-field-label">{t('customers.col.billingMethod')}</span>

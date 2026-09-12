@@ -3,6 +3,236 @@ import type { PlatformReleaseNote } from './version';
 /** 본사정책 → 운영관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
 export const PLATFORM_RELEASE_NOTES: PlatformReleaseNote[] = [
   {
+    version: '2.6.57',
+    kind: 'minor',
+    date: '2026-09-12',
+    items: {
+      KR: [
+        'USDT 매입·무역 에스크로: 일자구분·시작/종료일·검색구분·상태구분 입력 높이를 당일/당월 등 퀵 버튼과 동일하게 맞춤.',
+      ],
+      US: [
+        'USDT Purchase & Trade Escrow: date/search/status field heights match Today/This-month quick buttons.',
+      ],
+      JP: [
+        'USDT購入・貿易エスクロー: 日付区分・開始/終了日・検索区分・状態区分の高さを当日/当月などクイックボタンと同一に。',
+      ],
+      CH: [
+        'USDT买入与贸易托管：日期类型/起止日/搜索类型/状态输入高度与当日/当月等快捷按钮一致。',
+      ],
+      TH: [
+        'USDT Purchase และ Trade Escrow: ความสูงช่องวันที่/ค้นหา/สถานะให้เท่าปุ่มลัด วันนี้/เดือนนี้',
+      ],
+    },
+  },
+  {
+    version: '2.6.56',
+    kind: 'minor',
+    date: '2026-09-12',
+    items: {
+      KR: [
+        'USDT 매입·무역 에스크로: 「본사설정」 드롭다운 높·글자 크기를 새로고침/정렬/엑셀 버튼과 동일하게 맞춤.',
+      ],
+      US: [
+        'USDT Purchase & Trade Escrow: HQ settings dropdown height/type size matches Refresh/Sort/Excel buttons.',
+      ],
+      JP: [
+        'USDT購入・貿易エスクロー: 「本社設定」ドロップダウンの高さ・文字サイズを更新/並び替え/Excelボタンと同一に。',
+      ],
+      CH: [
+        'USDT买入与贸易托管：「总部设置」下拉高度与字号与刷新/排序/Excel按钮一致。',
+      ],
+      TH: [
+        'USDT Purchase และ Trade Escrow: ขนาด/ความสูงดรอปดาวน์ตั้งค่า HQ ให้เท่าปุ่มรีเฟรช/เรียง/Excel',
+      ],
+    },
+  },
+  {
+    version: '2.6.55',
+    kind: 'minor',
+    date: '2026-09-12',
+    items: {
+      KR: [
+        'USDT 매입·무역 에스크로: 필터 글자 크기(13px)는 유지하고, 레이아웃을 기존 세로 배치(필터→집계→버튼)로 복구.',
+      ],
+      US: [
+        'USDT Purchase & Trade Escrow: keep 13px filter type size; restore original vertical layout (filter → summary → actions).',
+      ],
+      JP: [
+        'USDT購入・貿易エスクロー: フィルタ文字サイズ(13px)は維持し、レイアウトを従来の縦配置に復元。',
+      ],
+      CH: [
+        'USDT买入与贸易托管：保留筛选字号(13px)，恢复原纵向布局（筛选→汇总→按钮）。',
+      ],
+      TH: [
+        'USDT Purchase และ Trade Escrow: คงขนาดตัวอักษร 13px และคืนเลย์เอาต์แนวตั้งเดิม',
+      ],
+    },
+  },
+  {
+    version: '2.6.54',
+    kind: 'minor',
+    date: '2026-09-12',
+    items: {
+      KR: [
+        'USDT 매입·무역 에스크로: 필터/본사설정 등 글자 크기를 페이지 제목(13px)과 통일. 시작·종료일 기본값을 오늘 날짜로 표시(브라우저 연도-월-일 플레이스홀더 제거).',
+      ],
+      US: [
+        'USDT Purchase & Trade Escrow: filter/HQ-settings font size matches page title (13px). Start/end dates default to today (no browser year-month-day placeholder).',
+      ],
+      JP: [
+        'USDT購入・貿易エスクロー: フィルタ/本社設定などの文字サイズをページタイトル(13px)に統一。開始・終了日の初期値を本日に設定。',
+      ],
+      CH: [
+        'USDT买入与贸易托管：筛选/总部设置等字号与页标题(13px)统一；起止日期默认今天。',
+      ],
+      TH: [
+        'USDT Purchase และ Trade Escrow: ขนาดตัวอักษรตัวกรอง/ตั้งค่า HQ ให้เท่าหัวข้อหน้า (13px); วันเริ่ม-สิ้นสุดค่าเริ่มต้นเป็นวันนี้',
+      ],
+    },
+  },
+  {
+    version: '2.6.53',
+    kind: 'minor',
+    date: '2026-09-12',
+    items: {
+      KR: [
+        '고객 UI 글자 크기 통일: 사이드/하단 메뉴·표 헤더를 「USDT 매입」페이지 제목(13px)과 동일하게 맞춤.',
+      ],
+      US: [
+        'Customer UI type size unified: side/bottom nav and table headers match the USDT Purchase page title (13px).',
+      ],
+      JP: [
+        '顧客UIの文字サイズ統一: サイド/下部メニュー・表ヘッダーを「USDT購入」ページタイトル(13px)に合わせる。',
+      ],
+      CH: [
+        '客户端字号统一：侧栏/底栏菜单与表头与「USDT买入」页标题（13px）一致。',
+      ],
+      TH: [
+        'รวมขนาดตัวอักษร UI ลูกค้า: เมนูข้าง/ล่าง และหัวตารางให้เท่าหัวข้อหน้า USDT Purchase (13px)',
+      ],
+    },
+  },
+  {
+    version: '2.6.52',
+    kind: 'minor',
+    date: '2026-09-12',
+    items: {
+      KR: [
+        '수수료 유형명(기본 수수료 등)을 UI 언어(KR/US/JP/CH/TH)에 맞게 표시. 고객·조직 이름 등 DB 저장값은 그대로 유지.',
+      ],
+      US: [
+        'System fee type labels (e.g. Default fee) follow UI locale (KR/US/JP/CH/TH). Customer/org names stay as stored.',
+      ],
+      JP: [
+        '手数料タイプ名（基本手数料など）をUI言語(KR/US/JP/CH/TH)に合わせて表示。顧客・組織名などDB保存値はそのまま。',
+      ],
+      CH: [
+        '手续费类型名（默认手续费等）按界面语言(KR/US/JP/CH/TH)显示；客户/组织等数据库名称保持原样。',
+      ],
+      TH: [
+        'ชื่อประเภทค่าธรรมเนียมระบบ (เช่น ค่าธรรมเนียมเริ่มต้น) ตามภาษา UI; ชื่อลูกค้า/องค์กรคงตามที่บันทึก',
+      ],
+    },
+  },
+  {
+    version: '2.6.51',
+    kind: 'minor',
+    date: '2026-09-12',
+    items: {
+      KR: [
+        '이용메뉴얼(총본사·조직·고객) 업데이트: 플랫폼 고정 수취계좌 필드·다국어 안내, 계좌 이체 입금 시 수취인명(半角カタカナ) 복사 필수 주의사항 추가.',
+      ],
+      US: [
+        'Manuals (HQ/org/customer) updated: fixed deposit account fields, multilingual notices, required beneficiary copy (half-width katakana) precautions.',
+      ],
+      JP: [
+        '利用マニュアル(総本社・組織・顧客)更新: 固定受取口座項目・多言語案内、口座振込時の受取人名(半角カタカナ)コピー必須注意を追加。',
+      ],
+      CH: [
+        '使用手册（总部/组织/客户）更新：固定收款账户字段、多语言提示、银行转账须精确复制半角片假名收款人注意事项。',
+      ],
+      TH: [
+        'อัปเดตคู่มือ (HQ/องค์กร/ลูกค้า): บัญชีรับคงที่ ข้อความหลายภาษา และข้อควรระวังคัดลอกชื่อผู้รับคาตาคานะ',
+      ],
+    },
+  },
+  {
+    version: '2.6.50',
+    kind: 'minor',
+    date: '2026-09-12',
+    items: {
+      KR: [
+        '고정 입금 안내 문구 다국어(KR/US/JP/CH/TH) 지원. 수취인명(半角カタカナ)은 언어와 무관하게 원문 유지.',
+        '고객 상세 USDT 시뮬레이터: LIVE/SAND 선택 UI 정리, 설정 저장 버튼 추가.',
+      ],
+      US: [
+        'Fixed-deposit beneficiary notice is multilingual; beneficiary name stays Japanese half-width katakana.',
+        'Customer detail simulator: compact LIVE/SAND control and explicit Save button.',
+      ],
+      JP: [
+        '固定入金案内の多言語化。受取人名は半角カタカナ原文のまま。',
+        '顧客詳細のシミュレーターでLIVE/SAND UI整理と保存ボタン追加。',
+      ],
+      CH: [
+        '固定入金提示支持多语言；收款人姓名保持日语半角片假名原文。',
+        '客户详情模拟器：精简 LIVE/SAND 选择并增加保存按钮。',
+      ],
+      TH: [
+        'ข้อความบัญชีฝากคงที่รองรับหลายภาษา ชื่อผู้รับคงคาตาคานะญี่ปุ่น',
+        'หน้าลูกค้า: ปรับ UI LIVE/SAND และเพิ่มปุ่มบันทึกตัวจำลอง',
+      ],
+    },
+  },
+  {
+    version: '2.6.49',
+    kind: 'minor',
+    date: '2026-09-12',
+    items: {
+      KR: [
+        '본사정책→플랫폼: 고정 입금 수취계좌에 은행주소·은행/지점코드·계좌유형·중요안내(수취인명 정확 복사) 필드 추가. JPY Payoneer(MUFG) 기본값 채우기 버튼.',
+        'USDT 매입 상세: 고정/CURFEX 입금계좌를 항목별로 표시하고 수취인명 복사 버튼·경고 문구 강조.',
+      ],
+      US: [
+        'HQ Platform: fixed deposit accounts now include bank address, codes, account type, and beneficiary-copy notice; JPY Payoneer (MUFG) fill button.',
+        'USDT ticket detail shows structured deposit fields with copy beneficiary and strong warning.',
+      ],
+      JP: [
+        '本社プラットフォームの固定入金口座に住所・銀行/支店コード・口座種別・受取人名コピー注意を追加。JPY Payoneer(MUFG) 一括入力。',
+        'USDT詳細で入金口座を項目表示し、受取人名コピーと警告を強調。',
+      ],
+      CH: [
+        '总部平台固定入金账户增加地址、银行/分行代码、账户类型与收款人精确复制提示；JPY Payoneer(MUFG) 一键填充。',
+        'USDT 详情结构化展示入金信息并强调复制收款人。',
+      ],
+      TH: [
+        'บัญชีฝากคงที่ในแพลตฟอร์ม HQ เพิ่มที่อยู่ รหัสธนาคาร/สาขา ประเภทบัญชี และคำเตือนคัดลอกชื่อผู้รับ พร้อมปุ่ม JPY Payoneer(MUFG)',
+        'หน้ารายละเอียด USDT แสดงบัญชีแบบรายการพร้อมปุ่มคัดลอกและคำเตือน',
+      ],
+    },
+  },
+  {
+    version: '2.6.48',
+    kind: 'minor',
+    date: '2026-09-08',
+    items: {
+      KR: [
+        '본사정책 수수료·리스크: 통화별 법정화폐 소수점·반올림/절상/버림 설정 UI 추가. 시뮬·USDT 매입 입금액에 적용(JPY/KRW 기본 0자리).',
+      ],
+      US: [
+        'HQ commission risk: per-currency fiat decimals and round/ceil/floor settings; applied to simulator and USDT purchase deposits.',
+      ],
+      JP: [
+        '本社手数料リスクに通貨別小数・端数処理設定を追加。シミュ・USDT購入の入金額に適用。',
+      ],
+      CH: [
+        '总部手续费风险增加按货币小数与舍入设置，应用于模拟器与 USDT 购买入金。',
+      ],
+      TH: [
+        'เพิ่มการตั้งทศนิยม/ปัดเงินรายสกุลในความเสี่ยงค่าธรรมเนียม HQ ใช้กับซิมและซื้อ USDT',
+      ],
+    },
+  },
+  {
     version: '2.6.47',
     kind: 'minor',
     date: '2026-09-08',

@@ -269,15 +269,19 @@ export default function OrganizationsPage() {
                 <p className="mt-1 text-xs text-slate-500">{t('orgs.simulator.hint')}</p>
                 <label className="mt-3 block text-sm">
                   <span className="font-medium">{t('orgs.sRate.title')}</span>
-                  <select
-                    className="pg-select mt-1 w-full"
-                    value={simulatorRateMode}
-                    onChange={(e) => setSimulatorRateMode(e.target.value as 'LIVE' | 'SAND')}
-                  >
-                    <option value="LIVE">{t('orgs.sRate.live')}</option>
-                    <option value="SAND">{t('orgs.sRate.sand')}</option>
-                  </select>
-                  <span className="mt-1 block text-xs text-slate-500">{t('orgs.sRate.hint')}</span>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-3">
+                    <select
+                      className="pg-select h-8 w-[7.5rem] shrink-0 px-2 py-1 text-sm"
+                      value={simulatorRateMode}
+                      onChange={(e) => setSimulatorRateMode(e.target.value as 'LIVE' | 'SAND')}
+                    >
+                      <option value="LIVE">{t('orgs.sRate.live')}</option>
+                      <option value="SAND">{t('orgs.sRate.sand')}</option>
+                    </select>
+                    <span className="min-w-0 flex-1 text-xs leading-relaxed text-slate-500">
+                      {t('orgs.sRate.hint')}
+                    </span>
+                  </div>
                 </label>
               </div>
             </div>

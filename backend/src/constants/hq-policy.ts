@@ -591,15 +591,68 @@ export type HqExchangeRateSourcePolicy = Record<SymbolFeeCurrency, ExchangeRateS
 export const USDT_FIAT_CURRENCIES = ['KRW', 'JPY', 'THB', 'CNY'] as const;
 export type UsdtFiatCurrency = (typeof USDT_FIAT_CURRENCIES)[number];
 
+export type DepositNoticeLocale = 'KR' | 'US' | 'JP' | 'CH' | 'TH';
+
 export type DepositReceivingAccount = {
   bankName: string;
   accountNumber: string;
   accountHolder: string;
+  /** 은행 주소 (해외·JPY 등) */
+  bankAddress?: string;
+  /** 은행 코드 (예: 0005) */
+  bankCode?: string;
+  /** 지점 코드 (예: 869) */
+  branchCode?: string;
+  /** 지점명 (선택) */
+  branchName?: string;
+  /** 계좌 유형 (예: Savings / Futsu) */
+  accountType?: string;
+  /**
+   * @deprecated 단일 언어 안내 — noticeI18n 사용 권장. 있으면 시 KR 폴백.
+   */
+  notice?: string;
+  /** 고객 UI 언어별 중요 안내 (수취인명 복사). 수취인명 자체는 accountHolder 원문 유지 */
+  noticeI18n?: Partial<Record<DepositNoticeLocale, string>>;
   /** 계좌이체 USDT 매입. 미지정 시 true */
   transferEnabled?: boolean;
   /** 카드결제 USDT 매입. 미지정 시 true */
   cardEnabled?: boolean;
 };
+
+/** 기본 고객 안내 — 언어별 (수취인명은 항상 半角カタカナ 원문) */
+export const DEFAULT_DEPOSIT_NOTICE_I18N = (): Record<DepositNoticeLocale, string> => ({
+  KR: '금액을 정상적으로 수령하려면, 수취인 이름을 정확히 복사하여 입력해야 합니다. (半角カタカナ 그대로 사용)',
+  US: 'To receive the funds correctly, copy and enter the beneficiary name exactly as shown. (Use half-width katakana as-is.)',
+  JP: '正常に着金するには、受取人名を表示どおり正確にコピーして入力してください。（半角カタカナのまま使用）',
+  CH: '为确保正常入账，请精确复制并输入收款人姓名。（请原样使用半角片假名）',
+  TH: 'เพื่อให้รับเงินได้ถูกต้อง ต้องคัดลอกและใส่ชื่อผู้รับให้ตรงตามที่แสดง (ใช้คาตาคานะแบบครึ่งความกว้างตามเดิม)',
+});
+
+/** JPY 고정 수취 계좌 기본값 (Payoneer Japan / MUFG) — HQ에서 수정·저장 가능 */
+export const DEFAULT_JPY_DEPOSIT_RECEIVING_ACCOUNT = (): DepositReceivingAccount => ({
+  bankName: 'MUFG Bank, Ltd.',
+  bankAddress: '7-1 Marunouchi 2-Chome, Chiyoda-ku Tokyo, Japan',
+  bankCode: '0005',
+  branchCode: '869',
+  accountType: 'Savings / Futsu',
+  accountNumber: '4685448',
+  accountHolder: 'ﾍﾟｲｵﾆｱ ｼﾞﾔﾊﾟﾝ(ｶ',
+  noticeI18n: DEFAULT_DEPOSIT_NOTICE_I18N(),
+  transferEnabled: true,
+  cardEnabled: true,
+});
+
+export function resolveDepositNotice(
+  account: Pick<DepositReceivingAccount, 'notice' | 'noticeI18n'> | null | undefined,
+  locale: string,
+  fallback: string,
+): string {
+  const loc = (String(locale || 'KR').toUpperCase() === 'EN' ? 'US' : String(locale || 'KR').toUpperCase()) as DepositNoticeLocale;
+  const fromI18n = account?.noticeI18n?.[loc] || account?.noticeI18n?.KR;
+  if (fromI18n?.trim()) return fromI18n.trim();
+  if (account?.notice?.trim()) return account.notice.trim();
+  return fallback;
+}
 
 export type UsdtCurrencyTradeFlags = { transfer: boolean; card: boolean };
 export type UsdtCurrencyTradePolicy = Record<UsdtFiatCurrency, UsdtCurrencyTradeFlags>;

@@ -42,6 +42,7 @@ export default function HqPlatformPage() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingAuthLogo, setUploadingAuthLogo] = useState(false);
   const [noticeLocale, setNoticeLocale] = useState<(typeof LOCALES)[number]>('KR');
+  const [depositNoticeLocale, setDepositNoticeLocale] = useState<(typeof LOCALES)[number]>('KR');
   const [uploadingFavicon, setUploadingFavicon] = useState(false);
   const [uploadingBackground, setUploadingBackground] = useState(false);
   const [savingBrand, setSavingBrand] = useState(false);
@@ -385,12 +386,20 @@ export default function HqPlatformPage() {
           <div>
             <p className="text-sm font-semibold text-slate-800">{t('hq.platform.depositAccounts')}</p>
             <p className="mt-1 text-xs text-slate-600">{t('hq.platform.depositAccountsDesc')}</p>
+            <p className="mt-2 text-xs font-medium text-amber-800">{t('hq.platform.depositAccountsWhere')}</p>
           </div>
           {(['KRW', 'JPY', 'THB', 'CNY'] as const).map((cur) => {
             const acct = config.depositReceivingAccounts?.[cur] ?? {
               bankName: '',
               accountNumber: '',
               accountHolder: '',
+              bankAddress: '',
+              bankCode: '',
+              branchCode: '',
+              branchName: '',
+              accountType: '',
+              notice: '',
+              noticeI18n: {},
               transferEnabled: true,
               cardEnabled: true,
             };
@@ -402,11 +411,52 @@ export default function HqPlatformPage() {
                   [cur]: next,
                 },
               });
+            const defaultNoticeI18n = {
+              KR: '금액을 정상적으로 수령하려면, 수취인 이름을 정확히 복사하여 입력해야 합니다. (半角カタカナ 그대로 사용)',
+              US: 'To receive the funds correctly, copy and enter the beneficiary name exactly as shown. (Use half-width katakana as-is.)',
+              JP: '正常に着金するには、受取人名を表示どおり正確にコピーして入力してください。（半角カタカナのまま使用）',
+              CH: '为确保正常入账，请精确复制并输入收款人姓名。（请原样使用半角片假名）',
+              TH: 'เพื่อให้รับเงินได้ถูกต้อง ต้องคัดลอกและใส่ชื่อผู้รับให้ตรงตามที่แสดง (ใช้คาตาคานะแบบครึ่งความกว้างตามเดิม)',
+            } as const;
+            const fillJpyPayoneer = () =>
+              patchAcct({
+                bankName: 'MUFG Bank, Ltd.',
+                bankAddress: '7-1 Marunouchi 2-Chome, Chiyoda-ku Tokyo, Japan',
+                bankCode: '0005',
+                branchCode: '869',
+                branchName: '',
+                accountType: 'Savings / Futsu',
+                accountNumber: '4685448',
+                accountHolder: 'ﾍﾟｲｵﾆｱ ｼﾞﾔﾊﾟﾝ(ｶ',
+                notice: '',
+                noticeI18n: { ...defaultNoticeI18n },
+                transferEnabled: acct.transferEnabled !== false,
+                cardEnabled: acct.cardEnabled !== false,
+              });
+            const noticeText =
+              acct.noticeI18n?.[depositNoticeLocale] ??
+              (depositNoticeLocale === 'KR' ? acct.notice ?? '' : '') ??
+              '';
+            const setNoticeText = (value: string) =>
+              patchAcct({
+                ...acct,
+                noticeI18n: { ...(acct.noticeI18n ?? {}), [depositNoticeLocale]: value },
+                notice: depositNoticeLocale === 'KR' ? value : acct.notice,
+              });
             return (
               <div key={cur} className="rounded border bg-white p-3 space-y-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-xs font-bold text-gray-700">{cur}</p>
-                  <div className="flex flex-wrap gap-3 text-xs text-slate-700">
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-slate-700">
+                    {cur === 'JPY' && (
+                      <button
+                        type="button"
+                        onClick={fillJpyPayoneer}
+                        className="rounded border border-amber-300 bg-amber-50 px-2 py-1 font-semibold text-amber-900 hover:bg-amber-100"
+                      >
+                        {t('hq.platform.depositFillJpyPayoneer')}
+                      </button>
+                    )}
                     <label className="inline-flex items-center gap-1.5">
                       <input
                         type="checkbox"
@@ -425,24 +475,101 @@ export default function HqPlatformPage() {
                     </label>
                   </div>
                 </div>
-                <input
-                  value={acct.bankName}
-                  onChange={(e) => patchAcct({ ...acct, bankName: e.target.value })}
-                  className="pg-input"
-                  placeholder={t('users.bankName')}
-                />
-                <input
-                  value={acct.accountNumber}
-                  onChange={(e) => patchAcct({ ...acct, accountNumber: e.target.value })}
-                  className="pg-input"
-                  placeholder={t('users.accountNumber')}
-                />
-                <input
-                  value={acct.accountHolder}
-                  onChange={(e) => patchAcct({ ...acct, accountHolder: e.target.value })}
-                  className="pg-input"
-                  placeholder={t('users.accountHolder')}
-                />
+                <label className="block text-xs">
+                  <span className="text-slate-600">{t('hq.platform.depositBankName')}</span>
+                  <input
+                    value={acct.bankName}
+                    onChange={(e) => patchAcct({ ...acct, bankName: e.target.value })}
+                    className="pg-input mt-1"
+                    placeholder="MUFG Bank, Ltd."
+                  />
+                </label>
+                <label className="block text-xs">
+                  <span className="text-slate-600">{t('hq.platform.depositBankAddress')}</span>
+                  <input
+                    value={acct.bankAddress ?? ''}
+                    onChange={(e) => patchAcct({ ...acct, bankAddress: e.target.value })}
+                    className="pg-input mt-1"
+                    placeholder="7-1 Marunouchi 2-Chome, Chiyoda-ku Tokyo, Japan"
+                  />
+                </label>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <label className="block text-xs">
+                    <span className="text-slate-600">{t('hq.platform.depositBankCode')}</span>
+                    <input
+                      value={acct.bankCode ?? ''}
+                      onChange={(e) => patchAcct({ ...acct, bankCode: e.target.value })}
+                      className="pg-input mt-1 font-mono"
+                      placeholder="0005"
+                    />
+                  </label>
+                  <label className="block text-xs">
+                    <span className="text-slate-600">{t('hq.platform.depositBranchCode')}</span>
+                    <input
+                      value={acct.branchCode ?? ''}
+                      onChange={(e) => patchAcct({ ...acct, branchCode: e.target.value })}
+                      className="pg-input mt-1 font-mono"
+                      placeholder="869"
+                    />
+                  </label>
+                  <label className="block text-xs">
+                    <span className="text-slate-600">{t('hq.platform.depositAccountType')}</span>
+                    <input
+                      value={acct.accountType ?? ''}
+                      onChange={(e) => patchAcct({ ...acct, accountType: e.target.value })}
+                      className="pg-input mt-1"
+                      placeholder="Savings / Futsu"
+                    />
+                  </label>
+                </div>
+                <label className="block text-xs">
+                  <span className="text-slate-600">{t('hq.platform.depositAccountNumber')}</span>
+                  <input
+                    value={acct.accountNumber}
+                    onChange={(e) => patchAcct({ ...acct, accountNumber: e.target.value })}
+                    className="pg-input mt-1 font-mono"
+                    placeholder="4685448"
+                  />
+                </label>
+                <label className="block text-xs">
+                  <span className="text-slate-600">{t('hq.platform.depositAccountHolder')}</span>
+                  <input
+                    value={acct.accountHolder}
+                    onChange={(e) => patchAcct({ ...acct, accountHolder: e.target.value })}
+                    className="pg-input mt-1 font-mono"
+                    placeholder="ﾍﾟｲｵﾆｱ ｼﾞﾔﾊﾟﾝ(ｶ"
+                  />
+                  <span className="mt-1 block text-[11px] text-slate-500">
+                    {t('usdt.deposit.holderNameStayJp')}
+                  </span>
+                </label>
+                <div className="rounded border border-red-100 bg-red-50/60 p-2 space-y-2">
+                  <p className="text-[11px] font-semibold text-red-800">{t('hq.platform.depositNotice')}</p>
+                  <p className="text-[11px] text-slate-600">{t('hq.platform.depositNoticeI18nHint')}</p>
+                  <div className="flex flex-wrap gap-1">
+                    {LOCALES.map((loc) => (
+                      <button
+                        key={loc}
+                        type="button"
+                        onClick={() => setDepositNoticeLocale(loc)}
+                        className={`rounded px-2 py-0.5 text-[11px] font-semibold ${
+                          depositNoticeLocale === loc
+                            ? 'bg-red-700 text-white'
+                            : 'bg-white text-slate-700 border border-slate-200'
+                        }`}
+                      >
+                        {loc}
+                      </button>
+                    ))}
+                  </div>
+                  <textarea
+                    value={noticeText}
+                    onChange={(e) => setNoticeText(e.target.value)}
+                    rows={3}
+                    className="pg-input border-red-200"
+                    placeholder={defaultNoticeI18n[depositNoticeLocale]}
+                  />
+                </div>
               </div>
             );
           })}

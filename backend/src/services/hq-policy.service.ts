@@ -18,6 +18,7 @@ import {
   type HqOrgColumnConfig,
   type HqPermissionLevel,
   type HqPlatformConfig,
+  type DepositReceivingAccount,
   type HqEmailOtpConfig,
   type HqCardPaymentConfig,
   type HqIcopayConfig,
@@ -37,6 +38,7 @@ import {
   type HqWorkflowDisplayConfig,
   defaultWorkflowDisplay,
   normalizeWorkflowDisplay,
+  DEFAULT_JPY_DEPOSIT_RECEIVING_ACCOUNT,
 } from '../constants/hq-policy';
 import {
   defaultEmailOtpConfig,
@@ -64,6 +66,14 @@ import {
   normalizeCommissionRisk,
   normalizeSymbolFeeTiers,
 } from '../services/transaction-fee.service';
+import {
+  clearCurrencyAmountDisplayPolicyCache,
+  getCurrencyAmountDisplayPolicy,
+} from './usdt-fee-breakdown.service';
+import {
+  normalizeCurrencyAmountDisplayPolicy,
+  type HqCurrencyAmountDisplayPolicy,
+} from '../lib/currency-amount';
 import {
   getExchangeRatePolicyPreview,
   getExchangeRateSourcePolicy,
@@ -240,6 +250,19 @@ function normalizePlatformConfig(raw: Partial<HqPlatformConfig>): HqPlatformConf
   };
 }
 
+function normalizeDepositNoticeI18n(
+  raw?: DepositReceivingAccount['noticeI18n'],
+  legacyNotice?: string,
+): DepositReceivingAccount['noticeI18n'] {
+  const out: NonNullable<DepositReceivingAccount['noticeI18n']> = {};
+  for (const loc of ['KR', 'US', 'JP', 'CH', 'TH'] as const) {
+    const v = raw?.[loc]?.trim();
+    if (v) out[loc] = v;
+  }
+  if (!out.KR && legacyNotice?.trim()) out.KR = legacyNotice.trim();
+  return Object.keys(out).length ? out : undefined;
+}
+
 function normalizeDepositReceivingAccounts(
   raw?: HqPlatformConfig['depositReceivingAccounts'],
 ): HqPlatformConfig['depositReceivingAccounts'] {
@@ -251,6 +274,13 @@ function normalizeDepositReceivingAccounts(
       bankName: a.bankName ?? '',
       accountNumber: a.accountNumber ?? '',
       accountHolder: a.accountHolder ?? '',
+      bankAddress: a.bankAddress ?? '',
+      bankCode: a.bankCode ?? '',
+      branchCode: a.branchCode ?? '',
+      branchName: a.branchName ?? '',
+      accountType: a.accountType ?? '',
+      notice: a.notice ?? '',
+      noticeI18n: normalizeDepositNoticeI18n(a.noticeI18n, a.notice),
       transferEnabled: a.transferEnabled !== false,
       cardEnabled: a.cardEnabled !== false,
     };
@@ -290,7 +320,9 @@ function defaultPlatform(): HqPlatformConfig {
     idleTimeoutMinutes: 30,
     defaultUsdtFiatCurrency: 'JPY',
     simulatorRetentionMonths: 3,
-    depositReceivingAccounts: {},
+    depositReceivingAccounts: {
+      JPY: DEFAULT_JPY_DEPOSIT_RECEIVING_ACCOUNT(),
+    },
     baseTimezone: 'Asia/Seoul',
     serviceTimezone: 'Asia/Seoul',
   };
@@ -523,7 +555,21 @@ export const hqPolicyService = {
       gasNetworks: normalizeGasNetworkPolicy(
         await getConfig(HQ_CONFIG_KEYS.gasNetworks, defaultGasNetworkPolicy()),
       ),
+      currencyAmountDisplay: await getCurrencyAmountDisplayPolicy(),
     };
+  },
+
+  async saveCurrencyAmountDisplay(audit: AuditContext, policy: HqCurrencyAmountDisplayPolicy) {
+    const normalized = normalizeCurrencyAmountDisplayPolicy(policy);
+    await putConfigWithAudit(audit, {
+      key: HQ_CONFIG_KEYS.currencyAmountDisplay,
+      value: normalized,
+      description: '통화별 법정화폐 소수점·절상/반올림/버림',
+      entityType: 'HQ_CURRENCY_AMOUNT_DISPLAY',
+      summary: '통화 금액 표시 규칙 저장',
+    });
+    clearCurrencyAmountDisplayPolicyCache();
+    return this.getCommissionPayload();
   },
 
   async saveCommissionRisk(audit: AuditContext, risk: HqCommissionRiskConfig) {
@@ -861,6 +907,7 @@ export const hqPolicyService = {
       defaultUsdtFiatCurrency: config.defaultUsdtFiatCurrency ?? 'JPY',
       baseTimezone: config.baseTimezone ?? 'Asia/Seoul',
       serviceTimezone: config.serviceTimezone ?? 'Asia/Seoul',
+      currencyAmountDisplay: await getCurrencyAmountDisplayPolicy(),
     };
   },
 

@@ -979,11 +979,84 @@
     font-size: 12px;
   }
 
+  /* 입력만 16px(모바일 줌 방지). 버튼까지 올리면 테이블 정렬 헤더가 페이지 제목보다 커짐 */
   html[data-customer-app] .pg-admin input,
   html[data-customer-app] .pg-admin select,
-  html[data-customer-app] .pg-admin textarea,
-  html[data-customer-app] .pg-admin button {
-    font-size: 16px;
+  html[data-customer-app] .pg-admin textarea {
+    font-size: 13px;
+  }
+
+  /* USDT 매입·무역 에스크로 필터: 글자만 13px (레이아웃 클래스 pg-filter-bar 와 분리) */
+  .pg-tx-filter,
+  .pg-tx-filter .pg-label,
+  .pg-tx-filter .pg-input,
+  .pg-tx-filter .pg-select,
+  .pg-tx-filter .pg-btn,
+  .pg-tx-filter button,
+  .pg-tx-filter select,
+  .pg-tx-filter input {
+    font-size: 13px;
+  }
+
+  /* 일자구분·시작/종료일·검색구분·상태구분·당일 등 퀵버튼 동일 높이 */
+  .pg-tx-filter .pg-tx-field,
+  .pg-tx-filter .pg-tx-quick,
+  .pg-tx-filter .pg-tx-field-btn {
+    box-sizing: border-box;
+    height: 1.75rem;
+    min-height: 1.75rem;
+    margin: 0;
+    padding: 0.25rem 0.5rem;
+    font-size: 13px;
+    line-height: 1.25;
+    border-radius: 0.25rem;
+    vertical-align: middle;
+  }
+
+  .pg-tx-filter .pg-tx-quick {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-width: 1px;
+    border-style: solid;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .pg-tx-filter .pg-tx-field {
+    min-width: 0;
+  }
+
+  /* 본사설정 select = 새로고침/정렬 버튼과 동일 높이·패딩 */
+  .pg-tx-filter select.pg-tx-hq-select {
+    box-sizing: border-box;
+    width: auto;
+    min-width: 0;
+    min-height: 0;
+    height: 1.875rem;
+    margin: 0;
+    padding: 0.375rem 0.625rem;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1;
+    vertical-align: middle;
+  }
+
+  /* 고객 UI: 사이드 메뉴·페이지 제목·표 헤더를 USDT 매입(13px)과 동일 크기 */
+  html[data-customer-app] .pg-nav-item,
+  html[data-customer-app] .pg-frame-title,
+  html[data-customer-app] .pg-frame-path,
+  html[data-customer-app] .pg-tab {
+    font-size: 13px;
+  }
+
+  html[data-customer-app] .pg-table {
+    font-size: 13px;
+  }
+
+  html[data-customer-app] .pg-table th,
+  html[data-customer-app] .pg-table th button {
+    font-size: 13px;
   }
 
   html[data-customer-app] .pg-session-inner-compact {
@@ -1000,11 +1073,11 @@
 
   @media (max-width: 767px) {
     html[data-customer-app] .pg-frame-title {
-      font-size: 16px;
+      font-size: 13px;
     }
 
     html[data-customer-app] .pg-frame-path {
-      font-size: 12px;
+      font-size: 13px;
       word-break: break-word;
       white-space: normal;
     }
@@ -1031,6 +1104,11 @@
     }
 
     html[data-customer-app] .pg-table {
+      font-size: 13px;
+    }
+
+    html[data-customer-app] .pg-table th,
+    html[data-customer-app] .pg-table th button {
       font-size: 13px;
     }
 

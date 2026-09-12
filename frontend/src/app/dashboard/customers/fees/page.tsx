@@ -14,6 +14,7 @@ import {
 import type { MessageKey } from '@/i18n/messages';
 import { sumOrgShareTable } from '@/lib/escrow-share-totals';
 import { detailRowProps } from '@/lib/table-row-detail';
+import { localizeFeeTypeLabel } from '@/lib/fee-type-label';
 
 const ORG_LEVELS: HqOrgLevel[] = [
   'HEAD_OFFICE',
@@ -222,7 +223,10 @@ export default function CustomerFeesPage() {
   const typeOptionsFor = (kind: FeeTicketKind) => {
     const opts = feeTypes
       .filter((f) => (f.ticketKind ?? 'USDT_PURCHASE') === kind)
-      .map((f) => ({ code: f.code, name: f.name }));
+      .map((f) => ({
+        code: f.code,
+        name: localizeFeeTypeLabel(f.code, f.name, t),
+      }));
     opts.push({ code: 'MANUAL', name: t('customerFees.manual') });
     return opts;
   };
@@ -232,7 +236,7 @@ export default function CustomerFeesPage() {
 
   const feeTypeLabel = (row: CustomerFeeGridRow) => {
     if (row.feeTypeCode === 'MANUAL') return t('customerFees.manual');
-    return row.feeTypeName || row.feeTypeCode;
+    return localizeFeeTypeLabel(row.feeTypeCode, row.feeTypeName, t);
   };
 
   return (
@@ -477,12 +481,12 @@ export default function CustomerFeesPage() {
                       <tr key={h.id}>
                         <td>{new Date(h.createdAt).toLocaleString()}</td>
                         <td>{h.action}</td>
-                        <td>{after?.feeTypeName || h.feeTypeCode}</td>
+                        <td>{localizeFeeTypeLabel(after?.feeTypeCode ?? h.feeTypeCode, after?.feeTypeName, t)}</td>
                         <td>{h.applyStartDate}</td>
                         <td>{h.changedBy?.name || h.changedBy?.email || '-'}</td>
                         <td>
                           {after
-                            ? `${after.feeTypeName ?? after.feeTypeCode ?? ''} ${after.operatingPercent ?? ''}% +${after.operatingFixedUsdt ?? 0}`
+                            ? `${localizeFeeTypeLabel(after.feeTypeCode, after.feeTypeName, t)} ${after.operatingPercent ?? ''}% +${after.operatingFixedUsdt ?? 0}`
                             : '-'}
                         </td>
                       </tr>
