@@ -33,7 +33,13 @@ export const MANUAL_CATALOG: ManualCatalogItem[] = [
   },
 ];
 
-export type AppRole = 'SUPER_ADMIN' | 'ORG_STAFF' | 'CUSTOMER' | 'ORGANIZER' | 'SETTLEMENT_ADMIN';
+export type AppRole =
+  | 'SUPER_ADMIN'
+  | 'ORG_STAFF'
+  | 'CUSTOMER'
+  | 'CUSTOMER_OPERATOR'
+  | 'ORGANIZER'
+  | 'SETTLEMENT_ADMIN';
 
 export function audiencesForRole(role: AppRole): ManualAudience[] {
   if (role === 'SUPER_ADMIN' || role === 'ORGANIZER') return ['hq', 'org', 'customer'];

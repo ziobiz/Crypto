@@ -139,7 +139,7 @@ export default function UsdtSimulatorPage() {
 
   useEffect(() => {
     if (!user) return;
-    if (user.role === 'CUSTOMER') {
+    if (user.role === 'CUSTOMER' || user.role === 'CUSTOMER_OPERATOR') {
       api.simulator
         .mine(HISTORY_LIMIT)
         .then((rows) => {
@@ -229,7 +229,7 @@ export default function UsdtSimulatorPage() {
         saveHistory(user.id, next);
         return next;
       });
-      if (user.role === 'CUSTOMER') {
+      if (user.role === 'CUSTOMER' || user.role === 'CUSTOMER_OPERATOR') {
         api.simulator
           .log({
             mode: inputMode,

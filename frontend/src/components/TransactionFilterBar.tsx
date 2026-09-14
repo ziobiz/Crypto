@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { useT } from '@/context/LocaleProvider';
-import { DateQuickKey, rangeForQuick, toYmd } from '@/lib/date-range';
+import { DateQuickKey, rangeForQuick } from '@/lib/date-range';
 import type { ListAggregateSummary } from '@/lib/ledger-summary';
 import type { MessageKey } from '@/i18n/messages';
 
@@ -29,14 +29,14 @@ export const EMPTY_TX_FILTER: TransactionFilterState = {
   status: '',
 };
 
-/** Default list filter: start/end = today (avoids browser “연도-월-일” placeholder; locale-safe). */
+/** Default list filter: end = today, start = 1 week ago (matches 「1주」 quick). */
 export function defaultTxFilter(now = new Date()): TransactionFilterState {
-  const today = toYmd(now);
+  const week = rangeForQuick('week1', now);
   return {
     dateField: 'createdAt',
-    dateFrom: today,
-    dateTo: today,
-    quick: 'today',
+    dateFrom: week.from,
+    dateTo: week.to,
+    quick: 'week1',
     searchField: 'all',
     keyword: '',
     status: '',

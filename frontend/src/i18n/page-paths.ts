@@ -9,6 +9,8 @@ export const HQ_PAGE_PATH_KEYS: Record<string, MessageKey> = {
   '/dashboard/escrow': 'hq.page.escrow',
   '/dashboard/ledger': 'hq.page.ledger',
   '/dashboard/wallets': 'hq.page.wallets',
+  '/dashboard/merchant-users': 'nav.merchantUsers',
+  '/dashboard/operation-history': 'nav.operationHistory',
   '/dashboard/users': 'hq.page.users',
   '/dashboard/customers': 'nav.customers',
   '/dashboard/customers/fees': 'nav.customerFees',

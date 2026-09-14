@@ -111,7 +111,7 @@ export function DashboardCharts() {
     return <p className="pg-hint">{t('dashboard.chart.loadError')}</p>;
   }
 
-  const isCustomer = user?.role === 'CUSTOMER';
+  const isCustomer = user?.role === 'CUSTOMER' || user?.role === 'CUSTOMER_OPERATOR';
   const showOurPerformance = Boolean(data.ourPerformance);
   const showOrgBreakdown = data.ourPerformance?.showOrgBreakdown ?? false;
 

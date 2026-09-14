@@ -45,7 +45,10 @@ export default function DashboardPage() {
       {user &&
         user.role !== 'SUPER_ADMIN' &&
         user.organization?.type !== 'HEAD_OFFICE' &&
-        !(user.role === 'CUSTOMER' && user.customerProfile?.simulatorEnabled === false) && (
+        !(
+          (user.role === 'CUSTOMER' || user.role === 'CUSTOMER_OPERATOR') &&
+          user.customerProfile?.simulatorEnabled === false
+        ) && (
         <DashboardSimulatorPreview />
       )}
 
@@ -79,17 +82,19 @@ export default function DashboardPage() {
             <StatCard label={t('dashboard.commissionCount')} value={stats.commissionCount ?? 0} />
           </>
         )}
-        {user?.role === 'CUSTOMER' && (
+        {(user?.role === 'CUSTOMER' || user?.role === 'CUSTOMER_OPERATOR') && (
           <>
             <StatCard label={t('dashboard.usdtPurchase')} value={stats.usdtTickets ?? 0} />
             <StatCard label={t('dashboard.escrow')} value={stats.escrowTickets ?? 0} />
-            <StatCard label={t('dashboard.wallets')} value={stats.wallets ?? 0} />
+            {user.role === 'CUSTOMER' ? (
+              <StatCard label={t('dashboard.wallets')} value={stats.wallets ?? 0} />
+            ) : null}
             <StatCard label={t('dashboard.usdtCompleted')} value={stats.usdtCompleted ?? 0} />
           </>
         )}
       </div>
 
-      {user?.role === 'CUSTOMER' && (
+      {(user?.role === 'CUSTOMER' || user?.role === 'CUSTOMER_OPERATOR') && (
         <ContentCard title={t('dashboard.quickActions')}>
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             {isKycApproved(user) ? (

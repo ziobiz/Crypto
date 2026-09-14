@@ -198,7 +198,7 @@ export default function EscrowListPage() {
   }
 
   const newBtn =
-    user?.role === 'CUSTOMER' ? (
+    user?.role === 'CUSTOMER' || user?.role === 'CUSTOMER_OPERATOR' ? (
       kycOk ? (
         <Link href="/dashboard/escrow/new" className="pg-btn pg-btn-primary w-full sm:w-auto">
           {t('escrow.new')}

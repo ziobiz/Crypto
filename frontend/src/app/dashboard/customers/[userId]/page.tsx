@@ -43,6 +43,8 @@ export default function CustomerKycDetailPage() {
   const [msg, setMsg] = useState('');
   const [simEnabled, setSimEnabled] = useState(true);
   const [simRateMode, setSimRateMode] = useState<'LIVE' | 'SAND'>('LIVE');
+  const [operatorsEnabled, setOperatorsEnabled] = useState(false);
+  const [walletFeesVisible, setWalletFeesVisible] = useState(false);
 
   const load = () => {
     api.kyc.getByUser(userId).then(setKyc).catch(console.error);
@@ -57,12 +59,22 @@ export default function CustomerKycDetailPage() {
     if (!profile?.customerProfile) return;
     setSimEnabled(profile.customerProfile.simulatorEnabled !== false);
     setSimRateMode(profile.customerProfile.simulatorRateMode === 'SAND' ? 'SAND' : 'LIVE');
+    setOperatorsEnabled(profile.customerProfile.operatorsEnabled === true);
+    setWalletFeesVisible(profile.customerProfile.walletFeesVisible === true);
   }, [profile]);
 
   const simDirty =
     !!profile?.customerProfile &&
     (simEnabled !== (profile.customerProfile.simulatorEnabled !== false) ||
       simRateMode !== (profile.customerProfile.simulatorRateMode === 'SAND' ? 'SAND' : 'LIVE'));
+
+  const opsDirty =
+    !!profile?.customerProfile &&
+    operatorsEnabled !== (profile.customerProfile.operatorsEnabled === true);
+
+  const feesDirty =
+    !!profile?.customerProfile &&
+    walletFeesVisible !== (profile.customerProfile.walletFeesVisible === true);
 
   async function saveSimulatorSettings() {
     if (!profile) return;
@@ -75,6 +87,36 @@ export default function CustomerKycDetailPage() {
       });
       setProfile(next);
       setMsg(t('customers.simulator.saved'));
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : t('users.saveFailed'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function saveOperatorsSettings() {
+    if (!profile) return;
+    setLoading(true);
+    setMsg('');
+    try {
+      const next = await api.users.update(profile.id, { operatorsEnabled });
+      setProfile(next);
+      setMsg(t('customers.operators.saved'));
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : t('users.saveFailed'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function saveWalletFeesSettings() {
+    if (!profile) return;
+    setLoading(true);
+    setMsg('');
+    try {
+      const next = await api.users.update(profile.id, { walletFeesVisible });
+      setProfile(next);
+      setMsg(t('customers.walletFees.saved'));
     } catch (err) {
       setMsg(err instanceof Error ? err.message : t('users.saveFailed'));
     } finally {
@@ -139,12 +181,16 @@ export default function CustomerKycDetailPage() {
 
   return (
     <div className="pg-stack">
-      <Link href="/dashboard/customers" className="pg-link text-sm">
-        ← {t('nav.customers')}
-      </Link>
-      <p className="pg-hint">{t('kyc.hqHint')}</p>
+      {msg &&
+        msg !== t('customers.simulator.saved') &&
+        msg !== t('customers.operators.saved') &&
+        msg !== t('customers.walletFees.saved') &&
+        msg !== t('kyc.reviewSaved') &&
+        msg !== t('users.saved') && (
+          <p className="text-xs text-red-600">{msg}</p>
+        )}
       <div className="pg-card">
-        <div className="pg-card-body space-y-2 text-sm">
+        <div className="pg-card-body space-y-1.5 text-xs">
           <p>
             <strong>{kyc.user?.name ?? profile?.name}</strong> ({kyc.user?.email ?? profile?.email})
           </p>
@@ -162,51 +208,6 @@ export default function CustomerKycDetailPage() {
             {t('customers.col.kyc')}:{' '}
             <span className={`pg-badge ${kycBadgeClass(kyc.status)}`}>{t(statusKey(kyc.status))}</span>
           </p>
-          {profile?.customerProfile && (
-            <div className="rounded border border-slate-200 bg-slate-50 px-3 py-3 space-y-3">
-              <div>
-                <p className="font-medium text-slate-800">{t('customers.simulator.title')}</p>
-                <p className="mt-1 text-xs leading-relaxed text-slate-500">
-                  {t('customers.simulator.hint')}
-                </p>
-              </div>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={simEnabled}
-                  disabled={loading || !canEditCustomer}
-                  onChange={(e) => setSimEnabled(e.target.checked)}
-                />
-                <span>
-                  {simEnabled ? t('customers.simulator.on') : t('customers.simulator.off')}
-                </span>
-              </label>
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="text-sm font-medium text-slate-800">{t('customers.sRate.title')}</span>
-                <select
-                  className="pg-select h-8 w-[7.5rem] shrink-0 px-2 py-1 text-sm"
-                  disabled={loading || !canEditCustomer}
-                  value={simRateMode}
-                  onChange={(e) => setSimRateMode(e.target.value as 'LIVE' | 'SAND')}
-                  aria-label={t('customers.sRate.selectLabel')}
-                >
-                  <option value="LIVE">{t('customers.sRate.live')}</option>
-                  <option value="SAND">{t('customers.sRate.sand')}</option>
-                </select>
-              </div>
-              <p className="text-xs leading-relaxed text-slate-500">{t('customers.sRate.hint')}</p>
-              {canEditCustomer && (
-                <button
-                  type="button"
-                  disabled={loading || !simDirty}
-                  onClick={saveSimulatorSettings}
-                  className="pg-btn pg-btn-primary disabled:opacity-50"
-                >
-                  {loading ? t('common.saving') : t('customers.simulator.save')}
-                </button>
-              )}
-            </div>
-          )}
           {kyc.submittedAt && (
             <p>
               {t('kyc.col.submitted')}: {formatDate(kyc.submittedAt)}
@@ -219,6 +220,122 @@ export default function CustomerKycDetailPage() {
           )}
         </div>
       </div>
+      {profile?.customerProfile && (
+        <div className="pg-card">
+          <div className="pg-card-head text-xs">{t('customers.simulator.title')}</div>
+          <div className="pg-card-body space-y-2 text-xs">
+            <p className="text-[11px] leading-relaxed text-slate-500">{t('customers.simulator.hint')}</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="font-medium text-slate-800">{t('customers.sRate.title')}</span>
+              <select
+                className="pg-select h-8 w-[7.5rem] shrink-0 px-2 py-1 text-xs"
+                disabled={loading || !canEditCustomer}
+                value={simRateMode}
+                onChange={(e) => setSimRateMode(e.target.value as 'LIVE' | 'SAND')}
+                aria-label={t('customers.sRate.selectLabel')}
+              >
+                <option value="LIVE">{t('customers.sRate.live')}</option>
+                <option value="SAND">{t('customers.sRate.sand')}</option>
+              </select>
+            </div>
+            <p className="text-[11px] leading-relaxed text-slate-500">{t('customers.sRate.hint')}</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="font-medium text-slate-800">{t('customers.simulator.enabledLabel')}</span>
+              <select
+                className="pg-select h-8 w-[7.5rem] shrink-0 px-2 py-1 text-xs"
+                disabled={loading || !canEditCustomer}
+                value={simEnabled ? 'on' : 'off'}
+                onChange={(e) => setSimEnabled(e.target.value === 'on')}
+                aria-label={t('customers.simulator.enabledLabel')}
+              >
+                <option value="on">{t('users.active')}</option>
+                <option value="off">{t('users.inactive')}</option>
+              </select>
+            </div>
+            {msg === t('customers.simulator.saved') && (
+              <p className="text-green-700">{msg}</p>
+            )}
+            {canEditCustomer && (
+              <button
+                type="button"
+                disabled={loading || !simDirty}
+                onClick={saveSimulatorSettings}
+                className="pg-btn pg-btn-primary text-xs disabled:opacity-50"
+              >
+                {loading ? t('common.saving') : t('customers.simulator.save')}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+      {profile?.customerProfile && (
+        <div className="pg-card">
+          <div className="pg-card-head text-xs">{t('customers.operators.enable')}</div>
+          <div className="pg-card-body space-y-2 text-xs">
+            <p className="text-[11px] leading-relaxed text-slate-500">{t('customers.operators.hint')}</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="font-medium text-slate-800">{t('customers.col.multi')}</span>
+              <select
+                className="pg-select h-8 w-[7.5rem] shrink-0 px-2 py-1 text-xs"
+                disabled={loading || !canEditCustomer}
+                value={operatorsEnabled ? 'on' : 'off'}
+                onChange={(e) => setOperatorsEnabled(e.target.value === 'on')}
+                aria-label={t('customers.col.multi')}
+              >
+                <option value="on">{t('users.active')}</option>
+                <option value="off">{t('users.inactive')}</option>
+              </select>
+            </div>
+            {msg === t('customers.operators.saved') && (
+              <p className="text-green-700">{msg}</p>
+            )}
+            {canEditCustomer && (
+              <button
+                type="button"
+                disabled={loading || !opsDirty}
+                onClick={saveOperatorsSettings}
+                className="pg-btn pg-btn-primary text-xs disabled:opacity-50"
+              >
+                {loading ? t('common.saving') : t('customers.operators.save')}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+      {profile?.customerProfile && (
+        <div className="pg-card">
+          <div className="pg-card-head text-xs">{t('customers.walletFees.title')}</div>
+          <div className="pg-card-body space-y-2 text-xs">
+            <p className="text-[11px] leading-relaxed text-slate-500">{t('customers.walletFees.hint')}</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="font-medium text-slate-800">{t('customers.walletFees.title')}</span>
+              <select
+                className="pg-select h-8 w-[7.5rem] shrink-0 px-2 py-1 text-xs"
+                disabled={loading || !canEditCustomer}
+                value={walletFeesVisible ? 'on' : 'off'}
+                onChange={(e) => setWalletFeesVisible(e.target.value === 'on')}
+                aria-label={t('customers.walletFees.title')}
+              >
+                <option value="on">{t('users.active')}</option>
+                <option value="off">{t('users.inactive')}</option>
+              </select>
+            </div>
+            {msg === t('customers.walletFees.saved') && (
+              <p className="text-green-700">{msg}</p>
+            )}
+            {canEditCustomer && (
+              <button
+                type="button"
+                disabled={loading || !feesDirty}
+                onClick={saveWalletFeesSettings}
+                className="pg-btn pg-btn-primary text-xs disabled:opacity-50"
+              >
+                {loading ? t('common.saving') : t('customers.walletFees.save')}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
       <div className="pg-card">
         <div className="pg-card-head">{t('kyc.documents')}</div>
         <div className="pg-card-body space-y-2">
@@ -290,6 +407,74 @@ export default function CustomerKycDetailPage() {
             <Link href="/dashboard/customers/fees" className="pg-btn pg-btn-secondary text-sm">
               {t('customers.hub.fees')}
             </Link>
+          </div>
+        </div>
+      )}
+      {profile && (
+        <div className="pg-card">
+          <div className="pg-card-head">{t('nav.wallets')}</div>
+          <div className="pg-card-body space-y-3">
+            {(profile.wallets ?? []).length === 0 ? (
+              <p className="pg-hint">{t('wallets.empty')}</p>
+            ) : (
+              (profile.wallets ?? []).map((w) => (
+                <div key={w.id} className="flex flex-wrap items-start justify-between gap-2 border-b border-slate-100 pb-2 last:border-0">
+                  <div>
+                    <p className="font-mono text-xs">{w.address}</p>
+                    <p className="pg-muted text-xs">
+                      {w.network}
+                      {w.isDefault ? ` · ${t('wallets.default')}` : ''}
+                      {w.hqRegistered ? ` · ${t('wallets.hqRegistered')}` : ''}
+                      {w.approvalStatus ? ` · ${t(`wallets.${w.approvalStatus === 'PENDING' ? 'pending' : w.approvalStatus === 'REJECTED' ? 'rejected' : 'approved'}`)}` : ''}
+                    </p>
+                  </div>
+                  {isHq && w.approvalStatus === 'PENDING' && !w.hqRegistered ? (
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        className="pg-btn pg-btn-primary text-[11px]"
+                        disabled={loading}
+                        onClick={async () => {
+                          setLoading(true);
+                          setMsg('');
+                          try {
+                            await api.users.reviewWallet(profile.id, w.id, 'APPROVED');
+                            load();
+                            setMsg(t('wallets.approved'));
+                          } catch (e) {
+                            setMsg(e instanceof Error ? e.message : t('common.saveFailed'));
+                          } finally {
+                            setLoading(false);
+                          }
+                        }}
+                      >
+                        {t('kyc.approve')}
+                      </button>
+                      <button
+                        type="button"
+                        className="pg-btn pg-btn-secondary text-[11px] text-red-600"
+                        disabled={loading}
+                        onClick={async () => {
+                          setLoading(true);
+                          setMsg('');
+                          try {
+                            await api.users.reviewWallet(profile.id, w.id, 'REJECTED');
+                            load();
+                            setMsg(t('wallets.rejected'));
+                          } catch (e) {
+                            setMsg(e instanceof Error ? e.message : t('common.saveFailed'));
+                          } finally {
+                            setLoading(false);
+                          }
+                        }}
+                      >
+                        {t('kyc.reject')}
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}

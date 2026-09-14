@@ -31,14 +31,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const idleMinutes = user?.sessionPolicy?.idleTimeoutMinutes ?? 30;
 
   const logout = useCallback((reason?: 'idle') => {
+    const uid = user?.id;
     clearToken();
+    sessionStorage.removeItem('crypto-sensitive-token');
+    localStorage.removeItem('crypto-nav-tabs');
+    if (uid) localStorage.removeItem(`crypto-nav-tabs:${uid}`);
     setUser(null);
     if (reason === 'idle') {
       sessionStorage.setItem('crypto_idle_minutes', String(idleMinutes));
     }
     sessionStorage.removeItem('crypto_last_activity');
     router.push(reason === 'idle' ? '/login?idle=1' : '/login');
-  }, [router, idleMinutes]);
+  }, [router, idleMinutes, user?.id]);
 
   useIdleTimeout(() => logout('idle'), Boolean(user), idleMinutes);
 

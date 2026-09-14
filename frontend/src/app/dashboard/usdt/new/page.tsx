@@ -65,11 +65,19 @@ export default function UsdtNewPage() {
   }, [user?.sessionPolicy?.defaultUsdtFiatCurrency]);
 
   useEffect(() => {
-    api.wallets.list().then((w) => {
-      setWallets(w);
-      const def = w.find((x) => x.isDefault) ?? w[0];
+    const apply = (rows: Wallet[]) => {
+      const usable = rows.filter(
+        (x) => x.approvalStatus !== 'PENDING' && x.approvalStatus !== 'REJECTED',
+      );
+      setWallets(usable);
+      const def = usable.find((x) => x.isDefault) ?? usable[0];
       if (def) setWalletId(def.id);
-    }).catch(console.error);
+    };
+    if (user?.role === 'CUSTOMER_OPERATOR') {
+      apply(user.wallets ?? []);
+    } else {
+      api.wallets.list().then(apply).catch(console.error);
+    }
     api.usdt.depositContext().then(setDepositCtx).catch(console.error);
     api.usdt.cardContext().then((ctx) => {
       setCardContext(ctx);
@@ -93,7 +101,7 @@ export default function UsdtNewPage() {
       userEmail: null,
       userName: null,
     }));
-  }, []);
+  }, [user?.id, user?.role]);
 
   const isCard = paymentMethod === 'CARD';
   const trade = { ...ALL_CURRENCY_TRADE, ...(cardContext?.currencyTrade ?? {}) };

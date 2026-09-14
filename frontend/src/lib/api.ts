@@ -193,6 +193,11 @@ export const api = {
       request<{ ok: boolean; totpEnabled: boolean }>(`/api/users/${id}/otp`, {
         method: 'PATCH',
       }),
+    reviewWallet: (userId: string, walletId: string, status: 'APPROVED' | 'REJECTED') =>
+      request<Wallet>(`/api/users/${userId}/wallets/${walletId}/approval`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      }),
     remove: (id: string) => request<ManagedUser>(`/api/users/${id}`, { method: 'DELETE' }),
   },
 
@@ -211,6 +216,38 @@ export const api = {
       request<Wallet>('/api/wallets', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Partial<WalletInput>) =>
       request<Wallet>(`/api/wallets/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  },
+
+  merchant: {
+    listOperators: () =>
+      request<{
+        operators: MerchantOperator[];
+        activeCount: number;
+        maxActive: number;
+      }>('/api/merchant/operators'),
+    createOperator: (data: { email: string; name: string; phone?: string }) =>
+      request<{ operator: MerchantOperator; initialPasswordHint: string }>('/api/merchant/operators', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    deactivateOperator: (id: string) =>
+      request<MerchantOperator>(`/api/merchant/operators/${id}/deactivate`, { method: 'PATCH' }),
+    activateOperator: (id: string) =>
+      request<MerchantOperator>(`/api/merchant/operators/${id}/activate`, { method: 'PATCH' }),
+    listOperationLogs: (params?: { page?: number; pageSize?: number }) => {
+      const q = new URLSearchParams();
+      if (params?.page) q.set('page', String(params.page));
+      if (params?.pageSize) q.set('pageSize', String(params.pageSize));
+      const qs = q.toString();
+      return request<{
+        total: number;
+        page: number;
+        pageSize: number;
+        rows: MerchantOperationLog[];
+      }>(`/api/merchant/operation-logs${qs ? `?${qs}` : ''}`);
+    },
+    deleteOperationLog: (id: string) =>
+      request<{ ok: boolean }>(`/api/merchant/operation-logs/${id}`, { method: 'DELETE' }),
   },
 
   kyc: {
@@ -506,9 +543,11 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'SUPER_ADMIN' | 'ORG_STAFF' | 'CUSTOMER' | 'ORGANIZER' | 'SETTLEMENT_ADMIN';
+  role: 'SUPER_ADMIN' | 'ORG_STAFF' | 'CUSTOMER' | 'CUSTOMER_OPERATOR' | 'ORGANIZER' | 'SETTLEMENT_ADMIN';
   organization?: { id: string; name: string; type: string; path: string };
   customerProfile?: { id: string; customerType: string };
+  merchantAdminUserId?: string | null;
+  operatorsEnabled?: boolean;
 }
 
 export interface MeResponse extends User {
@@ -518,13 +557,16 @@ export interface MeResponse extends User {
   pageAccess?: Record<string, string>;
   kycStatus?: 'NOT_SUBMITTED' | 'PENDING' | 'APPROVED' | 'REJECTED';
   wallets: Wallet[];
+  operatorsEnabled?: boolean;
+  merchantAdminUserId?: string | null;
   customerProfile?: {
     id: string;
     customerType: string;
     recruitingOrg?: { id: string; name: string; code: string };
-  simulatorEnabled?: boolean;
-  simulatorRateMode?: 'LIVE' | 'SAND';
-};
+    simulatorEnabled?: boolean;
+    simulatorRateMode?: 'LIVE' | 'SAND';
+    operatorsEnabled?: boolean;
+  };
 }
 
 export interface SessionPolicy {
@@ -764,7 +806,13 @@ export interface HqDeletionPayload {
   orgs: Organization[];
 }
 
-export type UserRoleType = 'SUPER_ADMIN' | 'ORG_STAFF' | 'CUSTOMER' | 'ORGANIZER' | 'SETTLEMENT_ADMIN';
+export type UserRoleType =
+  | 'SUPER_ADMIN'
+  | 'ORG_STAFF'
+  | 'CUSTOMER'
+  | 'CUSTOMER_OPERATOR'
+  | 'ORGANIZER'
+  | 'SETTLEMENT_ADMIN';
 
 export interface ManagedUser {
   id: string;
@@ -787,6 +835,8 @@ export interface ManagedUser {
     simulatorEnabled?: boolean;
     simulatorRateMode?: 'LIVE' | 'SAND';
     feeBillingMethod?: FeeBillingMethod;
+    operatorsEnabled?: boolean;
+    walletFeesVisible?: boolean;
     recruitingOrg?: { id: string; code: string; name: string };
     feeShare?: CustomerFeeShare | null;
     feePolicies?: Array<{
@@ -796,7 +846,15 @@ export interface ManagedUser {
       applyStartDate: string;
     }>;
   } | null;
-  wallets?: { id: string; label?: string | null; address: string; network: string; isDefault: boolean }[];
+  wallets?: {
+    id: string;
+    label?: string | null;
+    address: string;
+    network: string;
+    isDefault: boolean;
+    hqRegistered?: boolean;
+    approvalStatus?: WalletApprovalStatus;
+  }[];
   bankAccounts?: {
     id: string;
     bankName: string;
@@ -860,6 +918,8 @@ export interface CreateUserInput {
   simulatorEnabled?: boolean;
   simulatorRateMode?: 'LIVE' | 'SAND';
   feeBillingMethod?: FeeBillingMethod;
+  operatorsEnabled?: boolean;
+  walletFeesVisible?: boolean;
 }
 
 export interface UpdateUserInput {
@@ -874,7 +934,11 @@ export interface UpdateUserInput {
   simulatorEnabled?: boolean;
   simulatorRateMode?: 'LIVE' | 'SAND';
   feeBillingMethod?: FeeBillingMethod;
+  operatorsEnabled?: boolean;
+  walletFeesVisible?: boolean;
 }
+
+export type WalletApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 export interface Wallet {
   id: string;
@@ -882,11 +946,14 @@ export interface Wallet {
   address: string;
   network: string;
   isDefault: boolean;
-  fxFeePercent: number;
-  gasFeeAmount: number;
-  transferFeeAmount: number;
-  otherFeeAmount: number;
-  platformFeeAmount: number;
+  hqRegistered?: boolean;
+  approvalStatus?: WalletApprovalStatus;
+  feesVisible?: boolean;
+  fxFeePercent?: number;
+  gasFeeAmount?: number;
+  transferFeeAmount?: number;
+  otherFeeAmount?: number;
+  platformFeeAmount?: number;
   effectiveFees?: {
     fxFeePercent: number;
     gasFeeUsdt: number;
@@ -905,6 +972,25 @@ export interface WalletInput {
   transferFeeAmount?: number;
   otherFeeAmount?: number;
   platformFeeAmount?: number;
+}
+
+export interface MerchantOperator {
+  id: string;
+  email: string;
+  name: string;
+  phone: string | null;
+  isActive: boolean;
+  totpEnabled: boolean;
+  createdAt: string;
+}
+
+export interface MerchantOperationLog {
+  id: string;
+  action: string;
+  summary: string;
+  createdAt: string;
+  actor: { id: string; email: string; name: string; role: string };
+  merchantAdmin: { id: string; email: string; name: string };
 }
 
 export interface ExchangeRateResponse {
@@ -1980,6 +2066,7 @@ export interface HqEmailOtpConfig {
   otpForHeadOffice: boolean;
   otpForMasterDistributor: boolean;
   otpExpireMinutes: number;
+  sensitiveOtpExpireMinutes?: number;
   otpEmailSubject: string;
   otpEmailBody: string;
   smtpHost: string;

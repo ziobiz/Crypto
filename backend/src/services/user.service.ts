@@ -39,6 +39,8 @@ const userSelect = {
       simulatorEnabled: true,
       simulatorRateMode: true,
       feeBillingMethod: true,
+      operatorsEnabled: true,
+      walletFeesVisible: true,
       recruitingOrg: { select: { id: true, code: true, name: true, path: true } },
       feeShare: true,
       feePolicies: {
@@ -326,6 +328,19 @@ export const userService = {
       where: { id },
       select: {
         ...userSelect,
+        wallets: {
+          where: { isActive: true },
+          orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+          select: {
+            id: true,
+            label: true,
+            address: true,
+            network: true,
+            isDefault: true,
+            hqRegistered: true,
+            approvalStatus: true,
+          },
+        },
         managementLogs: {
           select: managementLogSelect,
           orderBy: { createdAt: 'desc' },
@@ -364,6 +379,8 @@ export const userService = {
       simulatorEnabled?: boolean;
       simulatorRateMode?: 'LIVE' | 'SAND';
       feeBillingMethod?: 'FOLLOW_HQ' | 'INTEGRATED' | 'ITEMIZED' | 'HYBRID';
+      operatorsEnabled?: boolean;
+      walletFeesVisible?: boolean;
     },
     audit?: AuditContext,
   ) {
@@ -431,6 +448,8 @@ export const userService = {
               simulatorEnabled: data.simulatorEnabled !== false,
               simulatorRateMode: data.simulatorRateMode ?? 'LIVE',
               feeBillingMethod: data.feeBillingMethod ?? 'FOLLOW_HQ',
+              operatorsEnabled: data.operatorsEnabled === true,
+              walletFeesVisible: data.walletFeesVisible === true,
             },
           },
           bankAccounts: {
@@ -448,6 +467,8 @@ export const userService = {
               address: data.walletAddress!.trim(),
               network,
               isDefault: true,
+              hqRegistered: true,
+              approvalStatus: 'APPROVED',
               fxFeePercent: hqFees.fxFeePercent,
               gasFeeAmount: 0,
               transferFeeAmount: hqFees.transferFeeUsdt,
@@ -538,6 +559,8 @@ export const userService = {
       simulatorEnabled?: boolean;
       simulatorRateMode?: 'LIVE' | 'SAND';
       feeBillingMethod?: 'FOLLOW_HQ' | 'INTEGRATED' | 'ITEMIZED' | 'HYBRID';
+      operatorsEnabled?: boolean;
+      walletFeesVisible?: boolean;
     },
     audit?: AuditContext,
   ) {
@@ -603,6 +626,8 @@ export const userService = {
       simulatorEnabled?: boolean;
       simulatorRateMode?: 'LIVE' | 'SAND';
       feeBillingMethod?: 'FOLLOW_HQ' | 'INTEGRATED' | 'ITEMIZED' | 'HYBRID';
+      operatorsEnabled?: boolean;
+      walletFeesVisible?: boolean;
     } = {};
     if (data.recruitingOrgId && existing.customerProfile) {
       customerProfileUpdate.recruitingOrgId = data.recruitingOrgId;
@@ -616,6 +641,12 @@ export const userService = {
     }
     if (data.feeBillingMethod !== undefined && existing.customerProfile) {
       customerProfileUpdate.feeBillingMethod = data.feeBillingMethod;
+    }
+    if (data.operatorsEnabled !== undefined && existing.customerProfile) {
+      customerProfileUpdate.operatorsEnabled = data.operatorsEnabled;
+    }
+    if (data.walletFeesVisible !== undefined && existing.customerProfile) {
+      customerProfileUpdate.walletFeesVisible = data.walletFeesVisible;
     }
 
     const user = await prisma.user.update({
@@ -632,6 +663,13 @@ export const userService = {
       },
       select: userSelect,
     });
+
+    if (data.operatorsEnabled === false && existing.customerProfile) {
+      await prisma.user.updateMany({
+        where: { merchantAdminUserId: id, role: UserRole.CUSTOMER_OPERATOR },
+        data: { isActive: false },
+      });
+    }
 
     if (statusChanging && statusReason) {
       await logUserManagement({
@@ -799,6 +837,59 @@ export const userService = {
     }
 
     return updated;
+  },
+
+  async reviewWallet(
+    actor: AuthUser,
+    customerUserId: string,
+    walletId: string,
+    status: 'APPROVED' | 'REJECTED',
+    audit?: AuditContext,
+  ) {
+    assertCanManageUsers(actor);
+    const customer = await prisma.user.findUnique({
+      where: { id: customerUserId },
+      select: { id: true, role: true, email: true, deletedAt: true },
+    });
+    if (!customer || customer.deletedAt || customer.role !== UserRole.CUSTOMER) {
+      throw new AppError(404, '가맹점을 찾을 수 없습니다', 'NOT_FOUND');
+    }
+
+    const wallet = await prisma.wallet.findFirst({
+      where: { id: walletId, userId: customerUserId, isActive: true },
+    });
+    if (!wallet) throw new AppError(404, '지갑을 찾을 수 없습니다', 'NOT_FOUND');
+    if (wallet.hqRegistered) {
+      throw new AppError(400, '본사 등록 기본 지갑은 승인 대상이 아닙니다', 'VALIDATION');
+    }
+
+    const next = await prisma.wallet.update({
+      where: { id: wallet.id },
+      data: {
+        approvalStatus: status,
+        ...(status === 'REJECTED' ? { isDefault: false } : {}),
+      },
+    });
+
+    const { recordMerchantOperation } = await import('./merchant-operation-log.service');
+    await recordMerchantOperation({
+      actorId: actor.id,
+      merchantAdminUserId: customerUserId,
+      action: status === 'APPROVED' ? 'WALLET_APPROVE' : 'WALLET_REJECT',
+      entityType: 'Wallet',
+      entityId: next.id,
+      summary:
+        status === 'APPROVED'
+          ? `HQ approved wallet ${next.network} ${next.address.slice(0, 8)}…`
+          : `HQ rejected wallet ${next.network} ${next.address.slice(0, 8)}…`,
+      before: { approvalStatus: wallet.approvalStatus },
+      after: { approvalStatus: next.approvalStatus },
+      otpVerified: false,
+      ipAddress: audit?.ipAddress,
+      userAgent: audit?.userAgent,
+    });
+
+    return next;
   },
 
   async listDeleted() {

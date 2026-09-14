@@ -3,6 +3,239 @@ import type { PlatformReleaseNote } from './version';
 /** 본사정책 → 운영관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
 export const PLATFORM_RELEASE_NOTES: PlatformReleaseNote[] = [
   {
+    version: '2.6.66',
+    kind: 'minor',
+    date: '2026-09-14',
+    items: {
+      KR: [
+        '고객목록: 인증·수수료유형 앞에 「수수료」 열 추가. 수수료 노출의 활성/비활성을 표시.',
+      ],
+      US: [
+        'Customer list: Fees column before Verification and Fee type, showing Fee display Active/Inactive.',
+      ],
+      JP: [
+        '顧客一覧: 認証・手数料類型の前に「手数料」列。手数料表示の有効/無効を表示。',
+      ],
+      CH: [
+        '客户列表：在认证、手续费类型前增加「手续费」列，显示手续费显示的启用/停用。',
+      ],
+      TH: [
+        'รายการลูกค้า: คอลัมน์ค่าธรรมเนียมก่อนการยืนยันและประเภทค่าธรรมเนียม แสดงเปิด/ปิดการแสดงค่าธรรมเนียม',
+      ],
+    },
+  },
+  {
+    version: '2.6.65',
+    kind: 'minor',
+    date: '2026-09-14',
+    items: {
+      KR: [
+        '본사·고객 이용메뉴얼 반영: 수수료 노출(본사설정에따름), 민감작업 OTP 유지시간·6자리 자동확인, 목록 날짜 기본(1주 전~오늘), 가맹점 사용자관리와 본사 사용자관리 구분.',
+      ],
+      US: [
+        'HQ and customer manuals: Fee display (Follow HQ settings), sensitive OTP duration and 6-digit auto-verify, list dates default to 1 week ago–today, merchant Users vs HQ Users.',
+      ],
+      JP: [
+        '本社・顧客マニュアル更新: 手数料表示（本社設定に従う）、機密OTP維持時間・6桁自動確認、一覧日付既定（1週間前〜今日）、加盟店ユーザー管理と本社ユーザー管理の区別。',
+      ],
+      CH: [
+        '总部与客户手册更新：手续费显示（遵循总部设置）、敏感 OTP 保持时间与 6 位自动确认、列表日期默认一周前至今天、加盟商用户管理与总部用户管理区分。',
+      ],
+      TH: [
+        'อัปเดตคู่มือ HQ และลูกค้า: แสดงค่าธรรมเนียม (ตามการตั้งค่า HQ) ระยะเวลา OTP งานสำคัญและยืนยัน 6 หลักอัตโนมัติ วันที่รายการเริ่มต้น 1 สัปดาห์ก่อน–วันนี้ แยกจัดการผู้ใช้ร้านกับ HQ',
+      ],
+    },
+  },
+  {
+    version: '2.6.64',
+    kind: 'minor',
+    date: '2026-09-14',
+    items: {
+      KR: [
+        'USDT·에스크로 시작일 기본값을 1주 전, 종료일을 오늘로 표시.',
+        '본사설정 드롭다운 높이를 새로고침·내림차순과 동일하게. 글자가 길면 폰트만 축소.',
+        '가맹점 USDT 목록 헤더 글자 크기를 본사(13px)와 동일하게.',
+        '고객관리에 수수료 노출 카드 추가. 비활성이면 내 지갑 수수료에 「본사설정에따름」만 표시.',
+      ],
+      US: [
+        'USDT/escrow date filter defaults to 1 week ago through today.',
+        'HQ settings dropdown height matches Refresh/Sort. Long labels use a smaller font.',
+        'Merchant USDT table headers use the same 13px size as HQ.',
+        'Customer detail: Fee display card. When inactive, My wallets shows Follow HQ settings.',
+      ],
+      JP: [
+        'USDT・エスクローの開始日を1週間前、終了日を今日に。',
+        '本社設定ドロップダウンの高さを更新・降順と同じに。文字が長い場合はフォントのみ縮小。',
+        '加盟店USDT一覧ヘッダーを本社と同じ13pxに。',
+        '顧客管理に手数料表示カード。無効時はマイウォレット手数料が「本社設定に従う」。',
+      ],
+      CH: [
+        'USDT/托管筛选默认开始日为一周前、结束日为今天。',
+        '总部设置下拉高度与刷新/降序相同，字太长只缩小字号。',
+        '商户 USDT 列表表头与总部同为 13px。',
+        '客户管理增加手续费显示卡片。停用时我的钱包手续费只显示遵循总部设置。',
+      ],
+      TH: [
+        'ตัวกรอง USDT/เอสโครว์เริ่มต้นวันเริ่มเป็น 1 สัปดาห์ก่อน วันสิ้นสุดเป็นวันนี้',
+        'รายการ HQ สูงเท่าปุ่มรีเฟรช/เรียง ถ้าข้อความยาวลดขนาดตัวอักษร',
+        'หัวตาราง USDT ของร้านเท่า HQ (13px)',
+        'หน้ารายละเอียดลูกค้าเพิ่มการ์ดแสดงค่าธรรมเนียม ถ้าปิด กระเป๋าจะแสดงตามการตั้งค่า HQ',
+      ],
+    },
+  },
+  {
+    version: '2.6.63',
+    kind: 'minor',
+    date: '2026-09-14',
+    items: {
+      KR: ['내 지갑: 상태 열(기본·본사 등록 등)을 좌우·상하 가운데 정렬.'],
+      US: ['My wallets: status column (Default, HQ-registered, etc.) is centered horizontally and vertically.'],
+      JP: ['マイウォレット: 状態列（基本・本社登録など）を上下左右中央揃え。'],
+      CH: ['我的钱包：状态列（默认、总部登记等）改为水平垂直居中。'],
+      TH: ['กระเป๋าของฉัน: คอลัมน์สถานะ (ค่าเริ่มต้น, HQ ลงทะเบียน) จัดกึ่งกลางทั้งแนวนอนและแนวตั้ง'],
+    },
+  },
+  {
+    version: '2.6.62',
+    kind: 'minor',
+    date: '2026-09-14',
+    items: {
+      KR: [
+        '가맹점 메뉴 「운영자관리」를 「사용자관리」로 표기. 목록은 OTP 없이 바로 보이며, 등록·중지·활성화만 관리자 Google OTP.',
+        '가맹점 관리자 OTP가 「인증번호가 올바르지 않습니다」로 거절되던 문제를 수정. 6자리 입력 시 자동 확인. OTP 유지시간은 본사정책 → 플랫폼에서 설정(기본 10분).',
+      ],
+      US: [
+        'Merchant menu Operators renamed to Users. The list is visible without OTP; Google OTP is required only to register, suspend, or reactivate.',
+        'Fixed merchant-admin OTP being rejected as invalid. Six digits auto-verify. OTP duration is set in HQ Policy → Platform (default 10 minutes).',
+      ],
+      JP: [
+        '加盟店メニュー「運営者管理」を「ユーザー管理」に。一覧はOTPなしで表示し、登録・停止・再有効のみ管理者Google OTP。',
+        '加盟店管理者OTPが無効扱いになっていた不具合を修正。6桁入力で自動確認。維持時間は本社ポリシー→プラットフォーム(既定10分)。',
+      ],
+      CH: [
+        '加盟商菜单「运营者管理」改为「用户管理」。列表无需 OTP，仅登记/停用/启用时需管理员 Google OTP。',
+        '修复管理员 OTP 被判无效。输入 6 位自动确认。保持时间在总部政策→平台设置（默认 10 分钟）。',
+      ],
+      TH: [
+        'เมนูร้านค้าเปลี่ยนจากจัดการผู้ดำเนินการเป็นจัดการผู้ใช้ ดูรายการได้โดยไม่ต้อง OTP ต้อง OTP เฉพาะตอนลงทะเบียน/หยุด/เปิดใช้',
+        'แก้ OTP ของแอดมินร้านถูกปฏิเสธ กรอก 6 หลักแล้วยืนยันอัตโนมัติ ระยะเวลาตั้งที่นโยบาย HQ → แพลตฟอร์ม (ค่าเริ่ม 10 นาที)',
+      ],
+    },
+  },
+  {
+    version: '2.6.61',
+    kind: 'minor',
+    date: '2026-09-14',
+    items: {
+      KR: [
+        '고객 인증: USDT 시뮬레이터를 LIVE/SAND·활성/비활성 드롭다운 2개로 저장. 상단 고객 인증 제목과 고객 목록·수수료관리 탭 복원.',
+      ],
+      US: [
+        'Customer verification: simulator uses LIVE/SAND and Active/Inactive dropdowns. Restored page title and Customer list / Fee management tabs.',
+      ],
+      JP: [
+        '顧客認証: シミュレーターをLIVE/SANDと有効/無効の2ドロップダウンに。ページタイトルと顧客一覧・手数料管理タブを復元。',
+      ],
+      CH: [
+        '客户认证：模拟器改为 LIVE/SAND 与启用/停用两个下拉。恢复页面标题及客户列表、手续费管理页签。',
+      ],
+      TH: [
+        'หน้ารายละเอียดลูกค้า: ตัวจำลองเลือก LIVE/SAND และเปิด/ปิดจากรายการ กลับหัวข้อและแท็บรายชื่อลูกค้า/ค่าธรรมเนียม',
+      ],
+    },
+  },
+  {
+    version: '2.6.60',
+    kind: 'minor',
+    date: '2026-09-14',
+    items: {
+      KR: [
+        '고객 인증: USDT 시뮬레이터와 멀티 사용자를 카드 2장으로 분리하고 각각 설정 저장. 멀티는 활성/비활성 드롭다운.',
+        '고객 목록: 시뮬레이터와 인증 사이에 「멀티」 열(활성/비활성). 상세 화면의 중복 제목·탭·뒤로가기를 제거.',
+      ],
+      US: [
+        'Customer verification: split USDT simulator and multi-user into two cards, each with Save settings. Multi-user uses Active/Inactive dropdown.',
+        'Customer list: Multi column (Active/Inactive) between Simulator and Verification. Removed duplicate title/tabs/back link on the detail page.',
+      ],
+      JP: [
+        '顧客認証: USDTシミュレーターとマルチユーザーを2カードに分離し、それぞれ設定保存。マルチは有効/無効ドロップダウン。',
+        '顧客一覧: シミュレーターと認証の間に「マルチ」列。詳細の重複タイトル・タブ・戻るリンクを削除。',
+      ],
+      CH: [
+        '客户认证：USDT 模拟器与多用户分成两张卡片，各自保存设置。多用户用启用/停用下拉。',
+        '客户列表：模拟器与认证之间增加「多用户」列。去掉详情页重复标题、页签与返回链接。',
+      ],
+      TH: [
+        'หน้ารายละเอียดลูกค้า: แยกตัวจำลอง USDT กับหลายผู้ใช้เป็น 2 การ์ด แต่ละใบมีปุ่มบันทึก หลายผู้ใช้เลือกเปิด/ปิดจากรายการ',
+        'รายชื่อลูกค้า: คอลัมน์หลายผู้ใช้ระหว่างตัวจำลองกับการยืนยัน ตัดหัวข้อ/แท็บ/ปุ่มกลับที่ซ้ำ',
+      ],
+    },
+  },
+  {
+    version: '2.6.59',
+    kind: 'minor',
+    date: '2026-09-14',
+    items: {
+      KR: [
+        '가맹점 이용메뉴얼: 관리자·운영자(최대 2명, 삭제 없음), 본사 등록 지갑·추가 지갑 승인, 운영자관리, 운영기록관리를 반영. 운영자 계정도 고객 메뉴얼을 볼 수 있음.',
+        '총본사 운영 메뉴얼 고객관리: 멀티 사용자 허용·추가 지갑 승인 안내를 보강.',
+      ],
+      US: [
+        'Customer manual: admin/operators (max 2, suspend only), HQ-locked wallets and extra-wallet approval, Operator management, Operation history. Operators can open the customer manual.',
+        'HQ ops manual Customers: notes for Allow multi-user and extra-wallet approval.',
+      ],
+      JP: [
+        '顧客マニュアル: 管理者・運営者(最大2名・削除なし)、本社登録ウォレットと追加承認、運営者管理、運営記録。運営者も顧客マニュアルを閲覧可能。',
+        '総本社マニュアル顧客管理: マルチユーザー許可・追加ウォレット承認の案内を追加。',
+      ],
+      CH: [
+        '客户手册：管理员/操作员(最多2名、不可删除)、总部锁定钱包与额外钱包批准、操作员管理、运营记录。操作员也可查看客户手册。',
+        '总部运营手册客户管理：补充允许多用户与额外钱包批准说明。',
+      ],
+      TH: [
+        'คู่มือลูกค้า: แอดมิน/ผู้ปฏิบัติงาน (สูงสุด 2 คน ไม่ลบ), กระเป๋า HQ และการอนุมัติกระเป๋าเพิ่ม, จัดการผู้ปฏิบัติงาน, ประวัติการดำเนินงาน ผู้ปฏิบัติงานดูคู่มือลูกค้าได้',
+        'คู่มือ HQ จัดการลูกค้า: เพิ่มคำอธิบายอนุญาตหลายผู้ใช้และอนุมัติกระเป๋าเพิ่ม',
+      ],
+    },
+  },
+  {
+    version: '2.6.58',
+    kind: 'minor',
+    date: '2026-09-14',
+    items: {
+      KR: [
+        '가맹점 멀티계정: 관리자 1명 + 운영자 최대 2명. 본사에서 가맹점별 허용 시에만 활성화. 운영자는 생성·중지(삭제 없음)이며 지갑 메뉴는 관리자만 사용.',
+        '내 지갑: 본사 등록 기본 지갑 주소는 변경 불가. 추가 지갑은 본사 승인 후 사용. 기본 지갑은 승인된 지갑 중 전환.',
+        '상단 탭: 사용자별로 저장하고, 허용 메뉴가 아닌 탭은 제거. 로그아웃 시 대시보드만 남김.',
+        '운영기록관리: 가맹점 주요 업무를 기록하고, 삭제는 총본사만 가능.',
+      ],
+      US: [
+        'Merchant multi-user: 1 admin + up to 2 operators, enabled per merchant by HQ. Operators can be suspended (not deleted) and cannot open Wallets.',
+        'Wallets: HQ-registered default address cannot be changed. Extra wallets need HQ approval. Default can switch among approved wallets.',
+        'Top tabs are stored per user and filtered to allowed menus. Logout keeps Dashboard only.',
+        'Operation history logs merchant actions; only HQ can delete.',
+      ],
+      JP: [
+        '加盟店マルチアカウント: 管理者1＋運営者最大2。本社が加盟店ごとに許可した場合のみ有効。運営者は停止のみ（削除なし）、ウォレットは管理者のみ。',
+        'ウォレット: 本社登録の基本アドレスは変更不可。追加は本社承認後。デフォルトは承認済みから切替。',
+        '上部タブはユーザー別に保存し、許可メニュー以外は除去。ログアウト時はダッシュボードのみ。',
+        '運営記録管理: 加盟店の主要業務を記録。削除は総本社のみ。',
+      ],
+      CH: [
+        '商户多用户：管理员1 + 运营者最多2名，需总部按商户开通。运营者仅可停用（不可删除），钱包仅管理员可见。',
+        '钱包：总部登记的默认地址不可改。额外钱包需总部批准。默认钱包仅可在已批准钱包中切换。',
+        '顶栏标签按用户保存并过滤未授权菜单。退出后仅保留仪表盘。',
+        '运营记录：记录商户主要操作，仅总部可删除。',
+      ],
+      TH: [
+        'บัญชีร้านค้าหลายผู้ใช้: ผู้ดูแล 1 + ผู้ดำเนินการสูงสุด 2 คน ต้องให้ HQ เปิดต่อร้าน ผู้ดำเนินการหยุดได้แต่ลบไม่ได้ และไม่มีเมนูกระเป๋า',
+        'กระเป๋า: ที่อยู่ที่ HQ ลงทะเบียนแก้ไม่ได้ กระเป๋าเพิ่มต้อง HQ อนุมัติ สลับกระเป๋าหลักได้เฉพาะที่อนุมัติแล้ว',
+        'แท็บด้านบนเก็บแยกตามผู้ใช้ และตัดเมนูที่ไม่มีสิทธิ์ ออกจากระบบแล้วเหลือแดชบอร์ด',
+        'ประวัติการดำเนินงาน บันทึกงานร้านค้า ลบได้เฉพาะ HQ',
+      ],
+    },
+  },
+  {
     version: '2.6.57',
     kind: 'minor',
     date: '2026-09-12',

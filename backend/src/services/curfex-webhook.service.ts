@@ -36,6 +36,8 @@ async function systemAuthUser(): Promise<AuthUser> {
     organizationPath: org?.path ?? null,
     organizationType: org?.type ?? null,
     customerProfileId: null,
+    merchantAdminUserId: null,
+    operatorsEnabled: false,
   };
 }
 

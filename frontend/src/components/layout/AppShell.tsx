@@ -42,7 +42,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
     if (stored === '1') setCollapsed(true);
   }, []);
 
-  const isCustomer = user?.role === 'CUSTOMER';
+  const isCustomer = user?.role === 'CUSTOMER' || user?.role === 'CUSTOMER_OPERATOR';
 
   useEffect(() => {
     const root = document.documentElement;
@@ -53,7 +53,13 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
 
   if (!user) return null;
 
-  const items = filterNavByPageAccess(NAV_ITEMS[user.role] ?? [], user.pageAccess);
+  const rawItems = NAV_ITEMS[user.role] ?? [];
+  const items = filterNavByPageAccess(
+    user.role === 'CUSTOMER' && user.operatorsEnabled !== true
+      ? rawItems.filter((item) => item.href !== '/dashboard/merchant-users')
+      : rawItems,
+    user.pageAccess,
+  );
 
   const toggleCollapsed = () => {
     setCollapsed((c) => {

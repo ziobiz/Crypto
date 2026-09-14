@@ -37,7 +37,8 @@ function CustomerKycPanel() {
     load();
   }, []);
 
-  const canSubmit = kyc && (kyc.status === 'NOT_SUBMITTED' || kyc.status === 'REJECTED');
+  const canSubmit =
+    user?.role === 'CUSTOMER' && kyc && (kyc.status === 'NOT_SUBMITTED' || kyc.status === 'REJECTED');
 
   async function submit() {
     setError('');
@@ -149,10 +150,10 @@ export default function KycPage() {
   const { user } = useAuth();
   const router = useRouter();
   useEffect(() => {
-    if (user && user.role !== 'CUSTOMER') {
+    if (user && user.role !== 'CUSTOMER' && user.role !== 'CUSTOMER_OPERATOR') {
       router.replace('/dashboard/customers');
     }
   }, [user, router]);
-  if (user?.role === 'CUSTOMER') return <CustomerKycPanel />;
+  if (user?.role === 'CUSTOMER' || user?.role === 'CUSTOMER_OPERATOR') return <CustomerKycPanel />;
   return <p className="pg-hint">{t('common.loading')}</p>;
 }

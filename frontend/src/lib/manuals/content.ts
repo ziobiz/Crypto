@@ -44,7 +44,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <tr><td>USDT 매입</td><td>매입 티켓 조회·승인·송금</td></tr>
         <tr><td>무역 에스크로</td><td>에스크로 계약·상태 관리</td></tr>
         <tr><td>수수료 장부</td><td>조직 수수료 정산 내역</td></tr>
-        <tr><td>사용자관리</td><td>조직 직원(총본사·조직) 계정만</td></tr>
+        <tr><td>사용자관리</td><td>조직 직원(총본사·조직) 계정만. 가맹점 대표·운영자는 고객관리 멀티 사용자와 가맹점 「사용자관리」</td></tr>
         <tr><td>고객관리</td><td>이용 회원 · 활성 상태 · 인증패스/비인증 · 서류 확인</td></tr>
         <tr><td>조직 관리</td><td>본사·총판·지사·대리점·영업점 생성</td></tr>
         <tr><td>본사정책</td><td>접근·조직항목·수수료·플랫폼·운영관리</td></tr>
@@ -61,7 +61,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <tr><td>USDT purchase</td><td>Tickets, review, transfer</td></tr>
         <tr><td>Trade escrow</td><td>Contracts & status</td></tr>
         <tr><td>Ledger</td><td>Commission settlement</td></tr>
-        <tr><td>Users</td><td>Organization staff accounts only</td></tr>
+        <tr><td>Users</td><td>HQ and org staff only. Merchant admins/operators are under Customers (multi-user) and the merchant Users menu</td></tr>
         <tr><td>Customers</td><td>End members, active status, verification pass / unverified, documents</td></tr>
         <tr><td>Organizations</td><td>Create HQ, distributors, branches, agencies, sales offices</td></tr>
         <tr><td>HQ Policy</td><td>Access, columns, fees, platform, ops</td></tr>
@@ -78,7 +78,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <tr><td>USDT購入</td><td>購入チケット照会・承認・送金</td></tr>
         <tr><td>貿易エスクロー</td><td>エスクロー契約・状態管理</td></tr>
         <tr><td>手数料台帳</td><td>組織手数料の精算履歴</td></tr>
-        <tr><td>ユーザー管理</td><td>組織スタッフ(総本社・組織)アカウントのみ</td></tr>
+        <tr><td>ユーザー管理</td><td>組織スタッフ(総本社・組織)のみ。加盟店代表・運営者は顧客管理のマルチユーザーと加盟店「ユーザー管理」</td></tr>
         <tr><td>顧客管理</td><td>利用会員・有効状態・認証パス/未認証・書類確認</td></tr>
         <tr><td>組織管理</td><td>本社・総販・支店・代理店・営業店の作成</td></tr>
         <tr><td>本社ポリシー</td><td>アクセス・組織項目・手数料・プラットフォーム・運営管理</td></tr>
@@ -95,7 +95,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <tr><td>USDT 采购</td><td>采购单查询、审批、汇款</td></tr>
         <tr><td>贸易托管</td><td>托管合同与状态管理</td></tr>
         <tr><td>手续费台账</td><td>组织手续费结算明细</td></tr>
-        <tr><td>用户管理</td><td>仅组织员工（总部·组织）账号</td></tr>
+        <tr><td>用户管理</td><td>仅组织员工（总部·组织）。加盟商代表/操作员在客户管理的多用户与加盟商「用户管理」</td></tr>
         <tr><td>客户管理</td><td>终端会员、启用状态、认证通过/未认证、文件核对</td></tr>
         <tr><td>组织管理</td><td>创建总部、总经销、分公司、代理、营业点</td></tr>
         <tr><td>总部策略</td><td>访问、组织字段、手续费、平台、运营管理</td></tr>
@@ -112,7 +112,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <tr><td>ซื้อ USDT</td><td>ดูตั๋ว อนุมัติ โอน</td></tr>
         <tr><td>เอสโครว์การค้า</td><td>สัญญาเอสโครว์และสถานะ</td></tr>
         <tr><td>บัญชีค่าธรรมเนียม</td><td>ประวัติเคลียร์ค่าคอมองค์กร</td></tr>
-        <tr><td>จัดการผู้ใช้</td><td>เฉพาะบัญชีพนักงานองค์กร (HQ·องค์กร)</td></tr>
+        <tr><td>จัดการผู้ใช้</td><td>เฉพาะพนักงานองค์กร (HQ·องค์กร) แอดมิน/ผู้ปฏิบัติงานร้านอยู่ที่จัดการลูกค้า (หลายผู้ใช้) และเมนูจัดการผู้ใช้ของร้าน</td></tr>
         <tr><td>จัดการลูกค้า</td><td>สมาชิกผู้ใช้ สถานะใช้งาน ผ่านการยืนยัน/ยังไม่ยืนยัน และเอกสาร</td></tr>
         <tr><td>จัดการองค์กร</td><td>สร้าง HQ ตัวแทนหลัก สาขา เอเย่นต์ สำนักงานขาย</td></tr>
         <tr><td>HQ Policy</td><td>สิทธิ์ คอลัมน์ ค่าธรรมเนียม แพลตฟอร์ม ปฏิบัติการ</td></tr>
@@ -137,9 +137,13 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         </tbody></table>
         <p>목록·계정 관리</p>
         <ul>
-          <li>목록에 <strong>S RATE</strong>(청록=LIVE / 주황=SAND)와 <strong>시뮬레이터</strong>(사용/미사용) 열이 있습니다.</li>
+          <li>목록에 <strong>S RATE</strong>(청록=LIVE / 주황=SAND), <strong>시뮬레이터</strong>(활성/비활성), <strong>멀티</strong>(활성/비활성), <strong>수수료</strong>(활성/비활성) 열이 있습니다. 수수료는 멀티와 인증 사이이며, 상세의 수수료 노출과 같습니다.</li>
           <li><strong>수정</strong> — 이름·휴대폰·모집 영업점·시뮬레이터 사용·S RATE·활성 상태·(선택) 새 비밀번호. 행을 더블클릭해도 수정 창이 열립니다.</li>
           <li><strong>비밀번호 초기화</strong> · <strong>OTP 초기화</strong> — 사용자관리와 동일 규칙(아래 「비밀번호·OTP 초기화」).</li>
+          <li><strong>고객 상세 카드</strong> — USDT 시뮬레이터(LIVE/SAND·활성/비활성), 멀티 사용자(활성/비활성), <strong>수수료 노출</strong>(활성/비활성)을 카드별로 저장합니다.</li>
+          <li><strong>멀티 사용자 허용</strong> — 상세에서 활성으로 켜야 가맹점 대표가 운영자(최대 2명)를 만들 수 있습니다. 비활성이면 기존 운영자는 중지되고 로그인할 수 없습니다. 개인·법인 동일합니다. 가맹점 메뉴 이름은 <strong>사용자관리</strong>입니다(본사 사용자관리와 다른 화면).</li>
+          <li><strong>수수료 노출</strong> — 비활성(기본)이면 가맹점 「내 지갑」 수수료에 숫자가 없고 <strong>본사설정에따름</strong>만 보입니다. 활성이면 가스·플랫폼 수수료가 표시됩니다.</li>
+          <li><strong>추가 지갑 승인</strong> — 본사가 등록한 기본 지갑은 가맹점이 주소를 바꿀 수 없습니다. 가맹점이 추가한 지갑은 고객 상세에서 승인해야 매입·에스크로에 쓸 수 있습니다.</li>
         </ul>
         <p>인증 상태</p>
         <ul>
@@ -163,9 +167,13 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         </tbody></table>
         <p>List & account actions</p>
         <ul>
-          <li>The list shows <strong>S RATE</strong> (teal = LIVE / orange = SAND) and <strong>simulator</strong> (on/off).</li>
+          <li>The list shows <strong>S RATE</strong> (teal = LIVE / orange = SAND), <strong>simulator</strong> (Active/Inactive), <strong>Multi</strong> (Active/Inactive), and <strong>Fees</strong> (Active/Inactive) between Multi and Verification. Fees matches the detail Fee display card.</li>
           <li><strong>Edit</strong> — name, phone, recruiting office, simulator, S RATE, active status, optional new password. Double-click a row to open edit.</li>
           <li><strong>Password reset</strong> · <strong>OTP reset</strong> — same rules as Users (see “Password & OTP reset” below).</li>
+          <li><strong>Customer detail cards</strong> — save USDT simulator (LIVE/SAND and Active/Inactive), multi-user (Active/Inactive), and <strong>Fee display</strong> (Active/Inactive) separately.</li>
+          <li><strong>Allow multi-user</strong> — set Active on the detail card so the merchant admin can add operators (max 2). Inactive deactivates existing operators. Same for individual and corporate. The merchant menu is named <strong>Users</strong> (not the HQ Users screen).</li>
+          <li><strong>Fee display</strong> — Inactive (default): merchant My wallets shows <strong>Follow HQ settings</strong> instead of fee amounts. Active: gas and platform fees are shown.</li>
+          <li><strong>Extra wallet approval</strong> — HQ-registered default wallets cannot have their address changed by the merchant. Extra wallets added by the merchant stay pending until HQ approves them on the customer detail page.</li>
         </ul>
         <ul>
           <li><strong>Verified pass</strong> — may use USDT purchase and trade escrow</li>
@@ -183,9 +191,13 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         `<span class="menu-path">顧客管理</span>
         <p>利用顧客は<strong>ユーザー管理ではなく顧客管理</strong>で扱います。総本社の認証センター審査はこの画面に統合しました。</p>
         <ul>
-          <li>一覧に<strong>S RATE</strong>(ティール=LIVE / オレンジ=SAND)と<strong>シミュレーター</strong>(使用/未使用)があります。</li>
+          <li>一覧に<strong>S RATE</strong>(ティール=LIVE / オレンジ=SAND)、<strong>シミュレーター</strong>(有効/無効)、<strong>マルチ</strong>(有効/無効)、<strong>手数料</strong>(有効/無効)があります。手数料はマルチと認証の間で、詳細の手数料表示と同じです。</li>
           <li><strong>修正</strong> — 名前・電話・募集営業店・シミュレーター・S RATE・有効状態・(任意)新パスワード。行ダブルクリックでも開きます。</li>
           <li><strong>パスワード初期化</strong> · <strong>OTP初期化</strong> — ユーザー管理と同じ(下記参照)。</li>
+          <li><strong>顧客詳細カード</strong> — USDTシミュレーター(LIVE/SAND・有効/無効)、マルチユーザー(有効/無効)、<strong>手数料表示</strong>(有効/無効)をカードごとに保存します。</li>
+          <li><strong>マルチユーザー許可</strong> — 詳細で有効にすると加盟店代表が運営者(最大2名)を作れます。無効にすると既存運営者は停止されログイン不可。個人・法人とも同じ。加盟店メニュー名は<strong>ユーザー管理</strong>(総本社のユーザー管理とは別)。</li>
+          <li><strong>手数料表示</strong> — 無効(既定)なら加盟店「マイウォレット」手数料は数字なしで<strong>本社設定に従う</strong>のみ。有効ならガス・プラットフォーム手数料を表示。</li>
+          <li><strong>追加ウォレット承認</strong> — 本社登録の既定ウォレットは加盟店がアドレス変更不可。加盟店が追加したウォレットは顧客詳細で承認後に使用。</li>
           <li><strong>認証パス</strong> — USDT購入・貿易エスクロー利用可</li>
           <li><strong>未認証</strong> — 未提出または未承認</li>
           <li><strong>審査中</strong> — 顧客が認証センターで提出済み</li>
@@ -201,9 +213,13 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         `<span class="menu-path">客户管理</span>
         <p>终端客户在<strong>客户管理</strong>中处理，不在用户管理。总部认证审核已并入此页。</p>
         <ul>
-          <li>列表含<strong>S RATE</strong>(青绿=LIVE / 橙=SAND)与<strong>模拟器</strong>(开/关)。</li>
+          <li>列表含<strong>S RATE</strong>(青绿=LIVE / 橙=SAND)、<strong>模拟器</strong>(启用/停用)、<strong>多用户</strong>(启用/停用)、<strong>手续费</strong>(启用/停用，位于多用户与认证之间，与详情手续费显示相同)。</li>
           <li><strong>编辑</strong> — 姓名、手机、招募营业点、模拟器、S RATE、启用状态、(可选)新密码。双击行可打开编辑。</li>
           <li><strong>密码初始化</strong> · <strong>OTP 初始化</strong> — 与用户管理相同(见下文)。</li>
+          <li><strong>客户详情卡片</strong> — 分别保存 USDT 模拟器(LIVE/SAND 与启用/停用)、多用户(启用/停用)、<strong>手续费显示</strong>(启用/停用)。</li>
+          <li><strong>允许多用户</strong> — 详情中设为启用后，加盟商代表才能添加操作员(最多 2 名)。停用后现有操作员无法登录。个人与法人相同。加盟商菜单名为<strong>用户管理</strong>（与总部用户管理不同）。</li>
+          <li><strong>手续费显示</strong> — 停用(默认)时，商户「我的钱包」手续费不显示数字，只显示<strong>遵循总部设置</strong>。启用后显示 Gas 与平台手续费。</li>
+          <li><strong>额外钱包批准</strong> — 总部登记的默认钱包加盟商不能改地址。加盟商添加的钱包须在客户详情批准后才能使用。</li>
           <li><strong>认证通过</strong> — 可使用 USDT 采购与贸易托管</li>
           <li><strong>未认证</strong> — 未提交或未批准</li>
           <li><strong>审核中</strong> — 客户已在认证中心提交</li>
@@ -219,9 +235,13 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         `<span class="menu-path">จัดการลูกค้า</span>
         <p>ลูกค้าผู้ใช้บริการจัดการที่ <strong>จัดการลูกค้า ไม่ใช่จัดการผู้ใช้</strong> การตรวจสอบของ HQ รวมไว้ที่หน้านี้แล้ว</p>
         <ul>
-          <li>รายการมี <strong>S RATE</strong> (เขียวน้ำทะเล=LIVE / ส้ม=SAND) และ <strong>ตัวจำลอง</strong> (เปิด/ปิด)</li>
+          <li>รายการมี <strong>S RATE</strong> (เขียวน้ำทะเล=LIVE / ส้ม=SAND), <strong>ตัวจำลอง</strong> (เปิด/ปิด), <strong>หลายผู้ใช้</strong> (เปิด/ปิด) และ <strong>ค่าธรรมเนียม</strong> (เปิด/ปิด อยู่ระหว่างหลายผู้ใช้กับการยืนยัน ตามการ์ดแสดงค่าธรรมเนียม)</li>
           <li><strong>แก้ไข</strong> — ชื่อ โทรศัพท์ สำนักงานรับสมัคร ตัวจำลอง S RATE สถานะใช้งาน (ไม่บังคับ) รหัสใหม่ ดับเบิลคลิกแถวเพื่อแก้ไข</li>
           <li><strong>รีเซ็ตรหัสผ่าน</strong> · <strong>รีเซ็ต OTP</strong> — กฎเดียวกับจัดการผู้ใช้ (ดูด้านล่าง)</li>
+          <li><strong>การ์ดหน้ารายละเอียดลูกค้า</strong> — บันทึกตัวจำลอง USDT (LIVE/SAND และเปิด/ปิด), หลายผู้ใช้ (เปิด/ปิด) และ<strong>แสดงค่าธรรมเนียม</strong> (เปิด/ปิด) คนละการ์ด</li>
+          <li><strong>อนุญาตหลายผู้ใช้</strong> — เปิดในหน้ารายละเอียด ตัวแทนร้านจึงเพิ่มผู้ปฏิบัติงานได้สูงสุด 2 คน ถ้าปิด ผู้ปฏิบัติงานเดิมหยุดและเข้าสู่ระบบไม่ได้ บุคคลและนิติบุคคลเหมือนกัน เมนูร้านชื่อ<strong>จัดการผู้ใช้</strong> (ไม่ใช่หน้า Users ของ HQ)</li>
+          <li><strong>แสดงค่าธรรมเนียม</strong> — ถ้าปิด (ค่าเริ่ม) กระเป๋าของฉันจะไม่โชว์ตัวเลข แสดงแค่<strong>ตามการตั้งค่า HQ</strong> ถ้าเปิดจะโชว์แก๊สและค่าธรรมเนียมแพลตฟอร์ม</li>
+          <li><strong>อนุมัติกระเป๋าเพิ่ม</strong> — กระเป๋าเริ่มต้นที่ HQ ลงทะเบียน ร้านค้าแก้ที่อยู่ไม่ได้ กระเป๋าที่ร้านเพิ่มต้องอนุมัติในหน้ารายละเอียดลูกค้าก่อนใช้</li>
           <li><strong>ผ่านการยืนยัน</strong> — ใช้ซื้อ USDT และเอสโครว์ได้</li>
           <li><strong>ยังไม่ยืนยัน</strong> — ยังไม่ส่งหรือยังไม่อนุมัติ</li>
           <li><strong>กำลังตรวจสอบ</strong> — ลูกค้าส่งเอกสารที่ศูนย์ยืนยันแล้ว</li>
@@ -245,10 +265,10 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li><strong>접근·권한</strong> — 조직 단계별 메뉴 권한, 사용자 OTP·비밀번호</li>
           <li><strong>조직항목</strong> — 화면 컬럼·표시 순서</li>
           <li><strong>수수료·리스크</strong> — 시볼 수수료 구간, 한도, 조직 요율, 수수료율 노출</li>
-          <li><strong>플랫폼 도메인·SSL</strong> — 브랜드(사이트 이름·브라우저 탭)·입금 수취 계좌(통화별 이체/카드)·도메인·이메일·SSL</li>
+          <li><strong>플랫폼 도메인·SSL</strong> — 브랜드(사이트 이름·브라우저 탭)·입금 수취 계좌(통화별 이체/카드)·도메인·이메일·SSL. 이메일·OTP 숫자 표에 <strong>민감작업 OTP 유지시간(분)</strong>(기본 10분, 1~60). 가맹점 사용자관리·내 지갑 등 민감작업에 적용됩니다. 6자리를 모두 넣고 맞으면 확인 버튼을 누르지 않아도 진행됩니다.</li>
           <li><strong>운영관리</strong> — 변경이력, 업데이트 내용/이력, 결제관리</li>
           <li><strong>USDT 시뮬레이터 / 기록 시뮬레이터</strong> — 본사정책 탭 아래. 기록은 사용 분석이 목록 위</li>
-          <li><strong>거래분석 / 수익분석</strong> — 총본사 관리자·Organizer만. 진입 시 Google OTP 추가 확인. Organizer는 지정 admin만 부여</li>
+          <li><strong>거래분석 / 수익분석</strong> — 총본사 관리자·Organizer만. 진입 시 Google OTP 6자리. 맞으면 확인 버튼을 누르지 않아도 진행됩니다. 유지시간은 플랫폼 「민감작업 OTP 유지시간」(기본 10분). Organizer는 지정 admin만 부여</li>
         </ul>
         <div class="warn-box">설정 저장 시 자동 업데이트 이력이 기록될 수 있습니다. 주요 변경은 V3.0처럼 정수 버전, 소소한 변경은 2.1·2.2·2.4처럼 소수로 관리합니다.</div>`,
         `<span class="menu-path">HQ Policy</span>
@@ -256,10 +276,10 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li><strong>Access</strong> — org menu permissions, OTP/password</li>
           <li><strong>Org columns</strong> — grid columns & order</li>
           <li><strong>Fees & risk</strong> — symbol tiers, limits, org rates, rate visibility</li>
-          <li><strong>Platform</strong> — brand (site name, browser tab), deposit accounts (transfer/card per currency), domain, email, SSL</li>
+          <li><strong>Platform</strong> — brand (site name, browser tab), deposit accounts (transfer/card per currency), domain, email, SSL. Email/OTP numeric table includes <strong>Sensitive action OTP duration (minutes)</strong> (default 10, range 1–60) for merchant Users, wallets, and similar. Six correct digits proceed without tapping Verify.</li>
           <li><strong>Ops</strong> — change log, release notes/history, payment</li>
           <li><strong>USDT simulator / Record simulator</strong> — HQ Policy tabs. Analysis sits above the log list</li>
-          <li><strong>Trade analysis / Profit analysis</strong> — HQ admin and Organizer only; extra Google OTP. Only the designated HQ admin can assign Organizer</li>
+          <li><strong>Trade analysis / Profit analysis</strong> — HQ admin and Organizer only. Enter Google OTP 6 digits on entry; correct codes proceed without Verify. Duration is Platform Sensitive action OTP (default 10 min). Only the designated HQ admin can assign Organizer</li>
         </ul>
         <div class="warn-box">Saves may auto-record release history. Major = 3.0; minor = 2.1, 2.2, 2.4.</div>`,
         `<span class="menu-path">本社ポリシー</span>
@@ -267,10 +287,10 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li><strong>アクセス・権限</strong> — 組織段階別メニュー権限、ユーザーOTP・パスワード</li>
           <li><strong>組織項目</strong> — 画面カラム・表示順</li>
           <li><strong>手数料・リスク</strong> — シンボル手数料段階、限度、組織料率、料率表示</li>
-          <li><strong>プラットフォーム ドメイン・SSL</strong> — ブランド(サイト名・タブ)・入金受取口座(通貨別振込/カード)・ドメイン・メール・SSL</li>
+          <li><strong>プラットフォーム ドメイン・SSL</strong> — ブランド(サイト名・タブ)・入金受取口座(通貨別振込/カード)・ドメイン・メール・SSL。メール・OTP数値表に<strong>機密操作OTP維持時間（分）</strong>(既定10分、1〜60)。加盟店ユーザー管理・マイウォレット等に適用。6桁が正しければ確認ボタンなしで進みます。</li>
           <li><strong>運営管理</strong> — 変更履歴、更新内容/履歴、決済管理</li>
           <li><strong>USDTシミュレーター / 記録シミュレーター</strong> — 本社ポリシータブ下。記録は利用分析が一覧の上</li>
-          <li><strong>取引分析 / 収益分析</strong> — 総本社管理者・Organizerのみ。入場時にGoogle OTP追加確認。Organizerは指定adminのみ付与</li>
+          <li><strong>取引分析 / 収益分析</strong> — 総本社管理者・Organizerのみ。入場時Google OTP 6桁。正しければ確認ボタンなし。維持時間はプラットフォーム機密操作OTP（既定10分）。Organizerは指定adminのみ付与</li>
         </ul>
         <div class="warn-box">設定保存時に自動更新履歴が残ることがあります。主要変更は整数版(例:V3.0)、軽微は小数(2.1, 2.2, 2.4)で管理します。</div>`,
         `<span class="menu-path">总部策略</span>
@@ -278,10 +298,10 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li><strong>访问·权限</strong> — 按组织层级的菜单权限、用户 OTP·密码</li>
           <li><strong>组织字段</strong> — 界面列与显示顺序</li>
           <li><strong>手续费·风险</strong> — 交易对手续费档位、限额、组织费率、费率显示</li>
-          <li><strong>平台域名·SSL</strong> — 品牌（站点名·浏览器标签）、入金收款账户（按币种转账/卡）、域名、邮箱、SSL</li>
+          <li><strong>平台域名·SSL</strong> — 品牌（站点名·浏览器标签）、入金收款账户（按币种转账/卡）、域名、邮箱、SSL。邮箱·OTP 数字表含<strong>敏感操作 OTP 保持时间（分钟）</strong>（默认 10，1–60），用于加盟商用户管理、我的钱包等。输入正确 6 位后无需点确认即可继续。</li>
           <li><strong>运营管理</strong> — 变更历史、更新内容/历史、支付管理</li>
           <li><strong>USDT 模拟器 / 记录模拟器</strong> — 在总部策略标签下；记录页分析在列表上方</li>
-          <li><strong>交易分析 / 收益分析</strong> — 仅总部管理员与 Organizer；进入需再次 Google OTP；仅指定管理员可授予 Organizer</li>
+          <li><strong>交易分析 / 收益分析</strong> — 仅总部管理员与 Organizer。进入时输入 Google OTP 6 位，正确则无需点确认。保持时间见平台敏感操作 OTP（默认 10 分钟）。仅指定管理员可授予 Organizer</li>
         </ul>
         <div class="warn-box">保存设置时可能自动写入更新历史。主要变更为整数版本（如 V3.0），小改为小数（2.1、2.2、2.4）。</div>`,
         `<span class="menu-path">HQ Policy</span>
@@ -289,10 +309,10 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li><strong>สิทธิ์การเข้าถึง</strong> — สิทธิ์เมนูตามระดับองค์กร OTP/รหัสผ่านผู้ใช้</li>
           <li><strong>คอลัมน์องค์กร</strong> — คอลัมน์หน้าจอและลำดับแสดง</li>
           <li><strong>ค่าธรรมเนียม·ความเสี่ยง</strong> — ชั้นค่าธรรมเนียมสัญลักษณ์ วงเงิน อัตราองค์กร การแสดงอัตรา</li>
-          <li><strong>แพลตฟอร์ม โดเมน·SSL</strong> — แบรนด์ (ชื่อไซต์·แท็บ) บัญชีรับเงิน (โอน/บัตรตามสกุล) โดเมน อีเมล SSL</li>
+          <li><strong>แพลตฟอร์ม โดเมน·SSL</strong> — แบรนด์ (ชื่อไซต์·แท็บ) บัญชีรับเงิน (โอน/บัตรตามสกุล) โดเมน อีเมล SSL ตารางตัวเลขอีเมล/OTP มี<strong>ระยะเวลา OTP งานสำคัญ (นาที)</strong> (ค่าเริ่ม 10, 1–60) สำหรับจัดการผู้ใช้และกระเป๋าของร้าน กรอก 6 หลักถูกต้องแล้วไม่ต้องกดยืนยัน</li>
           <li><strong>ปฏิบัติการ</strong> — ประวัติการเปลี่ยนแปลง บันทึกอัปเดต การชำระเงิน</li>
           <li><strong>ตัวจำลอง USDT / ตัวจำลองบันทึก</strong> — แท็บใต้ HQ Policy วิเคราะห์อยู่บนรายการ</li>
-          <li><strong>วิเคราะห์ธุรกรรม / วิเคราะห์กำไร</strong> — เฉพาะผู้ดูแล HQ และ Organizer เข้าเมนูต้อง OTP เพิ่ม มอบ Organizer ได้เฉพาะแอดมินที่กำหนด</li>
+          <li><strong>วิเคราะห์ธุรกรรม / วิเคราะห์กำไร</strong> — เฉพาะผู้ดูแล HQ และ Organizer กรอก Google OTP 6 หลักตอนเข้า ถูกละไม่ต้องกดยืนยัน ระยะเวลาตามแพลตฟอร์ม OTP งานสำคัญ (ค่าเริ่ม 10 นาที) มอบ Organizer ได้เฉพาะแอดมินที่กำหนด</li>
         </ul>
         <div class="warn-box">เมื่อบันทึกอาจมีประวัติอัปเดตอัตโนมัติ การเปลี่ยนหลักเป็นจำนวนเต็ม (เช่น V3.0) การเปลี่ยนย่อยเป็นทศนิยม (2.1, 2.2, 2.4)</div>`
       ),
@@ -773,6 +793,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
       title: L('USDT 매입 운영', 'USDT purchase ops', 'USDT購入運用', 'USDT 采购运营', 'ปฏิบัติการซื้อ USDT'),
       bodyHtml: L(
         `<span class="menu-path">USDT 매입</span>
+        <p>목록 필터의 시작일은 <strong>1주 전</strong>, 종료일은 <strong>오늘</strong>이 기본입니다(본사·가맹점 동일). 「본사설정」 드롭다운 높이는 새로고침·내림차순과 같습니다.</p>
         <div class="flow">
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">고객 신청 (계좌 이체 또는 카드)</span></div>
           <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">전용계좌: 입금 증빙 / 가상계좌서비스(CURFEX): 자동 입금감지 / 카드: 결제 완료</span></div>
@@ -799,6 +820,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li>파일이 없으면 안내 문구가 표시됩니다. 실제 신청·입금 없이 상태만 설정된 테스트 데이터는 별도로 표시됩니다.</li>
         </ul>`,
         `<span class="menu-path">USDT purchase</span>
+        <p>The list filter defaults to start <strong>1 week ago</strong> and end <strong>today</strong> (same for HQ and merchants). The HQ settings dropdown height matches Refresh and Sort.</p>
         <div class="flow">
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">Customer applies (bank or card)</span></div>
           <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">Fixed account: deposit proof / Virtual Account Service (CURFEX): auto detect / Card: charged</span></div>
@@ -825,6 +847,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li>Empty state shows guidance. Test-seed tickets without real uploads are labeled separately.</li>
         </ul>`,
         `<span class="menu-path">USDT購入</span>
+        <p>一覧フィルタの開始日は<strong>1週間前</strong>、終了日は<strong>今日</strong>が既定です（本社・加盟店共通）。「本社設定」ドロップダウンの高さは更新・降順と同じです。</p>
         <div class="flow">
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">顧客申請（口座振込またはカード）</span></div>
           <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">固定口座: 入金証憑 / バーチャル口座サービス(CURFEX): 入金自動検知 / カード: 決済完了</span></div>
@@ -851,6 +874,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li>ファイルがない場合は案内文を表示。実際の申請・入金なしのテストデータは別途表示されます。</li>
         </ul>`,
         `<span class="menu-path">USDT 采购</span>
+        <p>列表筛选默认开始日为<strong>一周前</strong>、结束日为<strong>今天</strong>（总部与加盟商相同）。「总部设置」下拉高度与刷新、降序相同。</p>
         <div class="flow">
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">客户申请（银行转账或卡）</span></div>
           <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">固定账户: 入金凭证 / 虚拟账户服务(CURFEX): 自动检测入金 / 卡: 支付完成</span></div>
@@ -877,6 +901,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li>无文件时显示说明。未实际上传仅设状态的测试数据会单独标注。</li>
         </ul>`,
         `<span class="menu-path">ซื้อ USDT</span>
+        <p>ตัวกรองรายการเริ่มต้นวันเริ่มเป็น<strong>1 สัปดาห์ก่อน</strong> วันสิ้นสุดเป็น<strong>วันนี้</strong> (HQ และร้านเหมือนกัน) รายการ「ตั้งค่า HQ」สูงเท่าปุ่มรีเฟรช/เรียง</p>
         <div class="flow">
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">ลูกค้าสมัคร (โอนบัญชีหรือบัตร)</span></div>
           <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">บัญชีคงที่: หลักฐานฝาก / บริการบัญชีเสมือน(CURFEX): ตรวจอัตโนมัติ / บัตร: ชำระแล้ว</span></div>
@@ -1015,35 +1040,35 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li><strong>거래분석</strong> — 중계에 입금한 금액 + 지갑 수령 USDT. 본사 동일 환율 자동. 보정값·가스피 수기. 수수료 역산 후 목록 저장.</li>
           <li><strong>수익분석</strong> — USDT 매입 티켓의 예상 USDT와 수기 <strong>중계 USDT</strong>를 비교. 수익 = 중계 − 예상.</li>
         </ul>
-        <div class="warn-box">총본사 관리자와 Organizer만 접근합니다. 들어갈 때 Google OTP를 다시 입력합니다. Organizer 역할은 지정된 총본사 admin만 부여할 수 있습니다.</div>`,
+        <div class="warn-box">총본사 관리자와 Organizer만 접근합니다. 들어갈 때 Google OTP 6자리를 입력합니다. 맞으면 확인 버튼을 누르지 않아도 진행됩니다. 유지시간은 본사정책 → 플랫폼 「민감작업 OTP 유지시간」(기본 10분)입니다. Organizer 역할은 지정된 총본사 admin만 부여할 수 있습니다.</div>`,
         `<span class="menu-path">HQ Policy → Trade analysis / Profit analysis</span>
         <p>Both menus are <strong>manual entry</strong>. The system does not auto-match cost rows to purchase tickets.</p>
         <ul>
           <li><strong>Trade analysis</strong> — amount sent to the broker + USDT received. Same HQ rate auto-applied. Correction and gas are typed. Fee is reverse-calculated and saved as a list.</li>
           <li><strong>Profit analysis</strong> — compare expected USDT on a purchase ticket with typed <strong>broker USDT</strong>. Profit = broker − expected.</li>
         </ul>
-        <div class="warn-box">HQ admin and Organizer only. Extra Google OTP on entry. Only the designated HQ admin can assign Organizer.</div>`,
+        <div class="warn-box">HQ admin and Organizer only. Enter Google OTP 6 digits on entry; a correct code proceeds without Verify. Duration is HQ Policy → Platform Sensitive action OTP (default 10 minutes). Only the designated HQ admin can assign Organizer.</div>`,
         `<span class="menu-path">本社ポリシー → 取引分析 / 収益分析</span>
         <p>どちらも手入力です。原価記録と購入件の自動突合はしません。</p>
         <ul>
           <li><strong>取引分析</strong> — 仲介入金と受取USDT。同一為替自動。補正・ガスは手入力。手数料を逆算して保存。</li>
           <li><strong>収益分析</strong> — 予想USDTと仲介USDTを同一チケットで比較。</li>
         </ul>
-        <div class="warn-box">総本社管理者とOrganizerのみ。入場時にGoogle OTP。Organizer付与は指定adminのみ。</div>`,
+        <div class="warn-box">総本社管理者とOrganizerのみ。入場時にGoogle OTP 6桁。正しければ確認ボタンなし。維持時間は本社ポリシー→プラットフォームの機密操作OTP（既定10分）。Organizer付与は指定adminのみ。</div>`,
         `<span class="menu-path">总部策略 → 交易分析 / 收益分析</span>
         <p>两项均为手工录入，系统不会把交易分析记录自动对到采购单。</p>
         <ul>
           <li><strong>交易分析</strong> — 打给中介的金额 + 钱包收到的 USDT。自动同一汇率。校正与燃气手填。反算手续费并保存列表。</li>
           <li><strong>收益分析</strong> — 同一采购票比较预计 USDT 与中介 USDT。</li>
         </ul>
-        <div class="warn-box">仅总部管理员与 Organizer。进入需再次 Google OTP。仅指定总部管理员可授予 Organizer。</div>`,
+        <div class="warn-box">仅总部管理员与 Organizer。进入时输入 Google OTP 6 位，正确则无需点确认。保持时间在总部策略 → 平台「敏感操作 OTP」（默认 10 分钟）。仅指定总部管理员可授予 Organizer。</div>`,
         `<span class="menu-path">HQ Policy → วิเคราะห์ธุรกรรม / วิเคราะห์กำไร</span>
         <p>ทั้งสองเมนูกรอกเอง ระบบไม่จับคู่รายการต้นทุนกับตั๋วซื้อให้อัตโนมัติ</p>
         <ul>
           <li><strong>วิเคราะห์ธุรกรรม</strong> — ยอดโอนให้ตัวกลาง + USDT ที่วอลเล็ตได้รับ เรท HQ อัตโนมัติ ค่าปรับแก้/แก๊สกรอกเอง ค่าธรรมเนียมคำนวณย้อนแล้วบันทึกรายการ</li>
           <li><strong>วิเคราะห์กำไร</strong> — เทียบ USDT ที่คาดกับ USDT ตัวกลางในตั๋วเดียวกัน</li>
         </ul>
-        <div class="warn-box">เฉพาะผู้ดูแล HQ และ Organizer เข้าเมนูต้อง OTP เพิ่ม มอบ Organizer ได้เฉพาะแอดมินที่กำหนด</div>`,
+        <div class="warn-box">เฉพาะผู้ดูแล HQ และ Organizer กรอก Google OTP 6 หลักตอนเข้า ถูกละไม่ต้องกดยืนยัน ระยะเวลาที่ HQ Policy → แพลตฟอร์ม OTP งานสำคัญ (ค่าเริ่ม 10 นาที) มอบ Organizer ได้เฉพาะแอดมินที่กำหนด</div>`,
       ),
     },
     {
@@ -1095,57 +1120,77 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <div class="faq-item"><div class="faq-q">고객이 서비스를 신청하지 못합니다.</div><div class="faq-a">고객관리에서 해당 고객의 서류를 확인하고 인증패스를 처리하세요. 인증패스 전에는 USDT·에스크로 신청이 막힙니다.</div></div>
         <div class="faq-item"><div class="faq-q">인증센터 메뉴가 안 보입니다.</div><div class="faq-a">총본사·조직은 고객관리로 통합되었습니다. 고객 계정만 왼쪽 인증센터에서 서류를 올립니다.</div></div>
         <div class="faq-item"><div class="faq-q">수수료율이 도식에 안 보입니다.</div><div class="faq-a">시볼 수수료의 「세팅된 수수료율 노출」이 미사용인지 확인하세요.</div></div>
-        <div class="faq-item"><div class="faq-q">거래분석·수익분석에 OTP를 또 묻습니다.</div><div class="faq-a">의도된 동작입니다. 총본사 관리자·Organizer만 들어가며 Google OTP를 다시 확인합니다.</div></div>
+        <div class="faq-item"><div class="faq-q">거래분석·수익분석에 OTP를 또 묻습니다.</div><div class="faq-a">의도된 동작입니다. 총본사 관리자·Organizer만 들어가며 Google OTP 6자리를 다시 확인합니다. 맞으면 확인 버튼을 누르지 않아도 진행됩니다. 유지시간은 본사정책 → 플랫폼(기본 10분)입니다.</div></div>
         <div class="faq-item"><div class="faq-q">메뉴얼 로고가 안 보입니다.</div><div class="faq-a">플랫폼 브랜딩에서 로고를 업로드했는지 확인하세요.</div></div>
         <div class="faq-item"><div class="faq-q">로그인 후 브라우저 탭이 Crypto Workflow입니다.</div><div class="faq-a">플랫폼 브랜드 카드의 사이트 이름(또는 브라우저 탭 이름)을 저장하세요. 강력 새로고침 후 확인합니다.</div></div>
         <div class="faq-item"><div class="faq-q">특정 통화로 USDT 매입이 안 됩니다.</div><div class="faq-a">플랫폼 입금 수취 계좌에서 해당 통화의 이체거래·카드결제가 켜져 있는지 확인하세요.</div></div>
         <div class="faq-item"><div class="faq-q">비밀번호 초기화 후 OTP가 그대로입니다.</div><div class="faq-a">OTP는 별도 「OTP 초기화」입니다. 초기화하면 다음 로그인에서 OTP를 다시 등록합니다.</div></div>
         <div class="faq-item"><div class="faq-q">JPY 가상계좌서비스(CURFEX) 건인데 고객이 증빙을 올리려 합니다.</div><div class="faq-a">가상계좌서비스(CURFEX) ON이면 증빙 업로드가 필요 없습니다. 입금 후 자동으로 <strong>입금확인중</strong>으로 넘어갑니다.</div></div>
-        <div class="faq-item"><div class="faq-q">가상계좌서비스(CURFEX) 입금이 감지되지 않습니다.</div><div class="faq-a">웹훅 URL·HMAC Secret 등록 여부를 확인하세요. 티켓 「입금 상태 확인」 또는 1분 폴링을 기다리세요.</div></div>`,
+        <div class="faq-item"><div class="faq-q">가상계좌서비스(CURFEX) 입금이 감지되지 않습니다.</div><div class="faq-a">웹훅 URL·HMAC Secret 등록 여부를 확인하세요. 티켓 「입금 상태 확인」 또는 1분 폴링을 기다리세요.</div></div>
+        <div class="faq-item"><div class="faq-q">가맹점 내 지갑에 수수료 숫자가 없고 「본사설정에따름」만 보입니다.</div><div class="faq-a">고객 상세의 <strong>수수료 노출</strong>이 비활성(기본)입니다. 활성이면 가스·플랫폼 수수료가 표시됩니다.</div></div>
+        <div class="faq-item"><div class="faq-q">OTP 6자리를 넣었는데 확인을 또 눌러야 하나요?</div><div class="faq-a">맞으면 확인 버튼을 누르지 않아도 진행됩니다. 유지시간은 본사정책 → 플랫폼 「민감작업 OTP 유지시간」(기본 10분, 1~60)입니다.</div></div>
+        <div class="faq-item"><div class="faq-q">USDT·에스크로 목록의 시작·종료일이 비어 있지 않습니다.</div><div class="faq-a">기본은 시작 <strong>1주 전</strong>, 종료 <strong>오늘</strong>입니다. 「본사설정」 드롭다운 높이는 새로고침·내림차순과 같습니다.</div></div>
+        <div class="faq-item"><div class="faq-q">가맹점 사용자관리와 본사 사용자관리가 같나요?</div><div class="faq-a">다릅니다. 본사 사용자관리는 조직 직원입니다. 가맹점 사용자관리는 대표가 운영자(최대 2명)를 다루는 화면이며, 목록은 OTP 없이 보입니다.</div></div>`,
         `<div class="faq-item"><div class="faq-q">Card button is gray.</div><div class="faq-a">Intended: enable card under Payment management.</div></div>
         <div class="faq-item"><div class="faq-q">Customer cannot apply.</div><div class="faq-a">Open Customers, review documents, grant verification pass. USDT and escrow stay blocked until then.</div></div>
         <div class="faq-item"><div class="faq-q">Verification menu is missing for HQ.</div><div class="faq-a">It is merged into Customers. Only customer accounts upload files under Verification.</div></div>
         <div class="faq-item"><div class="faq-q">Rates missing on diagram.</div><div class="faq-a">Turn on “Show configured fee rates” under symbol fees.</div></div>
-        <div class="faq-item"><div class="faq-q">Trade analysis / profit asks for OTP again.</div><div class="faq-a">Intended. HQ admin and Organizer only; Google OTP is re-checked on entry.</div></div>
+        <div class="faq-item"><div class="faq-q">Trade analysis / profit asks for OTP again.</div><div class="faq-a">Intended. HQ admin and Organizer only. Enter Google OTP 6 digits; a correct code proceeds without Verify. Duration is HQ Policy → Platform (default 10 minutes).</div></div>
         <div class="faq-item"><div class="faq-q">Manual logo missing.</div><div class="faq-a">Upload a logo under Platform branding.</div></div>
         <div class="faq-item"><div class="faq-q">Tab still says Crypto Workflow after login.</div><div class="faq-a">Save site name (or tab title) on the brand card, then hard-refresh.</div></div>
         <div class="faq-item"><div class="faq-q">USDT purchase blocked for a currency.</div><div class="faq-a">Enable transfer and/or card for that currency under Platform deposit accounts.</div></div>
         <div class="faq-item"><div class="faq-q">OTP still works after password reset.</div><div class="faq-a">Use OTP reset separately. The user re-enrolls OTP at next login.</div></div>
         <div class="faq-item"><div class="faq-q">Customer tries proof upload on Virtual Account Service (CURFEX) JPY.</div><div class="faq-a">When Virtual Account Service (CURFEX) is ON, proof is not needed — deposit is auto-detected.</div></div>
-        <div class="faq-item"><div class="faq-q">Virtual Account Service (CURFEX) deposit not detected.</div><div class="faq-a">Check webhook URL and HMAC in CURFEX portal. Use “Check deposit status” on ticket or wait for 1-min poll.</div></div>`,
+        <div class="faq-item"><div class="faq-q">Virtual Account Service (CURFEX) deposit not detected.</div><div class="faq-a">Check webhook URL and HMAC in CURFEX portal. Use “Check deposit status” on ticket or wait for 1-min poll.</div></div>
+        <div class="faq-item"><div class="faq-q">Merchant My wallets shows Follow HQ settings instead of fee amounts.</div><div class="faq-a">Customer detail <strong>Fee display</strong> is Inactive (default). Set Active to show gas and platform fees.</div></div>
+        <div class="faq-item"><div class="faq-q">Must I tap Verify after entering 6 OTP digits?</div><div class="faq-a">No — a correct code proceeds automatically. Duration is HQ Policy → Platform Sensitive action OTP (default 10 minutes, 1–60).</div></div>
+        <div class="faq-item"><div class="faq-q">USDT/escrow start and end dates are pre-filled.</div><div class="faq-a">Default is start <strong>1 week ago</strong> through end <strong>today</strong>. The HQ settings dropdown matches Refresh/Sort height.</div></div>
+        <div class="faq-item"><div class="faq-q">Is merchant Users the same as HQ Users?</div><div class="faq-a">No. HQ Users is org staff. Merchant Users is the admin adding operators (max 2). The merchant list is visible without OTP.</div></div>`,
         `<div class="faq-item"><div class="faq-q">カード決済が無効なのにボタンが見えます。</div><div class="faq-a">意図した動作です。決済管理で使用にすると有効になります。</div></div>
         <div class="faq-item"><div class="faq-q">顧客がサービスを申請できません。</div><div class="faq-a">顧客管理で書類を確認し認証パスしてください。パス前はUSDT・エスクロー申請が止まります。</div></div>
         <div class="faq-item"><div class="faq-q">認証センターメニューがありません。</div><div class="faq-a">総本社・組織は顧客管理に統合されました。書類提出は顧客アカウントの左メニュー認証センターです。</div></div>
         <div class="faq-item"><div class="faq-q">手数料率が図式に出ません。</div><div class="faq-a">シンボル手数料の「設定手数料率の表示」が未使用か確認してください。</div></div>
-        <div class="faq-item"><div class="faq-q">取引分析・収益分析でOTPを再度聞かれます。</div><div class="faq-a">意図した動作です。総本社管理者・Organizerのみ入り、Google OTPを再確認します。</div></div>
+        <div class="faq-item"><div class="faq-q">取引分析・収益分析でOTPを再度聞かれます。</div><div class="faq-a">意図した動作です。総本社管理者・Organizerのみ入り、Google OTP 6桁を再確認します。正しければ確認ボタンなし。維持時間は本社ポリシー→プラットフォーム（既定10分）です。</div></div>
         <div class="faq-item"><div class="faq-q">マニュアルのロゴが見えません。</div><div class="faq-a">プラットフォームブランディングでロゴをアップロードしたか確認してください。</div></div>
         <div class="faq-item"><div class="faq-q">ログイン後タブがCrypto Workflowです。</div><div class="faq-a">プラットフォームブランドカードのサイト名(またはタブ名)を保存し、強制再読込してください。</div></div>
         <div class="faq-item"><div class="faq-q">特定通貨でUSDT購入ができません。</div><div class="faq-a">プラットフォーム入金受取口座で当該通貨の振込・カードがONか確認してください。</div></div>
         <div class="faq-item"><div class="faq-q">パスワード初期化後もOTPが残っています。</div><div class="faq-a">OTPは別の「OTP初期化」です。初期化すると次回ログインでOTPを再登録します。</div></div>
         <div class="faq-item"><div class="faq-q">JPYバーチャル口座サービス(CURFEX)なのに顧客が証憑を上げようとします。</div><div class="faq-a">バーチャル口座サービス(CURFEX) ONなら証憑不要です。入金後に自動で<strong>入金確認中</strong>へ進みます。</div></div>
-        <div class="faq-item"><div class="faq-q">バーチャル口座サービス(CURFEX)入金が検知されません。</div><div class="faq-a">Webhook URL・HMAC Secretの登録を確認。チケット「入金状態を確認」または1分ポーリングを待ってください。</div></div>`,
+        <div class="faq-item"><div class="faq-q">バーチャル口座サービス(CURFEX)入金が検知されません。</div><div class="faq-a">Webhook URL・HMAC Secretの登録を確認。チケット「入金状態を確認」または1分ポーリングを待ってください。</div></div>
+        <div class="faq-item"><div class="faq-q">加盟店マイウォレットに手数料数字がなく「本社設定に従う」だけです。</div><div class="faq-a">顧客詳細の<strong>手数料表示</strong>が無効（既定）です。有効にするとガス・プラットフォーム手数料が表示されます。</div></div>
+        <div class="faq-item"><div class="faq-q">OTP 6桁を入れたあと確認を押す必要がありますか？</div><div class="faq-a">正しければ確認ボタンなしで進みます。維持時間は本社ポリシー→プラットフォームの機密操作OTP（既定10分、1〜60）です。</div></div>
+        <div class="faq-item"><div class="faq-q">USDT・エスクロー一覧の開始・終了日が空ではありません。</div><div class="faq-a">既定は開始<strong>1週間前</strong>、終了<strong>今日</strong>です。「本社設定」ドロップダウンの高さは更新・降順と同じです。</div></div>
+        <div class="faq-item"><div class="faq-q">加盟店ユーザー管理と本社ユーザー管理は同じですか？</div><div class="faq-a">違います。本社は組織スタッフ、加盟店は代表が運営者（最大2名）を扱う画面です。加盟店一覧はOTPなしで表示されます。</div></div>`,
         `<div class="faq-item"><div class="faq-q">卡支付未启用但按钮仍可见。</div><div class="faq-a">这是预期行为。在支付管理中启用后即会激活。</div></div>
         <div class="faq-item"><div class="faq-q">客户无法申请服务。</div><div class="faq-a">在客户管理核对文件并给予认证通过。未通过前 USDT·托管申请会被拦截。</div></div>
         <div class="faq-item"><div class="faq-q">看不到认证中心菜单。</div><div class="faq-a">总部·组织已并入客户管理。仅客户账号在左侧认证中心上传文件。</div></div>
         <div class="faq-item"><div class="faq-q">图示上看不到手续费率。</div><div class="faq-a">请检查交易对手续费的「显示已设手续费率」是否未启用。</div></div>
-        <div class="faq-item"><div class="faq-q">交易分析·收益分析又要 OTP。</div><div class="faq-a">预期行为。仅总部管理员·Organizer 可进，并再次验证 Google OTP。</div></div>
+        <div class="faq-item"><div class="faq-q">交易分析·收益分析又要 OTP。</div><div class="faq-a">预期行为。仅总部管理员·Organizer 可进，再次输入 Google OTP 6 位。正确则无需点确认。保持时间在总部策略 → 平台（默认 10 分钟）。</div></div>
         <div class="faq-item"><div class="faq-q">手册没有 logo。</div><div class="faq-a">请确认已在平台品牌中上传 logo。</div></div>
         <div class="faq-item"><div class="faq-q">登录后浏览器标签仍是 Crypto Workflow。</div><div class="faq-a">保存平台品牌卡片的站点名（或浏览器标签名），然后强制刷新。</div></div>
         <div class="faq-item"><div class="faq-q">某币种无法做 USDT 采购。</div><div class="faq-a">在平台入金收款账户中确认该币种的转账·卡支付已开启。</div></div>
         <div class="faq-item"><div class="faq-q">密码初始化后 OTP 仍有效。</div><div class="faq-a">OTP 需单独「OTP 初始化」。初始化后下次登录需重新绑定 OTP。</div></div>
         <div class="faq-item"><div class="faq-q">JPY 虚拟账户服务(CURFEX) 单，客户仍想上传凭证。</div><div class="faq-a">开启虚拟账户服务(CURFEX) 时无需上传凭证。入金后会自动进入<strong>入金确认中</strong>。</div></div>
-        <div class="faq-item"><div class="faq-q">虚拟账户服务(CURFEX) 入金未被检测到。</div><div class="faq-a">检查 Webhook URL 与 HMAC Secret 是否已登记。使用单据「检查入金状态」或等待 1 分钟轮询。</div></div>`,
+        <div class="faq-item"><div class="faq-q">虚拟账户服务(CURFEX) 入金未被检测到。</div><div class="faq-a">检查 Webhook URL 与 HMAC Secret 是否已登记。使用单据「检查入金状态」或等待 1 分钟轮询。</div></div>
+        <div class="faq-item"><div class="faq-q">商户我的钱包没有手续费数字，只显示遵循总部设置。</div><div class="faq-a">客户详情的<strong>手续费显示</strong>为停用（默认）。启用后显示 Gas 与平台手续费。</div></div>
+        <div class="faq-item"><div class="faq-q">输入 OTP 6 位后还要点确认吗？</div><div class="faq-a">正确则无需点确认。保持时间在总部策略 → 平台「敏感操作 OTP」（默认 10 分钟，1–60）。</div></div>
+        <div class="faq-item"><div class="faq-q">USDT/托管列表的开始、结束日不是空的。</div><div class="faq-a">默认开始为<strong>一周前</strong>、结束为<strong>今天</strong>。「总部设置」下拉高度与刷新、降序相同。</div></div>
+        <div class="faq-item"><div class="faq-q">加盟商用户管理与总部用户管理是同一页吗？</div><div class="faq-a">不是。总部用户管理是组织员工。加盟商用户管理是代表添加操作员（最多 2 名），列表无需 OTP 即可查看。</div></div>`,
         `<div class="faq-item"><div class="faq-q">ปิดบัตรแล้วแต่ยังเห็นปุ่ม</div><div class="faq-a">เป็นพฤติกรรมที่ตั้งใจ เปิดใช้ใน Payment แล้วจะใช้งานได้</div></div>
         <div class="faq-item"><div class="faq-q">ลูกค้าสมัครบริการไม่ได้</div><div class="faq-a">เปิดจัดการลูกค้า ตรวจเอกสาร แล้วให้ผ่านการยืนยัน ก่อนผ่านจะสมัคร USDT/เอสโครว์ไม่ได้</div></div>
         <div class="faq-item"><div class="faq-q">ไม่เห็นเมนูศูนย์ยืนยัน</div><div class="faq-a">HQ·องค์กรรวมไว้ที่จัดการลูกค้าแล้ว เฉพาะบัญชีลูกค้าอัปโหลดที่ศูนย์ยืนยันด้านซ้าย</div></div>
         <div class="faq-item"><div class="faq-q">ไม่เห็นอัตราค่าธรรมเนียมในแผนภาพ</div><div class="faq-a">ตรวจว่า「แสดงอัตราค่าธรรมเนียมที่ตั้ง」ของค่าธรรมเนียมสัญลักษณ์เปิดอยู่หรือไม่</div></div>
-        <div class="faq-item"><div class="faq-q">วิเคราะห์ธุรกรรม·กำไรถาม OTP อีก</div><div class="faq-a">ตั้งใจไว้ เฉพาะผู้ดูแล HQ·Organizer และตรวจ Google OTP อีกครั้งตอนเข้า</div></div>
+        <div class="faq-item"><div class="faq-q">วิเคราะห์ธุรกรรม·กำไรถาม OTP อีก</div><div class="faq-a">ตั้งใจไว้ เฉพาะผู้ดูแล HQ·Organizer กรอก Google OTP 6 หลักตอนเข้า ถูกละไม่ต้องกดยืนยัน ระยะเวลาที่ HQ Policy → แพลตฟอร์ม (ค่าเริ่ม 10 นาที)</div></div>
         <div class="faq-item"><div class="faq-q">ไม่เห็นโลโก้ในคู่มือ</div><div class="faq-a">ตรวจว่าอัปโหลดโลโก้ในแบรนด์แพลตฟอร์มแล้ว</div></div>
         <div class="faq-item"><div class="faq-q">หลังเข้าสู่ระบบแท็บยังเป็น Crypto Workflow</div><div class="faq-a">บันทึกชื่อไซต์ (หรือชื่อแท็บ) ในการ์ดแบรนด์ แล้วรีเฟรชแรง</div></div>
         <div class="faq-item"><div class="faq-q">ซื้อ USDT สกุลนั้นไม่ได้</div><div class="faq-a">ตรวจว่าเปิดโอนและ/หรือบัตรของสกุลนั้นในบัญชีรับเงินบนแพลตฟอร์ม</div></div>
         <div class="faq-item"><div class="faq-q">รีเซ็ตรหัสผ่านแล้ว OTP ยังใช้ได้</div><div class="faq-a">OTP ต้อง「รีเซ็ต OTP」แยก หลังรีเซ็ตครั้งถัดไปต้องลงทะเบียน OTP ใหม่</div></div>
         <div class="faq-item"><div class="faq-q">ตั๋ว JPY บริการบัญชีเสมือน(CURFEX) แต่ลูกค้าอยากอัปโหลดสลิป</div><div class="faq-a">เมื่อบริการบัญชีเสมือน(CURFEX) เปิด ไม่ต้องอัปโหลดหลักฐาน หลังฝากจะไป<strong>กำลังตรวจสอบการฝาก</strong>อัตโนมัติ</div></div>
-        <div class="faq-item"><div class="faq-q">บริการบัญชีเสมือน(CURFEX) ตรวจฝากไม่ได้</div><div class="faq-a">ตรวจ Webhook URL และ HMAC Secret ที่พอร์ทัล CURFEX ใช้「ตรวจสถานะฝาก」บนตั๋ว หรือรอ poll 1 นาที</div></div>`
+        <div class="faq-item"><div class="faq-q">บริการบัญชีเสมือน(CURFEX) ตรวจฝากไม่ได้</div><div class="faq-a">ตรวจ Webhook URL และ HMAC Secret ที่พอร์ทัล CURFEX ใช้「ตรวจสถานะฝาก」บนตั๋ว หรือรอ poll 1 นาที</div></div>
+        <div class="faq-item"><div class="faq-q">กระเป๋าของร้านไม่โชว์ตัวเลขค่าธรรมเนียม มีแค่ตามการตั้งค่า HQ</div><div class="faq-a">การ์ด<strong>แสดงค่าธรรมเนียม</strong>ในหน้ารายละเอียดลูกค้าปิดอยู่ (ค่าเริ่ม) เปิดแล้วจะโชว์แก๊สและค่าธรรมเนียมแพลตฟอร์ม</div></div>
+        <div class="faq-item"><div class="faq-q">กรอก OTP 6 หลักแล้วต้องกดยืนยันอีกไหม</div><div class="faq-a">ถูกละไม่ต้องกดยืนยัน ระยะเวลาที่ HQ Policy → แพลตฟอร์ม OTP งานสำคัญ (ค่าเริ่ม 10 นาที, 1–60)</div></div>
+        <div class="faq-item"><div class="faq-q">วันเริ่ม/วันสิ้นสุดในรายการ USDT/เอสโครว์ว่างไม่ใช่</div><div class="faq-a">ค่าเริ่มคือวันเริ่ม<strong>1 สัปดาห์ก่อน</strong> วันสิ้นสุด<strong>วันนี้</strong> รายการตั้งค่า HQ สูงเท่าปุ่มรีเฟรช/เรียง</div></div>
+        <div class="faq-item"><div class="faq-q">จัดการผู้ใช้ของร้านกับของ HQ เป็นหน้าเดียวกันไหม</div><div class="faq-a">ไม่ใช่ HQ คือพนักงานองค์กร ร้านคือแอดมินเพิ่มผู้ปฏิบัติงานสูงสุด 2 คน ดูรายการร้านได้โดยไม่ต้อง OTP</div></div>`
       ),
     },
   ],
@@ -1460,11 +1505,11 @@ export const CUSTOMER_MANUAL: ManualDoc = {
   id: 'customer',
   coverTitle: L('고객용 사용 메뉴얼', 'Customer User Manual', '顧客向け利用マニュアル', '客户使用手册', 'คู่มือผู้ใช้สำหรับลูกค้า'),
   coverSubtitle: L(
-    '회원가입 → 인증센터 → 인증패스 → 지갑 → USDT 시뮬레이터 → 매입·에스크로',
-    'Register → Verification → pass → wallet → USDT simulator → purchase & escrow',
-    '会員登録→認証センター→認証パス→ウォレット→シミュレーター→購入・エスクロー',
-    '注册 → 认证中心 → 认证通过 → 钱包 → 模拟器 → 采购与托管',
-    'สมัคร → ศูนย์ยืนยัน → ผ่าน → กระเป๋า → ตัวจำลอง → ซื้อและเอสโครว์',
+    '대표 로그인 → 인증패스 → 본사 등록 지갑 → 시뮬레이터 → 매입·에스크로 · 운영자(최대 2명)',
+    'Admin login → verification pass → HQ wallet → simulator → purchase & escrow · operators (max 2)',
+    '代表ログイン→認証パス→本社登録ウォレット→シミュレーター→購入・エスクロー・運営者(最大2名)',
+    '代表登录 → 认证通过 → 总部登记钱包 → 模拟器 → 采购·托管 · 操作员(最多2名)',
+    'เข้าสู่ระบบตัวแทน → ผ่านยืนยัน → กระเป๋า HQ → ตัวจำลอง → ซื้อ·เอสโครว์ · ผู้ปฏิบัติงาน (สูงสุด 2)',
   ),
   sections: [
     {
@@ -1476,56 +1521,117 @@ export const CUSTOMER_MANUAL: ManualDoc = {
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">회원가입 (휴대폰·국가번호) 후 로그인. Google OTP가 있으면 앱 코드를 입력합니다.</span></div>
           <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">왼쪽 <strong>인증센터</strong>에서 서류를 올립니다. 양식은 <strong>이용메뉴얼</strong>에서 내려받습니다.</span></div>
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">상태가 <strong>심사중</strong>이 되면 총본사 인증패스를 기다립니다. 반려이면 사유를 보고 다시 제출합니다.</span></div>
-          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc"><strong>내 지갑</strong>에 USDT 수령 주소(네트워크 포함)를 등록합니다.</span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">본사가 등록한 <strong>기본 지갑</strong>이 승인되어 있는지 확인합니다. 주소는 가맹점이 바꿀 수 없습니다. 추가 지갑은 내 지갑에서 등록 후 본사 승인을 기다립니다.</span></div>
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc"><strong>USDT 시뮬레이터</strong>에서 네트워크를 고르고 입금액 또는 받을 USDT로 수수료·수령액을 미리 봅니다. 최근 결과는 최대 3건입니다.</span></div>
           <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>인증패스 후</strong> USDT 매입 또는 무역 에스크로를 신청합니다.</span></div>
         </div>
         <div class="warn-box">인증패스 전에는 USDT 매입·무역 에스크로 신청이 불가합니다. 시뮬레이터는 <strong>참고용 미리 계산</strong>이며 실제 신청·확정 금액이 아닙니다.</div>
-        <div class="info-box">대시보드에는 시뮬레이터 최근 결과가 2건만 보입니다. 언어는 상단에서 바꿉니다. 유휴 시간이 지나면 자동 로그아웃됩니다.</div>`,
+        <div class="info-box">대시보드에는 시뮬레이터 최근 결과가 2건만 보입니다. 언어는 상단에서 바꿉니다. 유휴 시간이 지나면 자동 로그아웃됩니다. 본사가 멀티 사용자를 허용하면 대표(관리자)만 운영자를 등록할 수 있습니다.</div>`,
         `<p>Follow this order. Later steps stay blocked until earlier ones are done.</p>
         <div class="flow">
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">Register (phone + country code) and sign in. Enter Google OTP if asked.</span></div>
           <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">Upload documents in <strong>Verification</strong>. Download templates from <strong>Usage manuals</strong>.</span></div>
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">When status is <strong>Under review</strong>, wait for HQ verification pass. If rejected, read the reason and resubmit.</span></div>
-          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">Register a receiving address (with network) under <strong>My wallets</strong>.</span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">Confirm the <strong>HQ-registered default wallet</strong> is approved. You cannot change that address. Extra wallets: add in My wallets, then wait for HQ approval.</span></div>
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc">Open <strong>USDT simulator</strong>, choose a network, and preview fees from deposit or target USDT. Up to 3 recent results are kept.</span></div>
           <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc">After a <strong>verification pass</strong>, apply for USDT purchase or trade escrow.</span></div>
         </div>
         <div class="warn-box">USDT purchase and escrow stay blocked until you have a pass. The simulator is a <strong>reference preview only</strong>, not an application or binding amount.</div>
-        <div class="info-box">Dashboard shows only 2 recent simulator results. Change language in the top bar. Idle timeout signs you out.</div>`,
+        <div class="info-box">Dashboard shows only 2 recent simulator results. Change language in the top bar. Idle timeout signs you out. If HQ enabled multi-user, only the admin can add operators.</div>`,
         `<p>次の順番どおりに進めてください。前の段階が終わるまで次が止まることがあります。</p>
         <div class="flow">
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">会員登録(電話・国番号)→ログイン。Google OTPがあれば入力。</span></div>
           <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">左の<strong>認証センター</strong>で書類をアップロード。様式は<strong>利用マニュアル</strong>から。</span></div>
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc"><strong>審査中</strong>なら総本社の認証パスを待つ。差戻しなら理由を見て再提出。</span></div>
-          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc"><strong>マイウォレット</strong>に受取アドレス(ネットワーク含む)を登録。</span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">本社登録の<strong>既定ウォレット</strong>が承認済みか確認。そのアドレスは加盟店が変更できません。追加ウォレットはマイウォレットで登録後、本社承認を待ちます。</span></div>
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc"><strong>USDTシミュレーター</strong>でネットワークを選び、入金または受取USDTで手数料を確認。直近最大3件。</span></div>
           <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>認証パス後</strong>にUSDT購入または貿易エスクローを申請。</span></div>
         </div>
         <div class="warn-box">認証パス前はUSDT購入・エスクロー申請不可。シミュレーターは<strong>参考用の試算</strong>で申請・確定金額ではありません。</div>
-        <div class="info-box">ダッシュボードのシミュレーター表示は2件です。言語は上部で切替。アイドルで自動ログアウト。</div>`,
+        <div class="info-box">ダッシュボードのシミュレーター表示は2件です。言語は上部で切替。アイドルで自動ログアウト。本社がマルチユーザーを許可した場合、代表(管理者)のみ運営者を登録できます。</div>`,
         `<p>请按此顺序操作。前一步未完成时，后一步可能无法进行。</p>
         <div class="flow">
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">注册（手机+国家号）并登录。如需 Google OTP 请输入。</span></div>
           <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">在左侧<strong>认证中心</strong>上传文件。模板从<strong>使用手册</strong>下载。</span></div>
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">状态为<strong>审核中</strong>时等待总部认证通过。退回则按原因重交。</span></div>
-          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">在<strong>我的钱包</strong>登记收款地址（含网络）。</span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">确认总部登记的<strong>默认钱包</strong>已批准。该地址加盟商不能改。额外钱包在我的钱包登记后等待总部批准。</span></div>
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc">打开<strong>USDT 模拟器</strong>，选择网络，按入金或目标 USDT 预览手续费。最多保留 3 条。</span></div>
           <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>认证通过后</strong>再申请 USDT 采购或贸易托管。</span></div>
         </div>
         <div class="warn-box">未通过认证前无法申请采购或托管。模拟器为<strong>仅供参考的试算</strong>，不是申请或确定金额。</div>
-        <div class="info-box">仪表盘模拟器预览只显示 2 条。语言在顶部切换。空闲会自动退出。</div>`,
+        <div class="info-box">仪表盘模拟器预览只显示 2 条。语言在顶部切换。空闲会自动退出。总部开启多用户后，仅代表(管理员)可登记操作员。</div>`,
         `<p>ทำตามลำดับนี้ ขั้นหลังอาจถูกบล็อกจนกว่าขั้นก่อนจะเสร็จ</p>
         <div class="flow">
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">สมัคร (โทรศัพท์+รหัสประเทศ) แล้วเข้าสู่ระบบ ใส่ Google OTP หากมี</span></div>
           <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">อัปโหลดเอกสารที่ <strong>ศูนย์ยืนยัน</strong> ดาวน์โหลดแบบฟอร์มจาก <strong>คู่มือใช้งาน</strong></span></div>
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">เมื่อสถานะ <strong>กำลังตรวจสอบ</strong> รอ HQ ให้ผ่าน หากถูกปฏิเสธอ่านเหตุผลแล้วส่งใหม่</span></div>
-          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">ลงทะเบียนที่อยู่รับ USDT (พร้อมเครือข่าย) ที่ <strong>กระเป๋าของฉัน</strong></span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">ตรวจว่า<strong>กระเป๋าเริ่มต้นที่ HQ ลงทะเบียน</strong>ได้รับอนุมัติแล้ว ที่อยู่นี้ร้านค้าแก้ไม่ได้ กระเป๋าเพิ่ม: ลงที่กระเป๋าของฉันแล้วรอ HQ อนุมัติ</span></div>
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc">เปิด <strong>ตัวจำลอง USDT</strong> เลือกเครือข่าย ดูค่าธรรมเนียมจากยอดฝากหรือ USDT ที่จะรับ เก็บได้สูงสุด 3 รายการ</span></div>
           <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc">หลัง <strong>ผ่านการยืนยัน</strong> ค่อยสมัครซื้อ USDT หรือเอสโครว์</span></div>
         </div>
         <div class="warn-box">ยังไม่ผ่านจะสมัครซื้อ/เอสโครว์ไม่ได้ ตัวจำลองเป็น<strong>การอ้างอิงเท่านั้น</strong> ไม่ใช่การสมัครหรือจำนวนเงินที่ผูกพัน</div>
-        <div class="info-box">แดชบอร์ดโชว์ผลจำลอง 2 รายการ เปลี่ยนภาษาด้านบน หากไม่ใช้งานจะออกจากระบบอัตโนมัติ</div>`,
+        <div class="info-box">แดชบอร์ดโชว์ผลจำลอง 2 รายการ เปลี่ยนภาษาด้านบน หากไม่ใช้งานจะออกจากระบบอัตโนมัติ หาก HQ เปิดหลายผู้ใช้ ตัวแทน(แอดมิน)เท่านั้นที่เพิ่มผู้ปฏิบัติงานได้</div>`,
+      ),
+    },
+    {
+      id: 'c-accounts',
+      title: L('관리자 · 운영자', 'Admin · operators', '管理者・運営者', '管理员·操作员', 'ผู้ดูแล · ผู้ปฏิบัติงาน'),
+      bodyHtml: L(
+        `<p>개인 가맹점과 법인 가맹점은 <strong>동일</strong>합니다. 업무 계정은 대표 <strong>관리자 1명 + 운영자 최대 2명</strong>입니다.</p>
+        <table><thead><tr><th>구분</th><th>내용</th></tr></thead><tbody>
+        <tr><td>관리자</td><td>본사가 가맹점을 등록할 때 만든 대표 계정. 내 지갑·사용자관리를 포함해 모든 가맹점 메뉴를 씁니다.</td></tr>
+        <tr><td>운영자</td><td>관리자가 OTP로 등록. USDT·에스크로·인증센터·시뮬레이터·운영기록은 관리자와 같습니다. <strong>내 지갑·사용자관리는 없습니다.</strong></td></tr>
+        </tbody></table>
+        <ul>
+          <li>운영자를 쓰려면 본사가 고객관리에서 <strong>멀티 사용자 허용</strong>을 켜야 합니다. 끄면 기존 운영자는 중지되고 로그인할 수 없습니다.</li>
+          <li>운영자는 <strong>삭제하지 않습니다.</strong> 관리자가 OTP로 <strong>서비스 중지(비활성)</strong>만 합니다. 이력은 남습니다.</li>
+          <li>동시에 업무 가능한 운영자는 활성 기준 최대 2명입니다.</li>
+        </ul>
+        <div class="warn-box">운영자 계정으로 로그인하면 내 지갑·사용자관리 메뉴가 보이지 않습니다. 지갑 주소 변경·운영자 등록은 대표 관리자만 할 수 있습니다.</div>`,
+        `<p>Individual and corporate merchants are the <strong>same</strong>: <strong>1 admin + up to 2 operators</strong>.</p>
+        <table><thead><tr><th>Role</th><th>What they can do</th></tr></thead><tbody>
+        <tr><td>Admin</td><td>The representative account HQ created. Uses all merchant menus, including Wallets and Users.</td></tr>
+        <tr><td>Operator</td><td>Created by the admin with OTP. Same access to USDT, escrow, Verification, simulator, and operation history. <strong>No Wallets or Users.</strong></td></tr>
+        </tbody></table>
+        <ul>
+          <li>HQ must enable <strong>Allow multi-user</strong> on the customer. Turning it off deactivates operators and they cannot sign in.</li>
+          <li>Operators are <strong>not deleted</strong>. The admin can only <strong>suspend</strong> them (OTP). History is kept.</li>
+          <li>At most 2 operators can be active at the same time.</li>
+        </ul>
+        <div class="warn-box">Operator logins do not show Wallets or Users. Only the admin can change wallets or add operators.</div>`,
+        `<p>個人・法人とも<strong>同じ</strong>です。業務アカウントは代表<strong>管理者1名＋運営者最大2名</strong>です。</p>
+        <table><thead><tr><th>区分</th><th>内容</th></tr></thead><tbody>
+        <tr><td>管理者</td><td>本社が加盟店登録時に作った代表アカウント。マイウォレット・ユーザー管理を含む全メニュー。</td></tr>
+        <tr><td>運営者</td><td>管理者がOTPで登録。USDT・エスクロー・認証・シミュレーター・運営記録は管理者と同じ。<strong>マイウォレット・ユーザー管理はありません。</strong></td></tr>
+        </tbody></table>
+        <ul>
+          <li>運営者を使うには本社が顧客管理で<strong>マルチユーザー許可</strong>をONにする必要があります。OFFにすると既存運営者は停止されログインできません。</li>
+          <li>運営者は<strong>削除しません</strong>。管理者はOTPで<strong>停止(無効)</strong>のみ。履歴は残ります。</li>
+          <li>同時に業務できる運営者は有効状態で最大2名です。</li>
+        </ul>
+        <div class="warn-box">運営者でログインするとマイウォレット・ユーザー管理は表示されません。ウォレット変更・運営者登録は代表管理者のみです。</div>`,
+        `<p>个人与法人商户规则<strong>相同</strong>：代表<strong>管理员 1 名 + 操作员最多 2 名</strong>。</p>
+        <table><thead><tr><th>角色</th><th>内容</th></tr></thead><tbody>
+        <tr><td>管理员</td><td>总部登记商户时创建的代表账号。可使用全部商户菜单，含我的钱包、用户管理。</td></tr>
+        <tr><td>操作员</td><td>管理员用 OTP 登记。USDT、托管、认证、模拟器、运营记录与管理员相同。<strong>无我的钱包、用户管理。</strong></td></tr>
+        </tbody></table>
+        <ul>
+          <li>使用操作员前，总部须在客户管理开启<strong>允许多用户</strong>。关闭后现有操作员停用且无法登录。</li>
+          <li>操作员<strong>不可删除</strong>。管理员仅可用 OTP <strong>停用</strong>。记录保留。</li>
+          <li>同时可办公的操作员以启用状态计最多 2 名。</li>
+        </ul>
+        <div class="warn-box">以操作员登录时不显示我的钱包与用户管理。改钱包、登记操作员仅代表管理员可做。</div>`,
+        `<p>ร้านบุคคลและนิติบุคคลใช้กฎ<strong>เดียวกัน</strong>: <strong>แอดมิน 1 + ผู้ปฏิบัติงานสูงสุด 2 คน</strong></p>
+        <table><thead><tr><th>บทบาท</th><th>รายละเอียด</th></tr></thead><tbody>
+        <tr><td>แอดมิน</td><td>บัญชีตัวแทนที่ HQ สร้างตอนลงทะเบียนร้าน ใช้ทุกเมนูรวมกระเป๋าและจัดการผู้ใช้</td></tr>
+        <tr><td>ผู้ปฏิบัติงาน</td><td>แอดมินสร้างด้วย OTP ใช้ USDT เอสโครว์ ศูนย์ยืนยัน ตัวจำลอง และประวัติการดำเนินงานเหมือนแอดมิน <strong>ไม่มีกระเป๋าและจัดการผู้ใช้</strong></td></tr>
+        </tbody></table>
+        <ul>
+          <li>ต้องให้ HQ เปิด<strong>อนุญาตหลายผู้ใช้</strong>ในจัดการลูกค้า ถ้าปิด ผู้ปฏิบัติงานเดิมจะถูกหยุดและเข้าสู่ระบบไม่ได้</li>
+          <li>ผู้ปฏิบัติงาน<strong>ลบไม่ได้</strong> แอดมินหยุดบริการด้วย OTP เท่านั้น ประวัติคงไว้</li>
+          <li>ผู้ปฏิบัติงานที่ทำงานพร้อมกันได้สูงสุด 2 คนตามสถานะเปิดใช้</li>
+        </ul>
+        <div class="warn-box">เข้าด้วยผู้ปฏิบัติงานจะไม่เห็นกระเป๋าและจัดการผู้ใช้ เปลี่ยนกระเป๋า/เพิ่มผู้ปฏิบัติงานได้เฉพาะแอดมิน</div>`,
       ),
     },
     {
@@ -1606,6 +1712,62 @@ export const CUSTOMER_MANUAL: ManualDoc = {
       ),
     },
     {
+      id: 'c-wallet',
+      title: L('내 지갑', 'My wallets', 'マイウォレット', '我的钱包', 'กระเป๋าของฉัน'),
+      bodyHtml: L(
+        `<span class="menu-path">내 지갑</span>
+        <p>업무 시작 순서의 <strong>4단계</strong>입니다. 매입·에스크로에 쓰는 수령 주소입니다. <strong>이 메뉴는 가맹점 관리자만</strong> 보입니다. 운영자는 승인된 지갑을 신청 화면에서 고르기만 합니다.</p>
+        <ul>
+          <li><strong>본사 등록 기본 지갑</strong> — 주소·네트워크를 가맹점이 바꿀 수 없습니다.</li>
+          <li><strong>추가 지갑</strong> — 관리자가 등록하면 <strong>승인대기</strong>입니다. 본사가 고객 상세에서 승인한 뒤에만 매입·에스크로에 쓸 수 있습니다.</li>
+          <li><strong>수수료 열</strong> — 본사가 수수료 노출을 켜기 전에는 숫자가 없고 <strong>본사설정에따름</strong>만 보입니다. 켜면 가스·플랫폼 수수료가 표시됩니다.</li>
+          <li><strong>기본 지갑 전환</strong> — 이미 승인된 지갑 중에서만, 관리자가 OTP로 바꿉니다.</li>
+        </ul>
+        <div class="warn-box">승인되지 않은 추가 지갑으로는 USDT 매입·무역 에스크로를 신청할 수 없습니다. 기본 지갑 주소를 직접 수정할 수 없다면 본사에 요청하세요.</div>
+        <div class="info-box">운영자 계정에는 내 지갑 메뉴가 없습니다. 지갑을 추가·전환하려면 대표 관리자로 로그인하세요.</div>`,
+        `<span class="menu-path">My wallets</span>
+        <p><strong>Step 4.</strong> Receiving addresses for purchase and escrow. <strong>Admin only</strong> — operators pick an approved wallet on the application screen.</p>
+        <ul>
+          <li><strong>HQ-registered default</strong> — you cannot change the address or network.</li>
+          <li><strong>Extra wallets</strong> — stay <strong>pending</strong> until HQ approves them on the customer detail page.</li>
+          <li><strong>Fee column</strong> — until HQ turns on Fee display, amounts are hidden and the cell shows <strong>Follow HQ settings</strong>. When Active, gas and platform fees appear.</li>
+          <li><strong>Switch default</strong> — among approved wallets only, admin + OTP.</li>
+        </ul>
+        <div class="warn-box">Unapproved extra wallets cannot be used for USDT purchase or escrow. Ask HQ if the default address must change.</div>
+        <div class="info-box">Operators do not see My wallets. Sign in as the admin to add or switch wallets.</div>`,
+        `<span class="menu-path">マイウォレット</span>
+        <p>開始順の<strong>4</strong>です。購入・エスクローの受取アドレスです。<strong>加盟店管理者のみ</strong>表示されます。運営者は申請画面で承認済みウォレットを選ぶだけです。</p>
+        <ul>
+          <li><strong>本社登録の既定ウォレット</strong> — アドレス・ネットワークは加盟店が変更できません。</li>
+          <li><strong>追加ウォレット</strong> — 管理者が登録すると<strong>承認待ち</strong>。本社が顧客詳細で承認後に使用できます。</li>
+          <li><strong>手数料列</strong> — 本社が手数料表示をONにするまで数字は出ず<strong>本社設定に従う</strong>のみ。ONならガス・プラットフォーム手数料が表示されます。</li>
+          <li><strong>既定の切替</strong> — 承認済みの中から、管理者がOTPで変更します。</li>
+        </ul>
+        <div class="warn-box">未承認の追加ウォレットではUSDT購入・エスクローを申請できません。既定アドレスの変更は本社へ依頼してください。</div>
+        <div class="info-box">運営者にはマイウォレットがありません。追加・切替は代表管理者でログインしてください。</div>`,
+        `<span class="menu-path">我的钱包</span>
+        <p>开工顺序<strong>第 4 步</strong>。采购与托管的收款地址。<strong>仅加盟商管理员</strong>可见。操作员只在申请页选择已批准钱包。</p>
+        <ul>
+          <li><strong>总部登记的默认钱包</strong> — 加盟商不能改地址或网络。</li>
+          <li><strong>额外钱包</strong> — 管理员登记后为<strong>待批准</strong>。总部在客户详情批准后才能用于采购/托管。</li>
+          <li><strong>手续费列</strong> — 总部开启手续费显示前不显示数字，只显示<strong>遵循总部设置</strong>。开启后显示 Gas 与平台手续费。</li>
+          <li><strong>切换默认</strong> — 仅在已批准钱包中，管理员 + OTP。</li>
+        </ul>
+        <div class="warn-box">未批准的额外钱包不能用于 USDT 采购或托管。默认地址需变更时请联系总部。</div>
+        <div class="info-box">操作员账号没有我的钱包。添加或切换请用代表管理员登录。</div>`,
+        `<span class="menu-path">กระเป๋าของฉัน</span>
+        <p>ขั้น <strong>4</strong> ที่อยู่รับสำหรับซื้อ/เอสโครว์ <strong>แอดมินร้านเท่านั้น</strong> ผู้ปฏิบัติงานเลือกกระเป๋าที่อนุมัติแล้วในหน้าสมัคร</p>
+        <ul>
+          <li><strong>กระเป๋าเริ่มต้นที่ HQ ลงทะเบียน</strong> — ร้านค้าแก้ที่อยู่หรือเครือข่ายไม่ได้</li>
+          <li><strong>กระเป๋าเพิ่ม</strong> — หลังแอดมินลงทะเบียนจะเป็น<strong>รออนุมัติ</strong> ใช้ซื้อ/เอสโครว์ได้เมื่อ HQ อนุมัติในหน้ารายละเอียดลูกค้า</li>
+          <li><strong>คอลัมน์ค่าธรรมเนียม</strong> — จนกว่า HQ จะเปิดแสดงค่าธรรมเนียม จะไม่มีตัวเลข แสดงแค่<strong>ตามการตั้งค่า HQ</strong> ถ้าเปิดจะโชว์แก๊สและค่าธรรมเนียมแพลตฟอร์ม</li>
+          <li><strong>สลับกระเป๋าหลัก</strong> — จากกระเป๋าที่อนุมัติแล้วเท่านั้น แอดมิน+OTP</li>
+        </ul>
+        <div class="warn-box">กระเป๋าเพิ่มที่ยังไม่อนุมัติใช้สมัครซื้อ USDT หรือเอสโครว์ไม่ได้ หากต้องเปลี่ยนที่อยู่หลัก ติดต่อ HQ</div>
+        <div class="info-box">บัญชีผู้ปฏิบัติงานไม่มีเมนูกระเป๋า เพิ่ม/สลับให้เข้าด้วยแอดมิน</div>`,
+      ),
+    },
+    {
       id: 'c-sim',
       title: L('USDT 시뮬레이터', 'USDT simulator', 'USDTシミュレーター', 'USDT 模拟器', 'ตัวจำลอง USDT'),
       bodyHtml: L(
@@ -1671,7 +1833,8 @@ export const CUSTOMER_MANUAL: ManualDoc = {
       title: L('USDT 매입', 'USDT purchase', 'USDT購入', 'USDT 采购', 'ซื้อ USDT'),
       bodyHtml: L(
         `<span class="menu-path">USDT 매입 → + 신규신청</span>
-        <p>업무 시작 순서의 <strong>6단계</strong>입니다. 인증패스와 지갑 등록이 끝난 뒤에 신청합니다. 희망 수령 USDT 또는 입금 금액을 입력하면 수수료·비용 도식이 표시됩니다.</p>
+        <p>목록 필터의 시작일은 <strong>1주 전</strong>, 종료일은 <strong>오늘</strong>이 기본입니다. 무역 에스크로 목록도 같습니다.</p>
+        <p>업무 시작 순서의 <strong>6단계</strong>입니다. 인증패스와 <strong>본사가 승인한 지갑</strong>이 있는 뒤에 신청합니다. 관리자·운영자 모두 신청할 수 있으며, 주요 상태 변경은 OTP 후 운영기록에 남습니다. 희망 수령 USDT 또는 입금 금액을 입력하면 수수료·비용 도식이 표시됩니다.</p>
         <ul>
           <li><strong>계좌 이체</strong> — 안내 계좌로 입금. 통화·방식은 본사 설정에 따름</li>
           <li><strong>카드 결제</strong> — 카드 정보·환불 불가 동의 후 즉시 결제</li>
@@ -1686,7 +1849,8 @@ export const CUSTOMER_MANUAL: ManualDoc = {
         티켓에 표시된 <strong>수취인명(半角カタカナ)</strong>을 「수취인명 복사」로 그대로 붙여 넣으세요. UI 언어를 한국어·영어로 바꿔도 수취인명은 일본어 원문입니다. 은행명·코드·계좌번호도 안내와 일치해야 정상 입금됩니다.</div>
         <div class="block-box">카드 결제는 완료 후 카드 취소·환불이 불가합니다. 동의 없이는 진행할 수 없습니다.</div>`,
         `<span class="menu-path">USDT → + New application</span>
-        <p><strong>Step 6.</strong> Apply after verification pass and wallet setup. Enter target USDT or deposit amount to see the fee diagram.</p>
+        <p>The list filter defaults to start <strong>1 week ago</strong> and end <strong>today</strong>. Trade escrow uses the same dates.</p>
+        <p><strong>Step 6.</strong> Apply after a verification pass and an <strong>HQ-approved wallet</strong>. Admin and operators can both apply; major status changes are OTP-gated and written to operation history. Enter target USDT or deposit amount to see the fee diagram.</p>
         <ul>
           <li><strong>Bank transfer</strong> — deposit to the shown account. Currency and method follow HQ settings</li>
           <li><strong>Card</strong> — pay immediately after card details and non-refundable waiver</li>
@@ -1701,7 +1865,8 @@ export const CUSTOMER_MANUAL: ManualDoc = {
         Use <strong>Copy beneficiary</strong> for the on-screen <strong>half-width katakana</strong> name. Changing UI language does not translate the beneficiary. Bank name, codes and account number must also match the ticket.</div>
         <div class="block-box">Card payments are non-refundable after charge. You cannot proceed without agreement.</div>`,
         `<span class="menu-path">USDT購入 → +新規申請</span>
-        <p>開始順の<strong>6</strong>です。認証パスとウォレット登録後に申請します。希望受取USDTまたは入金額を入れると手数料・費用の図式が表示されます。</p>
+        <p>一覧フィルタの開始日は<strong>1週間前</strong>、終了日は<strong>今日</strong>が既定です。貿易エスクロー一覧も同じです。</p>
+        <p>開始順の<strong>6</strong>です。認証パスと<strong>本社承認済みウォレット</strong>の後に申請します。管理者・運営者とも申請でき、主な状態変更はOTP後に運営記録へ残ります。希望受取USDTまたは入金額を入れると手数料・費用の図式が表示されます。</p>
         <ul>
           <li><strong>口座振込</strong> — 案内口座へ入金。通貨・方式は本社設定に従う</li>
           <li><strong>カード決済</strong> — カード情報・返金不可同意の後に即時決済</li>
@@ -1716,7 +1881,8 @@ export const CUSTOMER_MANUAL: ManualDoc = {
         チケットの<strong>受取人名（半角カタカナ）</strong>を「受取人名をコピー」でそのまま貼り付けてください。UI言語を変えても受取人名は日本語原文です。銀行名・コード・口座番号も案内どおりにしてください。</div>
         <div class="block-box">カード決済後の取消・返金はできません。同意なしでは進めません。</div>`,
         `<span class="menu-path">USDT 采购 → +新申请</span>
-        <p>开工顺序的<strong>第 6 步</strong>。认证通过并登记钱包后再申请。输入希望到账 USDT 或入金额后会显示手续费·费用图示。</p>
+        <p>列表筛选默认开始日为<strong>一周前</strong>、结束日为<strong>今天</strong>。贸易托管列表相同。</p>
+        <p>开工顺序的<strong>第 6 步</strong>。认证通过且有<strong>总部已批准钱包</strong>后再申请。管理员与操作员均可申请，主要状态变更需 OTP 并写入运营记录。输入希望到账 USDT 或入金额后会显示手续费·费用图示。</p>
         <ul>
           <li><strong>银行转账</strong> — 向指引账户入金。币种与方式以总部设置为准</li>
           <li><strong>卡支付</strong> — 填写卡信息并同意不可退款后立即扣款</li>
@@ -1731,7 +1897,8 @@ export const CUSTOMER_MANUAL: ManualDoc = {
         请用「复制收款人」粘贴单据上的<strong>半角片假名收款人</strong>。切换界面语言不会翻译收款人姓名。银行名、代码、账号也须与指引一致。</div>
         <div class="block-box">卡支付完成后不可取消·退款。未同意无法继续。</div>`,
         `<span class="menu-path">ซื้อ USDT → +สมัครใหม่</span>
-        <p>ขั้น <strong>6</strong> ของลำดับเริ่มงาน สมัครหลังผ่านการยืนยันและลงทะเบียนกระเป๋า ใส่ USDT ที่ต้องการรับหรือยอดฝากแล้วจะเห็นแผนภาพค่าธรรมเนียม</p>
+        <p>ตัวกรองรายการเริ่มต้นวันเริ่มเป็น<strong>1 สัปดาห์ก่อน</strong> วันสิ้นสุดเป็น<strong>วันนี้</strong> รายการเอสโครว์การค้าก็เช่นกัน</p>
+        <p>ขั้น <strong>6</strong> ของลำดับเริ่มงาน สมัครหลังผ่านการยืนยันและมี<strong>กระเป๋าที่ HQ อนุมัติ</strong> แอดมินและผู้ปฏิบัติงานสมัครได้ การเปลี่ยนสถานะสำคัญต้อง OTP และบันทึกประวัติ ใส่ USDT ที่ต้องการรับหรือยอดฝากแล้วจะเห็นแผนภาพค่าธรรมเนียม</p>
         <ul>
           <li><strong>โอนบัญชี</strong> — ฝากเข้าบัญชีที่แจ้ง สกุลและวิธีตามการตั้งค่า HQ</li>
           <li><strong>ชำระบัตร</strong> — กรอกบัตรและยอมรับไม่คืนเงินแล้วชำระทันที</li>
@@ -1864,15 +2031,122 @@ export const CUSTOMER_MANUAL: ManualDoc = {
       title: L('무역 에스크로', 'Trade escrow', '貿易エスクロー', '贸易托管', 'เอสโครว์การค้า'),
       bodyHtml: L(
         `<span class="menu-path">무역 에스크로 → + 신규 계약신청</span>
-        <p>상대방 이메일·거래 조건을 입력합니다. 상대 수락 후 계약 확정 → 에스크로 진행입니다.</p>`,
+        <p>목록 시작일은 <strong>1주 전</strong>, 종료일은 <strong>오늘</strong>이 기본입니다.</p>
+        <p>상대방 이메일·거래 조건을 입력합니다. 상대 수락 후 계약 확정 → 에스크로 진행입니다. 관리자·운영자 모두 신청할 수 있으며, 주요 상태 변경은 OTP 후 운영기록에 남습니다. 수령 지갑은 본사 승인 지갑만 사용할 수 있습니다.</p>`,
         `<span class="menu-path">Trade escrow → + New contract application</span>
-        <p>Enter counterparty email and terms. After accept & confirm, escrow proceeds.</p>`,
+        <p>The list defaults to start <strong>1 week ago</strong> and end <strong>today</strong>.</p>
+        <p>Enter counterparty email and terms. After accept & confirm, escrow proceeds. Admin and operators can both apply; major status changes are OTP-gated and logged. Use an HQ-approved wallet only.</p>`,
         `<span class="menu-path">貿易エスクロー → +新規契約申請</span>
-        <p>相手のメール・取引条件を入力します。相手の承諾後に契約確定 → エスクロー進行です。</p>`,
+        <p>一覧の開始日は<strong>1週間前</strong>、終了日は<strong>今日</strong>が既定です。</p>
+        <p>相手のメール・取引条件を入力します。相手の承諾後に契約確定 → エスクロー進行です。管理者・運営者とも申請でき、主な状態変更はOTP後に運営記録へ残ります。受取ウォレットは本社承認済みのみ使用できます。</p>`,
         `<span class="menu-path">贸易托管 → +新合同申请</span>
-        <p>输入对方邮箱与交易条件。对方接受后合同确认 → 进入托管流程。</p>`,
+        <p>列表默认开始日为<strong>一周前</strong>、结束日为<strong>今天</strong>。</p>
+        <p>输入对方邮箱与交易条件。对方接受后合同确认 → 进入托管流程。管理员与操作员均可申请，主要状态变更需 OTP 并写入运营记录。收款钱包仅可使用总部已批准钱包。</p>`,
         `<span class="menu-path">เอสโครว์การค้า → +สมัครสัญญาใหม่</span>
-        <p>กรอกอีเมลคู่สัญญาและเงื่อนไขธุรกรรม หลังอีกฝ่ายยอมรับแล้วยืนยันสัญญา → เข้าสู่เอสโครว์</p>`
+        <p>รายการเริ่มต้นวันเริ่มเป็น<strong>1 สัปดาห์ก่อน</strong> วันสิ้นสุดเป็น<strong>วันนี้</strong></p>
+        <p>กรอกอีเมลคู่สัญญาและเงื่อนไขธุรกรรม หลังอีกฝ่ายยอมรับแล้วยืนยันสัญญา → เข้าสู่เอสโครว์ แอดมินและผู้ปฏิบัติงานสมัครได้ การเปลี่ยนสถานะสำคัญต้อง OTP และบันทึกประวัติ ใช้กระเป๋าที่ HQ อนุมัติแล้วเท่านั้น</p>`
+      ),
+    },
+    {
+      id: 'c-ops',
+      title: L('사용자관리', 'Users', 'ユーザー管理', '用户管理', 'จัดการผู้ใช้'),
+      bodyHtml: L(
+        `<span class="menu-path">사용자관리</span>
+        <p>가맹점 <strong>관리자만</strong> 보입니다. 본사가 멀티 사용자를 허용한 가맹점에서 운영자를 등록·중지합니다. 목록은 OTP 없이 바로 보이며, 등록·중지·활성화 시에만 관리자 Google OTP가 필요합니다. 기존 HQ 사용자관리(조직 직원)와는 다른 화면입니다.</p>
+        <div class="flow">
+          <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">관리자로 로그인한 뒤 왼쪽 <strong>사용자관리</strong>를 엽니다. 목록이 바로 표시됩니다.</span></div>
+          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">운영자를 등록하거나 중지·활성화할 때 관리자 Google OTP 6자리를 입력합니다. 맞으면 확인 버튼을 누르지 않아도 진행됩니다. OTP는 본사 플랫폼에 설정된 시간(기본 10분) 동안 유지됩니다.</span></div>
+          <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">새 운영자는 로그인 후 본인 Google OTP를 설정합니다. 활성 운영자는 최대 2명입니다.</span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">업무를 멈추려면 OTP로 <strong>서비스 중지</strong>만 합니다. 삭제 버튼은 없습니다.</span></div>
+        </div>
+        <div class="warn-box">운영자를 삭제하거나 2명을 넘는 활성 운영자를 둘 수 없습니다. 본사가 멀티 사용자를 끄면 운영자는 로그인할 수 없습니다.</div>
+        <div class="check-box">등록·중지는 OTP 후 <strong>운영기록관리</strong>에 남습니다.</div>`,
+        `<span class="menu-path">Users</span>
+        <p><strong>Merchant admin only.</strong> Add or suspend operators when HQ has enabled multi-user. The list is visible without OTP; Google OTP is required only to register, suspend, or reactivate. This is not the HQ Users screen.</p>
+        <div class="flow">
+          <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">Sign in as admin and open <strong>Users</strong>. The list appears immediately.</span></div>
+          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">When registering, suspending, or reactivating, enter the admin Google OTP. Six correct digits proceed automatically. The OTP stays valid for the minutes set on HQ Platform (default 10).</span></div>
+          <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">The new operator sets their own Google OTP after first login. Max 2 active operators.</span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">To stop work, <strong>suspend</strong> with OTP. There is no delete button.</span></div>
+        </div>
+        <div class="warn-box">You cannot delete operators or keep more than 2 active. If HQ turns off multi-user, operators cannot sign in.</div>
+        <div class="check-box">Create and suspend actions are written to <strong>Operation history</strong> after OTP.</div>`,
+        `<span class="menu-path">ユーザー管理</span>
+        <p>加盟店<strong>管理者のみ</strong>表示されます。本社がマルチユーザーを許可した加盟店で運営者を登録・停止します。一覧はOTPなしで表示され、登録・停止・再有効時のみ管理者Google OTPが必要です。総本社のユーザー管理とは別画面です。</p>
+        <div class="flow">
+          <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">管理者でログインし、左の<strong>ユーザー管理</strong>を開く。一覧はすぐに表示されます。</span></div>
+          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">登録・停止・再有効時に管理者Google OTP 6桁を入力。正しければ確認ボタンなしで進みます。OTPは本社プラットフォームの設定時間（既定10分）維持されます。</span></div>
+          <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">新しい運営者は初回ログイン後に本人のGoogle OTPを設定。有効運営者は最大2名。</span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">業務を止めるときはOTPで<strong>停止</strong>のみ。削除ボタンはありません。</span></div>
+        </div>
+        <div class="warn-box">運営者の削除や3名以上の有効運営者はできません。本社がマルチユーザーをOFFにすると運営者はログインできません。</div>
+        <div class="check-box">登録・停止はOTP後に<strong>運営記録管理</strong>へ残ります。</div>`,
+        `<span class="menu-path">用户管理</span>
+        <p><strong>仅加盟商管理员</strong>可见。总部已允许多用户时登记或停用运营者。列表无需 OTP 即可查看，仅在登记、停用或重新启用时需要管理员 Google OTP。与总部用户管理不是同一页。</p>
+        <div class="flow">
+          <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">以管理员登录后打开左侧<strong>用户管理</strong>。列表立即显示。</span></div>
+          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">登记、停用或重新启用时输入管理员 Google OTP。6 位正确即自动继续。OTP 按总部平台设定时间（默认 10 分钟）保持。</span></div>
+          <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">新运营者首次登录后设置本人 Google OTP。启用中的运营者最多 2 名。</span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">停止工作时用 OTP <strong>停用</strong>。没有删除按钮。</span></div>
+        </div>
+        <div class="warn-box">不能删除运营者，也不能有超过 2 名启用中的运营者。总部关闭多用户后运营者无法登录。</div>
+        <div class="check-box">登记与停用会在 OTP 后写入<strong>运营记录</strong>。</div>`,
+        `<span class="menu-path">จัดการผู้ใช้</span>
+        <p><strong>แอดมินร้านเท่านั้น</strong> เพิ่มหรือหยุดผู้ปฏิบัติงานเมื่อ HQ เปิดหลายผู้ใช้ ดูรายการได้โดยไม่ต้อง OTP ต้องใช้ Google OTP ของผู้ดูแลเฉพาะตอนลงทะเบียน หยุด หรือเปิดใช้อีกครั้ง ไม่ใช่หน้า Users ของ HQ</p>
+        <div class="flow">
+          <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">เข้าด้วยแอดมินแล้วเปิด<strong>จัดการผู้ใช้</strong> รายการแสดงทันที</span></div>
+          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">ตอนลงทะเบียน หยุด หรือเปิดใช้ ให้กรอก Google OTP 6 หลักของผู้ดูแล ถูกละดำเนินการอัตโนมัติ OTP คงอยู่ตามนาทีที่ตั้งในแพลตฟอร์ม HQ (ค่าเริ่ม 10)</span></div>
+          <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">ผู้ปฏิบัติงานใหม่ตั้ง Google OTP ของตนเองหลังเข้าสู่ระบบครั้งแรก ผู้ปฏิบัติงานที่เปิดใช้ได้สูงสุด 2 คน</span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">ถ้าจะหยุดงาน ให้<strong>ระงับ</strong>ด้วย OTP ไม่มีปุ่มลบ</span></div>
+        </div>
+        <div class="warn-box">ลบผู้ปฏิบัติงานไม่ได้ และเปิดใช้เกิน 2 คนไม่ได้ ถ้า HQ ปิดหลายผู้ใช้ ผู้ปฏิบัติงานเข้าสู่ระบบไม่ได้</div>
+        <div class="check-box">การสร้าง/ระงับบันทึกใน<strong>ประวัติการดำเนินงาน</strong>หลัง OTP</div>`,
+      ),
+    },
+    {
+      id: 'c-hist',
+      title: L('운영기록관리', 'Operation history', '運営記録管理', '运营记录', 'ประวัติการดำเนินงาน'),
+      bodyHtml: L(
+        `<span class="menu-path">운영기록관리</span>
+        <p>왼쪽 메뉴에서 <strong>이용메뉴얼 위</strong>에 있습니다. 관리자·운영자가 주요 업무를 Google OTP로 처리한 뒤 남는 기록입니다.</p>
+        <ul>
+          <li>기록 범위(1차): 운영자 등록·중지, USDT 신청·주요 상태 변경, 에스크로 신청·주요 상태 변경</li>
+          <li>가맹점(관리자·운영자)은 <strong>조회만</strong> 가능합니다. 삭제 버튼이 없습니다.</li>
+          <li>기록 삭제는 <strong>총본사만</strong> 할 수 있습니다.</li>
+        </ul>
+        <div class="warn-box">가맹점 관리자도 운영기록을 지울 수 없습니다. 잘못된 기록은 총본사에 요청하세요.</div>`,
+        `<span class="menu-path">Operation history</span>
+        <p>In the left menu, this item sits <strong>above Usage manuals</strong>. It records major work after Google OTP.</p>
+        <ul>
+          <li>First scope: operator create/suspend, USDT apply and major status changes, escrow apply and major status changes</li>
+          <li>Merchant admin and operators can <strong>view only</strong>. No delete button.</li>
+          <li>Only <strong>HQ Super Admin</strong> can delete a log.</li>
+        </ul>
+        <div class="warn-box">Even the merchant admin cannot erase operation history. Ask HQ if a log must be removed.</div>`,
+        `<span class="menu-path">運営記録管理</span>
+        <p>左メニューの<strong>利用マニュアルの上</strong>にあります。管理者・運営者が主要業務をGoogle OTPで処理した後に残る記録です。</p>
+        <ul>
+          <li>対象(一次): 運営者の登録・停止、USDT申請・主な状態変更、エスクロー申請・主な状態変更</li>
+          <li>加盟店(管理者・運営者)は<strong>閲覧のみ</strong>。削除ボタンはありません。</li>
+          <li>記録の削除は<strong>総本社のみ</strong>可能です。</li>
+        </ul>
+        <div class="warn-box">加盟店管理者も運営記録を消せません。削除が必要な場合は総本社へ依頼してください。</div>`,
+        `<span class="menu-path">运营记录</span>
+        <p>在左侧菜单中位于<strong>使用手册上方</strong>。管理员与操作员用 Google OTP 完成主要业务后留下的记录。</p>
+        <ul>
+          <li>第一期范围：操作员登记/停用、USDT 申请与主要状态变更、托管申请与主要状态变更</li>
+          <li>加盟商(管理员、操作员)仅可<strong>查看</strong>，无删除按钮。</li>
+          <li>仅<strong>总部超级管理员</strong>可删除记录。</li>
+        </ul>
+        <div class="warn-box">加盟商管理员也不能删除运营记录。需删除时请联系总部。</div>`,
+        `<span class="menu-path">ประวัติการดำเนินงาน</span>
+        <p>อยู่ในเมนูซ้าย<strong>เหนือคู่มือใช้งาน</strong> บันทึกงานสำคัญหลัง Google OTP ของแอดมินและผู้ปฏิบัติงาน</p>
+        <ul>
+          <li>ขอบเขตระยะแรก: สร้าง/ระงับผู้ปฏิบัติงาน สมัคร USDT และการเปลี่ยนสถานะสำคัญ สมัครเอสโครว์และการเปลี่ยนสถานะสำคัญ</li>
+          <li>ร้านค้า (แอดมินและผู้ปฏิบัติงาน) <strong>ดูได้อย่างเดียว</strong> ไม่มีปุ่มลบ</li>
+          <li>ลบบันทึกได้เฉพาะ<strong>ผู้ดูแล HQ</strong></li>
+        </ul>
+        <div class="warn-box">แม้แอดมินร้านก็ลบประวัติไม่ได้ หากต้องลบ ให้ขอ HQ</div>`,
       ),
     },
     {
@@ -1880,7 +2154,11 @@ export const CUSTOMER_MANUAL: ManualDoc = {
       title: L('FAQ', 'FAQ', 'FAQ', '常见问题', 'คำถามที่พบบ่อย'),
       bodyHtml: L(
         `<div class="faq-item"><div class="faq-q">카드 버튼이 회색입니다.</div><div class="faq-a">현재 카드 결제가 비활성입니다. 계좌 이체를 이용하거나 운영자에게 문의하세요.</div></div>
-        <div class="faq-item"><div class="faq-q">USDT·에스크로를 신청할 수 없습니다.</div><div class="faq-a">인증센터에서 서류를 제출하고 총본사 인증패스를 기다리세요. 반려이면 사유를 보고 다시 올리세요.</div></div>
+        <div class="faq-item"><div class="faq-q">USDT·에스크로를 신청할 수 없습니다.</div><div class="faq-a">인증센터에서 서류를 제출하고 총본사 인증패스를 기다리세요. 반려이면 사유를 보고 다시 올리세요. 본사가 승인한 지갑도 필요합니다.</div></div>
+        <div class="faq-item"><div class="faq-q">지갑 주소를 바꿀 수 없습니다.</div><div class="faq-a">본사가 등록한 기본 지갑은 가맹점이 주소·네트워크를 바꿀 수 없습니다. 추가 지갑은 내 지갑에서 등록한 뒤 본사 승인을 기다리세요. 기본 지갑은 승인된 지갑 중에서만 전환합니다.</div></div>
+        <div class="faq-item"><div class="faq-q">내 지갑·사용자관리 메뉴가 없습니다.</div><div class="faq-a">운영자 계정이면 정상입니다. 지갑 추가·운영자 등록은 대표 관리자만 할 수 있습니다. 관리자인데 사용자관리가 없으면 본사에 멀티 사용자 허용을 요청하세요.</div></div>
+        <div class="faq-item"><div class="faq-q">운영자를 더 만들 수 없습니다.</div><div class="faq-a">활성 운영자는 최대 2명입니다. 삭제는 없고 서비스 중지(비활성)만 됩니다. 중지된 자리도 총 2명 한도에 포함될 수 있습니다.</div></div>
+        <div class="faq-item"><div class="faq-q">운영기록을 지울 수 없습니다.</div><div class="faq-a">가맹점 관리자·운영자는 조회만 가능합니다. 삭제는 총본사만 할 수 있습니다.</div></div>
         <div class="faq-item"><div class="faq-q">시뮬레이터에 결과가 안 남습니다.</div><div class="faq-a">네트워크를 선택하고 금액을 입력하세요. 이 화면은 최근 3건, 대시보드는 2건입니다.</div></div>
         <div class="faq-item"><div class="faq-q">시뮬레이터와 실제 매입 금액이 다릅니다.</div><div class="faq-a">시뮬레이터는 참고용입니다. 환율·수수료 변동으로 실제 신청·입금 시점과 다를 수 있습니다.</div></div>
         <div class="faq-item"><div class="faq-q">예상 USDT와 실제가 다릅니다.</div><div class="faq-a">환율·가스비 변동으로 범위 내 차이가 날 수 있습니다.</div></div>
@@ -1888,9 +2166,16 @@ export const CUSTOMER_MANUAL: ManualDoc = {
         <div class="faq-item"><div class="faq-q">JPY인데 증빙 업로드 칸이 없습니다.</div><div class="faq-a">가상계좌서비스(CURFEX)가 켜져 있으면 정상입니다. 안내 계좌로 입금만 하면 시스템이 자동 확인합니다.</div></div>
         <div class="faq-item"><div class="faq-q">입금했는데 상태가 안 바뀝니다.</div><div class="faq-a">가상계좌서비스(CURFEX) 건은 「입금 상태 확인」을 누르거나 잠시 기다리세요. 전용계좌는 증빙을 업로드해야 합니다.</div></div>
         <div class="faq-item"><div class="faq-q">USDT가 「심사중」인데 무엇을 기다리나요?</div><div class="faq-a">USDT 매입은 <strong>입금확인중</strong>·<strong>결제확인중</strong>으로 표시됩니다. <strong>심사중</strong>은 인증센터(KYC) 서류 심사 전용입니다. USDT 상세의 「증빙 파일」에서 입금 영수증·자금 원천 증빙을 확인하세요.</div></div>
-        <div class="faq-item"><div class="faq-q">입금 영수증이 상세에 없습니다.</div><div class="faq-a">전용계좌 이체 후 고객이 입금 증빙을 업로드해야 「증빙 파일」에 표시됩니다. 첨부가 없어도 섹션은 항상 보이며, 테스트 데이터는 별도 안내가 나옵니다.</div></div>`,
+        <div class="faq-item"><div class="faq-q">입금 영수증이 상세에 없습니다.</div><div class="faq-a">전용계좌 이체 후 고객이 입금 증빙을 업로드해야 「증빙 파일」에 표시됩니다. 첨부가 없어도 섹션은 항상 보이며, 테스트 데이터는 별도 안내가 나옵니다.</div></div>
+        <div class="faq-item"><div class="faq-q">내 지갑 수수료에 숫자가 없고 「본사설정에따름」입니다.</div><div class="faq-a">본사가 수수료 노출을 켠 가맹점만 가스·플랫폼 수수료가 보입니다. 기본은 비활성입니다. 숫자가 필요하면 본사에 요청하세요.</div></div>
+        <div class="faq-item"><div class="faq-q">사용자관리에서 OTP 6자리를 넣었는데 확인을 눌러야 하나요?</div><div class="faq-a">맞으면 확인 버튼을 누르지 않아도 진행됩니다. 목록 조회는 OTP가 없고, 등록·중지·활성화만 OTP입니다.</div></div>
+        <div class="faq-item"><div class="faq-q">USDT 목록의 날짜가 오늘만 안 나옵니다.</div><div class="faq-a">시작일은 <strong>1주 전</strong>, 종료일은 <strong>오늘</strong>이 기본입니다. 기간을 바꿔 조회하세요. 무역 에스크로 목록도 같습니다.</div></div>`,
         `<div class="faq-item"><div class="faq-q">Card button is gray.</div><div class="faq-a">Card pay is disabled; use bank transfer or contact support.</div></div>
-        <div class="faq-item"><div class="faq-q">Cannot apply for USDT or escrow.</div><div class="faq-a">Submit files in Verification and wait for HQ verification pass. If rejected, resubmit after reading the reason.</div></div>
+        <div class="faq-item"><div class="faq-q">Cannot apply for USDT or escrow.</div><div class="faq-a">Submit files in Verification and wait for HQ verification pass. If rejected, resubmit after reading the reason. You also need an HQ-approved wallet.</div></div>
+        <div class="faq-item"><div class="faq-q">I cannot change the wallet address.</div><div class="faq-a">HQ-registered default wallets cannot have their address or network changed. Add an extra wallet in My wallets and wait for HQ approval. The default can only switch among approved wallets.</div></div>
+        <div class="faq-item"><div class="faq-q">I do not see Wallets or Users.</div><div class="faq-a">Normal for operator accounts. Only the admin can add wallets or operators. If you are the admin and Users is missing, ask HQ to enable multi-user.</div></div>
+        <div class="faq-item"><div class="faq-q">I cannot add another operator.</div><div class="faq-a">At most 2 operators. There is no delete — only suspend. Inactive operators may still count toward the cap of 2.</div></div>
+        <div class="faq-item"><div class="faq-q">I cannot delete operation history.</div><div class="faq-a">Merchant admin and operators can view only. Only HQ Super Admin can delete logs.</div></div>
         <div class="faq-item"><div class="faq-q">Simulator results disappear.</div><div class="faq-a">Select a network and enter an amount. The page keeps 3 runs; the dashboard shows 2.</div></div>
         <div class="faq-item"><div class="faq-q">Simulator differs from my purchase.</div><div class="faq-a">The simulator is reference only. Rates and fees may change before you apply or deposit.</div></div>
         <div class="faq-item"><div class="faq-q">Received USDT differs.</div><div class="faq-a">Rate/gas variance may apply within the shown range.</div></div>
@@ -1898,9 +2183,16 @@ export const CUSTOMER_MANUAL: ManualDoc = {
         <div class="faq-item"><div class="faq-q">No proof upload for JPY.</div><div class="faq-a">Normal when Virtual Account Service (CURFEX) is on — deposit to the shown account only.</div></div>
         <div class="faq-item"><div class="faq-q">Deposited but status unchanged.</div><div class="faq-a">Virtual Account Service (CURFEX): tap “Check deposit status” or wait. Fixed account: upload proof.</div></div>
         <div class="faq-item"><div class="faq-q">USDT shows “Under review” — what am I waiting for?</div><div class="faq-a">USDT purchases use <strong>Deposit verifying</strong> or <strong>Payment verifying</strong>. <strong>Under review</strong> is for Verification (KYC) only. Check the Attachments section on the USDT detail for deposit receipt and source-of-funds files.</div></div>
-        <div class="faq-item"><div class="faq-q">No deposit receipt on the detail page.</div><div class="faq-a">For fixed accounts, the customer must upload deposit proof after transfer. The Attachments section is always shown; test-seed tickets without real uploads display a separate notice.</div></div>`,
+        <div class="faq-item"><div class="faq-q">No deposit receipt on the detail page.</div><div class="faq-a">For fixed accounts, the customer must upload deposit proof after transfer. The Attachments section is always shown; test-seed tickets without real uploads display a separate notice.</div></div>
+        <div class="faq-item"><div class="faq-q">My wallets fee column shows Follow HQ settings, not amounts.</div><div class="faq-a">Gas and platform fees appear only after HQ turns on Fee display. The default is Inactive. Ask HQ if you need the numbers.</div></div>
+        <div class="faq-item"><div class="faq-q">Must I tap Verify after entering 6 OTP digits on Users?</div><div class="faq-a">No — a correct code proceeds automatically. The list is visible without OTP; OTP is only for register, suspend, and reactivate.</div></div>
+        <div class="faq-item"><div class="faq-q">USDT list dates are not “today only”.</div><div class="faq-a">Default is start <strong>1 week ago</strong> through end <strong>today</strong>. Change the range as needed. Trade escrow uses the same default.</div></div>`,
         `<div class="faq-item"><div class="faq-q">カードボタンが灰色です。</div><div class="faq-a">現在カード決済が無効です。口座振込を使うか運営者に問い合わせてください。</div></div>
-        <div class="faq-item"><div class="faq-q">USDT・エスクローを申請できません。</div><div class="faq-a">認証センターで書類を提出し、総本社の認証パスを待ってください。差戻しなら理由を見て再提出してください。</div></div>
+        <div class="faq-item"><div class="faq-q">USDT・エスクローを申請できません。</div><div class="faq-a">認証センターで書類を提出し、総本社の認証パスを待ってください。差戻しなら理由を見て再提出してください。本社承認済みウォレットも必要です。</div></div>
+        <div class="faq-item"><div class="faq-q">ウォレットアドレスを変更できません。</div><div class="faq-a">本社登録の既定ウォレットは加盟店がアドレス・ネットワークを変更できません。追加はマイウォレットで登録後、本社承認を待ってください。既定は承認済みの中からのみ切替です。</div></div>
+        <div class="faq-item"><div class="faq-q">マイウォレット・ユーザー管理が見えません。</div><div class="faq-a">運営者アカウントなら正常です。ウォレット追加・運営者登録は代表管理者のみです。管理者なのにユーザー管理がない場合は、本社にマルチユーザー許可を依頼してください。</div></div>
+        <div class="faq-item"><div class="faq-q">運営者をこれ以上作れません。</div><div class="faq-a">有効運営者は最大2名です。削除はなく停止のみです。停止済みも2名上限に含まれることがあります。</div></div>
+        <div class="faq-item"><div class="faq-q">運営記録を消せません。</div><div class="faq-a">加盟店の管理者・運営者は閲覧のみです。削除は総本社のみです。</div></div>
         <div class="faq-item"><div class="faq-q">シミュレーターに結果が残りません。</div><div class="faq-a">ネットワークを選び金額を入力してください。この画面は直近3件、ダッシュボードは2件です。</div></div>
         <div class="faq-item"><div class="faq-q">シミュレーターと実際の購入金額が違います。</div><div class="faq-a">シミュレーターは参考用です。為替・手数料の変動で実際の申請・入金時点と異なることがあります。</div></div>
         <div class="faq-item"><div class="faq-q">予想USDTと実際が違います。</div><div class="faq-a">為替・ガス費の変動で表示範囲内の差が出ることがあります。</div></div>
@@ -1908,9 +2200,16 @@ export const CUSTOMER_MANUAL: ManualDoc = {
         <div class="faq-item"><div class="faq-q">JPYなのに証憑アップロード欄がありません。</div><div class="faq-a">バーチャル口座サービス(CURFEX)がONなら正常です。案内口座へ入金するだけでシステムが自動確認します。</div></div>
         <div class="faq-item"><div class="faq-q">入金したのに状態が変わりません。</div><div class="faq-a">バーチャル口座サービス(CURFEX)件は「入金状態を確認」を押すか少し待ってください。固定口座は証憑アップロードが必要です。</div></div>
         <div class="faq-item"><div class="faq-q">USDTが「審査中」ですが何を待ちますか？</div><div class="faq-a">USDT購入は<strong>入金確認中</strong>・<strong>決済確認中</strong>と表示されます。<strong>審査中</strong>は認証センター(KYC)の書類審査専用です。USDT詳細の「証憑ファイル」で入金領収書・資金源証憑を確認してください。</div></div>
-        <div class="faq-item"><div class="faq-q">詳細に入金領収書がありません。</div><div class="faq-a">固定口座振込後、顧客が入金証憑をアップロードすると「証憑ファイル」に表示されます。添付がなくても欄は常に表示され、テストデータは別途案内されます。</div></div>`,
+        <div class="faq-item"><div class="faq-q">詳細に入金領収書がありません。</div><div class="faq-a">固定口座振込後、顧客が入金証憑をアップロードすると「証憑ファイル」に表示されます。添付がなくても欄は常に表示され、テストデータは別途案内されます。</div></div>
+        <div class="faq-item"><div class="faq-q">マイウォレット手数料が数字ではなく「本社設定に従う」です。</div><div class="faq-a">本社が手数料表示をONにした加盟店だけガス・プラットフォーム手数料が見えます。既定はOFFです。数字が必要なら本社へ依頼してください。</div></div>
+        <div class="faq-item"><div class="faq-q">ユーザー管理でOTP 6桁を入れたあと確認を押す必要がありますか？</div><div class="faq-a">正しければ確認ボタンなしで進みます。一覧照会にOTPは不要で、登録・停止・再有効のみOTPです。</div></div>
+        <div class="faq-item"><div class="faq-q">USDT一覧の日付が今日だけではありません。</div><div class="faq-a">開始は<strong>1週間前</strong>、終了は<strong>今日</strong>が既定です。期間を変えて照会してください。貿易エスクローも同じです。</div></div>`,
         `<div class="faq-item"><div class="faq-q">卡按钮是灰色。</div><div class="faq-a">当前卡支付未启用。请用银行转账或联系运营。</div></div>
-        <div class="faq-item"><div class="faq-q">无法申请 USDT 或托管。</div><div class="faq-a">请在认证中心提交文件并等待总部认证通过。若被退回，请查看原因后重新提交。</div></div>
+        <div class="faq-item"><div class="faq-q">无法申请 USDT 或托管。</div><div class="faq-a">请在认证中心提交文件并等待总部认证通过。若被退回，请查看原因后重新提交。还需要总部已批准的钱包。</div></div>
+        <div class="faq-item"><div class="faq-q">无法修改钱包地址。</div><div class="faq-a">总部登记的默认钱包，加盟商不能改地址或网络。额外钱包请在我的钱包登记后等待总部批准。默认钱包只能在已批准钱包中切换。</div></div>
+        <div class="faq-item"><div class="faq-q">没有我的钱包或用户管理菜单。</div><div class="faq-a">操作员账号属正常。添加钱包或操作员仅代表管理员可做。若您是管理员却没有用户管理，请向总部开启多用户。</div></div>
+        <div class="faq-item"><div class="faq-q">无法再添加操作员。</div><div class="faq-a">启用中的操作员最多 2 名。不可删除，仅可停用。已停用的也可能计入 2 名上限。</div></div>
+        <div class="faq-item"><div class="faq-q">无法删除运营记录。</div><div class="faq-a">加盟商管理员与操作员仅可查看。仅总部可删除。</div></div>
         <div class="faq-item"><div class="faq-q">模拟器没有留下结果。</div><div class="faq-a">请选择网络并输入金额。本页最多 3 条，仪表盘显示 2 条。</div></div>
         <div class="faq-item"><div class="faq-q">模拟器与实际采购金额不同。</div><div class="faq-a">模拟器仅供参考。汇率·手续费变动可能导致与实际申请·入金时点不同。</div></div>
         <div class="faq-item"><div class="faq-q">预计 USDT 与实际不同。</div><div class="faq-a">汇率·燃气费波动可能在显示范围内产生差异。</div></div>
@@ -1918,9 +2217,16 @@ export const CUSTOMER_MANUAL: ManualDoc = {
         <div class="faq-item"><div class="faq-q">JPY 却没有凭证上传栏。</div><div class="faq-a">开启虚拟账户服务(CURFEX) 时属正常。只需向指引账户入金，系统会自动确认。</div></div>
         <div class="faq-item"><div class="faq-q">已入金但状态未变。</div><div class="faq-a">虚拟账户服务(CURFEX) 单请点「检查入金状态」或稍候。固定账户须上传凭证。</div></div>
         <div class="faq-item"><div class="faq-q">USDT 显示「审核中」是在等什么？</div><div class="faq-a">USDT 采购显示<strong>入金确认中</strong>或<strong>支付确认中</strong>。<strong>审核中</strong>仅用于认证中心(KYC) 文件审核。请在 USDT 详情的「凭证文件」查看入金回单与资金来源证明。</div></div>
-        <div class="faq-item"><div class="faq-q">详情里没有入金回单。</div><div class="faq-a">固定账户转账后，客户须上传入金凭证才会出现在「凭证文件」。即使无附件该区域也会显示；测试数据会单独说明。</div></div>`,
+        <div class="faq-item"><div class="faq-q">详情里没有入金回单。</div><div class="faq-a">固定账户转账后，客户须上传入金凭证才会出现在「凭证文件」。即使无附件该区域也会显示；测试数据会单独说明。</div></div>
+        <div class="faq-item"><div class="faq-q">我的钱包手续费没有数字，只显示遵循总部设置。</div><div class="faq-a">仅当总部开启手续费显示时才看到 Gas 与平台手续费。默认为停用。需要数字请向总部申请。</div></div>
+        <div class="faq-item"><div class="faq-q">用户管理输入 OTP 6 位后还要点确认吗？</div><div class="faq-a">正确则无需点确认。查看列表不需要 OTP，仅登记、停用、重新启用需要 OTP。</div></div>
+        <div class="faq-item"><div class="faq-q">USDT 列表日期不是只有今天。</div><div class="faq-a">默认开始为<strong>一周前</strong>、结束为<strong>今天</strong>。可改期间再查。贸易托管相同。</div></div>`,
         `<div class="faq-item"><div class="faq-q">ปุ่มบัตรเป็นสีเทา</div><div class="faq-a">ตอนนี้ปิดชำระบัตรอยู่ ใช้โอนบัญชีหรือติดต่อผู้ดูแล</div></div>
-        <div class="faq-item"><div class="faq-q">สมัคร USDT หรือเอสโครว์ไม่ได้</div><div class="faq-a">ส่งเอกสารที่ศูนย์ยืนยันแล้วรอ HQ ให้ผ่าน หากถูกปฏิเสธ อ่านเหตุผลแล้วส่งใหม่</div></div>
+        <div class="faq-item"><div class="faq-q">สมัคร USDT หรือเอสโครว์ไม่ได้</div><div class="faq-a">ส่งเอกสารที่ศูนย์ยืนยันแล้วรอ HQ ให้ผ่าน หากถูกปฏิเสธ อ่านเหตุผลแล้วส่งใหม่ ต้องมีกระเป๋าที่ HQ อนุมัติด้วย</div></div>
+        <div class="faq-item"><div class="faq-q">เปลี่ยนที่อยู่กระเป๋าไม่ได้</div><div class="faq-a">กระเป๋าเริ่มต้นที่ HQ ลงทะเบียน ร้านค้าแก้ที่อยู่หรือเครือข่ายไม่ได้ กระเป๋าเพิ่มให้ลงที่กระเป๋าของฉันแล้วรอ HQ อนุมัติ สลับกระเป๋าหลักได้เฉพาะที่อนุมัติแล้ว</div></div>
+        <div class="faq-item"><div class="faq-q">ไม่มีเมนูกระเป๋าหรือจัดการผู้ใช้</div><div class="faq-a">บัญชีผู้ปฏิบัติงานเป็นเรื่องปกติ เพิ่มกระเป๋า/ผู้ปฏิบัติงานได้เฉพาะแอดมิน หากเป็นแอดมินแต่ไม่มีเมนู ให้ขอ HQ เปิดหลายผู้ใช้</div></div>
+        <div class="faq-item"><div class="faq-q">เพิ่มผู้ปฏิบัติงานอีกไม่ได้</div><div class="faq-a">ผู้ปฏิบัติงานที่เปิดใช้ได้สูงสุด 2 คน ลบไม่ได้ หยุดได้เท่านั้น รายการที่หยุดแล้วอาจนับในโควตา 2 คน</div></div>
+        <div class="faq-item"><div class="faq-q">ลบประวัติการดำเนินงานไม่ได้</div><div class="faq-a">แอดมินและผู้ปฏิบัติงานร้านดูได้อย่างเดียว ลบได้เฉพาะ HQ</div></div>
         <div class="faq-item"><div class="faq-q">ตัวจำลองไม่เก็บผล</div><div class="faq-a">เลือกเครือข่ายแล้วใส่จำนวน หน้านี้เก็บ 3 รายการ แดชบอร์ดโชว์ 2</div></div>
         <div class="faq-item"><div class="faq-q">ตัวจำลองกับยอดซื้อจริงไม่ตรง</div><div class="faq-a">ตัวจำลองเป็นข้อมูลอ้างอิง เรท·ค่าธรรมเนียมอาจเปลี่ยนก่อนสมัครหรือฝากจริง</div></div>
         <div class="faq-item"><div class="faq-q">USDT ที่คาดกับที่ได้จริงต่างกัน</div><div class="faq-a">เรท·ค่าแก๊สอาจต่างได้ภายในช่วงที่แสดง</div></div>
@@ -1928,7 +2234,10 @@ export const CUSTOMER_MANUAL: ManualDoc = {
         <div class="faq-item"><div class="faq-q">JPY แต่ไม่มีช่องอัปโหลดหลักฐาน</div><div class="faq-a">ปกติเมื่อบริการบัญชีเสมือน(CURFEX) เปิด ฝากเข้าบัญชีที่แจ้งอย่างเดียว ระบบยืนยันอัตโนมัติ</div></div>
         <div class="faq-item"><div class="faq-q">ฝากแล้วแต่สถานะไม่เปลี่ยน</div><div class="faq-a">ตั๋วบริการบัญชีเสมือน(CURFEX) กด「ตรวจสถานะฝาก」หรือรอสักครู่ บัญชีคงที่ต้องอัปโหลดหลักฐาน</div></div>
         <div class="faq-item"><div class="faq-q">USDT แสดง「กำลังตรวจสอบ」 รออะไร?</div><div class="faq-a">การซื้อ USDT ใช้<strong>กำลังตรวจสอบการฝาก</strong>หรือ<strong>กำลังตรวจสอบการชำระ</strong> <strong>กำลังตรวจสอบ</strong>ใช้กับศูนย์ยืนยัน(KYC) เท่านั้น ดูสลิปฝากและแหล่งเงินที่「ไฟล์หลักฐาน」ในหน้ารายละเอียด USDT</div></div>
-        <div class="faq-item"><div class="faq-q">ไม่มีสลิปฝากในหน้ารายละเอียด</div><div class="faq-a">บัญชีคงที่ ลูกค้าต้องอัปโหลดหลักฐานหลังโอน จึงจะแสดงใน「ไฟล์หลักฐาน」 แม้ไม่มีไฟล์ส่วนนี้ยังแสดงเสมอ ข้อมูลทดสอบจะมีคำอธิบายแยก</div></div>`
+        <div class="faq-item"><div class="faq-q">ไม่มีสลิปฝากในหน้ารายละเอียด</div><div class="faq-a">บัญชีคงที่ ลูกค้าต้องอัปโหลดหลักฐานหลังโอน จึงจะแสดงใน「ไฟล์หลักฐาน」 แม้ไม่มีไฟล์ส่วนนี้ยังแสดงเสมอ ข้อมูลทดสอบจะมีคำอธิบายแยก</div></div>
+        <div class="faq-item"><div class="faq-q">คอลัมน์ค่าธรรมเนียมกระเป๋าไม่โชว์ตัวเลข มีแค่ตามการตั้งค่า HQ</div><div class="faq-a">จะเห็นแก๊สและค่าธรรมเนียมแพลตฟอร์มเมื่อ HQ เปิดแสดงค่าธรรมเนียม ค่าเริ่มคือปิด หากต้องการตัวเลขให้ขอ HQ</div></div>
+        <div class="faq-item"><div class="faq-q">ที่จัดการผู้ใช้กรอก OTP 6 หลักแล้วต้องกดยืนยันไหม</div><div class="faq-a">ถูกละไม่ต้องกดยืนยัน ดูรายการไม่ต้อง OTP ต้อง OTP เฉพาะตอนลงทะเบียน หยุด และเปิดใช้อีกครั้ง</div></div>
+        <div class="faq-item"><div class="faq-q">วันที่ในรายการ USDT ไม่ใช่วันนี้เท่านั้น</div><div class="faq-a">ค่าเริ่มวันเริ่มเป็น<strong>1 สัปดาห์ก่อน</strong> วันสิ้นสุดเป็น<strong>วันนี้</strong> เปลี่ยนช่วงแล้วค้นได้ เอสโครว์การค้าก็เช่นกัน</div></div>`
       ),
     },
   ],

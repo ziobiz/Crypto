@@ -1,7 +1,8 @@
-import { Prisma, TicketType, UsdtPaymentMethod, UsdtPurchaseStatus, UserRole } from '@prisma/client';
+import { Prisma, TicketType, UsdtPaymentMethod, UsdtPurchaseStatus, UserRole, WalletApprovalStatus } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { AppError, isAppError } from '../lib/errors';
 import { AuthUser } from '../types/auth';
+import { isMerchantSide, merchantScopeUserId } from '../lib/merchant-role';
 import {
   calculateExpectedUsdtRange,
   fetchUsdtFiatRate,
@@ -246,8 +247,9 @@ export async function previewUsdtTransactionFees(
   const wallet = await prisma.wallet.findFirst({
     where: {
       id: input.walletId,
-      userId: user.id,
+      userId: merchantScopeUserId(user),
       isActive: true,
+      approvalStatus: WalletApprovalStatus.APPROVED,
     },
   });
 
@@ -456,10 +458,10 @@ export async function createUsdtPurchaseTicket(
     walletId: string;
   },
 ) {
-  if (user.role !== UserRole.CUSTOMER || !user.customerProfileId) {
+  if (!isMerchantSide(user) || !user.customerProfileId) {
     throw new AppError(403, 'Only customers can create purchase tickets', 'FORBIDDEN');
   }
-  await assertCustomerKycApproved(user.id);
+  await assertCustomerKycApproved(merchantScopeUserId(user));
 
   if (!input.fiatAmount && !input.targetUsdtAmount) {
     throw new AppError(400, 'fiatAmount or targetUsdtAmount is required', 'VALIDATION');
@@ -468,8 +470,9 @@ export async function createUsdtPurchaseTicket(
   const wallet = await prisma.wallet.findFirst({
     where: {
       id: input.walletId,
-      userId: user.id,
+      userId: merchantScopeUserId(user),
       isActive: true,
+      approvalStatus: WalletApprovalStatus.APPROVED,
     },
   });
 
@@ -642,6 +645,17 @@ export async function createUsdtPurchaseTicket(
       where: { id: created.id },
       include: USDT_PURCHASE_INCLUDE,
     });
+  });
+
+  const { recordMerchantOperation } = await import('./merchant-operation-log.service');
+  await recordMerchantOperation({
+    actorId: user.id,
+    merchantAdminUserId: merchantScopeUserId(user),
+    action: 'USDT_CREATE',
+    entityType: 'TransactionTicket',
+    entityId: ticket.id,
+    summary: `USDT purchase ${ticket.ticketNo}`,
+    otpVerified: false,
   });
 
   return serializeTicket(ticket, (await getWorkflowDisplay()).sla);
@@ -906,9 +920,9 @@ export async function transitionUsdtPurchaseStatus(
 export async function getUsdtDepositContext(user: AuthUser) {
   const [receivingAccounts, registeredBank, curfexCfg, currencyTrade] = await Promise.all([
     hqPolicyService.getDepositReceivingAccounts(),
-    user.role === UserRole.CUSTOMER
+    user.role === UserRole.CUSTOMER || user.role === UserRole.CUSTOMER_OPERATOR
       ? prisma.bankAccount.findFirst({
-          where: { userId: user.id, isActive: true, isDefault: true },
+          where: { userId: merchantScopeUserId(user), isActive: true, isDefault: true },
         })
       : Promise.resolve(null),
     getCurfexConfig(),

@@ -34,7 +34,7 @@ import { asyncHandler } from '../middleware/asyncHandler';
 import { authenticate } from '../middleware/auth';
 import { hqPolicyService } from '../services/hq-policy.service';
 import { findUserByLoginEmail } from '../services/user-lookup.service';
-import { isCostAnalysisRole } from '../constants/hq-admin';
+import { canIssueSensitiveOtp } from '../constants/hq-admin';
 
 const router = Router();
 
@@ -341,7 +341,7 @@ router.post(
   '/step-up/otp',
   authenticate,
   asyncHandler(async (req, res) => {
-    if (!isCostAnalysisRole(req.user!.role)) {
+    if (!canIssueSensitiveOtp(req.user!.role)) {
       throw new AppError(403, 'Forbidden', 'FORBIDDEN');
     }
     const code = String((req.body as { code?: string }).code ?? '').trim();
@@ -352,7 +352,10 @@ router.post(
     if (!verifyTotpCode(user.totpSecret, code)) {
       throw new AppError(401, 'Invalid OTP code', 'INVALID_OTP');
     }
-    res.json({ sensitiveToken: signStepUpToken(user.id) });
+    const cfg = await getEmailOtpConfig();
+    res.json({
+      sensitiveToken: signStepUpToken(user.id, cfg.sensitiveOtpExpireMinutes ?? 10),
+    });
   }),
 );
 
@@ -360,8 +363,9 @@ router.get(
   '/me',
   authenticate,
   asyncHandler(async (req, res) => {
+    const auth = req.user!;
     const user = await prisma.user.findUnique({
-      where: { id: req.user!.id },
+      where: { id: auth.id },
       include: {
         organization: { select: { id: true, name: true, type: true, path: true } },
         customerProfile: {
@@ -378,30 +382,75 @@ router.get(
       throw new AppError(404, 'User not found', 'NOT_FOUND');
     }
 
+    const isOperator = user.role === UserRole.CUSTOMER_OPERATOR;
+    const scopeUserId = isOperator ? (auth.merchantAdminUserId ?? user.merchantAdminUserId) : user.id;
+
+    let customerProfile = user.customerProfile;
+    let kycStatus = user.kyc?.status ?? (user.role === 'CUSTOMER' ? 'NOT_SUBMITTED' : 'APPROVED');
+    let simulatorEnabled = user.customerProfile?.simulatorEnabled;
+    if (isOperator && scopeUserId) {
+      const admin = await prisma.user.findUnique({
+        where: { id: scopeUserId },
+        include: {
+          customerProfile: {
+            include: { recruitingOrg: { select: { id: true, name: true, code: true } } },
+          },
+          kyc: { select: { status: true } },
+        },
+      });
+      customerProfile = admin?.customerProfile ?? null;
+      kycStatus = admin?.kyc?.status ?? 'NOT_SUBMITTED';
+      simulatorEnabled = admin?.customerProfile?.simulatorEnabled;
+    }
+
+    const operatorsEnabled = auth.operatorsEnabled === true;
+    const wallets = isOperator
+      ? (
+          await prisma.wallet.findMany({
+            where: {
+              userId: scopeUserId!,
+              isActive: true,
+              approvalStatus: 'APPROVED',
+            },
+            orderBy: { isDefault: 'desc' },
+          })
+        ).map((w) => ({
+          ...w,
+          fxFeePercent: Number(w.fxFeePercent),
+          gasFeeAmount: Number(w.gasFeeAmount),
+          transferFeeAmount: Number(w.transferFeeAmount),
+          otherFeeAmount: Number(w.otherFeeAmount),
+          platformFeeAmount: Number(w.platformFeeAmount),
+        }))
+      : user.wallets.map((w) => ({
+          ...w,
+          fxFeePercent: Number(w.fxFeePercent),
+          gasFeeAmount: Number(w.gasFeeAmount),
+          transferFeeAmount: Number(w.transferFeeAmount),
+          otherFeeAmount: Number(w.otherFeeAmount),
+          platformFeeAmount: Number(w.platformFeeAmount),
+        }));
+
     res.json({
       id: user.id,
       email: user.email,
       name: user.name,
       role: user.role,
       organization: user.organization,
-      customerProfile: user.customerProfile,
+      customerProfile,
       totpEnabled: user.totpEnabled,
       passwordMustChange: user.passwordMustChange,
+      merchantAdminUserId: auth.merchantAdminUserId,
+      operatorsEnabled,
       sessionPolicy: await hqPolicyService.getSessionPolicy(),
       pageAccess: await hqPolicyService.getPageAccessForUser({
         role: user.role,
         organizationType: user.organization?.type ?? null,
-        simulatorEnabled: user.customerProfile?.simulatorEnabled,
+        simulatorEnabled,
+        operatorsEnabled,
       }),
-      kycStatus: user.kyc?.status ?? (user.role === 'CUSTOMER' ? 'NOT_SUBMITTED' : 'APPROVED'),
-      wallets: user.wallets.map((w) => ({
-        ...w,
-        fxFeePercent: Number(w.fxFeePercent),
-        gasFeeAmount: Number(w.gasFeeAmount),
-        transferFeeAmount: Number(w.transferFeeAmount),
-        otherFeeAmount: Number(w.otherFeeAmount),
-        platformFeeAmount: Number(w.platformFeeAmount),
-      })),
+      kycStatus,
+      wallets,
     });
   }),
 );
@@ -504,6 +553,8 @@ router.post(
             address: data.walletAddress.trim(),
             network: data.walletNetwork?.trim() || 'TRC20',
             isDefault: true,
+            hqRegistered: true,
+            approvalStatus: 'APPROVED',
             fxFeePercent: hqFees.fxFeePercent,
             gasFeeAmount: 0,
             transferFeeAmount: hqFees.transferFeeUsdt,
@@ -621,7 +672,10 @@ router.get(
       return;
     }
 
-    if (user.role === UserRole.CUSTOMER && user.customerProfileId) {
+    if (
+      (user.role === UserRole.CUSTOMER || user.role === UserRole.CUSTOMER_OPERATOR) &&
+      user.customerProfileId
+    ) {
       const [usdtTickets, escrowTickets, wallets, usdtCompleted, escrowCompleted] = await Promise.all([
         prisma.transactionTicket.count({
           where: { customerId: user.customerProfileId, type: 'USDT_PURCHASE' },
@@ -630,12 +684,17 @@ router.get(
           where: {
             OR: [
               { customerId: user.customerProfileId, type: 'TRADE_ESCROW' },
-              { tradeEscrow: { buyerId: user.id } },
-              { tradeEscrow: { sellerId: user.id } },
+              { tradeEscrow: { buyerId: user.merchantAdminUserId ?? user.id } },
+              { tradeEscrow: { sellerId: user.merchantAdminUserId ?? user.id } },
             ],
           },
         }),
-        prisma.wallet.count({ where: { userId: user.id, isActive: true } }),
+        prisma.wallet.count({
+          where: {
+            userId: user.role === UserRole.CUSTOMER_OPERATOR ? '__none__' : user.id,
+            isActive: true,
+          },
+        }),
         prisma.usdtPurchaseDetail.count({
           where: {
             ticket: { customerId: user.customerProfileId },
@@ -647,8 +706,8 @@ router.get(
             status: TradeEscrowStatus.ESCROW_COMPLETED,
             OR: [
               { ticket: { customerId: user.customerProfileId } },
-              { buyerId: user.id },
-              { sellerId: user.id },
+              { buyerId: user.merchantAdminUserId ?? user.id },
+              { sellerId: user.merchantAdminUserId ?? user.id },
             ],
           },
         }),

@@ -34,9 +34,10 @@ export function signOtpToken(userId: string): string {
   });
 }
 
-export function signStepUpToken(userId: string): string {
+export function signStepUpToken(userId: string, expiresMinutes = 10): string {
+  const minutes = Math.min(60, Math.max(1, Math.round(Number(expiresMinutes) || 10)));
   return jwt.sign({ sub: userId, purpose: 'step_up', method: 'totp' }, JWT_SECRET, {
-    expiresIn: '30m',
+    expiresIn: `${minutes}m` as SignOptions['expiresIn'],
   });
 }
 

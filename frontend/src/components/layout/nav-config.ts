@@ -56,6 +56,20 @@ const MANUAL_ITEM: NavItem = {
   icon: 'manuals',
 };
 
+const MERCHANT_USERS_ITEM: NavItem = {
+  href: '/dashboard/merchant-users',
+  labelKey: 'nav.merchantUsers',
+  shortKey: 'nav.short.merchantUsers',
+  icon: 'users',
+};
+
+const OPERATION_HISTORY_ITEM: NavItem = {
+  href: '/dashboard/operation-history',
+  labelKey: 'nav.operationHistory',
+  shortKey: 'nav.short.operationHistory',
+  icon: 'ledger',
+};
+
 export const NAV_ITEMS: Record<string, NavItem[]> = {
   SUPER_ADMIN: [
     { href: '/dashboard', labelKey: 'nav.dashboard', shortKey: 'nav.short.dashboard', icon: 'dashboard' },
@@ -70,6 +84,7 @@ export const NAV_ITEMS: Record<string, NavItem[]> = {
     SIMULATOR_LOGS_ITEM,
     COST_ITEM,
     PROFIT_ITEM,
+    OPERATION_HISTORY_ITEM,
     MANUAL_ITEM,
   ],
   ORG_STAFF: [
@@ -111,6 +126,17 @@ export const NAV_ITEMS: Record<string, NavItem[]> = {
     { href: '/dashboard/escrow', labelKey: 'nav.escrow', shortKey: 'nav.short.escrow', icon: 'escrow' },
     { href: '/dashboard/kyc', labelKey: 'nav.kyc', shortKey: 'nav.short.kyc', icon: 'kyc' },
     { href: '/dashboard/wallets', labelKey: 'nav.wallets', shortKey: 'nav.short.wallets', icon: 'wallets' },
+    MERCHANT_USERS_ITEM,
+    OPERATION_HISTORY_ITEM,
+    MANUAL_ITEM,
+  ],
+  CUSTOMER_OPERATOR: [
+    { href: '/dashboard', labelKey: 'nav.dashboard', shortKey: 'nav.short.dashboard', icon: 'dashboard' },
+    SIMULATOR_ITEM,
+    { href: '/dashboard/usdt', labelKey: 'nav.usdt', shortKey: 'nav.short.usdt', icon: 'usdt' },
+    { href: '/dashboard/escrow', labelKey: 'nav.escrow', shortKey: 'nav.short.escrow', icon: 'escrow' },
+    { href: '/dashboard/kyc', labelKey: 'nav.kyc', shortKey: 'nav.short.kyc', icon: 'kyc' },
+    OPERATION_HISTORY_ITEM,
     MANUAL_ITEM,
   ],
 };

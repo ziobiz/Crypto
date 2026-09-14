@@ -9,6 +9,8 @@ export type PageMeta = {
   titleKey: MessageKey;
   /** Linkable ancestor crumbs (current page title is separate, not linked). */
   trail: BreadcrumbCrumb[];
+  /** Hide the left page title when the right-side breadcrumb already names this page. */
+  hideTitle?: boolean;
 };
 
 type RouteRule = {
@@ -186,6 +188,8 @@ const RULES: RouteRule[] = [
   { test: (p) => p.startsWith('/dashboard/organizations'), meta: { titleKey: 'nav.orgs', trail: [] } },
   { test: (p) => p.startsWith('/dashboard/users'), meta: { titleKey: 'nav.users', trail: [] } },
   { test: (p) => p.startsWith('/dashboard/wallets'), meta: { titleKey: 'nav.wallets', trail: [] } },
+  { test: (p) => p.startsWith('/dashboard/merchant-users'), meta: { titleKey: 'nav.merchantUsers', trail: [] } },
+  { test: (p) => p.startsWith('/dashboard/operation-history'), meta: { titleKey: 'nav.operationHistory', trail: [] } },
   { test: (p) => p.startsWith('/dashboard/org-fees'), meta: { titleKey: 'nav.orgFees', trail: [] } },
 ];
 

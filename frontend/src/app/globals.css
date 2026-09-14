@@ -440,6 +440,11 @@
   .pg-table th {
     @apply font-medium;
     color: var(--shell-content-text-muted);
+    font-size: 13px;
+  }
+
+  .pg-table th button {
+    font-size: 13px;
   }
 
   .pg-table td {
@@ -1027,19 +1032,36 @@
     min-width: 0;
   }
 
-  /* 본사설정 select = 새로고침/정렬 버튼과 동일 높이·패딩 */
+  /* 본사설정 select = 새로고침/내림차순과 동일 박스. 글자가 길면 폰트만 축소 */
+  .pg-tx-filter .pg-btn,
   .pg-tx-filter select.pg-tx-hq-select {
     box-sizing: border-box;
-    width: auto;
-    min-width: 0;
-    min-height: 0;
-    height: 1.875rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 1.75rem;
+    min-height: 1.75rem;
     margin: 0;
-    padding: 0.375rem 0.625rem;
+    padding: 0 0.625rem;
     font-size: 13px;
     font-weight: 500;
     line-height: 1;
     vertical-align: middle;
+  }
+
+  .pg-tx-filter select.pg-tx-hq-select {
+    width: auto;
+    min-width: 0;
+    appearance: none;
+    -webkit-appearance: none;
+    font-size: 11px;
+    padding-right: 1.15rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23475569' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.35rem center;
+    background-size: 0.5rem 0.35rem;
+    cursor: pointer;
+    white-space: nowrap;
   }
 
   /* 고객 UI: 사이드 메뉴·페이지 제목·표 헤더를 USDT 매입(13px)과 동일 크기 */
@@ -1047,10 +1069,6 @@
   html[data-customer-app] .pg-frame-title,
   html[data-customer-app] .pg-frame-path,
   html[data-customer-app] .pg-tab {
-    font-size: 13px;
-  }
-
-  html[data-customer-app] .pg-table {
     font-size: 13px;
   }
 
@@ -1092,6 +1110,18 @@
       font-size: 14px;
     }
 
+    html[data-customer-app] .pg-tx-filter .pg-btn,
+    html[data-customer-app] .pg-tx-filter select.pg-tx-hq-select {
+      min-height: 44px;
+      height: 44px;
+      padding: 0 0.625rem;
+      font-size: 13px;
+    }
+
+    html[data-customer-app] .pg-tx-filter select.pg-tx-hq-select {
+      font-size: 11px;
+    }
+
     html[data-customer-app] .pg-input,
     html[data-customer-app] .pg-select,
     html[data-customer-app] .pg-textarea {
@@ -1101,10 +1131,6 @@
 
     html[data-customer-app] .pg-table-wrap {
       -webkit-overflow-scrolling: touch;
-    }
-
-    html[data-customer-app] .pg-table {
-      font-size: 13px;
     }
 
     html[data-customer-app] .pg-table th,

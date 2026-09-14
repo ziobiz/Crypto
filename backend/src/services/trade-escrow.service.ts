@@ -9,6 +9,7 @@ import {
 import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
 import { AuthUser } from '../types/auth';
+import { isMerchantSide, merchantScopeUserId } from '../lib/merchant-role';
 import { previewCommissionPool, settleCommission } from './commission.service';
 import { getWorkflowDisplay } from './workflow-display.service';
 import { assertCustomerKycApproved } from './kyc.service';
@@ -175,7 +176,7 @@ export async function lookupEscrowMember(email: string) {
 }
 
 export async function previewEscrowFees(user: AuthUser, amount: number, currency: EscrowCurrency) {
-  if (user.role !== UserRole.CUSTOMER || !user.customerProfileId) {
+  if (!isMerchantSide(user) || !user.customerProfileId) {
     throw new AppError(403, 'Only customers can preview escrow fees', 'FORBIDDEN');
   }
   const customer = await prisma.customerProfile.findUnique({
@@ -217,10 +218,11 @@ export async function createTradeEscrowTicket(
     retryParentTicketId?: string;
   },
 ) {
-  if (user.role !== UserRole.CUSTOMER || !user.customerProfileId) {
+  if (!isMerchantSide(user) || !user.customerProfileId) {
     throw new AppError(403, 'Only customers can create escrow tickets', 'FORBIDDEN');
   }
-  await assertCustomerKycApproved(user.id);
+  const ownerId = merchantScopeUserId(user);
+  await assertCustomerKycApproved(ownerId);
   if (!input.disclaimerAccepted) {
     throw new AppError(400, 'Disclaimer must be accepted', 'VALIDATION_ERROR');
   }
@@ -229,13 +231,13 @@ export async function createTradeEscrowTicket(
   if (!counterparty) {
     throw new AppError(404, 'Counterparty must be a registered member', 'NOT_FOUND');
   }
-  if (counterparty.id === user.id) {
+  if (counterparty.id === ownerId) {
     throw new AppError(400, 'Buyer and seller must be different', 'VALIDATION_ERROR');
   }
   await assertCustomerKycApproved(counterparty.id);
 
-  const buyerId = input.myRole === 'BUYER' ? user.id : counterparty.id;
-  const sellerId = input.myRole === 'SELLER' ? user.id : counterparty.id;
+  const buyerId = input.myRole === 'BUYER' ? ownerId : counterparty.id;
+  const sellerId = input.myRole === 'SELLER' ? ownerId : counterparty.id;
   const now = new Date();
   const acceptanceDeadlineAt = acceptanceDeadlineKst(now);
 
@@ -327,6 +329,17 @@ export async function createTradeEscrowTicket(
       where: { id: created.id },
       include: ESCROW_INCLUDE,
     });
+  });
+
+  const { recordMerchantOperation } = await import('./merchant-operation-log.service');
+  await recordMerchantOperation({
+    actorId: user.id,
+    merchantAdminUserId: merchantScopeUserId(user),
+    action: 'ESCROW_CREATE',
+    entityType: 'TransactionTicket',
+    entityId: ticket.id,
+    summary: `Trade escrow ${ticket.ticketNo}`,
+    otpVerified: false,
   });
 
   return serializeEscrowTicket(ticket, (await getWorkflowDisplay()).sla);
@@ -577,9 +590,9 @@ export async function getEscrowDepositContext(user: AuthUser, ticketId: string) 
       : null;
 
   let registeredBank = null;
-  if (user.role === UserRole.CUSTOMER) {
+  if (user.role === UserRole.CUSTOMER || user.role === UserRole.CUSTOMER_OPERATOR) {
     const bank = await prisma.bankAccount.findFirst({
-      where: { userId: user.id, isActive: true, isDefault: true },
+      where: { userId: merchantScopeUserId(user), isActive: true, isDefault: true },
     });
     if (bank) {
       registeredBank = {

@@ -20,3 +20,8 @@ export function isStaffManagerRole(role: string): boolean {
 export function isCostAnalysisRole(role: string): boolean {
   return role === 'SUPER_ADMIN' || role === 'ORGANIZER';
 }
+
+/** 민감작업 step-up OTP: 본사 분석 메뉴 + 가맹점 관리자(지갑·사용자관리) */
+export function canIssueSensitiveOtp(role: string): boolean {
+  return isCostAnalysisRole(role) || role === 'CUSTOMER';
+}

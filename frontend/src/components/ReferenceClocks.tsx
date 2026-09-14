@@ -104,7 +104,7 @@ export function ServiceCountrySelect({
   const t = useT();
   return (
     <select
-      className="pg-select border-sky-300 text-[11px] text-sky-900"
+      className="pg-btn pg-btn-secondary pg-tx-hq-select shrink-0 cursor-pointer whitespace-nowrap"
       value={value}
       onChange={(e) => onChange(e.target.value as ServiceCountryKey)}
       title={t('filter.hqSettings')}

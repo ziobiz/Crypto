@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { z } from 'zod';
-import { AttachmentPurpose, UsdtPurchaseStatus, UserRole } from '@prisma/client';
+import { AttachmentPurpose, UsdtPurchaseStatus } from '@prisma/client';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { authenticate, requireRoles } from '../middleware/auth';
+import { MERCHANT_TRADE_ROLES } from '../lib/merchant-role';
 import {
   getAllExchangeRatesDisplay,
   getExchangeRateDisplay,
@@ -124,7 +125,7 @@ router.get(
 
 router.get(
   '/card-context',
-  requireRoles(UserRole.CUSTOMER),
+  requireRoles(...MERCHANT_TRADE_ROLES),
   asyncHandler(async (req, res) => {
     res.json(await getUsdtCardPaymentContext(req.user!));
   }),
@@ -132,7 +133,7 @@ router.get(
 
 router.get(
   '/fees',
-  requireRoles(UserRole.CUSTOMER),
+  requireRoles(...MERCHANT_TRADE_ROLES),
   asyncHandler(async (req, res) => {
     const currency = (req.query.currency as FiatCurrency) || 'JPY';
     const walletId = String(req.query.walletId ?? '');
@@ -218,7 +219,7 @@ const createSchema = z
 
 router.post(
   '/',
-  requireRoles(UserRole.CUSTOMER),
+  requireRoles(...MERCHANT_TRADE_ROLES),
   asyncHandler(async (req, res) => {
     const body = createSchema.parse(req.body);
     if (body.paymentMethod === 'CARD') {
@@ -321,7 +322,7 @@ const depositProofSchema = z.object({
 
 router.post(
   '/:id/deposit-proof',
-  requireRoles(UserRole.CUSTOMER),
+  requireRoles(...MERCHANT_TRADE_ROLES),
   upload.single('file'),
   asyncHandler(async (req, res) => {
     if (!req.file) {
@@ -375,7 +376,7 @@ router.post(
 
 router.post(
   '/:id/application-docs',
-  requireRoles(UserRole.CUSTOMER),
+  requireRoles(...MERCHANT_TRADE_ROLES),
   applicationDocUpload.fields([
     { name: 'sourceOfFunds', maxCount: 10 },
     { name: 'depositReceipt', maxCount: 5 },

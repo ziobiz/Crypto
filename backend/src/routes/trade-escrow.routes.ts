@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { z } from 'zod';
-import { AttachmentPurpose, TradeEscrowStatus, UserRole } from '@prisma/client';
+import { AttachmentPurpose, TradeEscrowStatus } from '@prisma/client';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { authenticate, requireRoles } from '../middleware/auth';
+import { MERCHANT_TRADE_ROLES } from '../lib/merchant-role';
 import {
   ESCROW_CURRENCIES,
   acceptEscrowParty,
@@ -53,7 +54,7 @@ router.get(
 
 router.get(
   '/preview-fees',
-  requireRoles(UserRole.CUSTOMER),
+  requireRoles(...MERCHANT_TRADE_ROLES),
   asyncHandler(async (req, res) => {
     const amount = z.coerce.number().positive().parse(req.query.amount);
     const currency = currencySchema.parse(req.query.currency ?? 'KRW');
@@ -84,7 +85,7 @@ router.get(
 
 router.post(
   '/',
-  requireRoles(UserRole.CUSTOMER),
+  requireRoles(...MERCHANT_TRADE_ROLES),
   asyncHandler(async (req, res) => {
     const schema = z.object({
       counterpartyEmail: z.string().email(),
@@ -115,7 +116,7 @@ router.post(
 
 router.post(
   '/:id/accept',
-  requireRoles(UserRole.CUSTOMER),
+  requireRoles(...MERCHANT_TRADE_ROLES),
   asyncHandler(async (req, res) => {
     const { disclaimerAccepted } = z.object({ disclaimerAccepted: z.literal(true) }).parse(req.body);
     res.json(await acceptEscrowParty(req.user!, req.params.id, { disclaimerAccepted }));
@@ -124,7 +125,7 @@ router.post(
 
 router.post(
   '/:id/reject',
-  requireRoles(UserRole.CUSTOMER),
+  requireRoles(...MERCHANT_TRADE_ROLES),
   asyncHandler(async (req, res) => {
     const reason = z.object({ reason: z.string().optional() }).parse(req.body).reason;
     res.json(await rejectEscrowParty(req.user!, req.params.id, reason));
@@ -140,7 +141,7 @@ router.post(
 
 router.post(
   '/:id/start-shipping',
-  requireRoles(UserRole.CUSTOMER),
+  requireRoles(...MERCHANT_TRADE_ROLES),
   upload.single('file'),
   asyncHandler(async (req, res) => {
     const ticketId = req.params.id;
@@ -154,7 +155,7 @@ router.post(
 
 router.post(
   '/:id/buyer-approval',
-  requireRoles(UserRole.CUSTOMER),
+  requireRoles(...MERCHANT_TRADE_ROLES),
   asyncHandler(async (req, res) => {
     const body = z.object({ sellerPayoutAccount: z.string().optional() }).parse(req.body ?? {});
     res.json(await approveEscrowReceipt(req.user!, req.params.id, body));
@@ -184,7 +185,7 @@ router.patch(
 
 router.post(
   '/:id/buyer-deposit-proof',
-  requireRoles(UserRole.CUSTOMER),
+  requireRoles(...MERCHANT_TRADE_ROLES),
   upload.single('file'),
   asyncHandler(async (req, res) => {
     if (!req.file) throw new AppError(400, 'File is required', 'VALIDATION_ERROR');
@@ -217,10 +218,10 @@ router.post(
 );
 
 // 레거시 호환
-router.post('/:id/seller-accept', requireRoles(UserRole.CUSTOMER), asyncHandler(async (req, res) => {
+router.post('/:id/seller-accept', requireRoles(...MERCHANT_TRADE_ROLES), asyncHandler(async (req, res) => {
   res.json(await acceptEscrowParty(req.user!, req.params.id, { disclaimerAccepted: true }));
 }));
-router.post('/:id/seller-reject', requireRoles(UserRole.CUSTOMER), asyncHandler(async (req, res) => {
+router.post('/:id/seller-reject', requireRoles(...MERCHANT_TRADE_ROLES), asyncHandler(async (req, res) => {
   const reason = z.object({ reason: z.string().optional() }).parse(req.body).reason;
   res.json(await rejectEscrowParty(req.user!, req.params.id, reason));
 }));

@@ -43,6 +43,7 @@ const emptyCreate: CreateUserInput = {
   usdtFeeTypeCode: '',
   tradeFeeTypeCode: '',
   feeBillingMethod: 'FOLLOW_HQ',
+  operatorsEnabled: false,
 };
 
 function kycBadgeClass(status?: string | null): string {
@@ -166,6 +167,7 @@ export default function CustomersPage() {
         simulatorEnabled: detail.customerProfile?.simulatorEnabled !== false,
         simulatorRateMode: detail.customerProfile?.simulatorRateMode ?? 'LIVE',
         feeBillingMethod: detail.customerProfile?.feeBillingMethod ?? 'FOLLOW_HQ',
+        operatorsEnabled: detail.customerProfile?.operatorsEnabled === true,
       });
       setInitialIsActive(detail.isActive);
       setNewPassword('');
@@ -341,6 +343,8 @@ export default function CustomersPage() {
               <th>{t('users.col.status')}</th>
               <th>{t('customers.col.sRate')}</th>
               <th>{t('customers.col.simulator')}</th>
+              <th>{t('customers.col.multi')}</th>
+              <th>{t('customers.col.fees')}</th>
               <th>{t('customers.col.kyc')}</th>
               <th>{t('customers.col.feeType')}</th>
               <th>{t('customers.col.billingMethod')}</th>
@@ -350,13 +354,13 @@ export default function CustomersPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={11} className="pg-empty">
+                <td colSpan={13} className="pg-empty">
                   {t('common.loading')}
                 </td>
               </tr>
             ) : users.length === 0 ? (
               <tr>
-                <td colSpan={11} className="pg-empty">
+                <td colSpan={13} className="pg-empty">
                   {t('customers.empty')}
                 </td>
               </tr>
@@ -408,8 +412,34 @@ export default function CustomersPage() {
                       }`}
                     >
                       {u.customerProfile?.simulatorEnabled !== false
-                        ? t('customers.simulator.on')
-                        : t('customers.simulator.off')}
+                        ? t('users.active')
+                        : t('users.inactive')}
+                    </span>
+                  </td>
+                  <td>
+                    <span
+                      className={`pg-badge ${
+                        u.customerProfile?.operatorsEnabled === true
+                          ? 'pg-badge-success'
+                          : 'pg-badge-muted'
+                      }`}
+                    >
+                      {u.customerProfile?.operatorsEnabled === true
+                        ? t('users.active')
+                        : t('users.inactive')}
+                    </span>
+                  </td>
+                  <td>
+                    <span
+                      className={`pg-badge ${
+                        u.customerProfile?.walletFeesVisible === true
+                          ? 'pg-badge-success'
+                          : 'pg-badge-muted'
+                      }`}
+                    >
+                      {u.customerProfile?.walletFeesVisible === true
+                        ? t('users.active')
+                        : t('users.inactive')}
                     </span>
                   </td>
                   <td>
@@ -650,6 +680,20 @@ export default function CustomersPage() {
                     </span>
                   </span>
                 </label>
+                <label className="mt-3 flex items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={form.operatorsEnabled === true}
+                    onChange={(e) => setForm({ ...form, operatorsEnabled: e.target.checked })}
+                  />
+                  <span>
+                    <span className="font-medium">{t('customers.operators.enable')}</span>
+                    <span className="mt-0.5 block text-xs text-slate-500">
+                      {t('customers.operators.hint')}
+                    </span>
+                  </span>
+                </label>
                 <label className="mt-3 block text-sm">
                   <span className="pg-field-label">{t('customers.sRate.title')}</span>
                   <div className="mt-1.5 flex flex-wrap items-center gap-3">
@@ -816,6 +860,14 @@ export default function CustomersPage() {
                     onChange={(e) => setEditForm({ ...editForm, simulatorEnabled: e.target.checked })}
                   />
                   {t('customers.simulator.enable')}
+                </label>
+                <label className="mt-2 flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={editForm.operatorsEnabled === true}
+                    onChange={(e) => setEditForm({ ...editForm, operatorsEnabled: e.target.checked })}
+                  />
+                  {t('customers.operators.enable')}
                 </label>
                 <label className="pg-field mt-2">
                   <span className="pg-field-label">{t('customers.sRate.title')}</span>

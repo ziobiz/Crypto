@@ -2,6 +2,7 @@ import { Prisma, TicketType, UserRole } from '@prisma/client';
 import { AuthUser } from '../types/auth';
 import { AppError } from '../lib/errors';
 import { prisma } from '../lib/prisma';
+import { isMerchantSide, merchantScopeUserId } from '../lib/merchant-role';
 
 /** 티켓 접근 가능 여부 */
 export async function assertTicketAccess(user: AuthUser, ticketId: string): Promise<void> {
@@ -26,11 +27,15 @@ export async function assertTicketAccess(user: AuthUser, ticketId: string): Prom
 
   if (user.role === UserRole.SUPER_ADMIN || user.role === UserRole.ORGANIZER) return;
 
-  if (user.role === UserRole.CUSTOMER) {
-    const isOwner = ticket.customer.userId === user.id;
+  if (isMerchantSide(user)) {
+    const ownerId = merchantScopeUserId(user);
+    const isOwner = ticket.customer.userId === ownerId;
     const isEscrowParty =
       ticket.tradeEscrow &&
-      (ticket.tradeEscrow.buyerId === user.id || ticket.tradeEscrow.sellerId === user.id);
+      (ticket.tradeEscrow.buyerId === ownerId ||
+        ticket.tradeEscrow.sellerId === ownerId ||
+        ticket.tradeEscrow.buyerId === user.id ||
+        ticket.tradeEscrow.sellerId === user.id);
     if (!isOwner && !isEscrowParty) {
       throw new AppError(403, 'Access denied', 'FORBIDDEN');
     }
@@ -59,14 +64,17 @@ export function buildTicketListFilter(user: AuthUser, type?: TicketType): Prisma
     return typeFilter;
   }
 
-  if (user.role === UserRole.CUSTOMER) {
+  if (isMerchantSide(user)) {
     if (!user.customerProfileId) {
       throw new AppError(403, 'Customer profile required', 'FORBIDDEN');
     }
+    const ownerId = merchantScopeUserId(user);
     return {
       ...typeFilter,
       OR: [
         { customerId: user.customerProfileId },
+        { tradeEscrow: { buyerId: ownerId } },
+        { tradeEscrow: { sellerId: ownerId } },
         { tradeEscrow: { buyerId: user.id } },
         { tradeEscrow: { sellerId: user.id } },
       ],
@@ -99,9 +107,9 @@ export function canOperateUsdtTicket(user: AuthUser): boolean {
 }
 
 export function isEscrowBuyer(user: AuthUser, buyerId: string): boolean {
-  return user.id === buyerId;
+  return user.id === buyerId || merchantScopeUserId(user) === buyerId;
 }
 
 export function isEscrowSeller(user: AuthUser, sellerId: string): boolean {
-  return user.id === sellerId;
+  return user.id === sellerId || merchantScopeUserId(user) === sellerId;
 }

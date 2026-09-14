@@ -28,6 +28,8 @@ export const HQ_PAGE_CATALOG = [
   { path: '/dashboard/escrow', label: '무역 에스크로', group: '업무' },
   { path: '/dashboard/ledger', label: '수수료 장부', group: '업무' },
   { path: '/dashboard/wallets', label: '내 지갑', group: '업무' },
+  { path: '/dashboard/merchant-users', label: '가맹점 사용자관리', group: '업무' },
+  { path: '/dashboard/operation-history', label: '운영기록관리', group: '업무' },
   { path: '/dashboard/kyc', label: '인증센터', group: '업무' },
   { path: '/dashboard/users', label: '사용자관리', group: '사용자관리' },
   { path: '/dashboard/customers', label: '고객관리', group: '사용자관리' },
@@ -797,6 +799,8 @@ export type HqEmailOtpConfig = {
   otpForHeadOffice: boolean;
   otpForMasterDistributor: boolean;
   otpExpireMinutes: number;
+  /** 민감작업(step-up) Google OTP 유지 시간. 기본 10분, 1~60 */
+  sensitiveOtpExpireMinutes: number;
   otpEmailSubject: string;
   otpEmailBody: string;
   smtpHost: string;

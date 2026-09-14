@@ -28,9 +28,16 @@ enum OrgType {
 enum UserRole {
   SUPER_ADMIN       // 총본사 관리자
   ORG_STAFF         // 일반관리자 (본사~영업점)
-  CUSTOMER          // 고객
+  CUSTOMER          // 고객(가맹점 관리자)
+  CUSTOMER_OPERATOR // 가맹점 운영자 (관리자가 생성, 최대 2명)
   ORGANIZER         // Organizer — 원가·수익 분석 (총본사 admin만 부여)
   SETTLEMENT_ADMIN  // 정산관리자
+}
+
+enum WalletApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum CustomerType {
@@ -216,6 +223,11 @@ model User {
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id])
 
+  /// 가맹점 운영자 → 대표 관리자(CUSTOMER) user id
+  merchantAdminUserId String?
+  merchantAdmin       User?   @relation("MerchantOperators", fields: [merchantAdminUserId], references: [id])
+  merchantOperators   User[]  @relation("MerchantOperators")
+
   customerProfile CustomerProfile?
   wallets         Wallet[]
   bankAccounts    BankAccount[]
@@ -235,11 +247,14 @@ model User {
   reviewedKyc    CustomerKyc[] @relation("KycReviewedBy")
   simulatorRuns  SimulatorRun[]
   costAnalyses   CostAnalysis[]
+  merchantOpLogsAsActor MerchantOperationLog[] @relation("MerchantOpActor")
+  merchantOpLogsAsAdmin MerchantOperationLog[] @relation("MerchantOpAdmin")
 
   @@index([organizationId])
   @@index([role])
   @@index([deletedAt])
   @@index([purgeAt])
+  @@index([merchantAdminUserId])
   @@map("users")
 }
 
@@ -285,6 +300,11 @@ model CustomerProfile {
   simulatorRateMode SimulatorRateMode @default(LIVE)
   /// 수수료 청구방식 — FOLLOW_HQ면 본사 기본(INTEGRATED/ITEMIZED/HYBRID)
   feeBillingMethod FeeBillingMethod @default(FOLLOW_HQ)
+
+  /// 본사 허용 시에만 관리자 1 + 운영자 2 멀티계정 활성화
+  operatorsEnabled Boolean @default(false)
+  /// 가맹점 「내 지갑」 수수료 숫자 노출. false(비활성)면 「본사설정에따름」만 표시
+  walletFeesVisible Boolean @default(false)
 
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -420,6 +440,9 @@ model Wallet {
   network   String  @default("TRC20") // TRC20, ERC20 등
   isDefault Boolean @default(false)
   isActive  Boolean @default(true)
+  /// 본사 가맹점 등록 시 넣은 기본 지갑 (가맹점이 주소 변경 불가)
+  hqRegistered Boolean @default(false)
+  approvalStatus WalletApprovalStatus @default(APPROVED)
 
   // 거래 통화 수수료 (티켓 생성 시 스냅샷으로 복사)
   fxFeePercent      Decimal @default(0) @db.Decimal(5, 4)
@@ -799,6 +822,31 @@ enum AdminChangeAction {
   CREATE
   UPDATE
   DELETE
+}
+
+/// 가맹점(관리자·운영자) 업무 이력 — 총본사만 삭제 가능
+model MerchantOperationLog {
+  id                  String   @id @default(cuid())
+  actorId             String
+  actor               User     @relation("MerchantOpActor", fields: [actorId], references: [id])
+  merchantAdminUserId String
+  merchantAdmin       User     @relation("MerchantOpAdmin", fields: [merchantAdminUserId], references: [id])
+  action              String
+  entityType          String
+  entityId            String?
+  summary             String
+  before              Json?
+  after               Json?
+  otpVerified         Boolean  @default(true)
+  ipAddress           String?
+  userAgent           String?
+  createdAt           DateTime @default(now())
+
+  @@index([merchantAdminUserId, createdAt])
+  @@index([actorId])
+  @@index([entityType])
+  @@index([createdAt])
+  @@map("merchant_operation_logs")
 }
 
 model AdminChangeLog {

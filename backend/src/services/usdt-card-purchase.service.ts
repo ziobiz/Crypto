@@ -9,6 +9,8 @@ import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
 import { buildFeeSnapshotFields } from '../lib/fee-component';
 import { AuthUser } from '../types/auth';
+import { isMerchantSide, merchantScopeUserId } from '../lib/merchant-role';
+import { WalletApprovalStatus } from '@prisma/client';
 import {
   calculateExpectedUsdtRange,
   fetchUsdtFiatRate,
@@ -51,9 +53,9 @@ export async function getUsdtCardPaymentContext(user: AuthUser) {
     hqPolicyService.getUsdtCurrencyTradePolicy(),
   ]);
   const dbUser =
-    user.role === UserRole.CUSTOMER
+    user.role === UserRole.CUSTOMER || user.role === UserRole.CUSTOMER_OPERATOR
       ? await prisma.user.findUnique({
-          where: { id: user.id },
+          where: { id: merchantScopeUserId(user) },
           select: { phone: true, phoneCountryCode: true, email: true, name: true },
         })
       : null;
@@ -159,10 +161,10 @@ export async function createUsdtCardPurchase(
     cardWaiverAccepted: boolean;
   },
 ) {
-  if (user.role !== UserRole.CUSTOMER || !user.customerProfileId) {
+  if (!isMerchantSide(user) || !user.customerProfileId) {
     throw new AppError(403, 'Only customers can create purchase tickets', 'FORBIDDEN');
   }
-  await assertCustomerKycApproved(user.id);
+  await assertCustomerKycApproved(merchantScopeUserId(user));
   if (!input.cardWaiverAccepted) {
     throw new AppError(400, 'Card payment waiver must be accepted', 'WAIVER_REQUIRED');
   }
@@ -181,7 +183,12 @@ export async function createUsdtCardPurchase(
   }
 
   const wallet = await prisma.wallet.findFirst({
-    where: { id: input.walletId, userId: user.id, isActive: true },
+    where: {
+      id: input.walletId,
+      userId: merchantScopeUserId(user),
+      isActive: true,
+      approvalStatus: WalletApprovalStatus.APPROVED,
+    },
   });
   if (!wallet) {
     throw new AppError(404, 'Wallet not found', 'NOT_FOUND');

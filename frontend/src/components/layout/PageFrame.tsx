@@ -8,15 +8,15 @@ import { resolvePageMeta } from './breadcrumb-config';
 export function PageFrame({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const t = useT();
-  const { titleKey, trail } = resolvePageMeta(pathname);
+  const { titleKey, trail, hideTitle } = resolvePageMeta(pathname);
   const sep = ` ${t('page.breadcrumbSeparator')} `;
 
   return (
     <div className="pg-frame">
       <div className="pg-frame-head">
-        <h1 className="pg-frame-title">{t(titleKey)}</h1>
+        {!hideTitle && <h1 className="pg-frame-title">{t(titleKey)}</h1>}
         {trail.length > 0 && (
-          <nav className="pg-frame-path" aria-label={t('page.pathLabel')}>
+          <nav className={`pg-frame-path${hideTitle ? ' ml-auto' : ''}`} aria-label={t('page.pathLabel')}>
             {trail.map((crumb, i) => (
               <span key={`${crumb.href}-${crumb.labelKey}`}>
                 {i > 0 && sep}

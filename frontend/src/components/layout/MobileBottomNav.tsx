@@ -12,10 +12,11 @@ export function MobileBottomNav() {
   const pathname = usePathname();
   const t = useT();
 
-  if (!user || user.role !== 'CUSTOMER') return null;
+  if (!user || (user.role !== 'CUSTOMER' && user.role !== 'CUSTOMER_OPERATOR')) return null;
 
-  const items = filterNavByPageAccess(NAV_ITEMS.CUSTOMER, user.pageAccess).filter(
-    (item) => item.href !== '/dashboard/manuals',
+  const roleItems = NAV_ITEMS[user.role] ?? NAV_ITEMS.CUSTOMER;
+  const items = filterNavByPageAccess(roleItems, user.pageAccess).filter(
+    (item) => item.href !== '/dashboard/manuals' && item.href !== '/dashboard/merchant-users',
   );
   const cols = Math.min(Math.max(items.length, 1), 6);
 

@@ -9,6 +9,8 @@ export interface AuthUser {
   organizationPath: string | null;
   organizationType: string | null;
   customerProfileId: string | null;
+  merchantAdminUserId: string | null;
+  operatorsEnabled: boolean;
 }
 
 declare global {

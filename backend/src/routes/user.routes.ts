@@ -58,6 +58,8 @@ const createSchema = z.object({
   simulatorEnabled: z.boolean().optional(),
   simulatorRateMode: z.enum(['LIVE', 'SAND']).optional(),
   feeBillingMethod: z.enum(['FOLLOW_HQ', 'INTEGRATED', 'ITEMIZED', 'HYBRID']).optional(),
+  operatorsEnabled: z.boolean().optional(),
+  walletFeesVisible: z.boolean().optional(),
 });
 
 const updateSchema = z.object({
@@ -72,6 +74,12 @@ const updateSchema = z.object({
   simulatorEnabled: z.boolean().optional(),
   simulatorRateMode: z.enum(['LIVE', 'SAND']).optional(),
   feeBillingMethod: z.enum(['FOLLOW_HQ', 'INTEGRATED', 'ITEMIZED', 'HYBRID']).optional(),
+  operatorsEnabled: z.boolean().optional(),
+  walletFeesVisible: z.boolean().optional(),
+});
+
+const walletApprovalSchema = z.object({
+  status: z.enum(['APPROVED', 'REJECTED']),
 });
 
 const passwordSchema = z.object({
@@ -109,6 +117,23 @@ router.patch(
     const body = updateSchema.parse(req.body);
     const audit = auditFromRequest(req.user!, req);
     res.json(await userService.update(req.user!, req.params.id, body, audit));
+  }),
+);
+
+router.patch(
+  '/:id/wallets/:walletId/approval',
+  asyncHandler(async (req, res) => {
+    const body = walletApprovalSchema.parse(req.body);
+    const audit = auditFromRequest(req.user!, req);
+    res.json(
+      await userService.reviewWallet(
+        req.user!,
+        req.params.id,
+        req.params.walletId,
+        body.status,
+        audit,
+      ),
+    );
   }),
 );
 

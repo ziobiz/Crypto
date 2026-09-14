@@ -140,7 +140,7 @@ export default function UsdtDetailPage() {
   if (!ticket) return <p className="pg-hint">{t('common.loading')}</p>;
 
   const isOperator = user?.role === 'SUPER_ADMIN' || user?.role === 'ORG_STAFF';
-  const isCustomer = user?.role === 'CUSTOMER';
+  const isCustomer = user?.role === 'CUSTOMER' || user?.role === 'CUSTOMER_OPERATOR';
   const receivingFixed =
     depositCtx?.receivingAccounts?.[ticket.fiatCurrency as 'KRW' | 'JPY' | 'THB' | 'CNY'];
   const receivingRaw =

@@ -22,6 +22,7 @@ export function defaultEmailOtpConfig(): HqEmailOtpConfig {
     otpForHeadOffice: true,
     otpForMasterDistributor: true,
     otpExpireMinutes: 5,
+    sensitiveOtpExpireMinutes: 10,
     otpEmailSubject: '[Crypto Workflow] 인증번호 {code}',
     otpEmailBody:
       '안녕하세요 {name}님,\n\n인증번호: {code}\n유효시간: {minutes}분\n\n본인이 요청하지 않았다면 무시하세요.',
@@ -36,10 +37,19 @@ export function defaultEmailOtpConfig(): HqEmailOtpConfig {
   };
 }
 
+function clampSensitiveOtpMinutes(value: unknown): number {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n)) return 10;
+  return Math.min(60, Math.max(1, n));
+}
+
 export async function saveEmailOtpConfig(config: HqEmailOtpConfig): Promise<HqEmailOtpConfig> {
   const existing = await getEmailOtpConfig();
   const merged: HqEmailOtpConfig = {
     ...config,
+    sensitiveOtpExpireMinutes: clampSensitiveOtpMinutes(
+      config.sensitiveOtpExpireMinutes ?? existing.sensitiveOtpExpireMinutes,
+    ),
     smtpPassword:
       config.smtpPassword && config.smtpPassword !== '********'
         ? config.smtpPassword

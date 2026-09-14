@@ -31,8 +31,12 @@ async function isOrgSimulatorEnabled(organizationId: string | null | undefined):
  * HQ 기록 시뮬레이터(/dashboard/simulator-logs)는 이 함수를 쓰지 않음.
  */
 export async function assertCanUseUsdtSimulator(user: AuthUser): Promise<void> {
-  if (user.role === UserRole.CUSTOMER) {
-    const enabled = await isCustomerSimulatorEnabled(user.id);
+  if (user.role === UserRole.CUSTOMER || user.role === UserRole.CUSTOMER_OPERATOR) {
+    const enabled = await isCustomerSimulatorEnabled(
+      user.role === UserRole.CUSTOMER_OPERATOR && user.merchantAdminUserId
+        ? user.merchantAdminUserId
+        : user.id,
+    );
     if (!enabled) {
       throw new AppError(403, 'Simulator is disabled for this customer', 'SIMULATOR_DISABLED');
     }

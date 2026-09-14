@@ -5,6 +5,7 @@ import { AttachmentPurpose, CustomerType, KycStatus, UserRole } from '@prisma/cl
 import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
 import type { AuthUser } from '../types/auth';
+import { isMerchantAdmin, isMerchantSide, merchantScopeUserId } from '../lib/merchant-role';
 
 const UPLOAD_DIR = path.resolve(process.env.UPLOAD_DIR ?? './uploads');
 
@@ -103,17 +104,17 @@ async function getOrCreateKyc(userId: string) {
 }
 
 export async function getMyKyc(user: AuthUser) {
-  if (user.role !== UserRole.CUSTOMER) {
+  if (!isMerchantSide(user)) {
     throw new AppError(403, 'Customers only', 'FORBIDDEN');
   }
-  return serializeKyc(await getOrCreateKyc(user.id));
+  return serializeKyc(await getOrCreateKyc(merchantScopeUserId(user)));
 }
 
 export async function submitMyKyc(
   user: AuthUser,
   files: { forecast: Express.Multer.File[]; taxSupport: Express.Multer.File[] },
 ) {
-  if (user.role !== UserRole.CUSTOMER || !user.customerProfileId) {
+  if (!isMerchantAdmin(user) || !user.customerProfileId) {
     throw new AppError(403, 'Customers only', 'FORBIDDEN');
   }
   const profile = await prisma.customerProfile.findUnique({

@@ -25,9 +25,14 @@ export async function resolveSimulatorFeeMode(
     return req;
   }
 
-  if (user.role === UserRole.CUSTOMER) {
+  if (user.role === UserRole.CUSTOMER || user.role === UserRole.CUSTOMER_OPERATOR) {
     const profile = await prisma.customerProfile.findUnique({
-      where: { userId: user.id },
+      where: {
+        userId:
+          user.role === UserRole.CUSTOMER_OPERATOR && user.merchantAdminUserId
+            ? user.merchantAdminUserId
+            : user.id,
+      },
       select: { simulatorRateMode: true },
     });
     return profile?.simulatorRateMode === 'SAND' ? 'SAND' : 'LIVE';

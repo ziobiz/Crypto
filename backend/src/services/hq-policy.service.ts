@@ -144,6 +144,8 @@ const CUSTOMER_DEFAULT_VIEW_PATHS = new Set([
   '/dashboard/escrow',
   '/dashboard/wallets',
   '/dashboard/kyc',
+  '/dashboard/merchant-users',
+  '/dashboard/operation-history',
 ]);
 
 function defaultAccessMatrix(): HqAccessMatrix {
@@ -1029,7 +1031,7 @@ export const hqPolicyService = {
 
   accessActorForUser(user: { role: string; organizationType?: string | null }): HqAccessActor | 'SUPER_ADMIN' {
     if (user.role === 'SUPER_ADMIN') return 'SUPER_ADMIN';
-    if (user.role === 'CUSTOMER') return 'CUSTOMER';
+    if (user.role === 'CUSTOMER' || user.role === 'CUSTOMER_OPERATOR') return 'CUSTOMER';
     return (user.organizationType as HqAccessActor) || 'SALES_OFFICE';
   },
 
@@ -1038,6 +1040,7 @@ export const hqPolicyService = {
     organizationType?: string | null;
     /** CUSTOMER — false면 본사 매트릭스보다 우선해 USDT 시뮬레이터 차단 */
     simulatorEnabled?: boolean | null;
+    operatorsEnabled?: boolean | null;
   }) {
     const payload = await this.getAccessPayload();
     const actor = this.accessActorForUser(user);
@@ -1074,8 +1077,18 @@ export const hqPolicyService = {
 
     // 고객별 시뮬레이터 OFF → 본사권한(CUSTOMER 매트릭스)보다 우선 차단
     // HQ 「기록 시뮬레이터」(/dashboard/simulator-logs)는 고객 플래그와 무관
-    if (user.role === 'CUSTOMER' && user.simulatorEnabled === false) {
+    if ((user.role === 'CUSTOMER' || user.role === 'CUSTOMER_OPERATOR') && user.simulatorEnabled === false) {
       levels['/dashboard/simulator'] = 'NONE';
+    }
+    if (user.role === 'CUSTOMER_OPERATOR') {
+      levels['/dashboard/wallets'] = 'NONE';
+      levels['/dashboard/merchant-users'] = 'NONE';
+    }
+    if (
+      (user.role === 'CUSTOMER' || user.role === 'CUSTOMER_OPERATOR') &&
+      user.operatorsEnabled !== true
+    ) {
+      levels['/dashboard/merchant-users'] = 'NONE';
     }
     return levels;
   },

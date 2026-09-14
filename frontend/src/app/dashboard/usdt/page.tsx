@@ -222,7 +222,7 @@ export default function UsdtListPage() {
   }
 
   const newBtn =
-    user?.role === 'CUSTOMER' ? (
+    user?.role === 'CUSTOMER' || user?.role === 'CUSTOMER_OPERATOR' ? (
       kycOk ? (
         <Link href="/dashboard/usdt/new" className="pg-btn pg-btn-primary w-full sm:w-auto">
           {t('usdt.new')}

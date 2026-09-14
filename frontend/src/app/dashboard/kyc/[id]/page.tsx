@@ -13,14 +13,14 @@ export default function HqKycDetailRedirectPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (user?.role === 'CUSTOMER') return;
+    if (user?.role === 'CUSTOMER' || user?.role === 'CUSTOMER_OPERATOR') return;
     api.kyc
       .get(id)
       .then((kyc) => router.replace(`/dashboard/customers/${kyc.userId}`))
       .catch(() => router.replace('/dashboard/customers'));
   }, [id, user, router]);
 
-  if (user?.role === 'CUSTOMER') {
+  if (user?.role === 'CUSTOMER' || user?.role === 'CUSTOMER_OPERATOR') {
     return <p className="pg-hint">{t('kyc.hqOnly')}</p>;
   }
   return <p className="pg-hint">{t('common.loading')}</p>;

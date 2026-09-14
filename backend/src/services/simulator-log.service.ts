@@ -76,7 +76,7 @@ function isHqAccount(user: AuthUser): boolean {
 }
 
 export async function logSimulatorRun(user: AuthUser, input: SimulatorRunInput) {
-  if (user.role !== UserRole.CUSTOMER) return null;
+  if (user.role !== UserRole.CUSTOMER && user.role !== UserRole.CUSTOMER_OPERATOR) return null;
   const recent = await prisma.simulatorRun.findFirst({
     where: { userId: user.id },
     orderBy: { createdAt: 'desc' },

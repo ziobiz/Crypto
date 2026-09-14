@@ -51,7 +51,11 @@ export default function HqPlatformPage() {
   const [msg, setMsg] = useState('');
   const [emailMsg, setEmailMsg] = useState('');
   const [editingEmailNumeric, setEditingEmailNumeric] = useState(false);
-  const [emailNumericDraft, setEmailNumericDraft] = useState({ otpExpireMinutes: 5, smtpPort: 587 });
+  const [emailNumericDraft, setEmailNumericDraft] = useState({
+    otpExpireMinutes: 5,
+    smtpPort: 587,
+    sensitiveOtpExpireMinutes: 10,
+  });
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -775,7 +779,7 @@ export default function HqPlatformPage() {
                         <PolicyCellValue>{email.otpExpireMinutes}</PolicyCellValue>
                       )}
                     </td>
-                    <td rowSpan={2}>
+                    <td rowSpan={3}>
                       <PolicyTableActions>
                         {editingEmailNumeric ? (
                           <>
@@ -786,6 +790,7 @@ export default function HqPlatformPage() {
                                   ...email,
                                   otpExpireMinutes: emailNumericDraft.otpExpireMinutes,
                                   smtpPort: emailNumericDraft.smtpPort,
+                                  sensitiveOtpExpireMinutes: emailNumericDraft.sensitiveOtpExpireMinutes,
                                 });
                                 setEditingEmailNumeric(false);
                                 setEmailMsg('');
@@ -812,6 +817,7 @@ export default function HqPlatformPage() {
                               setEmailNumericDraft({
                                 otpExpireMinutes: email.otpExpireMinutes,
                                 smtpPort: email.smtpPort,
+                                sensitiveOtpExpireMinutes: email.sensitiveOtpExpireMinutes ?? 10,
                               });
                               setEditingEmailNumeric(true);
                               setEmailMsg('');
@@ -822,6 +828,25 @@ export default function HqPlatformPage() {
                           </button>
                         )}
                       </PolicyTableActions>
+                    </td>
+                  </tr>
+                  <tr className={editingEmailNumeric ? 'bg-amber-50/60' : undefined}>
+                    <td>{t('hq.platform.sensitiveOtpExpire')}</td>
+                    <td>
+                      {editingEmailNumeric ? (
+                        <PolicyNumberInput
+                          min={1}
+                          max={60}
+                          step="1"
+                          value={emailNumericDraft.sensitiveOtpExpireMinutes}
+                          onChange={(sensitiveOtpExpireMinutes) =>
+                            setEmailNumericDraft((prev) => ({ ...prev, sensitiveOtpExpireMinutes }))
+                          }
+                          className="pg-input w-24"
+                        />
+                      ) : (
+                        <PolicyCellValue>{email.sensitiveOtpExpireMinutes ?? 10}</PolicyCellValue>
+                      )}
                     </td>
                   </tr>
                   <tr className={editingEmailNumeric ? 'bg-amber-50/60' : undefined}>

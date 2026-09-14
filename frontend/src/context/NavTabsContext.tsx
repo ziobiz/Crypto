@@ -12,6 +12,7 @@ import {
 import { usePathname, useRouter } from 'next/navigation';
 import type { MessageKey } from '@/i18n/messages';
 import { resolveNavItem, type NavItem } from '@/components/layout/nav-config';
+import { useAuth } from '@/context/AuthProvider';
 
 export type NavTab = { href: string; labelKey: MessageKey };
 
@@ -23,28 +24,65 @@ type NavTabsContextValue = {
 };
 
 const NavTabsContext = createContext<NavTabsContextValue | null>(null);
-const STORAGE_KEY = 'crypto-nav-tabs';
+const LEGACY_STORAGE_KEY = 'crypto-nav-tabs';
+
+export function navTabsStorageKey(userId: string) {
+  return `${LEGACY_STORAGE_KEY}:${userId}`;
+}
+
+export function clearNavTabsStorage(userId?: string | null) {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem(LEGACY_STORAGE_KEY);
+  if (userId) localStorage.removeItem(navTabsStorageKey(userId));
+}
+
+function allowedHrefs(items: NavItem[]) {
+  return new Set(items.map((item) => item.href));
+}
+
+function filterTabs(tabs: NavTab[], items: NavItem[]): NavTab[] {
+  const allowed = allowedHrefs(items);
+  return tabs.filter((tab) => allowed.has(tab.href));
+}
 
 export function NavTabsProvider({ items, children }: { items: NavItem[]; children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { user } = useAuth();
+  const userId = user?.id ?? '';
   const [tabs, setTabs] = useState<NavTab[]>([]);
 
   useEffect(() => {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const home = items[0];
+    const fallback = home ? [{ href: home.href, labelKey: home.labelKey }] : [];
+    if (!userId) {
+      setTabs(fallback);
+      return;
+    }
+    const raw = localStorage.getItem(navTabsStorageKey(userId));
     if (raw) {
       try {
         const parsed = JSON.parse(raw) as NavTab[];
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setTabs(parsed);
+          const next = filterTabs(parsed, items);
+          setTabs(next.length > 0 ? next : fallback);
           return;
         }
       } catch {
         /* ignore */
       }
     }
-    const home = items[0];
-    if (home) setTabs([{ href: home.href, labelKey: home.labelKey }]);
+    setTabs(fallback);
+  }, [items, userId]);
+
+  useEffect(() => {
+    setTabs((prev) => {
+      const next = filterTabs(prev, items);
+      if (next.length === prev.length && next.every((t, i) => t.href === prev[i]?.href)) return prev;
+      if (next.length > 0) return next;
+      const home = items[0];
+      return home ? [{ href: home.href, labelKey: home.labelKey }] : prev;
+    });
   }, [items]);
 
   useEffect(() => {
@@ -58,8 +96,9 @@ export function NavTabsProvider({ items, children }: { items: NavItem[]; childre
   }, [pathname, items]);
 
   useEffect(() => {
-    if (tabs.length > 0) localStorage.setItem(STORAGE_KEY, JSON.stringify(tabs));
-  }, [tabs]);
+    if (!userId || tabs.length === 0) return;
+    localStorage.setItem(navTabsStorageKey(userId), JSON.stringify(tabs));
+  }, [tabs, userId]);
 
   const openTab = useCallback((tab: NavTab) => {
     setTabs((prev) => (prev.some((t) => t.href === tab.href) ? prev : [...prev, tab]));

@@ -22,6 +22,7 @@ import { startCurfexDepositPoller } from './services/curfex-webhook.service';
 import { hqPolicyService } from './services/hq-policy.service';
 import { errorHandler } from './middleware/errorHandler';
 import { asyncHandler } from './middleware/asyncHandler';
+import merchantRoutes from './routes/merchant.routes';
 import webhooksRoutes from './routes/webhooks.routes';
 
 const BRAND_MIME: Record<string, string> = {
@@ -113,6 +114,7 @@ export function createApiApp(): express.Application {
   app.use('/api/kyc', kycRoutes);
   app.use('/api/simulator', simulatorRoutes);
   app.use('/api/cost-analysis', costAnalysisRoutes);
+  app.use('/api/merchant', merchantRoutes);
 
   app.post(
     '/api/internal/deploy-release',

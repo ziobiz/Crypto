@@ -4,6 +4,7 @@ import path from 'path';
 import { KycStatus, UserRole } from '@prisma/client';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { authenticate, requireRoles } from '../middleware/auth';
+import { MERCHANT_TRADE_ROLES } from '../lib/merchant-role';
 import { AppError } from '../lib/errors';
 import {
   getKycAttachmentForDownload,
@@ -38,7 +39,7 @@ router.use(authenticate);
 
 router.get(
   '/me',
-  requireRoles(UserRole.CUSTOMER),
+  requireRoles(...MERCHANT_TRADE_ROLES),
   asyncHandler(async (req, res) => {
     res.json(await getMyKyc(req.user!));
   }),
