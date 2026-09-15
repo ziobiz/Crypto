@@ -95,8 +95,8 @@ export function TransactionFilterBar({
   return (
     <div className="pg-tx-filter space-y-2">
       <div className="pg-card">
-        <div className="pg-card-body space-y-2.5">
-          <div className="flex flex-wrap items-end gap-2">
+        <div className="pg-card-body pg-tx-filter-rows">
+          <div className="pg-tx-filter-row flex flex-wrap items-end gap-3">
             <label className="min-w-[8rem]">
               <span className="pg-label">{t('filter.dateField')}</span>
               <select
@@ -148,7 +148,7 @@ export function TransactionFilterBar({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-end gap-2">
+          <div className="pg-tx-filter-row flex flex-wrap items-end gap-3">
             <label className="min-w-[8rem]">
               <span className="pg-label">{t('filter.searchField')}</span>
               <select

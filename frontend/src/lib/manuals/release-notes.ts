@@ -3,6 +3,28 @@ import type { PlatformReleaseNote } from './version';
 /** 본사정책 → 운영관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
 export const PLATFORM_RELEASE_NOTES: PlatformReleaseNote[] = [
   {
+    version: '2.6.67',
+    kind: 'minor',
+    date: '2026-09-15',
+    items: {
+      KR: [
+        'USDT 매입·무역 에스크로 필터: 일자 줄과 검색 줄 사이 여백을 늘리고, 입력창(신청일·날짜·전체 등) 글자를 한 치수 축소.',
+      ],
+      US: [
+        'USDT/escrow filters: more space between the date row and search row; input text (Apply date, dates, All, etc.) is one size smaller.',
+      ],
+      JP: [
+        'USDT・エスクローフィルタ: 日付行と検索行の余白を広げ、入力文字（申請日・日付・すべて等）を一段階小さく。',
+      ],
+      CH: [
+        'USDT/托管筛选：日期行与搜索行之间加大间距，输入框文字（申请日、日期、全部等）缩小一号。',
+      ],
+      TH: [
+        'ตัวกรอง USDT/เอสโครว์: เพิ่มช่องว่างระหว่างแถววันที่กับแถวค้นหา ตัวอักษรในช่องกรอก (วันสมัคร วันที่ ทั้งหมด) เล็กลงหนึ่งขั้น',
+      ],
+    },
+  },
+  {
     version: '2.6.66',
     kind: 'minor',
     date: '2026-09-14',

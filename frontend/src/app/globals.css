@@ -991,16 +991,23 @@
     font-size: 13px;
   }
 
-  /* USDT 매입·무역 에스크로 필터: 글자만 13px (레이아웃 클래스 pg-filter-bar 와 분리) */
+  /* USDT 매입·무역 에스크로 필터: 라벨·버튼 13px, 입력값(신청일·날짜·전체 등) 12px */
   .pg-tx-filter,
   .pg-tx-filter .pg-label,
-  .pg-tx-filter .pg-input,
-  .pg-tx-filter .pg-select,
   .pg-tx-filter .pg-btn,
-  .pg-tx-filter button,
-  .pg-tx-filter select,
-  .pg-tx-filter input {
+  .pg-tx-filter button {
     font-size: 13px;
+  }
+
+  .pg-tx-filter .pg-tx-filter-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .pg-tx-filter .pg-tx-filter-row + .pg-tx-filter-row {
+    padding-top: 1rem;
+    border-top: 1px solid var(--shell-card-border);
   }
 
   /* 일자구분·시작/종료일·검색구분·상태구분·당일 등 퀵버튼 동일 높이 */
@@ -1012,10 +1019,19 @@
     min-height: 1.75rem;
     margin: 0;
     padding: 0.25rem 0.5rem;
-    font-size: 13px;
     line-height: 1.25;
     border-radius: 0.25rem;
     vertical-align: middle;
+  }
+
+  .pg-tx-filter .pg-tx-field,
+  html[data-customer-app] .pg-tx-filter .pg-tx-field {
+    font-size: 12px;
+  }
+
+  .pg-tx-filter .pg-tx-quick,
+  .pg-tx-filter .pg-tx-field-btn {
+    font-size: 13px;
   }
 
   .pg-tx-filter .pg-tx-quick {
@@ -1116,6 +1132,12 @@
       height: 44px;
       padding: 0 0.625rem;
       font-size: 13px;
+    }
+
+    html[data-customer-app] .pg-tx-filter .pg-tx-field {
+      font-size: 16px;
+      min-height: 44px;
+      height: 44px;
     }
 
     html[data-customer-app] .pg-tx-filter select.pg-tx-hq-select {
