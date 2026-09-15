@@ -3,11 +3,12 @@
 import { useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { api, setToken } from '@/lib/api';
+import { api, setToken, ApiError } from '@/lib/api';
 import { useAuth } from '@/context/AuthProvider';
 import { useT } from '@/context/LocaleProvider';
 import { AuthChrome } from '@/components/layout/AuthChrome';
 import { OtpCodeInput } from '@/components/OtpCodeInput';
+import { TurnstileWidget } from '@/components/TurnstileWidget';
 import { useBranding } from '@/hooks/useBranding';
 
 type Step = 'credentials' | 'changePassword' | 'enrollEmail' | 'enrollTotp' | 'loginOtp';
@@ -28,6 +29,8 @@ export default function LoginPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [emailCode, setEmailCode] = useState('');
   const [otpCode, setOtpCode] = useState('');
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileReset, setTurnstileReset] = useState(0);
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
@@ -63,9 +66,13 @@ export default function LoginPage() {
   const handleCredentials = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (!turnstileToken) {
+      setError(t('auth.turnstileRequired'));
+      return;
+    }
     setLoading(true);
     try {
-      const res = await api.login(email.trim().toLowerCase(), password.trim());
+      const res = await api.login(email.trim().toLowerCase(), password.trim(), turnstileToken);
       if ('mustChangePassword' in res && res.mustChangePassword) {
         setChangeToken(res.changeToken);
         setStep('changePassword');
@@ -90,7 +97,15 @@ export default function LoginPage() {
         await finishSession(res.token);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('auth.loginFailed'));
+      setTurnstileToken('');
+      setTurnstileReset((n) => n + 1);
+      if (err instanceof ApiError && err.code === 'TURNSTILE_REQUIRED') {
+        setError(t('auth.turnstileRequired'));
+      } else if (err instanceof ApiError && err.code === 'TURNSTILE_FAILED') {
+        setError(t('auth.turnstileFailed'));
+      } else {
+        setError(err instanceof Error ? err.message : t('auth.loginFailed'));
+      }
     } finally {
       setLoading(false);
     }
@@ -201,8 +216,9 @@ export default function LoginPage() {
                 <label className="block text-sm font-medium text-gray-700">{t('auth.password')}</label>
                 <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="auth-field mt-1 w-full rounded-lg border border-gray-200 bg-sky-50 px-3 py-3 text-base" required autoComplete="current-password" />
               </div>
+              <TurnstileWidget onToken={setTurnstileToken} resetKey={turnstileReset} />
               {error && <p className="text-sm text-red-600">{error}</p>}
-              <button type="submit" disabled={loading} className="w-full rounded-lg bg-blue-600 py-3 text-white disabled:opacity-50">
+              <button type="submit" disabled={loading || !turnstileToken} className="w-full rounded-lg bg-blue-600 py-3 text-white disabled:opacity-50">
                 {loading ? t('auth.loggingIn') : t('auth.login')}
               </button>
             </form>

@@ -35,12 +35,14 @@ import { authenticate } from '../middleware/auth';
 import { hqPolicyService } from '../services/hq-policy.service';
 import { findUserByLoginEmail } from '../services/user-lookup.service';
 import { canIssueSensitiveOtp } from '../constants/hq-admin';
+import { assertTurnstile, clientIp } from '../lib/turnstile';
 
 const router = Router();
 
 const loginSchema = z.object({
   email: z.string().email().transform(normalizeEmail),
   password: z.string().min(1).transform((s) => s.trim()),
+  turnstileToken: z.string().optional(),
 });
 
 function userResponse(user: {
@@ -87,7 +89,8 @@ async function issueSession(userId: string) {
 router.post(
   '/login',
   asyncHandler(async (req, res) => {
-    const { email, password } = loginSchema.parse(req.body);
+    const { email, password, turnstileToken } = loginSchema.parse(req.body);
+    await assertTurnstile(turnstileToken, clientIp(req));
 
     const user = await findUserByLoginEmail(email);
 

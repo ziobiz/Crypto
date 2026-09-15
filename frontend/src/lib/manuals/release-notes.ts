@@ -3,6 +3,28 @@ import type { PlatformReleaseNote } from './version';
 /** 본사정책 → 운영관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
 export const PLATFORM_RELEASE_NOTES: PlatformReleaseNote[] = [
   {
+    version: '2.6.68',
+    kind: 'minor',
+    date: '2026-09-15',
+    items: {
+      KR: [
+        '로그인에 Cloudflare Turnstile 보안 확인을 적용. 위젯을 통과한 뒤에만 로그인됩니다.',
+      ],
+      US: [
+        'Cloudflare Turnstile on login. Sign-in proceeds only after the security check.',
+      ],
+      JP: [
+        'ログインに Cloudflare Turnstile を適用。セキュリティ確認後にログインできます。',
+      ],
+      CH: [
+        '登录增加 Cloudflare Turnstile 安全验证，通过后才能登录。',
+      ],
+      TH: [
+        'ใส่ Cloudflare Turnstile ที่หน้าเข้าสู่ระบบ ต้องผ่านการตรวจความปลอดภัยก่อนเข้าสู่ระบบ',
+      ],
+    },
+  },
+  {
     version: '2.6.67',
     kind: 'minor',
     date: '2026-09-15',

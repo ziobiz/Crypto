@@ -170,6 +170,8 @@ export const KR = {
   'auth.noAccount': '계정이 없으신가요?',
   'auth.hasAccount': '이미 계정이 있으신가요?',
   'auth.loginFailed': '로그인 실패',
+  'auth.turnstileRequired': '보안 확인을 완료해 주세요.',
+  'auth.turnstileFailed': '보안 확인에 실패했습니다. 다시 시도해 주세요.',
   'auth.fetchFailed': '서버에 연결할 수 없습니다. 프론트 재배포 후 시크릿 창으로 다시 시도하세요.',
   'auth.testAccounts': '테스트 계정',
   'auth.registerTitle': '회원가입',

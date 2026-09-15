@@ -79,10 +79,10 @@ export const api = {
 
   workflowDisplay: () => request<HqWorkflowDisplayConfig>('/api/dashboard/workflow-display'),
 
-  login: (email: string, password: string) =>
+  login: (email: string, password: string, turnstileToken?: string) =>
     request<LoginResponse>('/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, turnstileToken }),
     }),
 
   verifyOtp: (otpToken: string, code: string) =>

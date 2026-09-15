@@ -170,6 +170,8 @@ export const US: Record<string, string> = {
   'auth.noAccount': 'Don\'t have an account?',
   'auth.hasAccount': 'Already have an account?',
   'auth.loginFailed': 'Login failed',
+  'auth.turnstileRequired': 'Please complete the security check.',
+  'auth.turnstileFailed': 'Security check failed. Please try again.',
   'auth.fetchFailed': 'Cannot reach the server. Redeploy the frontend and try again in a private window.',
   'auth.testAccounts': 'Test accounts',
   'auth.registerTitle': 'Sign up',

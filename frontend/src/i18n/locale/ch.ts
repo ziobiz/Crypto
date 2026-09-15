@@ -175,6 +175,8 @@ export const CH: Record<string, string> = {
   'auth.noAccount': '没有账号？',
   'auth.hasAccount': '已有账号？',
   'auth.loginFailed': '登录失败',
+  'auth.turnstileRequired': '请完成安全验证。',
+  'auth.turnstileFailed': '安全验证失败，请重试。',
   'auth.fetchFailed': '无法连接服务器。请重新部署前端后，在无痕窗口中重试。',
   'auth.testAccounts': '测试账号',
   'auth.registerTitle': '注册',

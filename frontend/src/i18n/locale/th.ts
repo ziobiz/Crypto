@@ -170,6 +170,8 @@ export const TH: Record<string, string> = {
   'auth.noAccount': 'ยังไม่มีบัญชี?',
   'auth.hasAccount': 'มีบัญชีแล้ว?',
   'auth.loginFailed': 'เข้าสู่ระบบล้มเหลว',
+  'auth.turnstileRequired': 'กรุณาผ่านการตรวจความปลอดภัย',
+  'auth.turnstileFailed': 'ตรวจความปลอดภัยไม่สำเร็จ ลองอีกครั้ง',
   'auth.fetchFailed': 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ โปรด deploy frontend ใหม่แล้วลองในหน้าต่างลับ',
   'auth.testAccounts': 'บัญชีทดสอบ',
   'auth.registerTitle': 'สมัครสมาชิก',

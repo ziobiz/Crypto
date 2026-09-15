@@ -117,7 +117,7 @@ if [ "$HEALTH_OK" = true ]; then
   curl -sf http://127.0.0.1:3000/health && echo " health OK" || echo " health check FAILED"
   curl -sf -o /dev/null http://127.0.0.1:3000/login && echo " web OK" || echo " web check FAILED"
   echo -n " login test: "
-  curl -sf -X POST http://127.0.0.1:3000/api/auth/login \
+  curl -s -X POST http://127.0.0.1:3000/api/auth/login \
     -H "Content-Type: application/json" \
     -d '{"email":"ziobizm@gmail.com","password":"ziobizm1!"}' | head -c 200 || echo "FAILED"
   echo ""

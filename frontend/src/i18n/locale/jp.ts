@@ -170,6 +170,8 @@ export const JP: Record<string, string> = {
   'auth.noAccount': 'アカウントをお持ちでないですか？',
   'auth.hasAccount': 'すでにアカウントをお持ちですか？',
   'auth.loginFailed': 'ログイン失敗',
+  'auth.turnstileRequired': 'セキュリティ確認を完了してください。',
+  'auth.turnstileFailed': 'セキュリティ確認に失敗しました。もう一度お試しください。',
   'auth.fetchFailed': 'サーバーに接続できません。フロントを再デプロイ後、シークレットウィンドウで再試行してください。',
   'auth.testAccounts': 'テストアカウント',
   'auth.registerTitle': '会員登録',
