@@ -373,6 +373,19 @@ router.post(
   }),
 );
 
+router.post(
+  '/platform/og',
+  logoUpload.single('file'),
+  asyncHandler(async (req, res) => {
+    if (!req.file) {
+      res.status(400).json({ error: 'file required' });
+      return;
+    }
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await hqPolicyService.savePlatformOgImage(audit, req.file));
+  }),
+);
+
 const changeLogQuerySchema = z.object({
   page: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().positive().optional(),

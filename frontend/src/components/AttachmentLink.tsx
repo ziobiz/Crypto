@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Attachment } from '@/lib/api';
+import { Attachment, getToken } from '@/lib/api';
 import { useT } from '@/context/LocaleProvider';
 import type { MessageKey } from '@/i18n/messages';
 import { getApiBaseUrl } from '@/lib/api-base';
@@ -24,7 +24,7 @@ export function AttachmentLink({ attachment }: { attachment: Attachment }) {
   const [url, setUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = getToken();
     fetch(`${API_URL}/api/attachments/${attachment.id}/file`, {
       headers: { Authorization: `Bearer ${token}` },
     })

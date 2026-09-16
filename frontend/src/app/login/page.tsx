@@ -4,6 +4,7 @@ import { useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api, setToken, ApiError } from '@/lib/api';
+import { safeDashboardNext, takeLoginNext } from '@/lib/auth-session';
 import { useAuth } from '@/context/AuthProvider';
 import { useT } from '@/context/LocaleProvider';
 import { AuthChrome } from '@/components/layout/AuthChrome';
@@ -38,7 +39,9 @@ export default function LoginPage() {
   const otpSubmitLock = useRef(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.location.search.includes('idle=1')) {
+    const idle =
+      window.location.search.includes('idle=1') || Boolean(sessionStorage.getItem('crypto_idle_minutes'));
+    if (idle) {
       const min = Number(sessionStorage.getItem('crypto_idle_minutes')) || 30;
       setInfo(t('auth.idleLogout', { min }));
     }
@@ -47,7 +50,7 @@ export default function LoginPage() {
   const finishSession = async (token: string) => {
     setToken(token);
     await refresh();
-    router.push('/dashboard');
+    router.push(safeDashboardNext(takeLoginNext()));
   };
 
   const withOtpLock = async (fn: () => Promise<void>) => {
@@ -180,12 +183,12 @@ export default function LoginPage() {
 
   const handleEnrollTotp = (e: React.FormEvent) => {
     e.preventDefault();
-    if (otpCode.length === 6) submitEnrollTotp(otpCode);
+    if (otpCode.length > 0) submitEnrollTotp(otpCode);
   };
 
   const handleLoginOtp = (e: React.FormEvent) => {
     e.preventDefault();
-    if (otpCode.length === 6) submitLoginOtp(otpCode);
+    if (otpCode.length > 0) submitLoginOtp(otpCode);
   };
 
   const resendEnrollEmail = async () => {
@@ -257,6 +260,8 @@ export default function LoginPage() {
                 onChange={setEmailCode}
                 onComplete={submitEnrollEmail}
                 disabled={loading}
+                maxLength={6}
+                completeAt={6}
               />
               {error && <p className="text-sm text-red-600">{error}</p>}
               {loading && <p className="text-center text-sm text-gray-500">{t('auth.otpVerifying')}</p>}
@@ -286,7 +291,7 @@ export default function LoginPage() {
               />
               {error && <p className="text-sm text-red-600">{error}</p>}
               {loading && <p className="text-center text-sm text-gray-500">{t('auth.otpVerifying')}</p>}
-              <button type="submit" disabled={loading || otpCode.length !== 6} className="w-full rounded-lg bg-blue-600 py-3 text-white disabled:opacity-50">
+              <button type="submit" disabled={loading || otpCode.length === 0} className="w-full rounded-lg bg-blue-600 py-3 text-white disabled:opacity-50">
                 {loading ? t('auth.otpVerifying') : t('auth.otpActivate')}
               </button>
             </form>
@@ -306,7 +311,7 @@ export default function LoginPage() {
               />
               {error && <p className="text-sm text-red-600">{error}</p>}
               {loading && <p className="text-center text-sm text-gray-500">{t('auth.otpVerifying')}</p>}
-              <button type="submit" disabled={loading || otpCode.length !== 6} className="w-full rounded-lg bg-blue-600 py-3 text-white disabled:opacity-50">
+              <button type="submit" disabled={loading || otpCode.length === 0} className="w-full rounded-lg bg-blue-600 py-3 text-white disabled:opacity-50">
                 {loading ? t('auth.otpVerifying') : t('auth.otpVerify')}
               </button>
             </form>

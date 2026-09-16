@@ -2,7 +2,7 @@ import path from 'path';
 import dotenv from 'dotenv';
 import express from 'express';
 import next from 'next';
-import { createApiApp } from '../../backend/dist/app';
+import { createApiApp, crawlerOpenGraphMiddleware } from '../../backend/dist/app';
 
 const rootDir = path.resolve(__dirname, '../..');
 const frontendDir = path.join(rootDir, 'frontend');
@@ -22,6 +22,7 @@ async function main() {
   const apiApp = createApiApp();
 
   server.use(apiApp);
+  server.use(crawlerOpenGraphMiddleware);
 
   server.all('*', (req, res) => handle(req, res));
 

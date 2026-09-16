@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, clearToken, MeResponse, setToken } from '@/lib/api';
+import { clearMaskedPaths, safeDashboardNext, takeLoginNext } from '@/lib/auth-session';
 import { touchActivity, useIdleTimeout } from '@/hooks/useIdleTimeout';
 
 interface AuthContextValue {
@@ -41,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sessionStorage.setItem('crypto_idle_minutes', String(idleMinutes));
     }
     sessionStorage.removeItem('crypto_last_activity');
+    clearMaskedPaths();
     router.push(reason === 'idle' ? '/login?idle=1' : '/login');
   }, [router, idleMinutes, user?.id]);
 
@@ -65,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(token);
     touchActivity();
     await refresh();
-    router.push('/dashboard');
+    router.push(safeDashboardNext(takeLoginNext()));
   };
 
   const login = async (email: string, password: string) => {

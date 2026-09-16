@@ -45,6 +45,7 @@ export default function HqPlatformPage() {
   const [depositNoticeLocale, setDepositNoticeLocale] = useState<(typeof LOCALES)[number]>('KR');
   const [uploadingFavicon, setUploadingFavicon] = useState(false);
   const [uploadingBackground, setUploadingBackground] = useState(false);
+  const [uploadingOg, setUploadingOg] = useState(false);
   const [savingBrand, setSavingBrand] = useState(false);
   const [assetBust, setAssetBust] = useState(() => Date.now());
   const [uploadOk, setUploadOk] = useState<Partial<Record<BrandAssetKey, boolean>>>({});
@@ -174,6 +175,19 @@ export default function HqPlatformPage() {
     }
   }
 
+  async function uploadOgImage(file: File) {
+    setUploadingOg(true);
+    setMsg('');
+    try {
+      const next = await hqPolicyApi.uploadPlatformOgImage(file);
+      afterAssetUpload('og', next, setData, setConfig, setAssetBust, setUploadOk);
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
+    } finally {
+      setUploadingOg(false);
+    }
+  }
+
   async function saveBrand() {
     if (!config) return;
     setSavingBrand(true);
@@ -284,7 +298,25 @@ export default function HqPlatformPage() {
             placeholder="Crypto Workflow"
           />
           <span className="mt-1 block text-xs text-gray-500">{t('hq.platform.authMainTextDesc')}</span>
+          <span className="mt-1 block text-xs text-blue-700">{t('hq.platform.authMainTextOgHint')}</span>
         </label>
+
+        <BrandAssetField
+          label={t('hq.platform.ogImage')}
+          desc={t('hq.platform.ogImageDesc')}
+          url={config.ogImageUrl || config.authLogoUrl}
+          cacheBust={assetBust}
+          accept="image/png,image/jpeg,image/webp"
+          uploading={uploadingOg}
+          uploadLabel={t('hq.platform.uploadOgImage')}
+          savingLabel={t('hq.saving')}
+          uploadedLabel={t('hq.platform.assetUploaded')}
+          showUploaded={!!uploadOk.og}
+          onUpload={uploadOgImage}
+          preview={(src) => (
+            <img src={src} alt="" className="mx-auto block h-9 w-auto max-w-[33%] rounded object-contain" />
+          )}
+        />
 
         <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50/80 p-4">
           <label className="flex items-center gap-2 text-[11px] font-medium">

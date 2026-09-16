@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { getToken } from '@/lib/api';
 import { getApiBaseUrl } from '@/lib/api-base';
 
 const API_URL = getApiBaseUrl();
@@ -17,7 +18,7 @@ export function KycFileLink({
   const [url, setUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = getToken();
     fetch(`${API_URL}/api/kyc/attachments/${id}/file`, {
       headers: { Authorization: `Bearer ${token}` },
     })

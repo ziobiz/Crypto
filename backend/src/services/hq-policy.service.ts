@@ -246,6 +246,8 @@ function normalizePlatformConfig(raw: Partial<HqPlatformConfig>): HqPlatformConf
     defaultUsdtFiatCurrency: merged.defaultUsdtFiatCurrency ?? 'JPY',
     simulatorRetentionMonths: clampSimulatorRetention(merged.simulatorRetentionMonths),
     loginNoticeI18n: mergeLoginNoticeI18n(merged.loginNoticeI18n),
+    authMainText: String(merged.authMainText ?? ''),
+    linkPreviewRevision: Math.max(0, Math.floor(Number(merged.linkPreviewRevision) || 0)),
     depositReceivingAccounts: normalizeDepositReceivingAccounts(merged.depositReceivingAccounts),
     baseTimezone: normalizeIanaTimezone(merged.baseTimezone, 'Asia/Seoul'),
     serviceTimezone: normalizeIanaTimezone(merged.serviceTimezone, 'Asia/Seoul'),
@@ -316,6 +318,7 @@ function defaultPlatform(): HqPlatformConfig {
     tabTitle: '',
     footerText: '',
     authMainText: '',
+    linkPreviewRevision: 0,
     loginNoticeEnabled: true,
     loginNoticeI18n: { ...DEFAULT_LOGIN_NOTICE_I18N },
     customerRegistrationEnabled: false,
@@ -330,13 +333,14 @@ function defaultPlatform(): HqPlatformConfig {
   };
 }
 
-type BrandAsset = 'logo' | 'auth-logo' | 'favicon' | 'background';
+type BrandAsset = 'logo' | 'auth-logo' | 'favicon' | 'background' | 'og';
 
 const BRAND_ASSET_URL: Record<BrandAsset, string> = {
   logo: '/api/branding/logo',
   'auth-logo': '/api/branding/auth-logo',
   favicon: '/api/branding/favicon',
   background: '/api/branding/background',
+  og: '/api/branding/og',
 };
 
 const BRAND_CONFIG_KEY: Record<BrandAsset, keyof HqPlatformConfig> = {
@@ -344,6 +348,7 @@ const BRAND_CONFIG_KEY: Record<BrandAsset, keyof HqPlatformConfig> = {
   'auth-logo': 'authLogoUrl',
   favicon: 'faviconUrl',
   background: 'authBackgroundUrl',
+  og: 'ogImageUrl',
 };
 
 function ensureBrandingDir() {
@@ -359,7 +364,7 @@ function getBrandingAssetPath(asset: BrandAsset): string | null {
   return path.resolve(BRANDING_DIR, files[0]!);
 }
 
-const BRAND_ASSETS: BrandAsset[] = ['logo', 'auth-logo', 'favicon', 'background'];
+const BRAND_ASSETS: BrandAsset[] = ['logo', 'auth-logo', 'favicon', 'background', 'og'];
 
 /** DB에 URL이 없어도 uploads/branding 파일이 있으면 URL 복원 */
 function syncBrandingUrls(config: HqPlatformConfig): HqPlatformConfig {
@@ -382,6 +387,17 @@ function withBrandingCacheBust(url: string | null | undefined, asset: BrandAsset
   return `${base}?v=${v}`;
 }
 
+function mimeFromExt(ext: string): string | null {
+  const map: Record<string, string> = {
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.webp': 'image/webp',
+    '.gif': 'image/gif',
+  };
+  return map[ext.toLowerCase()] ?? null;
+}
+
 async function saveBrandingAsset(
   audit: AuditContext,
   asset: BrandAsset,
@@ -393,6 +409,7 @@ async function saveBrandingAsset(
     'auth-logo': '.png',
     favicon: '.ico',
     background: '.jpg',
+    og: '.png',
   };
   const ext = path.extname(file.originalname) || defaults[asset];
   for (const f of fs.readdirSync(BRANDING_DIR)) {
@@ -818,8 +835,16 @@ export const hqPolicyService = {
 
   async savePlatform(audit: AuditContext, config: HqPlatformConfig) {
     const existing = await getConfig(HQ_CONFIG_KEYS.platform, defaultPlatform());
+    const prevRev = Math.max(0, Math.floor(Number(existing.linkPreviewRevision) || 0));
     const merged = syncBrandingUrls(
-      normalizePlatformConfig({ ...existing, ...config }),
+      normalizePlatformConfig({
+        ...existing,
+        ...config,
+        // 클라이언트 값이 최신. 미리보기 캐시 무효화를 위해 저장마다 revision 증가
+        authMainText: config.authMainText ?? '',
+        siteName: config.siteName ?? existing.siteName,
+        linkPreviewRevision: prevRev + 1,
+      }),
     );
     await putConfigWithAudit(audit, {
       key: HQ_CONFIG_KEYS.platform,
@@ -884,6 +909,18 @@ export const hqPolicyService = {
 
   async savePlatformBackground(audit: AuditContext, file: { buffer: Buffer; originalname: string }) {
     await saveBrandingAsset(audit, 'background', file);
+    return this.getPlatformPayload();
+  },
+
+  async savePlatformOgImage(audit: AuditContext, file: { buffer: Buffer; originalname: string }) {
+    await saveBrandingAsset(audit, 'og', file);
+    const existing = await getConfig(HQ_CONFIG_KEYS.platform, defaultPlatform());
+    const prevRev = Math.max(0, Math.floor(Number(existing.linkPreviewRevision) || 0));
+    await putConfig(HQ_CONFIG_KEYS.platform, {
+      ...existing,
+      ogImageUrl: BRAND_ASSET_URL.og,
+      linkPreviewRevision: prevRev + 1,
+    }, '플랫폼 도메인·SSL');
     return this.getPlatformPayload();
   },
 
@@ -1016,6 +1053,62 @@ export const hqPolicyService = {
 
   getBackgroundFilePath(): string | null {
     return getBrandingAssetPath('background');
+  },
+
+  getOgImageFilePath(): string | null {
+    return getBrandingAssetPath('og') ?? getBrandingAssetPath('auth-logo');
+  },
+
+  /**
+   * 링크 미리보기(단일). 로그인이 하나이므로 경로와 무관하게 동일.
+   * 제목·설명=배경 브랜드 문구(authMainText). 본문 스크랩 없음.
+   */
+  async getPublicOpenGraph(): Promise<{
+    title: string;
+    description: string;
+    siteName: string;
+    imagePath: string | null;
+    imageType: string | null;
+    revision: number;
+  }> {
+    const config = syncBrandingUrls(
+      normalizePlatformConfig({
+        ...defaultPlatform(),
+        ...(await getConfig(HQ_CONFIG_KEYS.platform, defaultPlatform())),
+      }),
+    );
+    const siteName = (config.siteName || 'TINPASS').trim() || 'TINPASS';
+    // 미리보기에 보이는 핵심 문구 = 배경 브랜드 문구 (없으면 사이트 이름)
+    const description = String(config.authMainText || '')
+      .replace(/\r\n/g, '\n')
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+    const title = description || siteName;
+    const revision = Math.max(0, Math.floor(Number(config.linkPreviewRevision) || 0));
+    const ogPath = getBrandingAssetPath('og');
+    const authLogoPath = getBrandingAssetPath('auth-logo');
+    const filePath = ogPath || authLogoPath;
+    const asset: BrandAsset = ogPath ? 'og' : 'auth-logo';
+    let imagePath: string | null = null;
+    if (filePath) {
+      const base = BRAND_ASSET_URL[asset].split('?')[0]!;
+      const mtime = fs.statSync(filePath).mtimeMs;
+      // LINE 캐시 무효화: revision + mtime + 문구 해시
+      const phraseKey = Buffer.from(title).toString('base64url').slice(0, 16);
+      imagePath = `${base}?v=${revision}-${Math.floor(mtime)}-${phraseKey}`;
+    }
+    const imageType = filePath ? mimeFromExt(path.extname(filePath)) : null;
+    return {
+      title,
+      description: description || title,
+      siteName,
+      imagePath,
+      imageType,
+      revision,
+    };
   },
 
   /** 저장된 매트릭스 기준 페이지 접근 가능 여부 */

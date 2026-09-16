@@ -3,8 +3,13 @@ import { Providers } from './providers';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'TINPASS',
-  description: 'USDT · Escrow workflow',
+  title: "ONTHELINE's Tinpass Crypto Trading ANYTIME, ANYWHERE",
+  description: "ONTHELINE's Tinpass Crypto Trading ANYTIME, ANYWHERE",
+  openGraph: {
+    title: "ONTHELINE's Tinpass Crypto Trading ANYTIME, ANYWHERE",
+    description: "ONTHELINE's Tinpass Crypto Trading ANYTIME, ANYWHERE",
+    type: 'website',
+  },
 };
 
 export const viewport: Viewport = {

@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react';
 import { getApiBaseUrl } from '@/lib/api-base';
 
-type BrandAssetKey = 'authLogo' | 'logo' | 'favicon' | 'background';
+type BrandAssetKey = 'authLogo' | 'logo' | 'favicon' | 'background' | 'og';
 
 export function brandPreviewUrl(path: string | undefined, cacheBust: number): string | null {
   if (!path) return null;

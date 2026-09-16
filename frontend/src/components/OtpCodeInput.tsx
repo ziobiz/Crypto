@@ -1,7 +1,7 @@
 'use client';
 
 const OTP_INPUT_CLASS =
-  'w-full rounded-lg border px-3 py-3 text-center text-2xl tracking-widest';
+  'w-full rounded-lg border px-3 py-3 text-center text-2xl';
 
 export function OtpCodeInput({
   value,
@@ -9,17 +9,21 @@ export function OtpCodeInput({
   onComplete,
   disabled,
   className = OTP_INPUT_CLASS,
+  maxLength = 8,
+  completeAt,
 }: {
   value: string;
   onChange: (value: string) => void;
   onComplete: (code: string) => void;
   disabled?: boolean;
   className?: string;
+  maxLength?: number;
+  completeAt?: number;
 }) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const digits = e.target.value.replace(/\D/g, '').slice(0, 6);
+    const digits = e.target.value.replace(/\D/g, '').slice(0, maxLength);
     onChange(digits);
-    if (digits.length === 6 && !disabled) {
+    if (completeAt && digits.length === completeAt && !disabled) {
       onComplete(digits);
     }
   };
@@ -29,12 +33,11 @@ export function OtpCodeInput({
       type="text"
       inputMode="numeric"
       autoComplete="one-time-code"
-      maxLength={6}
+      maxLength={maxLength}
       value={value}
       onChange={handleChange}
       disabled={disabled}
       className={className}
-      placeholder="000000"
       required
     />
   );

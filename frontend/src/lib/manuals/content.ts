@@ -354,6 +354,63 @@ export const HQ_OPS_MANUAL: ManualDoc = {
       ),
     },
     {
+      id: 'hq-og-preview',
+      title: L(
+        'URL 링크 미리보기',
+        'URL link preview',
+        'URLリンクプレビュー',
+        'URL 链接预览',
+        'พรีวิวลิงก์ URL',
+      ),
+      bodyHtml: L(
+        `<span class="menu-path">본사정책 → 플랫폼 → 브랜드 카드</span>
+        <ul>
+          <li>로그인 창은 고객·관리자 공통 하나이므로, LINE·WhatsApp 미리보기도 <strong>하나</strong>입니다.</li>
+          <li><strong>제목</strong> — 사이트 이름</li>
+          <li><strong>설명</strong> — 배경 브랜드 문구 (같은 칸을 그대로 사용)</li>
+          <li><strong>이미지</strong> — 링크 미리보기 이미지(없으면 첫화면 로고)</li>
+          <li>크롤러는 JS를 실행하지 않으므로 서버가 첫 HTML 머리에 위 값을 넣습니다. 본문을 긁지 않습니다.</li>
+        </ul>
+        <div class="info-box">브랜드 설정 저장 후 LINE은 캐시 때문에 재수집이 필요할 수 있습니다.</div>`,
+        `<span class="menu-path">HQ Policy → Platform → Brand card</span>
+        <ul>
+          <li>There is one shared login for customers and admins, so there is also <strong>one</strong> LINE/WhatsApp preview.</li>
+          <li><strong>Title</strong> — site name</li>
+          <li><strong>Description</strong> — background brand text (same field)</li>
+          <li><strong>Image</strong> — link preview image (falls back to landing logo)</li>
+          <li>Crawlers do not run JavaScript. The server puts these values in the first HTML head and never scrapes the page body.</li>
+        </ul>
+        <div class="info-box">After saving brand settings, LINE may need a cache refresh.</div>`,
+        `<span class="menu-path">本社ポリシー → プラットフォーム → ブランドカード</span>
+        <ul>
+          <li>ログイン画面は顧客・管理者共通のため、LINE・WhatsApp プレビューも<strong>1つ</strong>です。</li>
+          <li><strong>タイトル</strong> — サイト名</li>
+          <li><strong>説明</strong> — 背景ブランド文言（同じ欄）</li>
+          <li><strong>画像</strong> — リンクプレビュー画像（未設定ならトップ画面ロゴ）</li>
+          <li>クローラーはJSを実行しません。サーバーが最初のHTMLのheadに設定値を入れ、本文は取得しません。</li>
+        </ul>
+        <div class="info-box">ブランド保存後、LINEはキャッシュ再取得が必要な場合があります。</div>`,
+        `<span class="menu-path">总部策略 → 平台 → 品牌卡片</span>
+        <ul>
+          <li>登录页客户与管理员共用，因此 LINE/WhatsApp 预览也只有<strong>一套</strong>。</li>
+          <li><strong>标题</strong> — 站点名称</li>
+          <li><strong>说明</strong> — 背景品牌文案（同一栏）</li>
+          <li><strong>图片</strong> — 链接预览图（未设置则用首页 Logo）</li>
+          <li>爬虫不运行 JavaScript。服务器把上述值写入首份 HTML 的 head，不抓取正文。</li>
+        </ul>
+        <div class="info-box">保存品牌后，LINE 可能需要重新抓取缓存。</div>`,
+        `<span class="menu-path">HQ Policy → แพลตฟอร์ม → การ์ดแบรนด์</span>
+        <ul>
+          <li>หน้าเข้าสู่ระบบใช้ร่วมกัน ลูกค้าและผู้ดูแล จึงมีพรีวิว LINE/WhatsApp เพียง<strong>ชุดเดียว</strong></li>
+          <li><strong>หัวข้อ</strong> — ชื่อไซต์</li>
+          <li><strong>คำอธิบาย</strong> — ข้อความแบรนด์พื้นหลัง (ช่องเดียวกัน)</li>
+          <li><strong>รูป</strong> — รูปพรีวิวลิงก์ (ถ้าไม่มีใช้โลโก้หน้าแรก)</li>
+          <li>ครอว์เลอร์ไม่รัน JS เซิร์ฟเวอร์ใส่ค่าใน head ของ HTML แรก ไม่ดึงจากเนื้อหาหน้า</li>
+        </ul>
+        <div class="info-box">หลังบันทึกแบรนด์ LINE อาจต้องเก็บแคชใหม่</div>`
+      ),
+    },
+    {
       id: 'hq-fiat',
       title: L('통화별 이체·카드·고정 수취계좌', 'Per-currency transfer, card & fixed accounts', '通貨別 振込・カード・固定受取口座', '按币种转账·卡·固定收款账户', 'โอน/บัตร/บัญชีคงที่ตามสกุล'),
       bodyHtml: L(

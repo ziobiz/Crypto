@@ -669,6 +669,8 @@ export type HqPlatformConfig = {
   siteName: string;
   /** 브라우저 탭 제목. 비우면 siteName 사용 */
   tabTitle?: string;
+  /** LINE·WhatsApp 링크 미리보기 이미지 (/api/branding/og). 제목=siteName, 설명=authMainText */
+  ogImageUrl?: string;
   /** 로그인 후 좌측 메뉴 상단 로고 (/api/branding/logo) */
   logoUrl?: string;
   /** 첫화면(로그인) 우측 패널 상단 로고 (/api/branding/auth-logo) — 로그인 후 로고와 별도 */
@@ -677,8 +679,10 @@ export type HqPlatformConfig = {
   faviconUrl?: string;
   /** 로그인 첫화면 왼쪽 배경 (/api/branding/background) */
   authBackgroundUrl?: string;
-  /** 왼쪽 배경 위 브랜드 문구 (줄바꿈 가능) */
+  /** 왼쪽 배경 위 브랜드 문구 (줄바꿈 가능) — LINE·WhatsApp 미리보기 설명에도 사용 */
   authMainText?: string;
+  /** 링크 미리보기 캐시 무효화용 버전 (저장할 때마다 증가) */
+  linkPreviewRevision?: number;
   /** 첫화면 하단 푸터 문구 */
   footerText?: string;
   /** 로그인 패널 공지 노출 */

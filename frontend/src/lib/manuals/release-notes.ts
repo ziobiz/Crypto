@@ -3,6 +3,194 @@ import type { PlatformReleaseNote } from './version';
 /** 본사정책 → 운영관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
 export const PLATFORM_RELEASE_NOTES: PlatformReleaseNote[] = [
   {
+    version: '2.6.77',
+    kind: 'minor',
+    date: '2026-09-16',
+    items: {
+      KR: ['브랜드 카드 항목명 「왼쪽 배경 브랜드 문구」를 「배경 브랜드 문구」로 변경.'],
+      US: ['Renamed brand card label from “Left background brand text” to “Background brand text”.'],
+      JP: ['ブランドカード項目名を「左背景ブランド文言」から「背景ブランド文言」に変更。'],
+      CH: ['品牌卡片项目名由「左侧背景品牌文案」改为「背景品牌文案」。'],
+      TH: ['เปลี่ยนชื่อรายการการ์ดแบรนด์จากข้อความแบรนด์พื้นหลังซ้าย เป็น ข้อความแบรนด์พื้นหลัง'],
+    },
+  },
+  {
+    version: '2.6.76',
+    kind: 'minor',
+    date: '2026-09-16',
+    items: {
+      KR: [
+        '링크 미리보기 제목·설명에 왼쪽 배경 브랜드 문구를 함께 넣어 LINE 카드에 바로 보이게 함. 캐시 무효화 강화.',
+      ],
+      US: [
+        'Put the left background brand text into both link-preview title and description so LINE shows it. Stronger cache busting.',
+      ],
+      JP: [
+        '左背景ブランド文言をリンクプレビューのタイトルと説明の両方に入れ、LINEカードにすぐ出す。キャッシュ無効化を強化。',
+      ],
+      CH: [
+        '将左侧背景品牌文案同时写入链接预览标题与说明，便于 LINE 卡片显示。加强缓存失效。',
+      ],
+      TH: [
+        'ใส่ข้อความแบรนด์พื้นหลังซ้ายทั้งหัวข้อและคำอธิบายพรีวิวลิงก์ให้เห็นบน LINE และบังคับล้างแคชแรงขึ้น',
+      ],
+    },
+  },
+  {
+    version: '2.6.75',
+    kind: 'minor',
+    date: '2026-09-16',
+    items: {
+      KR: [
+        '링크 미리보기 이미지 화면 표시를 약 1/3로 축소. 브랜드 저장 시마다 미리보기 버전을 올려 재입력한 제목·설명이 바로 반영되게 함.',
+      ],
+      US: [
+        'Link preview image shown at about 1/3 size. Each brand save bumps the preview version so rewritten title/description apply immediately.',
+      ],
+      JP: [
+        'リンクプレビュー画像の表示を約1/3に縮小。ブランド保存のたびにプレビュー版を上げ、再入力したタイトル・説明がすぐ反映されるようにした。',
+      ],
+      CH: [
+        '链接预览图显示缩小为约 1/3。每次保存品牌都会提升预览版本，使重新填写的标题和说明立即生效。',
+      ],
+      TH: [
+        'ลดขนาดแสดงรูปพรีวิวลิงก์เหลือประมาณ 1/3 และเพิ่มเวอร์ชันพรีวิวทุกครั้งที่บันทึกแบรนด์ ให้ข้อความที่กรอกใหม่สะท้อนทันที',
+      ],
+    },
+  },
+  {
+    version: '2.6.74',
+    kind: 'minor',
+    date: '2026-09-16',
+    items: {
+      KR: [
+        '링크 미리보기를 하나로 통합. 제목=사이트 이름, 설명=왼쪽 배경 브랜드 문구. 고객/관리자 이중 설정 제거.',
+      ],
+      US: [
+        'Unified link preview into one set. Title = site name, description = left background brand text. Removed separate customer/admin OG settings.',
+      ],
+      JP: [
+        'リンクプレビューを1つに統合。タイトル=サイト名、説明=左背景ブランド文言。顧客/管理者の二重設定を削除。',
+      ],
+      CH: [
+        '链接预览合并为一套。标题=站点名，说明=左侧背景品牌文案。移除客户/管理员双重设置。',
+      ],
+      TH: [
+        'รวมพรีวิวลิงก์เป็นชุดเดียว หัวข้อ=ชื่อไซต์ คำอธิบาย=ข้อความแบรนด์พื้นหลังซ้าย ลบการตั้งค่าแยกลูกค้า/ผู้ดูแล',
+      ],
+    },
+  },
+  {
+    version: '2.6.73',
+    kind: 'minor',
+    date: '2026-09-16',
+    items: {
+      KR: [
+        'LINE·WhatsApp URL 미리보기를 고객 페이지와 관리자 페이지로 분리. 본사정책→플랫폼에서 제목·설명·이미지를 따로 저장하며, 서버가 첫 HTML에 설정값을 넣는다.',
+      ],
+      US: [
+        'Split LINE/WhatsApp URL previews into customer vs admin. HQ Policy → Platform stores separate title, description, and image; the server puts those values in the first HTML.',
+      ],
+      JP: [
+        'LINE・WhatsApp のURLプレビューを顧客ページと管理者ページで分離。本社ポリシー→プラットフォームでタイトル・説明・画像を別保存し、サーバーが最初のHTMLに設定値を入れる。',
+      ],
+      CH: [
+        '将 LINE/WhatsApp 的 URL 预览按客户页与管理员页分开。总部策略→平台分别保存标题、说明、图片，由服务器写入首份 HTML。',
+      ],
+      TH: [
+        'แยกพรีวิว URL ใน LINE/WhatsApp เป็นหน้าลูกค้ากับหน้าผู้ดูแล ตั้งค่าหัวข้อ คำอธิบาย รูปที่ HQ Policy → แพลตฟอร์ม และเซิร์ฟเวอร์ใส่ค่าใน HTML แรก',
+      ],
+    },
+  },
+  {
+    version: '2.6.72',
+    kind: 'minor',
+    date: '2026-09-16',
+    items: {
+      KR: [
+        '로그인 Cloudflare 위젯 배너를 숨기고 「로봇 접근을 확인 중입니다. 잠시 대기해 주세요.」 문구로 대체.',
+      ],
+      US: [
+        'Login: hide the Cloudflare widget banner and show a waiting message while robot access is checked.',
+      ],
+      JP: [
+        'ログインの Cloudflare ウィジェットを隠し、「ロボットアクセスを確認しています」の案内に置き換え。',
+      ],
+      CH: [
+        '登录隐藏 Cloudflare 组件横幅，改为显示正在确认机器人访问的等待文案。',
+      ],
+      TH: [
+        'หน้าเข้าสู่ระบบซ่อนแบนเนอร์วิดเจ็ต Cloudflare และแสดงข้อความรอตรวจหุ่นยนต์แทน',
+      ],
+    },
+  },
+  {
+    version: '2.6.71',
+    kind: 'minor',
+    date: '2026-09-16',
+    items: {
+      KR: [
+        '로그인 후 메뉴 이동 시 주소창에는 도메인만 표시. 경로를 숨겨 직접 URL 노출을 줄임.',
+      ],
+      US: [
+        'After sign-in, the address bar shows only the domain. Page paths are hidden.',
+      ],
+      JP: [
+        'ログイン後のメニュー移動ではアドレスバーにドメインのみ表示。パスは出さない。',
+      ],
+      CH: [
+        '登录后切换菜单时地址栏只显示域名，不显示页面路径。',
+      ],
+      TH: [
+        'หลังเข้าสู่ระบบ แถบที่อยู่แสดงเฉพาะโดเมน ไม่แสดงพาธหน้า',
+      ],
+    },
+  },
+  {
+    version: '2.6.70',
+    kind: 'minor',
+    date: '2026-09-16',
+    items: {
+      KR: [
+        '2단계 인증: 「6자리」 안내와 000000 자리 표시를 없애 코드 길이가 보이지 않게 함.',
+      ],
+      US: [
+        '2FA: drop the “6-digit” hint and 000000 placeholder so the code length is not shown.',
+      ],
+      JP: [
+        '二段階認証: 「6桁」案内と000000表示をやめ、桁数が分からないようにした。',
+      ],
+      CH: [
+        '两步验证：去掉「6位」说明和 000000 占位，不再露出位数。',
+      ],
+      TH: [
+        'ยืนยันสองขั้นตอน: ตัดข้อความ 6 หลักและช่อง 000000 เพื่อไม่ให้เห็นความยาวรหัส',
+      ],
+    },
+  },
+  {
+    version: '2.6.69',
+    kind: 'minor',
+    date: '2026-09-16',
+    items: {
+      KR: [
+        '대시보드 직접 URL은 세션 쿠키가 없으면 로그인으로 보냄. 토큰은 브라우저를 닫으면 사라지며, 대시보드 HTML은 캐시하지 않음.',
+      ],
+      US: [
+        'Dashboard URLs redirect to login without a session cookie. The token is session-only, and dashboard HTML is not cached.',
+      ],
+      JP: [
+        'ダッシュボード直リンクはセッションCookieがなければログインへ。トークンはブラウザ終了で消え、ダッシュボードHTMLはキャッシュしない。',
+      ],
+      CH: [
+        '无会话 Cookie 时，仪表板直链会跳到登录。令牌仅在会话内有效，仪表板页面不缓存。',
+      ],
+      TH: [
+        'ลิงก์แดชบอร์ดส่งไปหน้าเข้าสู่ระบบหากไม่มีคุกกี้เซสชัน โทเคนหมดเมื่อปิดเบราว์เซอร์ และไม่แคชหน้าแดชบอร์ด',
+      ],
+    },
+  },
+  {
     version: '2.6.68',
     kind: 'minor',
     date: '2026-09-15',

@@ -1,4 +1,5 @@
 import { getApiBaseUrl } from './api-base';
+import { clearAuthSessionCookie, writeAuthSessionCookie } from './auth-session';
 
 const API_URL = getApiBaseUrl();
 
@@ -13,17 +14,24 @@ export class ApiError extends Error {
   }
 }
 
-function getToken(): string | null {
+export function getToken(): string | null {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem('token');
+  const session = sessionStorage.getItem('token');
+  if (session) return session;
+  localStorage.removeItem('token');
+  return null;
 }
 
 export function setToken(token: string) {
-  localStorage.setItem('token', token);
+  sessionStorage.setItem('token', token);
+  localStorage.removeItem('token');
+  writeAuthSessionCookie();
 }
 
 export function clearToken() {
+  sessionStorage.removeItem('token');
   localStorage.removeItem('token');
+  clearAuthSessionCookie();
 }
 
 async function request<T>(
@@ -1619,6 +1627,14 @@ export const hqPolicyApi = {
       body: form,
     });
   },
+  uploadPlatformOgImage: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return request<HqPlatformPayload>('/api/hq-policy/platform/og', {
+      method: 'POST',
+      body: form,
+    });
+  },
   getCardPayment: () => request<{ config: HqCardPaymentConfig }>('/api/hq-policy/payment/card'),
   saveCardPayment: (config: HqCardPaymentConfig) =>
     request<{ config: HqCardPaymentConfig }>('/api/hq-policy/payment/card', {
@@ -2027,6 +2043,8 @@ export interface HqPlatformConfig {
   siteName: string;
   /** 브라우저 탭. 비우면 siteName */
   tabTitle?: string;
+  /** LINE·WhatsApp 미리보기 이미지. 제목=siteName, 설명=authMainText */
+  ogImageUrl?: string;
   logoUrl?: string;
   authLogoUrl?: string;
   faviconUrl?: string;

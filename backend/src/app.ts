@@ -25,6 +25,8 @@ import { asyncHandler } from './middleware/asyncHandler';
 import merchantRoutes from './routes/merchant.routes';
 import webhooksRoutes from './routes/webhooks.routes';
 
+export { crawlerOpenGraphMiddleware } from './lib/open-graph';
+
 const BRAND_MIME: Record<string, string> = {
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
@@ -97,6 +99,18 @@ export function createApiApp(): express.Application {
 
   app.get('/api/branding/background', (_req, res) => {
     sendBrandingFile(res, hqPolicyService.getBackgroundFilePath());
+  });
+
+  app.get('/api/branding/og', (_req, res) => {
+    sendBrandingFile(res, hqPolicyService.getOgImageFilePath());
+  });
+
+  app.get('/api/branding/og-customer', (_req, res) => {
+    sendBrandingFile(res, hqPolicyService.getOgImageFilePath());
+  });
+
+  app.get('/api/branding/og-admin', (_req, res) => {
+    sendBrandingFile(res, hqPolicyService.getOgImageFilePath());
   });
 
   app.use('/api/auth', authRoutes);
