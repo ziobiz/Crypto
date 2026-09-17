@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, clearToken, MeResponse, setToken } from '@/lib/api';
-import { clearMaskedPaths, safeDashboardNext, takeLoginNext } from '@/lib/auth-session';
+import { clearMaskedPaths } from '@/lib/auth-session';
 import { touchActivity, useIdleTimeout } from '@/hooks/useIdleTimeout';
 
 interface AuthContextValue {
@@ -67,7 +67,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(token);
     touchActivity();
     await refresh();
-    router.push(safeDashboardNext(takeLoginNext()));
+    clearMaskedPaths();
+    router.push('/dashboard');
   };
 
   const login = async (email: string, password: string) => {

@@ -9,6 +9,7 @@ export type NavIconId =
   | 'users'
   | 'orgs'
   | 'hq'
+  | 'ops'
   | 'wallets'
   | 'manuals'
   | 'kyc';
@@ -113,7 +114,7 @@ const OPS_ITEM: NavItem = {
   href: '/dashboard/ops',
   labelKey: 'nav.ops',
   shortKey: 'nav.short.ops',
-  icon: 'hq',
+  icon: 'ops',
   children: OPS_CHILDREN,
 };
 
@@ -123,7 +124,7 @@ const OPS_ITEM_ORG: NavItem = {
   href: '/dashboard/ops',
   labelKey: 'nav.ops',
   shortKey: 'nav.short.ops',
-  icon: 'hq',
+  icon: 'ops',
   children: OPS_CHILDREN_ORG,
 };
 

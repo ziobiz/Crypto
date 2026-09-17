@@ -4,7 +4,6 @@ import { useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api, setToken, ApiError } from '@/lib/api';
-import { safeDashboardNext, takeLoginNext } from '@/lib/auth-session';
 import { useAuth } from '@/context/AuthProvider';
 import { useT } from '@/context/LocaleProvider';
 import { AuthChrome } from '@/components/layout/AuthChrome';
@@ -50,7 +49,7 @@ export default function LoginPage() {
   const finishSession = async (token: string) => {
     setToken(token);
     await refresh();
-    router.push(safeDashboardNext(takeLoginNext()));
+    router.push('/dashboard');
   };
 
   const withOtpLock = async (fn: () => Promise<void>) => {

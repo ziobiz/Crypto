@@ -111,7 +111,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <tr><td>จัดการผู้ใช้</td><td>เฉพาะพนักงานองค์กร (HQ·องค์กร) แอดมิน/ผู้ปฏิบัติงานร้านอยู่ที่จัดการลูกค้า (หลายผู้ใช้) และเมนูจัดการผู้ใช้ของร้าน</td></tr>
         <tr><td>จัดการลูกค้า</td><td>สมาชิกผู้ใช้ สถานะใช้งาน ผ่านการยืนยัน/ยังไม่ยืนยัน และเอกสาร</td></tr>
         <tr><td>จัดการองค์กร</td><td>สร้าง HQ ตัวแทนหลัก สาขา เอเย่นต์ สำนักงานขาย</td></tr>
-        <tr><td>HQ Policy</td><td>คลิกครั้งหนึ่งในเมนูซ้ายเพื่อขยาย คลิกอีกครั้งเพื่อพับ เมนูย่อย: สิทธิ์ คอลัมน์ ค่าธรรมเนียม แพลตฟอร์ม ปฏิบัติการ การลบ ตัวจำลอง วิเคราะห์ คู่มือ</td></tr>
+        <tr><td>HQ Policy</td><td>คลิกครั้งหนึ่งในเมนูซ้ายเพื่อขยาย คลิกอีกครั้งเพื่อพับ เมนูย่อย: สิทธิ์ คอลัมน์ ค่าธรรมเนียม แพลตฟอร์ม การจัดการตรวจสอบ การลบ ตัวจำลอง วิเคราะห์ คู่มือ</td></tr>
         <tr><td>ตัวจำลอง USDT</td><td>คำนวณยอดฝาก/USDT ที่รับ เครือข่าย ค่าธรรมเนียม (ใต้ HQ Policy)</td></tr>
         <tr><td>ตัวจำลองบันทึก</td><td>วิเคราะห์การใช้งาน (บน) และรายการ (ล่าง)</td></tr>
         <tr><td>วิเคราะห์ธุรกรรม</td><td>กรอกยอดตัวกลางและ USDT ที่รับเอง เรทอัตโนมัติ ค่าธรรมเนียมย้อนกลับ</td></tr>
@@ -273,7 +273,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li><strong>조직항목</strong> — 화면 컬럼·표시 순서</li>
           <li><strong>수수료·리스크</strong> — 시볼 수수료 구간, 한도, 조직 요율, 수수료율 노출</li>
           <li><strong>플랫폼 도메인·SSL</strong> — 브랜드(사이트 이름·브라우저 탭)·입금 수취 계좌(통화별 이체/카드)·도메인·이메일·SSL. 이메일·OTP 숫자 표에 <strong>민감작업 OTP 유지시간(분)</strong>(기본 10분, 1~60). 가맹점 사용자관리·내 지갑 등 민감작업에 적용됩니다. 6자리를 모두 넣고 맞으면 확인 버튼을 누르지 않아도 진행됩니다.</li>
-          <li><strong>운영관리</strong> — 변경이력, 업데이트 내용/이력, 결제관리</li>
+          <li><strong>검증관리</strong> — 변경이력, 업데이트 내용/이력, 결제관리</li>
           <li><strong>삭제관리</strong> — 삭제 정책·처리</li>
           <li><strong>USDT 시뮬레이터 / 기록 시뮬레이터</strong> — 본사정책 하위. 기록은 사용 분석이 목록 위</li>
           <li><strong>거래분석 / 수익분석</strong> — 총본사 관리자·Organizer만. 진입 시 Google OTP 6자리. 맞으면 확인 버튼을 누르지 않아도 진행됩니다. 유지시간은 플랫폼 「민감작업 OTP 유지시간」(기본 10분). Organizer는 지정 admin만 부여</li>
@@ -287,7 +287,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li><strong>Org columns</strong> — grid columns & order</li>
           <li><strong>Fees & risk</strong> — symbol tiers, limits, org rates, rate visibility</li>
           <li><strong>Platform</strong> — brand (site name, browser tab), deposit accounts (transfer/card per currency), domain, email, SSL. Email/OTP numeric table includes <strong>Sensitive action OTP duration (minutes)</strong> (default 10, range 1–60) for merchant Users, wallets, and similar. Six correct digits proceed without tapping Verify.</li>
-          <li><strong>Ops</strong> — change log, release notes/history, payment</li>
+          <li><strong>Verification Mgmt</strong> — change log, release notes/history, payment</li>
           <li><strong>Deletion</strong> — deletion policy and processing</li>
           <li><strong>USDT simulator / Record simulator</strong> — under HQ Policy. Analysis sits above the log list</li>
           <li><strong>Trade analysis / Profit analysis</strong> — HQ admin and Organizer only. Enter Google OTP 6 digits on entry; correct codes proceed without Verify. Duration is Platform Sensitive action OTP (default 10 min). Only the designated HQ admin can assign Organizer</li>
@@ -301,7 +301,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li><strong>組織項目</strong> — 画面カラム・表示順</li>
           <li><strong>手数料・リスク</strong> — シンボル手数料段階、限度、組織料率、料率表示</li>
           <li><strong>プラットフォーム ドメイン・SSL</strong> — ブランド(サイト名・タブ)・入金受取口座(通貨別振込/カード)・ドメイン・メール・SSL。メール・OTP数値表に<strong>機密操作OTP維持時間（分）</strong>(既定10分、1〜60)。加盟店ユーザー管理・マイウォレット等に適用。6桁が正しければ確認ボタンなしで進みます。</li>
-          <li><strong>運営管理</strong> — 変更履歴、更新内容/履歴、決済管理</li>
+          <li><strong>検証管理</strong> — 変更履歴、更新内容/履歴、決済管理</li>
           <li><strong>削除管理</strong> — 削除方針・処理</li>
           <li><strong>USDTシミュレーター / 記録シミュレーター</strong> — 本社ポリシー下。記録は利用分析が一覧の上</li>
           <li><strong>取引分析 / 収益分析</strong> — 総本社管理者・Organizerのみ。入場時Google OTP 6桁。正しければ確認ボタンなし。維持時間はプラットフォーム機密操作OTP（既定10分）。Organizerは指定adminのみ付与</li>
@@ -315,7 +315,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li><strong>组织字段</strong> — 界面列与显示顺序</li>
           <li><strong>手续费·风险</strong> — 交易对手续费档位、限额、组织费率、费率显示</li>
           <li><strong>平台域名·SSL</strong> — 品牌（站点名·浏览器标签）、入金收款账户（按币种转账/卡）、域名、邮箱、SSL。邮箱·OTP 数字表含<strong>敏感操作 OTP 保持时间（分钟）</strong>（默认 10，1–60），用于加盟商用户管理、我的钱包等。输入正确 6 位后无需点确认即可继续。</li>
-          <li><strong>运营管理</strong> — 变更历史、更新内容/历史、支付管理</li>
+          <li><strong>验证管理</strong> — 变更历史、更新内容/历史、支付管理</li>
           <li><strong>删除管理</strong> — 删除策略与处理</li>
           <li><strong>USDT 模拟器 / 记录模拟器</strong> — 在总部政策下；记录页分析在列表上方</li>
           <li><strong>交易分析 / 收益分析</strong> — 仅总部管理员与 Organizer。进入时输入 Google OTP 6 位，正确则无需点确认。保持时间见平台敏感操作 OTP（默认 10 分钟）。仅指定管理员可授予 Organizer</li>
@@ -329,7 +329,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li><strong>คอลัมน์องค์กร</strong> — คอลัมน์หน้าจอและลำดับแสดง</li>
           <li><strong>ค่าธรรมเนียม·ความเสี่ยง</strong> — ชั้นค่าธรรมเนียมสัญลักษณ์ วงเงิน อัตราองค์กร การแสดงอัตรา</li>
           <li><strong>แพลตฟอร์ม โดเมน·SSL</strong> — แบรนด์ (ชื่อไซต์·แท็บ) บัญชีรับเงิน (โอน/บัตรตามสกุล) โดเมน อีเมล SSL ตารางตัวเลขอีเมล/OTP มี<strong>ระยะเวลา OTP งานสำคัญ (นาที)</strong> (ค่าเริ่ม 10, 1–60) สำหรับจัดการผู้ใช้และกระเป๋าของร้าน กรอก 6 หลักถูกต้องแล้วไม่ต้องกดยืนยัน</li>
-          <li><strong>ปฏิบัติการ</strong> — ประวัติการเปลี่ยนแปลง บันทึกอัปเดต การชำระเงิน</li>
+          <li><strong>การจัดการตรวจสอบ</strong> — ประวัติการเปลี่ยนแปลง บันทึกอัปเดต การชำระเงิน</li>
           <li><strong>การลบ</strong> — นโยบายและการจัดการลบ</li>
           <li><strong>ตัวจำลอง USDT / ตัวจำลองบันทึก</strong> — ใต้ HQ Policy วิเคราะห์อยู่บนรายการ</li>
           <li><strong>วิเคราะห์ธุรกรรม / วิเคราะห์กำไร</strong> — เฉพาะผู้ดูแล HQ และ Organizer กรอก Google OTP 6 หลักตอนเข้า ถูกละไม่ต้องกดยืนยัน ระยะเวลาตามแพลตฟอร์ม OTP งานสำคัญ (ค่าเริ่ม 10 นาที) มอบ Organizer ได้เฉพาะแอดมินที่กำหนด</li>
@@ -446,13 +446,13 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         </tbody></table>
         <ul>
           <li>이체를 끄면 그 통화로 <strong>계좌 이체 USDT 매입</strong> 불가.</li>
-          <li>카드를 끄면 그 통화로 <strong>카드 USDT 매입</strong> 불가 (운영관리 카드 전체 ON과 별개).</li>
+          <li>카드를 끄면 그 통화로 <strong>카드 USDT 매입</strong> 불가 (검증관리 카드 전체 ON과 별개).</li>
           <li>JPY Payoneer(MUFG)는 「기본값 채우기」로 일괄 입력 후 <strong>브랜드 설정 저장</strong>.</li>
         </ul>
         <div class="warn-box"><strong>입금 주의 (고객·운영 공통)</strong><br/>
         금액을 정상 수령하려면 수취인명을 <strong>표시된 그대로 정확히 복사</strong>해야 합니다 (半角カタカナ). 임의 변경 시 입금 실패·지연 가능.
         UI 언어를 바꿔도 <strong>수취인명만은 일본어 원문</strong>으로 남습니다. 안내 문구만 해당 언어로 바뀝니다.</div>
-        <div class="check-box">위치는 운영관리가 아니라 <strong>플랫폼</strong>입니다. CURFEX는 운영관리 → 결제관리에서 별도 설정.</div>`,
+        <div class="check-box">위치는 검증관리가 아니라 <strong>플랫폼</strong>입니다. CURFEX는 검증관리 → 결제관리에서 별도 설정.</div>`,
         `<span class="menu-path">HQ Policy → Platform → Customer deposit accounts</span>
         <p>For KRW, JPY, THB, CNY register the <strong>fixed receiving account</strong> and toggle <strong>bank transfer</strong> / <strong>card</strong> separately. Shown when CURFEX is off (or not applied) for that currency.</p>
         <table><thead><tr><th>Field</th><th>Notes</th></tr></thead><tbody>
@@ -470,7 +470,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <div class="warn-box"><strong>Deposit precautions</strong><br/>
         To receive funds correctly, customers must <strong>copy the beneficiary name exactly</strong> (half-width katakana). Changing it may fail or delay the deposit.
         Switching UI language translates the notice only — the <strong>beneficiary name stays Japanese</strong>.</div>
-        <div class="check-box">Configured under <strong>Platform</strong>, not Ops. CURFEX is separate under Ops → Payment.</div>`,
+        <div class="check-box">Configured under <strong>Platform</strong>, not Verification Mgmt. CURFEX is separate under Verification Mgmt → Payment.</div>`,
         `<span class="menu-path">本社ポリシー → プラットフォーム → 顧客入金受取口座（通貨別）</span>
         <p>KRW・JPY・THB・CNYごとに<strong>固定受取口座</strong>を登録し、<strong>振込</strong>・<strong>カード</strong>を個別にON/OFFします。CURFEXがOFF（または未適用）の通貨で顧客に案内されます。</p>
         <table><thead><tr><th>項目</th><th>説明</th></tr></thead><tbody>
@@ -482,13 +482,13 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         </tbody></table>
         <ul>
           <li>振込OFF → その通貨の<strong>口座振込USDT購入</strong>不可。</li>
-          <li>カードOFF → その通貨の<strong>カードUSDT購入</strong>不可（運営管理の全体カードONとは別）。</li>
+          <li>カードOFF → その通貨の<strong>カードUSDT購入</strong>不可（検証管理の全体カードONとは別）。</li>
           <li>JPY Payoneer(MUFG)は「デフォルト入力」後に<strong>ブランド設定を保存</strong>。</li>
         </ul>
         <div class="warn-box"><strong>入金時の注意</strong><br/>
         正常着金には受取人名を<strong>表示どおり正確にコピー</strong>してください（半角カタカナ）。変更すると失敗・遅延の原因になります。
         UI言語を変えても<strong>受取人名だけは日本語原文</strong>のままです。案内文だけが翻訳されます。</div>
-        <div class="check-box">場所は運営管理ではなく<strong>プラットフォーム</strong>です。CURFEXは運営管理→決済管理で別設定。</div>`,
+        <div class="check-box">場所は検証管理ではなく<strong>プラットフォーム</strong>です。CURFEXは検証管理→決済管理で別設定。</div>`,
         `<span class="menu-path">总部策略 → 平台 → 客户入金收款账户（按币种）</span>
         <p>为 KRW·JPY·THB·CNY 登记<strong>固定收款账户</strong>，并单独开关<strong>转账</strong>·<strong>卡支付</strong>。当 CURFEX 关闭（或未适用）时向客户展示。</p>
         <table><thead><tr><th>项目</th><th>说明</th></tr></thead><tbody>
@@ -500,13 +500,13 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         </tbody></table>
         <ul>
           <li>关闭转账 → 无法用该币种做<strong>银行转账 USDT 采购</strong>。</li>
-          <li>关闭卡 → 无法用该币种做<strong>卡付 USDT 采购</strong>（与运营管理全局卡开关无关）。</li>
+          <li>关闭卡 → 无法用该币种做<strong>卡付 USDT 采购</strong>（与验证管理全局卡开关无关）。</li>
           <li>JPY Payoneer(MUFG) 可用「一键填充」后<strong>保存品牌设置</strong>。</li>
         </ul>
         <div class="warn-box"><strong>入金注意</strong><br/>
         为确保正常入账，须<strong>精确复制收款人姓名</strong>（半角片假名）。擅自修改可能导致失败或延迟。
         切换界面语言时，仅提示文翻译；<strong>收款人姓名始终保持日语原文</strong>。</div>
-        <div class="check-box">位置在<strong>平台</strong>，不在运营管理。CURFEX 在运营管理→支付管理单独设置。</div>`,
+        <div class="check-box">位置在<strong>平台</strong>，不在验证管理。CURFEX 在验证管理→支付管理单独设置。</div>`,
         `<span class="menu-path">HQ Policy → แพลตฟอร์ม → บัญชีรับเงินลูกค้า (ตามสกุล)</span>
         <p>ลงทะเบียน<strong>บัญชีรับคงที่</strong>สำหรับ KRW·JPY·THB·CNY และเปิด/ปิด <strong>โอน</strong>·<strong>บัตร</strong> แยกกัน แสดงเมื่อ CURFEX ปิด (หรือไม่ใช้) ในสกุลนั้น</p>
         <table><thead><tr><th>รายการ</th><th>คำอธิบาย</th></tr></thead><tbody>
@@ -638,7 +638,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
       id: 's4',
       title: L('결제관리 · ICOPAY · 가상계좌서비스(CURFEX)', 'Payment · ICOPAY · Virtual Account Service (CURFEX)', '決済・ICOPAY・バーチャル口座サービス(CURFEX)', '支付·ICOPAY·虚拟账户服务(CURFEX)', 'การชำระเงิน·ICOPAY·บริการบัญชีเสมือน(CURFEX)'),
       bodyHtml: L(
-        `<span class="menu-path">본사정책 → 운영관리 → 결제관리</span>
+        `<span class="menu-path">본사정책 → 검증관리 → 결제관리</span>
         <p><strong>ICOPAY (카드)</strong></p>
         <ol>
           <li>ICOPAY 연동: MID, Bracket Secret, API Base URL, 샌드박스</li>
@@ -667,7 +667,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li>고정 수취계좌(가상계좌서비스(CURFEX) OFF)는 기존처럼 수동 증빙</li>
         </ul>
         <div class="warn-box">가상계좌서비스(CURFEX)는 JPY 이체 수취용입니다. 카드결제는 ICOPAY, KRW/THB/CNY 전용계좌는 기존 방식을 그대로 씁니다.</div>`,
-        `<span class="menu-path">HQ Policy → Ops → Payment</span>
+        `<span class="menu-path">HQ Policy → Verification Mgmt → Payment</span>
         <p><strong>ICOPAY (card)</strong></p>
         <ol>
           <li>ICOPAY: MID, Bracket Secret, API URL, sandbox</li>
@@ -696,7 +696,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li>Fixed accounts (Virtual Account Service (CURFEX) OFF) still require manual proof</li>
         </ul>
         <div class="warn-box">Virtual Account Service (CURFEX) is for JPY collection only. Cards stay on ICOPAY; other fiat fixed accounts are unchanged.</div>`,
-        `<span class="menu-path">本社ポリシー → 運営管理 → 決済管理</span>
+        `<span class="menu-path">本社ポリシー → 検証管理 → 決済管理</span>
         <p><strong>ICOPAY（カード）</strong></p>
         <ol>
           <li>ICOPAY連携: MID、Bracket Secret、API Base URL、サンドボックス</li>
@@ -723,7 +723,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li>固定受取口座（バーチャル口座サービス(CURFEX) OFF）は従来どおり手動証憑</li>
         </ul>
         <div class="warn-box">バーチャル口座サービス(CURFEX)はJPY振込受取用です。カードはICOPAY、KRW/THB/CNY固定口座は従来どおりです。</div>`,
-        `<span class="menu-path">总部策略 → 运营管理 → 支付管理</span>
+        `<span class="menu-path">总部策略 → 验证管理 → 支付管理</span>
         <p><strong>ICOPAY（卡）</strong></p>
         <ol>
           <li>ICOPAY 对接：MID、Bracket Secret、API Base URL、沙盒</li>
@@ -750,7 +750,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li>固定收款账户（虚拟账户服务(CURFEX) 关闭）仍需手动凭证</li>
         </ul>
         <div class="warn-box">虚拟账户服务(CURFEX) 仅用于 JPY 转账收款。卡支付走 ICOPAY；KRW/THB/CNY 固定账户方式不变。</div>`,
-        `<span class="menu-path">HQ Policy → Ops → Payment</span>
+        `<span class="menu-path">HQ Policy → Verification Mgmt → Payment</span>
         <p><strong>ICOPAY (บัตร)</strong></p>
         <ol>
           <li>เชื่อม ICOPAY: MID, Bracket Secret, API Base URL, แซนด์บ็อกซ์</li>
@@ -783,7 +783,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
       id: 'hq-curfex',
       title: L('가상계좌서비스(CURFEX) 설정·입금 자동감지', 'Virtual Account Service (CURFEX) setup & auto-detect', 'バーチャル口座サービス(CURFEX)設定・入金自動検知', '虚拟账户服务(CURFEX) 设置与自动检测', 'ตั้งค่าบริการบัญชีเสมือน(CURFEX) และการตรวจอัตโนมัติ'),
       bodyHtml: L(
-        `<span class="menu-path">본사정책 → 운영관리 → 결제관리 → 가상계좌서비스(CURFEX) Collection</span>
+        `<span class="menu-path">본사정책 → 검증관리 → 결제관리 → 가상계좌서비스(CURFEX) Collection</span>
         <table><thead><tr><th>항목</th><th>설명</th></tr></thead><tbody>
         <tr><td>사용 ON/OFF</td><td>OFF(기본)=모든 통화 고정 수취계좌·수동 증빙 / ON=선택 통화만 가상계좌서비스(CURFEX)</td></tr>
         <tr><td>적용 통화</td><td>JPY/KRW/THB/CNY 중 선택. 기본 JPY. 미선택 통화는 전용계좌 + 입금 영수증</td></tr>
@@ -802,7 +802,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         </div>
         <div class="warn-box">예외: 가상계좌서비스(CURFEX) ON이어도 적용 통화에 없는 화폐(예: KRW)는 고정 수취계좌 + 입금 영수증이 필요합니다.</div>
         <div class="check-box">샌드박스: 사용 ON + 샌드박스 ON → 신청 → 티켓에서 「샌드박스 입금 시뮬레이션」→ 입금확인중으로 넘어가면 성공.</div>`,
-        `<span class="menu-path">HQ Policy → Ops → Payment → Virtual Account Service (CURFEX) Collection</span>
+        `<span class="menu-path">HQ Policy → Verification Mgmt → Payment → Virtual Account Service (CURFEX) Collection</span>
         <table><thead><tr><th>Field</th><th>Meaning</th></tr></thead><tbody>
         <tr><td>Enable</td><td>OFF=all currencies fixed + manual proof / ON=Virtual Account Service (CURFEX) only for selected currencies</td></tr>
         <tr><td>Currencies</td><td>Select JPY/KRW/THB/CNY. Default JPY. Unselected → fixed account + deposit receipt</td></tr>
@@ -821,7 +821,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         </div>
         <div class="warn-box">Exception: even with Virtual Account Service (CURFEX) ON, currencies not in the list (e.g. KRW) use fixed accounts + deposit receipt.</div>
         <div class="check-box">Sandbox: Enable + Sandbox ON → apply → “Simulate sandbox deposit” on ticket → status moves to deposit verifying = success.</div>`,
-        `<span class="menu-path">本社ポリシー → 運営管理 → 決済管理 → バーチャル口座サービス(CURFEX) Collection</span>
+        `<span class="menu-path">本社ポリシー → 検証管理 → 決済管理 → バーチャル口座サービス(CURFEX) Collection</span>
         <table><thead><tr><th>項目</th><th>説明</th></tr></thead><tbody>
         <tr><td>使用ON/OFF</td><td>OFF(既定)=全通貨固定受取・手動証憑 / ON=選択通貨のみバーチャル口座サービス(CURFEX)</td></tr>
         <tr><td>適用通貨</td><td>JPY/KRW/THB/CNYから選択。既定JPY。未選択通貨は固定口座＋入金領収書</td></tr>
@@ -840,7 +840,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         </div>
         <div class="warn-box">例外: バーチャル口座サービス(CURFEX) ONでも適用通貨にない通貨(例:KRW)は固定受取口座＋入金領収書が必要です。</div>
         <div class="check-box">サンドボックス: 使用ON＋サンドボックスON→申請→チケットで「サンドボックス入金シミュレーション」→入金確認中へ進めば成功。</div>`,
-        `<span class="menu-path">总部策略 → 运营管理 → 支付管理 → 虚拟账户服务(CURFEX) Collection</span>
+        `<span class="menu-path">总部策略 → 验证管理 → 支付管理 → 虚拟账户服务(CURFEX) Collection</span>
         <table><thead><tr><th>项</th><th>说明</th></tr></thead><tbody>
         <tr><td>启用 ON/OFF</td><td>关闭(默认)=全部币种固定收款账户·手动凭证 / 开启=仅所选币种使用虚拟账户服务(CURFEX)</td></tr>
         <tr><td>适用币种</td><td>在 JPY/KRW/THB/CNY 中选择。默认 JPY。未选币种仍用固定账户 + 入金回单</td></tr>
@@ -859,7 +859,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         </div>
         <div class="warn-box">例外：即使开启虚拟账户服务(CURFEX)，未列入适用币种的货币（如 KRW）仍需固定收款账户 + 入金回单。</div>
         <div class="check-box">沙盒：启用 + 沙盒 ON → 申请 → 在单据点「沙盒入金模拟」→ 进入入金确认中即成功。</div>`,
-        `<span class="menu-path">HQ Policy → Ops → Payment → บริการบัญชีเสมือน(CURFEX) Collection</span>
+        `<span class="menu-path">HQ Policy → Verification Mgmt → Payment → บริการบัญชีเสมือน(CURFEX) Collection</span>
         <table><thead><tr><th>รายการ</th><th>ความหมาย</th></tr></thead><tbody>
         <tr><td>เปิดใช้ ON/OFF</td><td>ปิด (ค่าเริ่ม)=ทุกสกุลบัญชีคงที่·หลักฐานด้วยมือ / เปิด=เฉพาะสกุลที่เลือกใช้บริการบัญชีเสมือน(CURFEX)</td></tr>
         <tr><td>สกุลที่ใช้</td><td>เลือก JPY/KRW/THB/CNY ค่าเริ่ม JPY สกุลที่ไม่เลือกใช้บัญชีคงที่ + สลิปฝาก</td></tr>
@@ -1167,35 +1167,35 @@ export const HQ_OPS_MANUAL: ManualDoc = {
       id: 's6',
       title: L('버전 · 업데이트 내용', 'Version · release notes', 'バージョン・更新内容', '版本·更新内容', 'เวอร์ชัน·ประวัติอัปเดต'),
       bodyHtml: L(
-        `<span class="menu-path">본사정책 → 운영관리 → 업데이트 내용</span>
+        `<span class="menu-path">본사정책 → 검증관리 → 업데이트 내용</span>
         <p>라이브 버전은 표지·메뉴얼·업데이트 목록에 <strong>V{version}</strong>으로 표시됩니다. 현재 라이브는 목록 최상단 버전과 동일합니다.</p>
         <ul>
           <li><strong>주요 업데이트</strong> — 2.0, 3.0, 4.0 …</li>
           <li><strong>소소한 업데이트</strong> — 2.1 … 2.6 …</li>
         </ul>
         <div class="info-box">V2.6: 시뮬레이터·고객관리·Sandbox 수수료 등 운영·고객·조직 이용메뉴얼 전 언어 반영.</div>`,
-        `<span class="menu-path">HQ Policy → Ops → Release notes</span>
+        `<span class="menu-path">HQ Policy → Verification Mgmt → Release notes</span>
         <p>Live version appears as <strong>V{version}</strong> on covers and lists. The current live matches the top entry here.</p>
         <ul>
           <li><strong>Major</strong> — 2.0, 3.0, 4.0…</li>
           <li><strong>Minor</strong> — 2.1 … 2.6…</li>
         </ul>
         <div class="info-box">V2.6: simulator, customer admin, Sandbox fees — full manual updates (all languages).</div>`,
-        `<span class="menu-path">本社ポリシー → 運営管理 → アップデート内容</span>
+        `<span class="menu-path">本社ポリシー → 検証管理 → アップデート内容</span>
         <p>ライブ版は表紙・マニュアル・更新一覧に<strong>V{version}</strong>で表示されます。現在のライブは一覧最上段のバージョンと一致します。</p>
         <ul>
           <li><strong>主要アップデート</strong> — 2.0, 3.0, 4.0 …</li>
           <li><strong>軽微アップデート</strong> — 2.1 … 2.6 …</li>
         </ul>
         <div class="info-box">V2.6: シミュレーター・顧客管理・Sandbox手数料など、運営・顧客・組織利用マニュアルを全言語反映。</div>`,
-        `<span class="menu-path">总部策略 → 运营管理 → 更新内容</span>
+        `<span class="menu-path">总部策略 → 验证管理 → 更新内容</span>
         <p>线上版本在封面、手册与更新列表显示为 <strong>V{version}</strong>。当前线上版本与列表首条一致。</p>
         <ul>
           <li><strong>主要更新</strong> — 2.0、3.0、4.0 …</li>
           <li><strong>次要更新</strong> — 2.1 … 2.6 …</li>
         </ul>
         <div class="info-box">V2.6：模拟器、客户管理、Sandbox 手续费等 — 运营·客户·组织使用手册全语言更新。</div>`,
-        `<span class="menu-path">HQ Policy → Ops → Release notes</span>
+        `<span class="menu-path">HQ Policy → Verification Mgmt → Release notes</span>
         <p>เวอร์ชันสดแสดงเป็น <strong>V{version}</strong> บนปก คู่มือ และรายการอัปเดต เวอร์ชันสดปัจจุบันตรงกับรายการบนสุด</p>
         <ul>
           <li><strong>อัปเดตหลัก</strong> — 2.0, 3.0, 4.0 …</li>

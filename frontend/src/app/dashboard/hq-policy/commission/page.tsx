@@ -874,7 +874,18 @@ export default function HqCommissionPage() {
                 );
               })}
             </div>
-            <p className="pg-hint text-[10px]">{t('hq.commission.feeDiagramSaveHint')}</p>
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+              <button
+                type="button"
+                onClick={saveRisk}
+                disabled={savingRisk || hasPolicyEditInProgress()}
+                className="pg-btn pg-btn-primary text-xs disabled:opacity-50"
+              >
+                {savingRisk ? t('hq.saving') : t('hq.commission.showFeeRatesSave')}
+              </button>
+              {msg && <span className="pg-hint">{msg}</span>}
+            </div>
+            <p className="pg-hint text-[10px]">{t('hq.commission.showFeeRatesSaveHint')}</p>
           </div>
         </div>
 

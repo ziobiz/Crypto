@@ -56,6 +56,18 @@ export function NavIcon({ id, className = iconClass }: { id: NavIconId; classNam
           <circle cx="12" cy="12" r="3" />
         </svg>
       );
+    case 'ops':
+      return (
+        <svg {...props}>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"
+          />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5a2 2 0 012-2h2a2 2 0 012 2v0a2 2 0 01-2 2h-2a2 2 0 01-2-2v0z" />
+          <path strokeLinecap="round" d="M9 12h6M9 16h4" />
+        </svg>
+      );
     case 'wallets':
       return (
         <svg {...props}>

@@ -1,7 +1,51 @@
 import type { PlatformReleaseNote } from './version';
 
-/** 본사정책 → 운영관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
+/** 본사정책 → 검증관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
 export const PLATFORM_RELEASE_NOTES: PlatformReleaseNote[] = [
+  {
+    version: '2.6.91',
+    kind: 'minor',
+    date: '2026-09-18',
+    items: {
+      KR: [
+        '세팅된 수수료율 노출 카드 하단에 「수수료율 노출 저장」버튼을 추가해 해당 설정만 바로 저장할 수 있습니다.',
+      ],
+      US: [
+        'Added “Save fee-rate display” under the configured fee-rates card so LIVE/Sandbox settings can be saved in place.',
+      ],
+      JP: [
+        '設定手数料率の表示カード下に「手数料率表示を保存」を追加し、その場で保存できるようにしました。',
+      ],
+      CH: [
+        '在「显示已设费率」卡片下方增加「保存费率显示」按钮，可就地保存 LIVE/Sandbox 设置。',
+      ],
+      TH: [
+        'เพิ่มปุ่ม「บันทึกการแสดงอัตรา」ใต้การ์ดแสดงอัตราค่าธรรมเนียมที่ตั้งไว้ เพื่อบันทึกทันที',
+      ],
+    },
+  },
+  {
+    version: '2.6.90',
+    kind: 'minor',
+    date: '2026-09-18',
+    items: {
+      KR: [
+        '좌측 「운영관리」아이콘을 본사정책(톱니)과 구분(클립보드). 본사정책 하위 「운영관리」명칭을 「검증관리」로 변경. 로그인 후 항상 대시보드로 이동.',
+      ],
+      US: [
+        'Distinct clipboard icon for left Operations vs HQ Policy gear. HQ submenu renamed Operations → Verification Mgmt. Login always opens Dashboard.',
+      ],
+      JP: [
+        '左「運営管理」アイコンを本社ポリシーと区別。本社配下「運営管理」を「検証管理」に改称。ログイン後は常にダッシュボードへ。',
+      ],
+      CH: [
+        '左侧「运营管理」改用剪贴板图标以区别总部政策。总部子菜单「运营管理」改为「验证管理」。登录后始终进入仪表盘。',
+      ],
+      TH: [
+        'เปลี่ยนไอคอนการจัดการปฏิบัติการด้านซ้ายให้ต่างจากนโยบาย HQ เปลี่ยนชื่อเมนูย่อยเป็น การจัดการตรวจสอบ และหลังล็อกอินไปแดชบอร์ดเสมอ',
+      ],
+    },
+  },
   {
     version: '2.6.89',
     kind: 'minor',
