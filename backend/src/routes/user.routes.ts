@@ -58,6 +58,7 @@ const createSchema = z.object({
   simulatorEnabled: z.boolean().optional(),
   simulatorRateMode: z.enum(['LIVE', 'SAND']).optional(),
   feeBillingMethod: z.enum(['FOLLOW_HQ', 'INTEGRATED', 'ITEMIZED', 'HYBRID']).optional(),
+  usdtCollectionMode: z.enum(['FOLLOW_HQ', 'FIXED', 'VIRTUAL']).optional(),
   operatorsEnabled: z.boolean().optional(),
   walletFeesVisible: z.boolean().optional(),
 });
@@ -74,6 +75,7 @@ const updateSchema = z.object({
   simulatorEnabled: z.boolean().optional(),
   simulatorRateMode: z.enum(['LIVE', 'SAND']).optional(),
   feeBillingMethod: z.enum(['FOLLOW_HQ', 'INTEGRATED', 'ITEMIZED', 'HYBRID']).optional(),
+  usdtCollectionMode: z.enum(['FOLLOW_HQ', 'FIXED', 'VIRTUAL']).optional(),
   operatorsEnabled: z.boolean().optional(),
   walletFeesVisible: z.boolean().optional(),
 });

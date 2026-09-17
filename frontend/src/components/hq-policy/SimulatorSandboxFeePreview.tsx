@@ -22,6 +22,8 @@ type SimulatorSandboxFeePreviewProps = {
     poolPercent: number;
     perTicketUsdt: number;
   } | null;
+  onResetGasAddon?: () => void;
+  onApplyLiveGasAddon?: () => void;
 };
 
 export function SimulatorSandboxFeePreview({
@@ -29,6 +31,8 @@ export function SimulatorSandboxFeePreview({
   sandboxRisk,
   gasNetworks,
   operatingFee,
+  onResetGasAddon,
+  onApplyLiveGasAddon,
 }: SimulatorSandboxFeePreviewProps) {
   const t = useT();
   const [feeCurrency, setFeeCurrency] = useState<SymbolFeeCurrency>('KRW');
@@ -120,6 +124,21 @@ export function SimulatorSandboxFeePreview({
         <div className="space-y-3">
           <p className="pg-label">{t('hq.commission.simulatorGasSection')}</p>
           <p className="pg-hint">{t('hq.commission.simulatorGasPreviewDesc')}</p>
+          {(onResetGasAddon || onApplyLiveGasAddon) && (
+            <div className="flex flex-wrap items-center gap-2">
+              {onResetGasAddon && (
+                <button type="button" className="pg-btn pg-btn-secondary" onClick={onResetGasAddon}>
+                  {t('hq.commission.simulatorResetGas')}
+                </button>
+              )}
+              {onApplyLiveGasAddon && (
+                <button type="button" className="pg-btn pg-btn-secondary" onClick={onApplyLiveGasAddon}>
+                  {t('hq.commission.simulatorApplyLiveGas')}
+                </button>
+              )}
+            </div>
+          )}
+          <p className="pg-hint text-xs">{t('hq.commission.simulatorApplyLiveGasHint')}</p>
           <div className="pg-card pg-table-wrap">
             <table className="pg-table">
               <thead>

@@ -18,6 +18,7 @@ const EMPTY: HqCurfexConfig = {
   sandbox: true,
   webhookSecret: '',
   autoApproveOnDeposit: true,
+  defaultCollectionMode: 'FIXED',
 };
 
 export function CurfexConfigPanel() {
@@ -127,6 +128,26 @@ export function CurfexConfigPanel() {
           </div>
           <p className="text-[11px] text-amber-800">{t('hq.curfex.currenciesException')}</p>
         </div>
+
+        <label className="block max-w-md">
+          <span className="pg-label">{t('hq.curfex.defaultCollectionMode')}</span>
+          <select
+            className="pg-input mt-1 w-full"
+            value={config.defaultCollectionMode === 'VIRTUAL' ? 'VIRTUAL' : 'FIXED'}
+            onChange={(e) =>
+              setConfig({
+                ...config,
+                defaultCollectionMode: e.target.value === 'VIRTUAL' ? 'VIRTUAL' : 'FIXED',
+              })
+            }
+          >
+            <option value="FIXED">{t('collectionMode.FIXED')}</option>
+            <option value="VIRTUAL">{t('collectionMode.VIRTUAL')}</option>
+          </select>
+          <span className="mt-1 block text-[11px] text-gray-500">
+            {t('hq.curfex.defaultCollectionModeHint')}
+          </span>
+        </label>
 
         <label className="block max-w-md">
           <span className="pg-label">{t('hq.curfex.clientId')}</span>

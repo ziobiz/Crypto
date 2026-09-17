@@ -17,7 +17,7 @@ import {
   collectionAccountToDisplay,
   createCurfexCollection,
   getCurfexConfig,
-  isCurfexCurrencyEnabled,
+  resolveUsdtCollectionProvider,
 } from './curfex.service';
 import { computeExpectedCompleteAt, type HqSlaConfig } from '../constants/hq-policy';
 import { evaluateUsdtAmountVariance } from '../lib/usdt-amount-guard';
@@ -369,7 +369,6 @@ export async function simulateHqUsdtQuote(input: {
 }) {
   const sessionPolicy = await hqPolicyService.getSessionPolicy();
   const currency = input.fiatCurrency ?? sessionPolicy.defaultUsdtFiatCurrency ?? 'JPY';
-  const feeDiagramDisplay = await getFeeDiagramDisplayForCustomer(null);
   const { rate, source, fetchedAt } = await fetchUsdtFiatRate(currency);
   const network = input.network?.trim();
   if (!network) {
@@ -378,6 +377,8 @@ export async function simulateHqUsdtQuote(input: {
   const wallet = { ...HQ_SIM_WALLET, network };
   const feeOpts = input.feePolicy === 'sandbox' ? { feePolicy: 'sandbox' as const } : undefined;
   const policyBasis = input.feePolicy === 'sandbox' ? ('SANDBOX' as const) : ('HQ' as const);
+  const diagramScope = input.feePolicy === 'sandbox' ? ('sandbox' as const) : ('live' as const);
+  const feeDiagramDisplay = await getFeeDiagramDisplayForCustomer(null, diagramScope);
 
   try {
     if (input.targetUsdtAmount != null && Number(input.targetUsdtAmount) > 0) {
@@ -530,7 +531,7 @@ export async function createUsdtPurchaseTicket(
 
   const customerProfile = await prisma.customerProfile.findUnique({
     where: { id: user.customerProfileId },
-    select: { customerType: true },
+    select: { customerType: true, usdtCollectionMode: true },
   });
   if (!customerProfile) {
     throw new AppError(404, 'Customer profile not found', 'NOT_FOUND');
@@ -565,7 +566,12 @@ export async function createUsdtPurchaseTicket(
   } = { collectionProvider: 'FIXED' };
 
   const curfexCfg = await getCurfexConfig();
-  if (isCurfexCurrencyEnabled(curfexCfg, currency)) {
+  const useVirtual = resolveUsdtCollectionProvider({
+    customerMode: customerProfile.usdtCollectionMode,
+    config: curfexCfg,
+    currency,
+  }) === 'CURFEX';
+  if (useVirtual) {
     const collection = await createCurfexCollection({
       sendAmount: fiatAmount,
       currency,
@@ -714,7 +720,9 @@ export async function getUsdtPurchaseTicket(user: AuthUser, ticketId: string) {
     }
   }
 
-  return serializeTicket(ticket, (await getWorkflowDisplay()).sla);
+  const base = serializeTicket(ticket, (await getWorkflowDisplay()).sla);
+  const feeDiagramDisplay = await getFeeDiagramDisplayForCustomer(ticket.customerId);
+  return { ...base, feeDiagramDisplay };
 }
 
 export async function saveDepositProofMetadata(
@@ -918,7 +926,7 @@ export async function transitionUsdtPurchaseStatus(
 }
 
 export async function getUsdtDepositContext(user: AuthUser) {
-  const [receivingAccounts, registeredBank, curfexCfg, currencyTrade] = await Promise.all([
+  const [receivingAccounts, registeredBank, curfexCfg, currencyTrade, customerMode] = await Promise.all([
     hqPolicyService.getDepositReceivingAccounts(),
     user.role === UserRole.CUSTOMER || user.role === UserRole.CUSTOMER_OPERATOR
       ? prisma.bankAccount.findFirst({
@@ -927,13 +935,30 @@ export async function getUsdtDepositContext(user: AuthUser) {
       : Promise.resolve(null),
     getCurfexConfig(),
     hqPolicyService.getUsdtCurrencyTradePolicy(),
+    user.customerProfileId
+      ? prisma.customerProfile.findUnique({
+          where: { id: user.customerProfileId },
+          select: { usdtCollectionMode: true },
+        })
+      : Promise.resolve(null),
   ]);
+  const mode = customerMode?.usdtCollectionMode ?? 'FOLLOW_HQ';
+  const currencies = (curfexCfg.currencies ?? ['JPY']) as string[];
+  const virtualCurrencies = currencies.filter(
+    (c) =>
+      resolveUsdtCollectionProvider({
+        customerMode: mode,
+        config: curfexCfg,
+        currency: c,
+      }) === 'CURFEX',
+  );
   return {
     receivingAccounts,
     currencyTrade,
-    curfexEnabledCurrencies: (curfexCfg.currencies ?? ['JPY']).filter((c) =>
-      isCurfexCurrencyEnabled(curfexCfg, c),
-    ),
+    /** 이 고객에게 가상계좌가 적용되는 통화 (신청 UI용) */
+    curfexEnabledCurrencies: virtualCurrencies,
+    usdtCollectionMode: mode,
+    hqDefaultCollectionMode: curfexCfg.defaultCollectionMode === 'VIRTUAL' ? 'VIRTUAL' : 'FIXED',
     registeredBank: registeredBank
       ? {
           bankName: registeredBank.bankName,

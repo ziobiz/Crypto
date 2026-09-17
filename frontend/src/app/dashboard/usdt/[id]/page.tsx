@@ -20,6 +20,7 @@ import { DualTimezoneDate } from '@/components/DualTimezoneDate';
 import { useReferenceTimeState } from '@/components/ReferenceClocks';
 import { formatFeeComponentLabel } from '@/lib/fee-component';
 import type { TransactionFees } from '@/lib/api';
+import { CopyButton, CopyableMono } from '@/components/CopyButton';
 import type { MessageKey } from '@/i18n/messages';
 
 const LOCAL_PREMIUM_CURRENCIES = ['KRW', 'THB', 'JPY'] as const;
@@ -350,7 +351,13 @@ export default function UsdtDetailPage() {
             <p className="font-medium">{t('usdt.depositDeadline')}</p>
             <p className="mt-1 text-2xl font-bold tabular-nums">{countdown}</p>
             <p className="mt-1 pg-hint">
-              {t('usdt.depositDeadlineDesc', { hours: String(depositCtx?.depositWindowHours ?? 2) })}
+              {isCurfex
+                ? t('usdt.depositDeadlineDescVirtual', {
+                    hours: String(depositCtx?.depositWindowHours ?? 2),
+                  })
+                : t('usdt.depositDeadlineDesc', {
+                    hours: String(depositCtx?.depositWindowHours ?? 2),
+                  })}
             </p>
           </div>
         </div>
@@ -387,23 +394,39 @@ export default function UsdtDetailPage() {
             </p>
             <dl className="grid gap-1.5 text-xs sm:grid-cols-[7.5rem_1fr]">
               <dt className="text-slate-500">{t('usdt.deposit.bankName')}</dt>
-              <dd className="font-medium">{receiving.bankName || '—'}</dd>
+              <CopyableMono
+                value={receiving.bankName}
+                copyLabel={t('common.copy')}
+                copiedLabel={t('common.copied')}
+              />
               {receiving.bankAddress ? (
                 <>
                   <dt className="text-slate-500">{t('usdt.deposit.bankAddress')}</dt>
-                  <dd>{receiving.bankAddress}</dd>
+                  <CopyableMono
+                    value={receiving.bankAddress}
+                    copyLabel={t('common.copy')}
+                    copiedLabel={t('common.copied')}
+                  />
                 </>
               ) : null}
               {receiving.bankCode ? (
                 <>
                   <dt className="text-slate-500">{t('usdt.deposit.bankCode')}</dt>
-                  <dd className="font-mono">{receiving.bankCode}</dd>
+                  <CopyableMono
+                    value={receiving.bankCode}
+                    copyLabel={t('common.copy')}
+                    copiedLabel={t('common.copied')}
+                  />
                 </>
               ) : null}
               {receiving.branchCode ? (
                 <>
                   <dt className="text-slate-500">{t('usdt.deposit.branchCode')}</dt>
-                  <dd className="font-mono">{receiving.branchCode}</dd>
+                  <CopyableMono
+                    value={receiving.branchCode}
+                    copyLabel={t('common.copy')}
+                    copiedLabel={t('common.copied')}
+                  />
                 </>
               ) : null}
               {receiving.accountType ? (
@@ -413,24 +436,19 @@ export default function UsdtDetailPage() {
                 </>
               ) : null}
               <dt className="text-slate-500">{t('usdt.deposit.accountNumber')}</dt>
-              <dd className="font-mono font-semibold">{receiving.accountNumber || '—'}</dd>
+              <CopyableMono
+                value={receiving.accountNumber}
+                copyLabel={t('usdt.deposit.copyAccountNumber')}
+                copiedLabel={t('common.copied')}
+                strong
+              />
               <dt className="text-slate-500">{t('usdt.deposit.accountHolder')}</dt>
-              <dd className="flex flex-wrap items-center gap-2">
-                <span className="font-mono font-semibold tracking-wide">
-                  {receiving.accountHolder || '—'}
-                </span>
-                {receiving.accountHolder ? (
-                  <button
-                    type="button"
-                    className="rounded border border-slate-300 bg-white px-2 py-0.5 text-[11px] font-semibold hover:bg-slate-50"
-                    onClick={() => {
-                      void navigator.clipboard?.writeText(receiving.accountHolder);
-                    }}
-                  >
-                    {t('usdt.deposit.copyHolder')}
-                  </button>
-                ) : null}
-              </dd>
+              <CopyableMono
+                value={receiving.accountHolder}
+                copyLabel={t('usdt.deposit.copyHolder')}
+                copiedLabel={t('common.copied')}
+                strong
+              />
             </dl>
             <div className="rounded border border-red-300 bg-red-50 px-3 py-2 text-xs font-semibold text-red-800 space-y-1">
               <p>
@@ -442,8 +460,15 @@ export default function UsdtDetailPage() {
               <p className="font-medium text-red-700/90">{t('usdt.deposit.holderNameStayJp')}</p>
             </div>
             {isCurfexAccount && ticket.curfexRefNo && (
-              <p className="font-mono text-[11px] text-slate-600">
-                {t('usdt.curfexRef')}: {ticket.curfexRefNo}
+              <p className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-slate-600">
+                <span>
+                  {t('usdt.curfexRef')}: {ticket.curfexRefNo}
+                </span>
+                <CopyButton
+                  text={ticket.curfexRefNo}
+                  label={t('usdt.deposit.copyRef')}
+                  copiedLabel={t('common.copied')}
+                />
               </p>
             )}
             {isCurfexAccount && <p className="pg-hint">{t('usdt.curfexAccountHint')}</p>}
@@ -453,10 +478,30 @@ export default function UsdtDetailPage() {
 
       {ticket.registeredBank && (
         <div className="pg-card">
-          <div className="pg-card-body text-xs">
+          <div className="pg-card-body text-xs space-y-1.5">
             <p className="font-semibold">{t('usdt.registeredBank')}</p>
-            <p className="mt-1">{ticket.registeredBank.bankName} · {ticket.registeredBank.accountNumber}</p>
-            <p className="pg-muted">{ticket.registeredBank.accountHolder}</p>
+            <p className="mt-1 flex flex-wrap items-center gap-2">
+              <span>
+                {ticket.registeredBank.bankName} · {ticket.registeredBank.accountNumber}
+              </span>
+              {ticket.registeredBank.accountNumber ? (
+                <CopyButton
+                  text={ticket.registeredBank.accountNumber}
+                  label={t('usdt.deposit.copyAccountNumber')}
+                  copiedLabel={t('common.copied')}
+                />
+              ) : null}
+            </p>
+            <p className="pg-muted flex flex-wrap items-center gap-2">
+              <span>{ticket.registeredBank.accountHolder}</span>
+              {ticket.registeredBank.accountHolder ? (
+                <CopyButton
+                  text={ticket.registeredBank.accountHolder}
+                  label={t('usdt.deposit.copyHolder')}
+                  copiedLabel={t('common.copied')}
+                />
+              ) : null}
+            </p>
             <p className="mt-1 pg-hint">{t('usdt.registeredBankOnly')}</p>
           </div>
         </div>
@@ -536,23 +581,47 @@ export default function UsdtDetailPage() {
       </DetailSection>
 
       <DetailSection title={t('usdt.detail.section.fees')}>
-        <DetailRow
-          label={t('usdt.detail.fxFee')}
-          value={`${ticket.fxFeePercentSnapshot}%`}
-        />
-        <DetailRow label={t('usdt.detail.gasFee')} value={`${ticket.gasFeeSnapshot} USDT`} />
-        <DetailRow
-          label={t('usdt.detail.transferFee')}
-          value={`${ticket.transferFeeSnapshot} USDT`}
-        />
-        <DetailRow label={t('usdt.detail.otherFee')} value={`${ticket.otherFeeSnapshot} USDT`} />
-        <DetailRow label={t('usdt.detail.fees')} value={feeSummaryLabel(ticket, t)} />
-        {(user?.role === 'SUPER_ADMIN' || user?.role === 'ORGANIZER') && (
-          <DetailRow
-            label={t('usdt.brokerUsdt')}
-            value={`${ticket.brokerUsdtAmount != null ? ticket.brokerUsdtAmount.toFixed(4) : '—'} USDT`}
-          />
-        )}
+        {(() => {
+          const billing =
+            ticket.feeDiagramDisplay?.billingMethod ??
+            ticket.feeDiagramDisplay?.defaultFeeBillingMethod ??
+            'ITEMIZED';
+          const showIntegrated = billing === 'INTEGRATED' || billing === 'HYBRID';
+          const showItemized = billing === 'ITEMIZED' || billing === 'HYBRID';
+          return (
+            <>
+              {showIntegrated && (
+                <DetailRow label={t('usdt.fee.integratedTotal')} value={feeSummaryLabel(ticket, t)} />
+              )}
+              {showItemized && (
+                <>
+                  <DetailRow
+                    label={t('usdt.detail.fxFee')}
+                    value={`${ticket.fxFeePercentSnapshot}%`}
+                  />
+                  <DetailRow
+                    label={t('usdt.detail.gasFee')}
+                    value={`${ticket.gasFeeSnapshot} USDT`}
+                  />
+                  <DetailRow
+                    label={t('usdt.detail.transferFee')}
+                    value={`${ticket.transferFeeSnapshot} USDT`}
+                  />
+                  <DetailRow
+                    label={t('usdt.detail.otherFee')}
+                    value={`${ticket.otherFeeSnapshot} USDT`}
+                  />
+                </>
+              )}
+              {(user?.role === 'SUPER_ADMIN' || user?.role === 'ORGANIZER') && (
+                <DetailRow
+                  label={t('usdt.brokerUsdt')}
+                  value={`${ticket.brokerUsdtAmount != null ? ticket.brokerUsdtAmount.toFixed(4) : '—'} USDT`}
+                />
+              )}
+            </>
+          );
+        })()}
       </DetailSection>
 
       {(ticket.depositAmount != null ||
@@ -689,6 +758,7 @@ export default function UsdtDetailPage() {
           <div className="pg-section-head">{t('usdt.detail.depositInfo')}</div>
           <div className="pg-section-pad">
             <p className="pg-hint">{t('usdt.detail.depositInfoDesc')}</p>
+            <p className="mt-2 text-xs font-medium text-amber-900">{t('usdt.detail.fixedDepositAfterAccount')}</p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <input
               type="number"

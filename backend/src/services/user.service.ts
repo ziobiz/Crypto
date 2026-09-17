@@ -39,6 +39,7 @@ const userSelect = {
       simulatorEnabled: true,
       simulatorRateMode: true,
       feeBillingMethod: true,
+      usdtCollectionMode: true,
       operatorsEnabled: true,
       walletFeesVisible: true,
       recruitingOrg: { select: { id: true, code: true, name: true, path: true } },
@@ -379,6 +380,7 @@ export const userService = {
       simulatorEnabled?: boolean;
       simulatorRateMode?: 'LIVE' | 'SAND';
       feeBillingMethod?: 'FOLLOW_HQ' | 'INTEGRATED' | 'ITEMIZED' | 'HYBRID';
+      usdtCollectionMode?: 'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL';
       operatorsEnabled?: boolean;
       walletFeesVisible?: boolean;
     },
@@ -448,6 +450,7 @@ export const userService = {
               simulatorEnabled: data.simulatorEnabled !== false,
               simulatorRateMode: data.simulatorRateMode ?? 'LIVE',
               feeBillingMethod: data.feeBillingMethod ?? 'FOLLOW_HQ',
+              usdtCollectionMode: data.usdtCollectionMode ?? 'FOLLOW_HQ',
               operatorsEnabled: data.operatorsEnabled === true,
               walletFeesVisible: data.walletFeesVisible === true,
             },
@@ -559,6 +562,7 @@ export const userService = {
       simulatorEnabled?: boolean;
       simulatorRateMode?: 'LIVE' | 'SAND';
       feeBillingMethod?: 'FOLLOW_HQ' | 'INTEGRATED' | 'ITEMIZED' | 'HYBRID';
+      usdtCollectionMode?: 'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL';
       operatorsEnabled?: boolean;
       walletFeesVisible?: boolean;
     },
@@ -626,6 +630,7 @@ export const userService = {
       simulatorEnabled?: boolean;
       simulatorRateMode?: 'LIVE' | 'SAND';
       feeBillingMethod?: 'FOLLOW_HQ' | 'INTEGRATED' | 'ITEMIZED' | 'HYBRID';
+      usdtCollectionMode?: 'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL';
       operatorsEnabled?: boolean;
       walletFeesVisible?: boolean;
     } = {};
@@ -641,6 +646,9 @@ export const userService = {
     }
     if (data.feeBillingMethod !== undefined && existing.customerProfile) {
       customerProfileUpdate.feeBillingMethod = data.feeBillingMethod;
+    }
+    if (data.usdtCollectionMode !== undefined && existing.customerProfile) {
+      customerProfileUpdate.usdtCollectionMode = data.usdtCollectionMode;
     }
     if (data.operatorsEnabled !== undefined && existing.customerProfile) {
       customerProfileUpdate.operatorsEnabled = data.operatorsEnabled;

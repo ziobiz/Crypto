@@ -9,6 +9,7 @@ import { api, EscrowDepositContext, EscrowTicket } from '@/lib/api';
 import { StatusBadge } from '@/components/StatusBadge';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { AttachmentLink } from '@/components/AttachmentLink';
+import { CopyButton } from '@/components/CopyButton';
 import { LocalizedFileInput } from '@/components/LocalizedFileInput';
 
 const PENDING = ['ESCROW_CREATED', 'SELLER_ACCEPTED'];
@@ -168,7 +169,31 @@ export default function EscrowDetailPage() {
               <p>{t('escrow.detail.amount')}: <strong>{formatCurrency(depositCtx.amount, depositCtx.currency)}</strong></p>
               {depositCtx.depositDeadlineAt && <p>{t('escrow.detail.depositDeadline')}: {depositCountdown}</p>}
               {depositCtx.receivingAccount && (
-                <p className="mt-2">{depositCtx.receivingAccount.bankName} {depositCtx.receivingAccount.accountNumber} ({depositCtx.receivingAccount.accountHolder})</p>
+                <div className="mt-2 space-y-1.5 text-xs">
+                  <p className="font-medium">
+                    {depositCtx.receivingAccount.bankName || '—'}
+                  </p>
+                  <p className="flex flex-wrap items-center gap-2 font-mono">
+                    <span>{depositCtx.receivingAccount.accountNumber || '—'}</span>
+                    {depositCtx.receivingAccount.accountNumber ? (
+                      <CopyButton
+                        text={depositCtx.receivingAccount.accountNumber}
+                        label={t('usdt.deposit.copyAccountNumber')}
+                        copiedLabel={t('common.copied')}
+                      />
+                    ) : null}
+                  </p>
+                  <p className="flex flex-wrap items-center gap-2 font-mono">
+                    <span>{depositCtx.receivingAccount.accountHolder || '—'}</span>
+                    {depositCtx.receivingAccount.accountHolder ? (
+                      <CopyButton
+                        text={depositCtx.receivingAccount.accountHolder}
+                        label={t('usdt.deposit.copyHolder')}
+                        copiedLabel={t('common.copied')}
+                      />
+                    ) : null}
+                  </p>
+                </div>
               )}
               {depositCtx.isUsdtEscrow && <p className="mt-2 text-amber-800">{t('escrow.detail.usdtDepositNote')}</p>}
             </div>

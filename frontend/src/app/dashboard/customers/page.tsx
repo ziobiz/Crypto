@@ -43,6 +43,7 @@ const emptyCreate: CreateUserInput = {
   usdtFeeTypeCode: '',
   tradeFeeTypeCode: '',
   feeBillingMethod: 'FOLLOW_HQ',
+  usdtCollectionMode: 'FOLLOW_HQ',
   operatorsEnabled: false,
 };
 
@@ -167,6 +168,7 @@ export default function CustomersPage() {
         simulatorEnabled: detail.customerProfile?.simulatorEnabled !== false,
         simulatorRateMode: detail.customerProfile?.simulatorRateMode ?? 'LIVE',
         feeBillingMethod: detail.customerProfile?.feeBillingMethod ?? 'FOLLOW_HQ',
+        usdtCollectionMode: detail.customerProfile?.usdtCollectionMode ?? 'FOLLOW_HQ',
         operatorsEnabled: detail.customerProfile?.operatorsEnabled === true,
       });
       setInitialIsActive(detail.isActive);
@@ -346,6 +348,7 @@ export default function CustomersPage() {
               <th>{t('customers.col.multi')}</th>
               <th>{t('customers.col.fees')}</th>
               <th>{t('customers.col.kyc')}</th>
+              <th>{t('customers.col.account')}</th>
               <th>{t('customers.col.feeType')}</th>
               <th>{t('customers.col.billingMethod')}</th>
               <th>{t('users.col.actions')}</th>
@@ -354,13 +357,13 @@ export default function CustomersPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={13} className="pg-empty">
+                <td colSpan={14} className="pg-empty">
                   {t('common.loading')}
                 </td>
               </tr>
             ) : users.length === 0 ? (
               <tr>
-                <td colSpan={13} className="pg-empty">
+                <td colSpan={14} className="pg-empty">
                   {t('customers.empty')}
                 </td>
               </tr>
@@ -445,6 +448,13 @@ export default function CustomersPage() {
                   <td>
                     <span className={`pg-badge ${kycBadgeClass(u.kyc?.status)}`}>
                       {t(kycStatusKey(u.kyc?.status))}
+                    </span>
+                  </td>
+                  <td>
+                    <span className="pg-badge pg-badge-info">
+                      {t(
+                        `collectionMode.short.${u.customerProfile?.usdtCollectionMode ?? 'FOLLOW_HQ'}` as MessageKey,
+                      )}
                     </span>
                   </td>
                   <td>
@@ -718,6 +728,27 @@ export default function CustomersPage() {
                 </label>
               </div>
               <div className="pg-inset-panel">
+                <p className="pg-inset-title">{t('customers.col.collectionMode')}</p>
+                <p className="mt-1 pg-hint">{t('customers.collectionMode.hint')}</p>
+                <label className="pg-field mt-3">
+                  <span className="pg-field-label">{t('customers.col.collectionMode')}</span>
+                  <select
+                    className="pg-input mt-1"
+                    value={form.usdtCollectionMode ?? 'FOLLOW_HQ'}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        usdtCollectionMode: e.target.value as CreateUserInput['usdtCollectionMode'],
+                      })
+                    }
+                  >
+                    <option value="FOLLOW_HQ">{t('collectionMode.FOLLOW_HQ')}</option>
+                    <option value="FIXED">{t('collectionMode.FIXED')}</option>
+                    <option value="VIRTUAL">{t('collectionMode.VIRTUAL')}</option>
+                  </select>
+                </label>
+              </div>
+              <div className="pg-inset-panel">
                 <p className="pg-inset-title">{t('customers.hub.fees')}</p>
                 <p className="mt-1 pg-hint">{t('customers.feeType.hint')}</p>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -851,6 +882,27 @@ export default function CustomersPage() {
                   ))}
                 </select>
               </label>
+              <div className="pg-inset-panel">
+                <p className="pg-inset-title">{t('customers.col.collectionMode')}</p>
+                <p className="mt-1 pg-hint">{t('customers.collectionMode.hint')}</p>
+                <label className="pg-field mt-3">
+                  <span className="pg-field-label">{t('customers.col.collectionMode')}</span>
+                  <select
+                    value={editForm.usdtCollectionMode ?? 'FOLLOW_HQ'}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        usdtCollectionMode: e.target.value as UpdateUserInput['usdtCollectionMode'],
+                      })
+                    }
+                    className="pg-input mt-1"
+                  >
+                    <option value="FOLLOW_HQ">{t('collectionMode.FOLLOW_HQ')}</option>
+                    <option value="FIXED">{t('collectionMode.FIXED')}</option>
+                    <option value="VIRTUAL">{t('collectionMode.VIRTUAL')}</option>
+                  </select>
+                </label>
+              </div>
               <div className="pg-inset-panel">
                 <p className="pg-inset-title">{t('customers.simulator.title')}</p>
                 <label className="mt-2 flex items-center gap-2 text-sm">

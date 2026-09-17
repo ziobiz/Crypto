@@ -398,9 +398,9 @@ router.post(
     if (sourceOfFunds.length === 0) {
       throw new AppError(400, 'Source of funds document is required', 'VALIDATION_ERROR');
     }
-    // CURFEX: application/source docs only — deposit receipt not required (auto-detect).
+    // 전용계좌(고정): 신청 시 송금증(입금 영수증) 필수. 가상계좌(CURFEX)는 불필요.
     if (!isCurfex && depositReceipt.length === 0) {
-      throw new AppError(400, 'Deposit receipt is required', 'VALIDATION_ERROR');
+      throw new AppError(400, 'Deposit receipt (remittance slip) is required', 'VALIDATION_ERROR');
     }
 
     for (let i = 0; i < sourceOfFunds.length; i++) {
@@ -424,9 +424,10 @@ router.post(
       );
     }
 
-    // Fixed accounts: docs complete → admin review.
-    // CURFEX: stay on deposit-proof pending until webhook/poll/sandbox simulate.
-    if (!isCurfex) {
+    // 자금원천만 올린 경우: 고정·CURFEX 모두 입금 대기(DEPOSIT_PROOF_PENDING) 유지.
+    // 고정은 상세에서 입금증 업로드 시 ADMIN_REVIEWING, CURFEX는 자동 감지.
+    // (레거시) 신청 시 입금증까지 같이 온 고정 티켓만 즉시 심사로 넘김.
+    if (!isCurfex && depositReceipt.length > 0) {
       const ticket = await transitionUsdtPurchaseStatus(
         req.user!,
         ticketId,

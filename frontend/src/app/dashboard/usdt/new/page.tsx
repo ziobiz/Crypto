@@ -20,6 +20,7 @@ import { ContentCard } from '@/components/layout/ContentCard';
 import { CardPaymentForm, emptyCardForm, type CardFormState } from '@/components/CardPaymentForm';
 import { LocalizedFileInput } from '@/components/LocalizedFileInput';
 import { ReferenceClocks } from '@/components/ReferenceClocks';
+import { CopyableMono } from '@/components/CopyButton';
 import { displayWalletLabel } from '@/lib/wallet-label';
 import { isKycApproved } from '@/lib/kyc';
 
@@ -54,7 +55,7 @@ export default function UsdtNewPage() {
   const [feePreview, setFeePreview] = useState<UsdtFeePreview | null>(null);
   const [cardForm, setCardForm] = useState<CardFormState>(emptyCardForm());
   const [sourceFiles, setSourceFiles] = useState<File[]>([]);
-  const [depositFiles, setDepositFiles] = useState<File[]>([]);
+  const [depositReceiptFiles, setDepositReceiptFiles] = useState<File[]>([]);
   const [depositCtx, setDepositCtx] = useState<UsdtDepositContext | null>(null);
 
   useEffect(() => {
@@ -114,10 +115,10 @@ export default function UsdtNewPage() {
   const methodFiats = isCard ? cardFiats : transferFiats;
   const isCurfexCurrency =
     !isCard && (depositCtx?.curfexEnabledCurrencies ?? []).includes(fiatCurrency);
-
-  useEffect(() => {
-    if (isCurfexCurrency) setDepositFiles([]);
-  }, [isCurfexCurrency, fiatCurrency]);
+  const fixedReceiving =
+    !isCard && !isCurfexCurrency
+      ? depositCtx?.receivingAccounts?.[fiatCurrency] ?? null
+      : null;
 
   useEffect(() => {
     if (cardContext && !cardMethodAvailable && paymentMethod === 'CARD') {
@@ -199,7 +200,7 @@ export default function UsdtNewPage() {
         setError(t('usdt.funding.sourceRequired'));
         return;
       }
-      if (!isCurfexCurrency && depositFiles.length === 0) {
+      if (!isCurfexCurrency && depositReceiptFiles.length === 0) {
         setError(t('usdt.funding.depositRequired'));
         return;
       }
@@ -238,7 +239,7 @@ export default function UsdtNewPage() {
       );
       await api.usdt.uploadApplicationDocs(ticket.id, {
         sourceOfFunds: sourceFiles,
-        depositReceipt: isCurfexCurrency ? [] : depositFiles,
+        depositReceipt: isCurfexCurrency ? [] : depositReceiptFiles,
       });
       router.push(`/dashboard/usdt/${ticket.id}`);
     } catch (err) {
@@ -443,6 +444,37 @@ export default function UsdtNewPage() {
                     ? t('usdt.funding.applyHintCurfex')
                     : t('usdt.funding.applyHint')}
                 </p>
+                {fixedReceiving && (
+                  <div className="rounded-lg border border-rose-100 bg-rose-50/50 p-3 space-y-2 text-xs">
+                    <p className="font-semibold text-rose-950">{t('usdt.companyAccount')}</p>
+                    <p className="text-rose-900/80">{t('usdt.funding.fixedAccountPreviewHint')}</p>
+                    <dl className="grid gap-1 sm:grid-cols-[6.5rem_1fr]">
+                      <dt className="text-rose-700/70">{t('usdt.deposit.bankName')}</dt>
+                      <CopyableMono
+                        value={fixedReceiving.bankName}
+                        copyLabel={t('common.copy')}
+                        copiedLabel={t('common.copied')}
+                      />
+                      <dt className="text-rose-700/70">{t('usdt.deposit.accountNumber')}</dt>
+                      <CopyableMono
+                        value={fixedReceiving.accountNumber}
+                        copyLabel={t('usdt.deposit.copyAccountNumber')}
+                        copiedLabel={t('common.copied')}
+                        strong
+                      />
+                      <dt className="text-rose-700/70">{t('usdt.deposit.accountHolder')}</dt>
+                      <CopyableMono
+                        value={fixedReceiving.accountHolder}
+                        copyLabel={t('usdt.deposit.copyHolder')}
+                        copiedLabel={t('common.copied')}
+                        strong
+                      />
+                    </dl>
+                  </div>
+                )}
+                {!isCurfexCurrency && !fixedReceiving && (
+                  <p className="text-xs text-amber-800">{t('usdt.funding.fixedAccountMissing')}</p>
+                )}
                 <div>
                   <label className="pg-label">{t('usdt.funding.sourceFiles')}</label>
                   <div className="mt-1">
@@ -456,13 +488,17 @@ export default function UsdtNewPage() {
                 </div>
                 {!isCurfexCurrency && (
                   <div>
-                    <label className="pg-label">{t('usdt.funding.depositReceipt')}</label>
+                    <label className="pg-label">
+                      {t('usdt.funding.depositReceipt')}
+                      <span className="ml-1 text-rose-600">*</span>
+                    </label>
+                    <p className="mt-0.5 pg-hint">{t('usdt.funding.depositReceiptHint')}</p>
                     <div className="mt-1">
                       <LocalizedFileInput
-                        accept="image/*,.pdf"
+                        accept=".pdf,image/*"
                         multiple
-                        files={depositFiles}
-                        onFiles={setDepositFiles}
+                        files={depositReceiptFiles}
+                        onFiles={setDepositReceiptFiles}
                       />
                     </div>
                   </div>

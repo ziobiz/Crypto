@@ -15,7 +15,6 @@ import { useAuth } from '@/context/AuthProvider';
 import { useT } from '@/context/LocaleProvider';
 import { api, type SimulatorAnalytics, type SimulatorHqListResponse } from '@/lib/api';
 import { ContentCard } from '@/components/layout/ContentCard';
-import { HqPolicyHubNav } from '@/components/layout/HqPolicyHubNav';
 import { PageSizeBar } from '@/components/PageSizeBar';
 import { formatDate } from '@/lib/format';
 import type { MessageKey } from '@/i18n/messages';
@@ -50,7 +49,6 @@ export default function SimulatorLogsPage() {
 
   return (
     <div className="pg-stack">
-      <HqPolicyHubNav />
       <ContentCard title={t('simLogs.analysisTitle')}>
         <div className="mb-3 flex flex-wrap gap-2">
           {(['day', 'week', 'month'] as const).map((r) => (

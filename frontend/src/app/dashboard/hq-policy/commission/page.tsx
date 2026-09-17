@@ -109,9 +109,31 @@ const DEFAULT_FEE_DIAGRAM: FeeDiagramDisplayConfig = {
 };
 
 function withFeeDiagramDefaults(risk: HqCommissionRiskConfig): HqCommissionRiskConfig {
+  const live = { ...DEFAULT_FEE_DIAGRAM, ...risk.feeDiagramDisplay };
+  const sandbox = {
+    ...DEFAULT_FEE_DIAGRAM,
+    ...live,
+    ...risk.sandboxFeeDiagramDisplay,
+  };
   return {
     ...risk,
-    feeDiagramDisplay: { ...DEFAULT_FEE_DIAGRAM, ...risk.feeDiagramDisplay },
+    feeDiagramDisplay: live,
+    sandboxFeeDiagramDisplay: sandbox,
+  };
+}
+
+type FeeDiagramEnv = 'live' | 'sandbox';
+
+function patchFeeDiagramEnv(
+  prev: HqCommissionRiskConfig,
+  env: FeeDiagramEnv,
+  patch: Partial<FeeDiagramDisplayConfig>,
+): HqCommissionRiskConfig {
+  const key = env === 'live' ? 'feeDiagramDisplay' : 'sandboxFeeDiagramDisplay';
+  const current = prev[key] ?? DEFAULT_FEE_DIAGRAM;
+  return {
+    ...prev,
+    [key]: { ...DEFAULT_FEE_DIAGRAM, ...current, ...patch },
   };
 }
 
@@ -756,98 +778,101 @@ export default function HqCommissionPage() {
 
         <div className="pg-card">
           <div className="pg-card-head">{t('hq.commission.showFeeRatesTitle')}</div>
-          <div className="pg-card-body space-y-2">
+          <div className="pg-card-body space-y-3">
             <p className="pg-hint text-xs">{t('hq.commission.showFeeRatesDesc')}</p>
-            <div className="flex flex-wrap gap-4">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="radio"
-                  name="showFeeRates"
-                  checked={(risk.feeDiagramDisplay?.showRates ?? DEFAULT_FEE_DIAGRAM.showRates) === true}
-                  onChange={() =>
-                    setRisk((prev) =>
-                      prev
-                        ? {
-                            ...prev,
-                            feeDiagramDisplay: {
-                              ...DEFAULT_FEE_DIAGRAM,
-                              ...prev.feeDiagramDisplay,
-                              showRates: true,
-                            },
+            <div className="grid gap-4 lg:grid-cols-2">
+              {(
+                [
+                  {
+                    env: 'live' as const,
+                    titleKey: 'hq.commission.showFeeRatesLive' as MessageKey,
+                    cfg: risk.feeDiagramDisplay,
+                    radioName: 'showFeeRatesLive',
+                  },
+                  {
+                    env: 'sandbox' as const,
+                    titleKey: 'hq.commission.showFeeRatesSandbox' as MessageKey,
+                    cfg: risk.sandboxFeeDiagramDisplay,
+                    radioName: 'showFeeRatesSandbox',
+                  },
+                ] as const
+              ).map(({ env, titleKey, cfg, radioName }) => {
+                const showRates = cfg?.showRates ?? DEFAULT_FEE_DIAGRAM.showRates;
+                const billing =
+                  cfg?.defaultFeeBillingMethod ?? DEFAULT_FEE_DIAGRAM.defaultFeeBillingMethod;
+                return (
+                  <div
+                    key={env}
+                    className="space-y-3 rounded-md border border-slate-200 bg-slate-50/60 p-3"
+                  >
+                    <p className="text-sm font-semibold text-slate-800">{t(titleKey)}</p>
+                    <div className="flex flex-wrap gap-4">
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="radio"
+                          name={radioName}
+                          checked={showRates === true}
+                          onChange={() =>
+                            setRisk((prev) =>
+                              prev ? patchFeeDiagramEnv(prev, env, { showRates: true }) : prev,
+                            )
                           }
-                        : prev,
-                    )
-                  }
-                />
-                {t('hq.commission.showFeeRatesOn')}
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="radio"
-                  name="showFeeRates"
-                  checked={(risk.feeDiagramDisplay?.showRates ?? DEFAULT_FEE_DIAGRAM.showRates) === false}
-                  onChange={() =>
-                    setRisk((prev) =>
-                      prev
-                        ? {
-                            ...prev,
-                            feeDiagramDisplay: {
-                              ...DEFAULT_FEE_DIAGRAM,
-                              ...prev.feeDiagramDisplay,
-                              showRates: false,
-                            },
+                        />
+                        {t('hq.commission.showFeeRatesOn')}
+                      </label>
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="radio"
+                          name={radioName}
+                          checked={showRates === false}
+                          onChange={() =>
+                            setRisk((prev) =>
+                              prev ? patchFeeDiagramEnv(prev, env, { showRates: false }) : prev,
+                            )
                           }
-                        : prev,
-                    )
-                  }
-                />
-                {t('hq.commission.showFeeRatesOff')}
-              </label>
-            </div>
-            <div className="border-t border-slate-100 pt-3 space-y-2">
-              <p className="pg-label text-sm">{t('hq.commission.defaultBillingMethod')}</p>
-              <p className="pg-hint text-xs">{t('hq.commission.defaultBillingMethodDesc')}</p>
-              <div className="flex flex-wrap items-center gap-3">
-                <select
-                  className="pg-input max-w-xs text-sm"
-                  value={
-                    risk.feeDiagramDisplay?.defaultFeeBillingMethod ??
-                    DEFAULT_FEE_DIAGRAM.defaultFeeBillingMethod
-                  }
-                  onChange={(e) =>
-                    setRisk((prev) =>
-                      prev
-                        ? {
-                            ...prev,
-                            feeDiagramDisplay: {
-                              ...DEFAULT_FEE_DIAGRAM,
-                              ...prev.feeDiagramDisplay,
-                              defaultFeeBillingMethod: e.target.value as
-                                | 'INTEGRATED'
-                                | 'ITEMIZED'
-                                | 'HYBRID',
-                            },
+                        />
+                        {t('hq.commission.showFeeRatesOff')}
+                      </label>
+                    </div>
+                    <div className="border-t border-slate-200 pt-3 space-y-2">
+                      <p className="pg-label text-sm">{t('hq.commission.defaultBillingMethod')}</p>
+                      <p className="pg-hint text-xs">
+                        {t(
+                          env === 'live'
+                            ? 'hq.commission.defaultBillingMethodDescLive'
+                            : 'hq.commission.defaultBillingMethodDescSandbox',
+                        )}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <select
+                          className="pg-input max-w-xs text-sm"
+                          value={billing}
+                          onChange={(e) =>
+                            setRisk((prev) =>
+                              prev
+                                ? patchFeeDiagramEnv(prev, env, {
+                                    defaultFeeBillingMethod: e.target.value as
+                                      | 'INTEGRATED'
+                                      | 'ITEMIZED'
+                                      | 'HYBRID',
+                                  })
+                                : prev,
+                            )
                           }
-                        : prev,
-                    )
-                  }
-                >
-                  <option value="ITEMIZED">{t('feeBilling.ITEMIZED')}</option>
-                  <option value="INTEGRATED">{t('feeBilling.INTEGRATED')}</option>
-                  <option value="HYBRID">{t('feeBilling.HYBRID')}</option>
-                </select>
-                <span className="text-xs text-slate-600">
-                  {t('hq.commission.currentDefaultBilling')}:{' '}
-                  <strong>
-                    {t(
-                      `feeBilling.${
-                        risk.feeDiagramDisplay?.defaultFeeBillingMethod ??
-                        DEFAULT_FEE_DIAGRAM.defaultFeeBillingMethod
-                      }` as MessageKey,
-                    )}
-                  </strong>
-                </span>
-              </div>
+                        >
+                          <option value="ITEMIZED">{t('feeBilling.ITEMIZED')}</option>
+                          <option value="INTEGRATED">{t('feeBilling.INTEGRATED')}</option>
+                          <option value="HYBRID">{t('feeBilling.HYBRID')}</option>
+                        </select>
+                        <span className="text-xs text-slate-600">
+                          {t('hq.commission.currentDefaultBilling')}:{' '}
+                          <strong>{t(`feeBilling.${billing}` as MessageKey)}</strong>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
             <p className="pg-hint text-[10px]">{t('hq.commission.feeDiagramSaveHint')}</p>
           </div>
@@ -940,18 +965,33 @@ export default function HqCommissionPage() {
                     type="checkbox"
                     checked={risk.feeDiagramDisplay?.[key] ?? DEFAULT_FEE_DIAGRAM[key]}
                     onChange={() =>
-                      setRisk((prev) =>
-                        prev
-                          ? {
-                              ...prev,
-                              feeDiagramDisplay: {
-                                ...DEFAULT_FEE_DIAGRAM,
-                                ...prev.feeDiagramDisplay,
-                                [key]: !(prev.feeDiagramDisplay?.[key] ?? DEFAULT_FEE_DIAGRAM[key]),
-                              },
-                            }
-                          : prev,
-                      )
+                      setRisk((prev) => {
+                        if (!prev) return prev;
+                        const nextVal = !(
+                          prev.feeDiagramDisplay?.[key] ?? DEFAULT_FEE_DIAGRAM[key]
+                        );
+                        const live = {
+                          ...DEFAULT_FEE_DIAGRAM,
+                          ...prev.feeDiagramDisplay,
+                          [key]: nextVal,
+                        };
+                        const sandboxPrev =
+                          prev.sandboxFeeDiagramDisplay ?? DEFAULT_FEE_DIAGRAM;
+                        return {
+                          ...prev,
+                          feeDiagramDisplay: live,
+                          // 행 표시는 LIVE와 동기화. 노출·청구방식만 Sandbox 독립 유지
+                          sandboxFeeDiagramDisplay: {
+                            ...DEFAULT_FEE_DIAGRAM,
+                            ...sandboxPrev,
+                            [key]: nextVal,
+                            showRates: sandboxPrev.showRates ?? DEFAULT_FEE_DIAGRAM.showRates,
+                            defaultFeeBillingMethod:
+                              sandboxPrev.defaultFeeBillingMethod ??
+                              DEFAULT_FEE_DIAGRAM.defaultFeeBillingMethod,
+                          },
+                        };
+                      })
                     }
                   />
                   <span>{t(labelKey)}</span>

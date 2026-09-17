@@ -660,6 +660,7 @@ export type ProfitAnalysisRow = {
 
 export type FeeBillingPresentation = 'INTEGRATED' | 'ITEMIZED' | 'HYBRID';
 export type FeeBillingMethod = 'FOLLOW_HQ' | FeeBillingPresentation;
+export type UsdtCollectionMode = 'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL';
 
 export interface FeeDiagramDisplayConfig {
   gross: boolean;
@@ -843,6 +844,7 @@ export interface ManagedUser {
     simulatorEnabled?: boolean;
     simulatorRateMode?: 'LIVE' | 'SAND';
     feeBillingMethod?: FeeBillingMethod;
+    usdtCollectionMode?: UsdtCollectionMode;
     operatorsEnabled?: boolean;
     walletFeesVisible?: boolean;
     recruitingOrg?: { id: string; code: string; name: string };
@@ -926,6 +928,7 @@ export interface CreateUserInput {
   simulatorEnabled?: boolean;
   simulatorRateMode?: 'LIVE' | 'SAND';
   feeBillingMethod?: FeeBillingMethod;
+  usdtCollectionMode?: UsdtCollectionMode;
   operatorsEnabled?: boolean;
   walletFeesVisible?: boolean;
 }
@@ -942,6 +945,7 @@ export interface UpdateUserInput {
   simulatorEnabled?: boolean;
   simulatorRateMode?: 'LIVE' | 'SAND';
   feeBillingMethod?: FeeBillingMethod;
+  usdtCollectionMode?: UsdtCollectionMode;
   operatorsEnabled?: boolean;
   walletFeesVisible?: boolean;
 }
@@ -1041,6 +1045,8 @@ export interface UsdtDepositContext {
   receivingAccounts: Partial<Record<'KRW' | 'JPY' | 'THB' | 'CNY', DepositReceivingAccountInfo>>;
   currencyTrade?: Record<'KRW' | 'JPY' | 'THB' | 'CNY', UsdtCurrencyTradeFlags>;
   curfexEnabledCurrencies?: Array<'JPY' | 'KRW' | 'THB' | 'CNY'>;
+  usdtCollectionMode?: UsdtCollectionMode;
+  hqDefaultCollectionMode?: 'FIXED' | 'VIRTUAL';
   registeredBank: { bankName: string; accountNumber: string; accountHolder: string } | null;
   depositWindowHours: number;
 }
@@ -1231,6 +1237,7 @@ export interface UsdtTicket {
   wallet?: Wallet;
   registeredBank?: BankAccountInfo | null;
   customer?: { user: { name: string; email: string } };
+  feeDiagramDisplay?: FeeDiagramDisplayConfig;
 }
 
 export interface EscrowTicket {
@@ -1835,6 +1842,8 @@ export interface HqCommissionRiskConfig {
   defaultOtherFeePercent?: number;
   defaultOtherFeeMode?: FeeMode;
   feeDiagramDisplay?: FeeDiagramDisplayConfig;
+  /** 시뮬레이터 SAND 전용 도식 (없으면 LIVE feeDiagramDisplay와 동일하게 취급) */
+  sandboxFeeDiagramDisplay?: FeeDiagramDisplayConfig;
   maxTicketAmountKrw: number;
   riskEnabled: boolean;
   maxDailyTicketsPerCustomer: number;
@@ -2116,6 +2125,8 @@ export interface HqCurfexConfig {
   sandbox?: boolean;
   webhookSecret?: string;
   autoApproveOnDeposit?: boolean;
+  /** HQ default when customer follows HQ: FIXED or VIRTUAL (TINPASS VA) */
+  defaultCollectionMode?: 'FIXED' | 'VIRTUAL';
 }
 
 export type CardCurrencyLimits = { min: number; max: number };

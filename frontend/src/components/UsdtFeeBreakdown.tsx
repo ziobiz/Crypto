@@ -112,7 +112,7 @@ export function UsdtFeeBreakdownPanel({
       amount: breakdown.fxFeeUsdt,
       rate: fees ? formatFeeComponentLabel(fees, 'fx') : '—',
       label: t('usdt.fxFee'),
-      tone: 'bg-amber-50',
+      tone: 'bg-rose-50',
     });
   }
   if (cfg.gasFee) {
@@ -121,7 +121,7 @@ export function UsdtFeeBreakdownPanel({
       amount: breakdown.gasFeeUsdt,
       rate: fees ? formatFeeComponentLabel(fees, 'gas') : '—',
       label: t('usdt.gasFee'),
-      tone: 'bg-orange-50',
+      tone: 'bg-rose-50/70',
     });
   }
   if (cfg.transferFee) {
@@ -130,7 +130,7 @@ export function UsdtFeeBreakdownPanel({
       amount: breakdown.transferFeeUsdt,
       rate: fees ? formatFeeComponentLabel(fees, 'transfer') : '—',
       label: t('usdt.transferFee'),
-      tone: 'bg-orange-50',
+      tone: 'bg-rose-50/70',
     });
   }
   if (cfg.otherFee) {
@@ -140,7 +140,7 @@ export function UsdtFeeBreakdownPanel({
         amount: baseOther,
         rate: fees ? formatFeeComponentLabel(fees, 'other') : '—',
         label: t('usdt.otherFeeBase'),
-        tone: 'bg-orange-50',
+        tone: 'bg-rose-50/70',
       });
       if (cfg.localPremium) {
         itemizedFeeParts.push({
@@ -148,7 +148,7 @@ export function UsdtFeeBreakdownPanel({
           amount: premiumFee,
           rate: `${premiumPct.toFixed(2)}%`,
           label: premiumFeeLabel,
-          tone: 'bg-rose-50',
+          tone: 'bg-rose-100/80',
         });
       }
     } else {
@@ -157,7 +157,7 @@ export function UsdtFeeBreakdownPanel({
         amount: breakdown.otherFeeUsdt,
         rate: fees ? formatFeeComponentLabel(fees, 'other') : '—',
         label: t('usdt.otherFee'),
-        tone: 'bg-orange-50',
+        tone: 'bg-rose-50/70',
       });
     }
   } else if (cfg.localPremium && showLocalPremium) {
@@ -166,7 +166,7 @@ export function UsdtFeeBreakdownPanel({
       amount: premiumFee,
       rate: `${premiumPct.toFixed(2)}%`,
       label: premiumFeeLabel,
-      tone: 'bg-rose-50',
+      tone: 'bg-rose-100/80',
     });
   }
   if (cfg.operatingFee) {
@@ -175,7 +175,7 @@ export function UsdtFeeBreakdownPanel({
       amount: operatingFeeUsdt,
       rate: formatOperatingFeeRate(fees),
       label: t('usdt.operatingFee'),
-      tone: 'bg-sky-50',
+      tone: 'bg-rose-50',
     });
   }
 
@@ -194,7 +194,7 @@ export function UsdtFeeBreakdownPanel({
       label: t('usdt.fee.gross'),
       rate: '—',
       value: `${breakdown.grossUsdt.toFixed(4)} USDT`,
-      tone: 'bg-slate-100',
+      tone: 'bg-rose-50/50',
     });
   }
 
@@ -207,7 +207,7 @@ export function UsdtFeeBreakdownPanel({
       label: t('usdt.fee.integratedTotal'),
       rate: integratedRate,
       value: `− ${integratedTotal.toFixed(4)} USDT`,
-      tone: 'bg-violet-50',
+      tone: 'bg-rose-100/70',
     });
   }
 
@@ -229,7 +229,7 @@ export function UsdtFeeBreakdownPanel({
       label: t('usdt.fee.net'),
       rate: '—',
       value: `${breakdown.netUsdt.toFixed(4)} USDT`,
-      tone: 'bg-emerald-50 border-emerald-200',
+      tone: 'bg-rose-50 border-rose-200',
     });
   }
 
@@ -295,11 +295,11 @@ export function UsdtFeeBreakdownPanel({
         </div>
       )}
       {cfg.requiredFiat && (
-        <div className="mt-3 rounded border border-blue-100 bg-blue-50/60 px-3 py-2">
+        <div className="mt-3 rounded border border-rose-100 bg-rose-50/60 px-3 py-2">
           <p className="text-gray-600">
             {isCardPayment ? t('usdt.fee.fiatForConversion') : t('usdt.fee.requiredFiat')}
           </p>
-          <p className="text-lg font-bold text-blue-800 tabular-nums text-center">
+          <p className="text-lg font-bold text-rose-800 tabular-nums text-center">
             {formatFiatAmount(breakdown.requiredFiat, currency)}
           </p>
         </div>
@@ -307,18 +307,18 @@ export function UsdtFeeBreakdownPanel({
       {isCardPayment && cardChargeFiat != null && cardChargeFiat > 0 && (
         <div className="mt-3 space-y-2">
           {cardFeeFiat != null && cardFeeFiat > 0 && (
-            <div className="rounded border border-violet-100 bg-violet-50/60 px-3 py-2">
+            <div className="rounded border border-rose-100 bg-rose-50/60 px-3 py-2">
               <p className="text-gray-600">
                 {t('usdt.cardFee', { pct: (cardFeePercent ?? 0).toFixed(2) })}
               </p>
-              <p className="text-base font-semibold text-violet-900 tabular-nums text-center">
+              <p className="text-base font-semibold text-rose-900 tabular-nums text-center">
                 + {cardFeeFiat.toLocaleString()} {currency}
               </p>
             </div>
           )}
-          <div className="rounded border border-indigo-200 bg-indigo-50 px-3 py-2">
+          <div className="rounded border border-rose-200 bg-rose-50 px-3 py-2">
             <p className="text-gray-700 font-medium">{t('usdt.fee.cardChargeTotal')}</p>
-            <p className="text-xl font-bold text-indigo-900 tabular-nums text-center">
+            <p className="text-xl font-bold text-rose-900 tabular-nums text-center">
               {cardChargeFiat.toLocaleString()} {currency}
             </p>
           </div>

@@ -175,7 +175,7 @@
   }
   .pg-frame-path-link {
     @apply underline-offset-2 transition-colors hover:underline;
-    color: var(--shell-accent, #0369a1);
+    color: var(--shell-accent, #e11d48);
   }
   .pg-frame-path-current {
     color: var(--shell-content-text-muted);
@@ -402,7 +402,7 @@
   }
 
   .pg-btn-primary {
-    @apply border-blue-600 bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50;
+    @apply border-rose-400 bg-rose-400 text-white hover:bg-rose-500 disabled:opacity-50;
   }
 
   .pg-btn-secondary {
@@ -566,7 +566,7 @@
   }
 
   .pg-link {
-    @apply font-medium text-blue-600 hover:underline;
+    @apply font-medium text-rose-600 hover:underline;
   }
 
   .pg-link-warn {
@@ -739,10 +739,10 @@
   }
 
   .pg-choice-active {
-    border-color: #2563eb;
-    background-color: #eff6ff;
-    color: #1e3a8a;
-    @apply ring-1 ring-blue-600;
+    border-color: #fb7185;
+    background-color: #fff1f2;
+    color: #9f1239;
+    @apply ring-1 ring-rose-400;
   }
 
   .pg-choice-idle {

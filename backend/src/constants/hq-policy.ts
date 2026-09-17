@@ -29,11 +29,12 @@ export const HQ_PAGE_CATALOG = [
   { path: '/dashboard/ledger', label: '수수료 장부', group: '업무' },
   { path: '/dashboard/wallets', label: '내 지갑', group: '업무' },
   { path: '/dashboard/merchant-users', label: '가맹점 사용자관리', group: '업무' },
-  { path: '/dashboard/operation-history', label: '운영기록관리', group: '업무' },
+  { path: '/dashboard/operation-history', label: '기록관리', group: '운영관리' },
   { path: '/dashboard/kyc', label: '인증센터', group: '업무' },
-  { path: '/dashboard/users', label: '사용자관리', group: '사용자관리' },
-  { path: '/dashboard/customers', label: '고객관리', group: '사용자관리' },
-  { path: '/dashboard/customers/fees', label: '수수료관리', group: '사용자관리' },
+  { path: '/dashboard/users', label: '사용자관리', group: '운영관리' },
+  { path: '/dashboard/customers', label: '고객관리', group: '운영관리' },
+  { path: '/dashboard/customers/fees', label: '수수료관리', group: '운영관리' },
+  { path: '/dashboard/organizations', label: '조직관리', group: '운영관리' },
   { path: '/dashboard/hq-policy/access', label: '접근·권한', group: '본사정책' },
   { path: '/dashboard/hq-policy/org-columns', label: '조직·화면', group: '본사정책' },
   { path: '/dashboard/hq-policy/commission', label: '수수료·리스크', group: '본사정책' },
@@ -365,8 +366,10 @@ export type HqCommissionRiskConfig = {
   defaultOtherFeeUsdt: number;
   defaultOtherFeePercent?: number;
   defaultOtherFeeMode?: FeeMode;
-  /** USDT 매입 수수료·비용 도식 표시 항목 */
+  /** USDT 매입 수수료·비용 도식 표시 항목 (LIVE) */
   feeDiagramDisplay?: FeeDiagramDisplayConfig;
+  /** 시뮬레이터 SAND 전용 도식 표시 (미설정 시 LIVE feeDiagramDisplay 복제) */
+  sandboxFeeDiagramDisplay?: FeeDiagramDisplayConfig;
   /** @deprecated — transactionLimits 로 이전 */
   maxTicketAmountKrw: number;
   riskEnabled: boolean;
@@ -756,6 +759,9 @@ export const DEFAULT_ICOPAY_CONFIG = (): HqIcopayConfig => ({
 export const CURFEX_CURRENCY_OPTIONS = ['JPY', 'KRW', 'THB', 'CNY'] as const;
 export type CurfexCurrency = (typeof CURFEX_CURRENCY_OPTIONS)[number];
 
+/** 본사 기본 입금계좌 방식 (고객 FOLLOW_HQ 시). VIRTUAL = 가상계좌 */
+export type HqDefaultCollectionMode = 'FIXED' | 'VIRTUAL';
+
 export type HqCurfexConfig = {
   enabled: boolean;
   clientId: string;
@@ -773,6 +779,11 @@ export type HqCurfexConfig = {
    * 금액이 신청액과 일치할 때만 수행 (기본 true).
    */
   autoApproveOnDeposit?: boolean;
+  /**
+   * 고객이 「본사설정따름」일 때 기본 입금계좌 방식.
+   * VIRTUAL이어도 해당 통화 CURFEX OFF면 고정계좌로 폴백.
+   */
+  defaultCollectionMode?: HqDefaultCollectionMode;
 };
 
 export const DEFAULT_CURFEX_CONFIG = (): HqCurfexConfig => ({
@@ -785,6 +796,7 @@ export const DEFAULT_CURFEX_CONFIG = (): HqCurfexConfig => ({
   sandbox: true,
   webhookSecret: '',
   autoApproveOnDeposit: true,
+  defaultCollectionMode: 'FIXED',
 });
 
 export type CurfexCollectionAccount = {

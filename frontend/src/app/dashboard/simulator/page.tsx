@@ -11,7 +11,6 @@ import { UsdtRatePanel } from '@/components/UsdtRatePanel';
 import { UsdtFeeBreakdownPanel } from '@/components/UsdtFeeBreakdown';
 import { FormattedAmountInput } from '@/components/FormattedAmountInput';
 import { ContentCard } from '@/components/layout/ContentCard';
-import { HqPolicyHubNav } from '@/components/layout/HqPolicyHubNav';
 import { formatDate, formatFiatAmount, setCurrencyAmountDisplayPolicy } from '@/lib/format';
 
 const FIAT_CURRENCIES = ['KRW', 'JPY', 'THB', 'CNY'] as const;
@@ -256,7 +255,6 @@ export default function UsdtSimulatorPage() {
 
   return (
     <div className="pg-stack">
-      {hq ? <HqPolicyHubNav /> : null}
       <ContentCard>
         <UsdtRatePanel compact />
       </ContentCard>

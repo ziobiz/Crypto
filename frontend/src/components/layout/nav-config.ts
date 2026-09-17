@@ -18,6 +18,8 @@ export type NavItem = {
   labelKey: MessageKey;
   shortKey?: MessageKey;
   icon: NavIconId;
+  /** PG형 펼침 하위 메뉴 */
+  children?: NavItem[];
 };
 
 const SIMULATOR_ITEM: NavItem = {
@@ -70,22 +72,91 @@ const OPERATION_HISTORY_ITEM: NavItem = {
   icon: 'ledger',
 };
 
+const CUSTOMERS_ITEM: NavItem = {
+  href: '/dashboard/customers',
+  labelKey: 'nav.customers',
+  shortKey: 'nav.short.customers',
+  icon: 'kyc',
+};
+
+const CUSTOMER_FEES_ITEM: NavItem = {
+  href: '/dashboard/customers/fees',
+  labelKey: 'nav.customerFees',
+  shortKey: 'nav.short.orgFees',
+  icon: 'ledger',
+};
+
+const ORGS_ITEM: NavItem = {
+  href: '/dashboard/organizations',
+  labelKey: 'nav.orgs',
+  shortKey: 'nav.short.orgs',
+  icon: 'orgs',
+};
+
+const USERS_ITEM: NavItem = {
+  href: '/dashboard/users',
+  labelKey: 'nav.users',
+  shortKey: 'nav.short.users',
+  icon: 'users',
+};
+
+/** 좌측 「운영관리」펼침 — 고객·수수료·조직·사용자·기록 */
+const OPS_CHILDREN: NavItem[] = [
+  CUSTOMERS_ITEM,
+  CUSTOMER_FEES_ITEM,
+  ORGS_ITEM,
+  USERS_ITEM,
+  OPERATION_HISTORY_ITEM,
+];
+
+const OPS_ITEM: NavItem = {
+  href: '/dashboard/ops',
+  labelKey: 'nav.ops',
+  shortKey: 'nav.short.ops',
+  icon: 'hq',
+  children: OPS_CHILDREN,
+};
+
+const OPS_CHILDREN_ORG: NavItem[] = [CUSTOMERS_ITEM, CUSTOMER_FEES_ITEM, ORGS_ITEM, USERS_ITEM];
+
+const OPS_ITEM_ORG: NavItem = {
+  href: '/dashboard/ops',
+  labelKey: 'nav.ops',
+  shortKey: 'nav.short.ops',
+  icon: 'hq',
+  children: OPS_CHILDREN_ORG,
+};
+
+const HQ_POLICY_CHILDREN: NavItem[] = [
+  { href: '/dashboard/hq-policy/access', labelKey: 'hq.hub.access', icon: 'hq' },
+  { href: '/dashboard/hq-policy/org-columns', labelKey: 'hq.hub.org', icon: 'orgs' },
+  { href: '/dashboard/hq-policy/commission', labelKey: 'hq.hub.commission', icon: 'ledger' },
+  { href: '/dashboard/hq-policy/platform', labelKey: 'hq.hub.platform', icon: 'hq' },
+  { href: '/dashboard/hq-policy/ops', labelKey: 'hq.hub.ops', icon: 'hq' },
+  { href: '/dashboard/hq-policy/deletion', labelKey: 'hq.hub.deletion', icon: 'hq' },
+  SIMULATOR_ITEM,
+  SIMULATOR_LOGS_ITEM,
+  COST_ITEM,
+  PROFIT_ITEM,
+  MANUAL_ITEM,
+];
+
+const HQ_POLICY_ITEM: NavItem = {
+  href: '/dashboard/hq-policy',
+  labelKey: 'nav.hqPolicy',
+  shortKey: 'nav.short.hq',
+  icon: 'hq',
+  children: HQ_POLICY_CHILDREN,
+};
+
 export const NAV_ITEMS: Record<string, NavItem[]> = {
   SUPER_ADMIN: [
     { href: '/dashboard', labelKey: 'nav.dashboard', shortKey: 'nav.short.dashboard', icon: 'dashboard' },
     { href: '/dashboard/usdt', labelKey: 'nav.usdt', shortKey: 'nav.short.usdt', icon: 'usdt' },
     { href: '/dashboard/escrow', labelKey: 'nav.escrow', shortKey: 'nav.short.escrow', icon: 'escrow' },
     { href: '/dashboard/ledger', labelKey: 'nav.ledger', shortKey: 'nav.short.ledger', icon: 'ledger' },
-    { href: '/dashboard/users', labelKey: 'nav.users', shortKey: 'nav.short.users', icon: 'users' },
-    { href: '/dashboard/customers', labelKey: 'nav.customers', shortKey: 'nav.short.customers', icon: 'kyc' },
-    { href: '/dashboard/organizations', labelKey: 'nav.orgs', shortKey: 'nav.short.orgs', icon: 'orgs' },
-    { href: '/dashboard/hq-policy', labelKey: 'nav.hqPolicy', shortKey: 'nav.short.hq', icon: 'hq' },
-    SIMULATOR_ITEM,
-    SIMULATOR_LOGS_ITEM,
-    COST_ITEM,
-    PROFIT_ITEM,
-    OPERATION_HISTORY_ITEM,
-    MANUAL_ITEM,
+    OPS_ITEM,
+    HQ_POLICY_ITEM,
   ],
   ORG_STAFF: [
     { href: '/dashboard', labelKey: 'nav.dashboard', shortKey: 'nav.short.dashboard', icon: 'dashboard' },
@@ -93,9 +164,7 @@ export const NAV_ITEMS: Record<string, NavItem[]> = {
     { href: '/dashboard/usdt', labelKey: 'nav.usdt', shortKey: 'nav.short.usdt', icon: 'usdt' },
     { href: '/dashboard/escrow', labelKey: 'nav.escrow', shortKey: 'nav.short.escrow', icon: 'escrow' },
     { href: '/dashboard/ledger', labelKey: 'nav.ledger', shortKey: 'nav.short.ledger', icon: 'ledger' },
-    { href: '/dashboard/users', labelKey: 'nav.users', shortKey: 'nav.short.users', icon: 'users' },
-    { href: '/dashboard/customers', labelKey: 'nav.customers', shortKey: 'nav.short.customers', icon: 'kyc' },
-    { href: '/dashboard/organizations', labelKey: 'nav.orgs', shortKey: 'nav.short.orgs', icon: 'orgs' },
+    OPS_ITEM_ORG,
     SIMULATOR_LOGS_ITEM,
     MANUAL_ITEM,
   ],
@@ -105,9 +174,7 @@ export const NAV_ITEMS: Record<string, NavItem[]> = {
     { href: '/dashboard/usdt', labelKey: 'nav.usdt', shortKey: 'nav.short.usdt', icon: 'usdt' },
     { href: '/dashboard/escrow', labelKey: 'nav.escrow', shortKey: 'nav.short.escrow', icon: 'escrow' },
     { href: '/dashboard/ledger', labelKey: 'nav.ledger', shortKey: 'nav.short.ledger', icon: 'ledger' },
-    { href: '/dashboard/users', labelKey: 'nav.users', shortKey: 'nav.short.users', icon: 'users' },
-    { href: '/dashboard/customers', labelKey: 'nav.customers', shortKey: 'nav.short.customers', icon: 'kyc' },
-    { href: '/dashboard/organizations', labelKey: 'nav.orgs', shortKey: 'nav.short.orgs', icon: 'orgs' },
+    OPS_ITEM_ORG,
     SIMULATOR_LOGS_ITEM,
     COST_ITEM,
     PROFIT_ITEM,
@@ -116,7 +183,7 @@ export const NAV_ITEMS: Record<string, NavItem[]> = {
   SETTLEMENT_ADMIN: [
     { href: '/dashboard', labelKey: 'nav.dashboard', shortKey: 'nav.short.dashboard', icon: 'dashboard' },
     { href: '/dashboard/ledger', labelKey: 'nav.ledger', shortKey: 'nav.short.ledger', icon: 'ledger' },
-    { href: '/dashboard/users', labelKey: 'nav.users', shortKey: 'nav.short.users', icon: 'users' },
+    USERS_ITEM,
     MANUAL_ITEM,
   ],
   CUSTOMER: [
@@ -145,8 +212,19 @@ const HQ_POLICY_NAV_PATH = '/dashboard/hq-policy/access';
 
 export function catalogPathForNav(href: string): string | null {
   if (href === '/dashboard/hq-policy') return HQ_POLICY_NAV_PATH;
-  if (href === '/dashboard/manuals' || href === '/dashboard/organizations') return null;
+  if (href === '/dashboard/ops' || href === '/dashboard/manuals' || href === '/dashboard/organizations') {
+    return null;
+  }
   return href;
+}
+
+function pathAllowed(href: string, pageAccess?: Record<string, string>): boolean {
+  const path = catalogPathForNav(href);
+  if (!path) return true;
+  if (!pageAccess) return true;
+  const level = pageAccess[path];
+  if (level == null) return true;
+  return level !== 'NONE';
 }
 
 export function filterNavByPageAccess(
@@ -154,17 +232,38 @@ export function filterNavByPageAccess(
   pageAccess?: Record<string, string>,
 ): NavItem[] {
   if (!pageAccess) return items;
-  return items.filter((item) => {
-    const path = catalogPathForNav(item.href);
-    if (!path) return true;
-    const level = pageAccess[path];
-    if (level == null) return true;
-    return level !== 'NONE';
-  });
+  return items
+    .map((item) => {
+      if (!pathAllowed(item.href, pageAccess)) return null;
+      if (!item.children?.length) return item;
+      const children = item.children.filter((c) => pathAllowed(c.href, pageAccess));
+      return { ...item, children: children.length ? children : undefined };
+    })
+    .filter((item): item is NavItem => item != null);
 }
 
-/** 경로 → 탭 라벨 (가장 긴 prefix 매칭) */
+/** 경로 → 탭 라벨 (가장 긴 prefix 매칭, 자식 포함) */
 export function resolveNavItem(pathname: string, items: NavItem[]): NavItem | undefined {
-  const sorted = [...items].sort((a, b) => b.href.length - a.href.length);
+  const flat: NavItem[] = [];
+  for (const item of items) {
+    flat.push(item);
+    if (item.children) flat.push(...item.children);
+  }
+  const sorted = [...flat].sort((a, b) => b.href.length - a.href.length);
   return sorted.find((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
+}
+
+export function navItemHasActiveChild(item: NavItem, pathname: string): boolean {
+  if (!item.children?.length) return false;
+  return item.children.some((c) => navChildIsActive(pathname, c, item.children!));
+}
+
+/** 중첩 경로(예: /customers vs /customers/fees)에서 가장 긴 href만 활성 */
+export function navChildIsActive(pathname: string, child: NavItem, siblings: NavItem[]): boolean {
+  const matches = (c: NavItem) =>
+    pathname === c.href || pathname.startsWith(`${c.href}/`);
+  if (!matches(child)) return false;
+  return !siblings.some(
+    (s) => s.href !== child.href && s.href.length > child.href.length && matches(s),
+  );
 }

@@ -23,6 +23,7 @@ const D = {
   hq: '/dashboard/hq-policy/access',
   hqOps: '/dashboard/hq-policy/ops',
   hqOrg: '/dashboard/hq-policy/org-columns',
+  ops: '/dashboard/customers',
   usdt: '/dashboard/usdt',
   escrow: '/dashboard/escrow',
   customers: '/dashboard/customers',
@@ -159,13 +160,28 @@ const RULES: RouteRule[] = [
   { test: (p) => p.startsWith('/dashboard/kyc'), meta: { titleKey: 'nav.kyc', trail: [] } },
   {
     test: (p) => p.startsWith('/dashboard/customers/fees'),
-    meta: { titleKey: 'customers.hub.fees', trail: [{ labelKey: 'nav.customers', href: D.customers }] },
+    meta: {
+      titleKey: 'customers.hub.fees',
+      trail: [
+        { labelKey: 'nav.ops', href: D.ops },
+        { labelKey: 'nav.customers', href: D.customers },
+      ],
+    },
   },
   {
     test: (p) => /^\/dashboard\/customers\/[^/]+$/.test(p),
-    meta: { titleKey: 'page.customerDetail', trail: [{ labelKey: 'nav.customers', href: D.customers }] },
+    meta: {
+      titleKey: 'page.customerDetail',
+      trail: [
+        { labelKey: 'nav.ops', href: D.ops },
+        { labelKey: 'nav.customers', href: D.customers },
+      ],
+    },
   },
-  { test: (p) => p.startsWith('/dashboard/customers'), meta: { titleKey: 'nav.customers', trail: [] } },
+  {
+    test: (p) => p.startsWith('/dashboard/customers'),
+    meta: { titleKey: 'nav.customers', trail: [{ labelKey: 'nav.ops', href: D.ops }] },
+  },
   {
     test: (p) => p === '/dashboard/usdt/new',
     meta: { titleKey: 'page.usdtNew', trail: [{ labelKey: 'nav.usdt', href: D.usdt }] },
@@ -185,11 +201,20 @@ const RULES: RouteRule[] = [
   },
   { test: (p) => p.startsWith('/dashboard/escrow'), meta: { titleKey: 'nav.escrow', trail: [] } },
   { test: (p) => p.startsWith('/dashboard/ledger'), meta: { titleKey: 'nav.ledger', trail: [] } },
-  { test: (p) => p.startsWith('/dashboard/organizations'), meta: { titleKey: 'nav.orgs', trail: [] } },
-  { test: (p) => p.startsWith('/dashboard/users'), meta: { titleKey: 'nav.users', trail: [] } },
+  {
+    test: (p) => p.startsWith('/dashboard/organizations'),
+    meta: { titleKey: 'nav.orgs', trail: [{ labelKey: 'nav.ops', href: D.ops }] },
+  },
+  {
+    test: (p) => p.startsWith('/dashboard/users'),
+    meta: { titleKey: 'nav.users', trail: [{ labelKey: 'nav.ops', href: D.ops }] },
+  },
   { test: (p) => p.startsWith('/dashboard/wallets'), meta: { titleKey: 'nav.wallets', trail: [] } },
   { test: (p) => p.startsWith('/dashboard/merchant-users'), meta: { titleKey: 'nav.merchantUsers', trail: [] } },
-  { test: (p) => p.startsWith('/dashboard/operation-history'), meta: { titleKey: 'nav.operationHistory', trail: [] } },
+  {
+    test: (p) => p.startsWith('/dashboard/operation-history'),
+    meta: { titleKey: 'nav.operationHistory', trail: [{ labelKey: 'nav.ops', href: D.ops }] },
+  },
   { test: (p) => p.startsWith('/dashboard/org-fees'), meta: { titleKey: 'nav.orgFees', trail: [] } },
 ];
 

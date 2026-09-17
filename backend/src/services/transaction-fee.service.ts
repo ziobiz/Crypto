@@ -136,6 +136,9 @@ export function normalizeCommissionRisk(raw: Partial<HqCommissionRiskConfig>): H
     defaultOtherFeePercent: raw.defaultOtherFeePercent ?? defaults.otherFeePercent,
     defaultOtherFeeMode: raw.defaultOtherFeeMode ?? defaults.otherFeeMode,
     feeDiagramDisplay: normalizeFeeDiagramDisplay(raw.feeDiagramDisplay),
+    sandboxFeeDiagramDisplay: normalizeFeeDiagramDisplay(
+      raw.sandboxFeeDiagramDisplay ?? raw.feeDiagramDisplay,
+    ),
     maxTicketAmountKrw: raw.maxTicketAmountKrw ?? 100_000_000,
     riskEnabled: raw.riskEnabled ?? true,
     maxDailyTicketsPerCustomer: raw.maxDailyTicketsPerCustomer ?? 10,
@@ -200,18 +203,28 @@ export async function getSimulatorHqTransactionFees(): Promise<TransactionFees> 
 
 export type FeePolicyScope = 'live' | 'sandbox';
 
-export async function getFeeDiagramDisplay(): Promise<FeeDiagramDisplayConfig> {
+export async function getFeeDiagramDisplay(
+  scope: FeePolicyScope = 'live',
+): Promise<FeeDiagramDisplayConfig> {
   const risk = await getCommissionRiskConfig();
+  if (scope === 'sandbox') {
+    return (
+      risk.sandboxFeeDiagramDisplay ??
+      risk.feeDiagramDisplay ??
+      normalizeFeeDiagramDisplay()
+    );
+  }
   return risk.feeDiagramDisplay ?? normalizeFeeDiagramDisplay();
 }
 
 /** 고객·본사 기본을 반영한 도식 표시 설정 (billingMethod 해석 포함) */
 export async function getFeeDiagramDisplayForCustomer(
   customerProfileId?: string | null,
+  scope: FeePolicyScope = 'live',
 ): Promise<FeeDiagramDisplayConfig> {
-  const base = await getFeeDiagramDisplay();
+  const base = await getFeeDiagramDisplay(scope);
   const hqDefault = normalizeFeeBillingPresentation(base.defaultFeeBillingMethod);
-  if (!customerProfileId) {
+  if (!customerProfileId || scope === 'sandbox') {
     return { ...base, billingMethod: hqDefault };
   }
   const profile = await prisma.customerProfile.findUnique({

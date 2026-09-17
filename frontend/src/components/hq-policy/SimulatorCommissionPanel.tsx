@@ -38,6 +38,17 @@ function withSandboxDefaults(risk?: HqCommissionRiskConfig | null): HqCommission
   };
 }
 
+function liveBasicFees(live?: HqCommissionRiskConfig | null) {
+  const base = live ?? EMPTY_SANDBOX;
+  return {
+    defaultFxFeePercent: Number(base.defaultFxFeePercent) || 0,
+    defaultGasFeeUsdt: Number(base.defaultGasFeeUsdt) || 0,
+    defaultTransferFeeUsdt:
+      Number(base.defaultTransferFeeUsdt) || Number(base.defaultPlatformFeeUsdt) || 0,
+    defaultOtherFeeUsdt: Number(base.defaultOtherFeeUsdt) || 0,
+  };
+}
+
 type FeeFieldKey = 'defaultFxFeePercent' | 'defaultGasFeeUsdt' | 'defaultTransferFeeUsdt' | 'defaultOtherFeeUsdt';
 
 const FEE_FIELDS: Array<{
@@ -70,6 +81,7 @@ function defaultUsdtOperatingFee(feeTypes: FeeTypeTemplate[]) {
 export function SimulatorCommissionPanel() {
   const t = useT();
   const [risk, setRisk] = useState<HqCommissionRiskConfig | null>(null);
+  const [liveRisk, setLiveRisk] = useState<HqCommissionRiskConfig | null>(null);
   const [liveTiers, setLiveTiers] = useState<SymbolFeeTierRow[]>([]);
   const [gasNetworks, setGasNetworks] = useState<HqGasNetworkPolicy | null>(null);
   const [feeTypes, setFeeTypes] = useState<FeeTypeTemplate[]>([]);
@@ -77,10 +89,12 @@ export function SimulatorCommissionPanel() {
   const [riskMsg, setRiskMsg] = useState('');
 
   const operatingDefault = useMemo(() => defaultUsdtOperatingFee(feeTypes), [feeTypes]);
+  const liveBasics = useMemo(() => liveBasicFees(liveRisk), [liveRisk]);
 
   useEffect(() => {
     Promise.all([hqPolicyApi.getCommission(), hqPolicyApi.listFeeTypes()])
       .then(([c, types]) => {
+        setLiveRisk(c.risk ?? null);
         setRisk(withSandboxDefaults(c.simulatorRisk));
         setLiveTiers([...(c.feeTiers ?? [])]);
         setGasNetworks(c.gasNetworks ?? null);
@@ -88,6 +102,15 @@ export function SimulatorCommissionPanel() {
       })
       .catch(console.error);
   }, []);
+
+  async function refreshLiveFromHq() {
+    const c = await hqPolicyApi.getCommission();
+    setLiveRisk(c.risk ?? null);
+    setLiveTiers([...(c.feeTiers ?? [])]);
+    setGasNetworks(c.gasNetworks ?? null);
+    if (c.feeTypes?.length) setFeeTypes(c.feeTypes);
+    return c;
+  }
 
   async function saveRiskOnly() {
     if (!risk) return;
@@ -97,6 +120,7 @@ export function SimulatorCommissionPanel() {
       const payload = withSandboxDefaults(risk);
       const next = await hqPolicyApi.saveSimulatorCommissionRisk(payload);
       setRisk(withSandboxDefaults(next.simulatorRisk));
+      setLiveRisk(next.risk ?? liveRisk);
       setLiveTiers([...(next.feeTiers ?? liveTiers)]);
       setGasNetworks(next.gasNetworks ?? gasNetworks);
       if (next.feeTypes?.length) setFeeTypes(next.feeTypes);
@@ -123,6 +147,33 @@ export function SimulatorCommissionPanel() {
     setRiskMsg(t('hq.commission.simulatorBasicsReset'));
   }
 
+  async function applyLiveBasics() {
+    try {
+      const c = await refreshLiveFromHq();
+      const next = liveBasicFees(c.risk);
+      setRisk((prev) => (prev ? { ...prev, ...next } : prev));
+      setRiskMsg(t('hq.commission.simulatorBasicsAppliedLive'));
+    } catch (e) {
+      setRiskMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
+    }
+  }
+
+  function resetGasAddon() {
+    setRisk((prev) => (prev ? { ...prev, defaultGasFeeUsdt: 0 } : prev));
+    setRiskMsg(t('hq.commission.simulatorGasReset'));
+  }
+
+  async function applyLiveGasAddon() {
+    try {
+      const c = await refreshLiveFromHq();
+      const gas = Number(c.risk?.defaultGasFeeUsdt) || 0;
+      setRisk((prev) => (prev ? { ...prev, defaultGasFeeUsdt: gas } : prev));
+      setRiskMsg(t('hq.commission.simulatorGasAppliedLive'));
+    } catch (e) {
+      setRiskMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
+    }
+  }
+
   if (!risk) return null;
 
   const operatingLabel = operatingDefault
@@ -134,13 +185,27 @@ export function SimulatorCommissionPanel() {
       <div className="pg-card-head">{t('hq.commission.simulatorTitle')}</div>
       <div className="pg-card-body space-y-6">
         <p className="pg-hint">{t('hq.commission.simulatorDesc')}</p>
-        <button type="button" className="pg-btn pg-btn-secondary" onClick={resetBasics}>
-          {t('hq.commission.simulatorResetBasics')}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" className="pg-btn pg-btn-secondary" onClick={resetBasics}>
+            {t('hq.commission.simulatorResetBasics')}
+          </button>
+          <button type="button" className="pg-btn pg-btn-secondary" onClick={() => void applyLiveBasics()}>
+            {t('hq.commission.simulatorApplyLiveBasics')}
+          </button>
+        </div>
+        <p className="pg-hint text-xs">{t('hq.commission.simulatorApplyLiveBasicsHint')}</p>
 
         <div className="space-y-3">
           <p className="pg-label">{t('hq.commission.simulatorDefaultSection')}</p>
           <p className="pg-hint text-xs">{t('hq.commission.simulatorDefaultDesc')}</p>
+          <p className="pg-callout pg-callout-muted text-xs">
+            {t('hq.commission.simulatorLiveBasicsRef', {
+              fx: liveBasics.defaultFxFeePercent,
+              gas: liveBasics.defaultGasFeeUsdt,
+              transfer: liveBasics.defaultTransferFeeUsdt,
+              other: liveBasics.defaultOtherFeeUsdt,
+            })}
+          </p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             {FEE_FIELDS.map((field) => (
               <div key={field.key} className="pg-sim-fee-field">
@@ -182,6 +247,8 @@ export function SimulatorCommissionPanel() {
           sandboxRisk={risk}
           gasNetworks={gasNetworks}
           operatingFee={operatingDefault}
+          onResetGasAddon={resetGasAddon}
+          onApplyLiveGasAddon={() => void applyLiveGasAddon()}
         />
       </div>
     </div>

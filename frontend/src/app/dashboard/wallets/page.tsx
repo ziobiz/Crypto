@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthProvider';
 import { api, ApiError, Wallet } from '@/lib/api';
 import { WALLET_NETWORKS } from '@/constants/wallet-networks';
 import { ContentCard } from '@/components/layout/ContentCard';
+import { CopyButton } from '@/components/CopyButton';
 import { displayWalletLabel } from '@/lib/wallet-label';
 import { SensitiveOtpGate } from '@/components/SensitiveOtpGate';
 import {
@@ -115,7 +116,14 @@ export default function WalletsPage() {
               </div>
               <MobileStackFields>
                 <MobileStackField label={t('wallets.address')} wide>
-                  <span className="font-mono text-xs">{w.address}</span>
+                  <span className="inline-flex flex-wrap items-center gap-2">
+                    <span className="font-mono text-xs break-all">{w.address}</span>
+                    <CopyButton
+                      text={w.address}
+                      label={t('wallets.copyAddress')}
+                      copiedLabel={t('common.copied')}
+                    />
+                  </span>
                 </MobileStackField>
                 <MobileStackField label={t('wallets.col.fees')} wide>
                   {feeSummary(w)}
@@ -151,7 +159,16 @@ export default function WalletsPage() {
               {wallets.map((w) => (
                 <tr key={w.id}>
                   <td className="font-medium">{displayWalletLabel(w.label, t)}</td>
-                  <td className="font-mono text-xs sm:text-sm">{w.address}</td>
+                  <td className="font-mono text-xs sm:text-sm">
+                    <span className="inline-flex flex-wrap items-center gap-2">
+                      <span className="break-all">{w.address}</span>
+                      <CopyButton
+                        text={w.address}
+                        label={t('wallets.copyAddress')}
+                        copiedLabel={t('common.copied')}
+                      />
+                    </span>
+                  </td>
                   <td className="pg-muted text-xs">{feeSummary(w)}</td>
                   <td className="align-middle">
                     <div className="flex w-full flex-col items-center justify-center gap-1">

@@ -3,6 +3,270 @@ import type { PlatformReleaseNote } from './version';
 /** 본사정책 → 운영관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
 export const PLATFORM_RELEASE_NOTES: PlatformReleaseNote[] = [
   {
+    version: '2.6.89',
+    kind: 'minor',
+    date: '2026-09-17',
+    items: {
+      KR: [
+        '세팅된 수수료율 노출·본사 기본 청구방식을 LIVE(실거래)와 Sandbox(시뮬레이터)로 분리. 각각 사용/미사용·청구방식을 저장하며, 시뮬레이터는 Sandbox 설정을 따름.',
+      ],
+      US: [
+        'Show configured fee rates and HQ default billing are split for LIVE vs Sandbox. Each env has its own on/off and billing method; the simulator uses Sandbox.',
+      ],
+      JP: [
+        '設定手数料率の表示・本社既定請求方式をLIVEとSandboxで分離。各環境で使用可否・請求方式を保存。シミュレーターはSandbox設定に従う。',
+      ],
+      CH: [
+        '已设费率显示与总部默认计费方式按 LIVE / Sandbox 分别设置。模拟器使用 Sandbox 配置。',
+      ],
+      TH: [
+        'แยกการแสดงอัตราค่าธรรมเนียมและการเรียกเก็บเริ่มต้น HQ เป็น LIVE กับ Sandbox ตัวจำลองใช้การตั้งค่า Sandbox',
+      ],
+    },
+  },
+  {
+    version: '2.6.88',
+    kind: 'minor',
+    date: '2026-09-17',
+    items: {
+      KR: [
+        '시뮬레이터 Sandbox 저장 버튼 명칭을 「설정 수수료 저장하기」로 변경(「Sandbox 기본 수수료 저장」오해 해소). 안내 문구도 동일 명칭으로 통일.',
+      ],
+      US: [
+        'Simulator Sandbox save button renamed to “Save configured fees” (avoids confusion with LIVE default fees). Hints updated.',
+      ],
+      JP: [
+        'シミュレーターSandbox保存ボタンを「設定手数料を保存する」に変更（LIVE基本との誤解を解消）。案内文も統一。',
+      ],
+      CH: [
+        '模拟器 Sandbox 保存按钮改为「保存已设手续费」，避免与 LIVE 默认手续费混淆。提示文同步。',
+      ],
+      TH: [
+        'เปลี่ยนปุ่มบันทึก Sandbox เป็น「บันทึกค่าธรรมเนียมที่ตั้งไว้」เพื่อไม่สับสนกับค่าเริ่มต้น LIVE และปรับข้อความแนะนำ',
+      ],
+    },
+  },
+  {
+    version: '2.6.87',
+    kind: 'minor',
+    date: '2026-09-17',
+    items: {
+      KR: [
+        '시뮬레이터 Sandbox: 「LIVE 기본 수수료 적용」추가(0 초기화 옆). 네트워크 가스피도 LIVE 기본 가스 적용/0 초기화. 본사 LIVE 변경 후 가맹점·본사 SAND 테스트 가능.',
+      ],
+      US: [
+        'Simulator Sandbox: added Apply LIVE default fees beside reset-to-0. Same for network gas add-on. Merchants/HQ can SAND-test after HQ LIVE fee changes.',
+      ],
+      JP: [
+        'シミュレーターSandboxに「LIVE基本手数料を適用」を追加（0リセット横）。ネットワークガスも同様。本社LIVE変更後の加盟店・本社SANDテスト用。',
+      ],
+      CH: [
+        '模拟器 Sandbox 新增「应用 LIVE 默认手续费」（重置为 0 旁）。网络 gas 同样支持。总部改 LIVE 后可供加盟店/总部 SAND 测试。',
+      ],
+      TH: [
+        'ตัวจำลอง Sandbox: เพิ่มปุ่มใช้ค่าเริ่มต้น LIVE ข้างรีเซ็ต 0 และ gas ตามเครือข่ายเช่นกัน ร้านค้า/HQ ทดสอบ SAND หลัง HQ แก้ LIVE ได้',
+      ],
+    },
+  },
+  {
+    version: '2.6.86',
+    kind: 'minor',
+    date: '2026-09-17',
+    items: {
+      KR: [
+        'UI 액센트·수수료 도식을 파스텔 빨강(rose) 톤으로 조정. 전용계좌 신청 시 송금증 필수 첨부(자금원천 목록에 송금증 명시). 가상계좌는 송금증 불필요. 매뉴얼 동기화.',
+      ],
+      US: [
+        'UI accent and fee diagram shifted to pastel rose. Dedicated-account apply requires a remittance slip (listed under source-of-funds). Virtual account needs none. Manuals updated.',
+      ],
+      JP: [
+        'UIアクセント・手数料図式をパステル赤(rose)に調整。専用口座申請時は送金証必須（原資証憑に送金証を明記）。バーチャル口座は不要。マニュアル同期。',
+      ],
+      CH: [
+        'UI 强调色与手续费图示改为粉红(pastel rose)。专用账户申请须附汇款凭证（资金来源列表含汇款凭证）。虚拟账户无需。手册同步。',
+      ],
+      TH: [
+        'ปรับโทน UI และแผนภาพค่าธรรมเนียมเป็นพาสเทลแดง บัญชีเฉพาะต้องแนบสลิปโอนตอนสมัคร บัญชีเสมือนไม่ต้อง อัปเดตคู่มือ',
+      ],
+    },
+  },
+  {
+    version: '2.6.85',
+    kind: 'minor',
+    date: '2026-09-17',
+    items: {
+      KR: [
+        'USDT 수취방식 표기를 「전용계좌」「가상계좌」로 통일(TINPASS 접두어 제거). 운영·사용자 매뉴얼 안내 문구 동기화.',
+      ],
+      US: [
+        'USDT receipt method labels unified to Dedicated account / Virtual account (no TINPASS prefix). Ops and customer manuals updated.',
+      ],
+      JP: [
+        'USDT受取方式の表示を「専用口座」「バーチャル口座」に統一（TINPASS接頭辞を削除）。運営・利用者マニュアルを同期。',
+      ],
+      CH: [
+        'USDT 收款方式统一为「专用账户」「虚拟账户」（去掉 TINPASS 前缀）。运营与用户手册同步更新。',
+      ],
+      TH: [
+        'ปรับป้ายวิธีรับ USDT เป็นบัญชีเฉพาะ / บัญชีเสมือน (ตัดคำนำหน้า TINPASS) และอัปเดตคู่มือปฏิบัติการ/ผู้ใช้',
+      ],
+    },
+  },
+  {
+    version: '2.6.84',
+    kind: 'minor',
+    date: '2026-09-17',
+    items: {
+      KR: [
+        '내 지갑 주소 COPY 추가. USDT 고정·TINPASS 가상계좌 상세/신청 미리보기에 계좌번호·수취인명 등 COPY(참조번호·은행코드 포함).',
+      ],
+      US: [
+        'Copy on My Wallets address. USDT fixed/TINPASS VA ticket and apply preview: copy account number, beneficiary, bank codes, and VA reference.',
+      ],
+      JP: [
+        'マイウォレット住所のコピー追加。USDT固定・TINPASSバーチャル口座の詳細/申請プレビューで口座番号・受取人名などをコピー（参照番号・銀行コード含む）。',
+      ],
+      CH: [
+        '我的钱包地址支持复制。USDT 固定/TINPASS 虚拟账户详情与申请预览可复制账号、收款人、银行代码及参考号。',
+      ],
+      TH: [
+        'เพิ่มคัดลอกที่อยู่กระเป๋าของฉัน และคัดลอกเลขบัญชี ชื่อผู้รับ รหัสธนาคาร/อ้างอิงในบัญชีคงที่และเสมือน TINPASS',
+      ],
+    },
+  },
+  {
+    version: '2.6.83',
+    kind: 'minor',
+    date: '2026-09-17',
+    items: {
+      KR: [
+        '고객 등록·수정에 입금계좌 방식 패널을 분리 표시. 고객 목록에 인증과 수수료 유형 사이 「계좌」열(본사/고정/가상) 추가. 고객 상세에서도 설정 가능.',
+      ],
+      US: [
+        'Separated deposit-account mode on customer create/edit. Added Account column (HQ/Fixed/VA) between KYC and fee type. Editable on customer detail too.',
+      ],
+      JP: [
+        '顧客登録・修正で入金口座方式パネルを分離表示。一覧の認証と手数料タイプの間に「口座」列（本社/固定/仮想）。詳細でも設定可。',
+      ],
+      CH: [
+        '客户注册/修改单独显示入金账户方式。列表在认证与手续费类型之间新增「账户」列（总部/固定/虚拟）。详情页亦可设置。',
+      ],
+      TH: [
+        'แยกแผงโหมดบัญชีฝากในสร้าง/แก้ไขลูกค้า เพิ่มคอลัมน์บัญชี (HQ/คงที่/เสมือน) ระหว่างยืนยันกับประเภทค่าธรรมเนียม ตั้งค่าในหน้ารายละเอียดได้',
+      ],
+    },
+  },
+  {
+    version: '2.6.82',
+    kind: 'minor',
+    date: '2026-09-17',
+    items: {
+      KR: [
+        '좌측 「운영관리」 펼침 메뉴 추가: 고객관리·수수료관리·조직관리·사용자관리·기록관리(구 운영기록관리).',
+      ],
+      US: [
+        'Added left-nav Operations group: Customers, Fee management, Organizations, Users, Records (renamed from Operation history).',
+      ],
+      JP: [
+        '左メニューに「運営管理」を追加。顧客・手数料・組織・ユーザー・記録管理（旧運営記録管理）を下位に配置。',
+      ],
+      CH: [
+        '左侧新增「运营管理」展开菜单：客户管理、手续费管理、组织管理、用户管理、记录管理（原运营记录管理）。',
+      ],
+      TH: [
+        'เพิ่มเมนูซ้าย「การจัดการปฏิบัติการ」: จัดการลูกค้า ค่าธรรมเนียม องค์กร ผู้ใช้ และจัดการบันทึก (เดิมประวัติการดำเนินงาน)',
+      ],
+    },
+  },
+  {
+    version: '2.6.81',
+    kind: 'minor',
+    date: '2026-09-17',
+    items: {
+      KR: [
+        '본사정책 좌측 메뉴: 한 번 누르면 펼침·다시 누르면 접힘. 하위 메뉴 앞 세로줄 제거, 「본사정책」글자와 정렬. 운영 매뉴얼에 안내 추가.',
+      ],
+      US: [
+        'HQ Policy left nav: click once to expand, again to collapse. Removed the child vertical rule and aligned labels under HQ Policy. Ops manual updated.',
+      ],
+      JP: [
+        '本社ポリシー左メニュー: 1回で展開・再クリックで折りたたみ。下位の縦線を削除し本社ポリシー文言に揃える。運営マニュアル追記。',
+      ],
+      CH: [
+        '总部政策左侧菜单：点一次展开、再点收起。去掉子项竖线并与「总部政策」文字对齐。运营手册已补充说明。',
+      ],
+      TH: [
+        'เมนูซ้ายนโยบาย HQ: คลิกขยาย คลิกอีกครั้งพับ ลบเส้นแนวตั้งของเมนูย่อยและจัดข้อความใต้ชื่อ HQ อัปเดตคู่มือปฏิบัติการ',
+      ],
+    },
+  },
+  {
+    version: '2.6.80',
+    kind: 'minor',
+    date: '2026-09-17',
+    items: {
+      KR: [
+        '고객사별 입금계좌 방식(본사따름·고정·TINPASS 가상계좌)과 본사 기본값 추가. USDT 상세 수수료가 통합/항목별/하이브리드 청구방식을 따름. 본사정책을 좌측 메뉴에서 PG형으로 펼침.',
+      ],
+      US: [
+        'Per-customer deposit account mode (follow HQ / fixed / TINPASS VA) plus HQ default. USDT detail fees honor integrated / itemized / hybrid billing. HQ Policy expands in the left nav like PG.',
+      ],
+      JP: [
+        '顧客ごとの入金口座方式（本社に従う・固定・TINPASSバーチャル）と本社既定値を追加。USDT詳細手数料が統合/項目別/ハイブリッド請求に従う。本社ポリシーを左メニューでPG型に展開。',
+      ],
+      CH: [
+        '新增按客户入金账户方式（跟随总部/固定/TINPASS虚拟账户）及总部默认值。USDT 详情手续费遵循合并/分项/混合计费。总部政策在左侧菜单按 PG 方式展开。',
+      ],
+      TH: [
+        'เพิ่มโหมดบัญชีฝากรายลูกค้า (ตาม HQ / คงที่ / เสมือน TINPASS) และค่าเริ่มต้น HQ ค่าธรรมเนียมรายละเอียด USDT ตามวิธีเรียกเก็บ รวม/แยก/ไฮบริด ขยายนโยบาย HQ ในเมนูซ้ายแบบ PG',
+      ],
+    },
+  },
+  {
+    version: '2.6.79',
+    kind: 'minor',
+    date: '2026-09-17',
+    items: {
+      KR: [
+        '고객 매뉴얼에 「간편사용하기 · USDT 입금 순서」 추가. 고정 수취계좌와 TINPASS 가상계좌 업무 순서를 구분 안내(고객 화면에서 CURFEX 명칭 미노출).',
+      ],
+      US: [
+        'Added Quick start · USDT deposit steps to the customer manual. Clarifies fixed account vs TINPASS virtual account flows (no vendor name on customer UI).',
+      ],
+      JP: [
+        '顧客マニュアルに「かんたん利用 · USDT入金の順番」を追加。固定受取口座とTINPASSバーチャル口座の手順を整理（顧客画面にベンダー名を出さない）。',
+      ],
+      CH: [
+        '客户手册新增「简易使用 · USDT 入金顺序」。区分固定收款账户与 TINPASS 虚拟账户流程（客户界面不展示供应商名称）。',
+      ],
+      TH: [
+        'เพิ่ม「ใช้งานง่าย · ลำดับฝาก USDT」ในคู่มือลูกค้า แยกขั้นตอนบัญชีคงที่กับบัญชีเสมือน TINPASS (ไม่โชว์ชื่อผู้ให้บริการบนหน้าลูกค้า)',
+      ],
+    },
+  },
+  {
+    version: '2.6.78',
+    kind: 'minor',
+    date: '2026-09-17',
+    items: {
+      KR: [
+        'USDT 고정계좌: 신청 시 입금증을 받지 않고 수취계좌를 미리 표시. 제출 후 상세에서 송금·입금증 업로드로 다음 단계 진행.',
+      ],
+      US: [
+        'USDT fixed account: no deposit receipt at apply; preview receiving account on the form. After submit, transfer and upload the receipt on the ticket detail to proceed.',
+      ],
+      JP: [
+        'USDT固定口座: 申請時は入金証憑なしで受取口座を事前表示。提出後、詳細で送金・入金証憑アップロードして次工程へ。',
+      ],
+      CH: [
+        'USDT 固定账户：申请时不收入金凭证并预览收款账户。提交后在详情转账并上传入金凭证以进入下一步。',
+      ],
+      TH: [
+        'USDT บัญชีคงที่: ตอนสมัครไม่รับสลิปและแสดงบัญชีรับล่วงหน้า หลังส่งโอนและอัปโหลดสลิปที่รายละเอียดเพื่อไปขั้นถัดไป',
+      ],
+    },
+  },
+  {
     version: '2.6.77',
     kind: 'minor',
     date: '2026-09-16',

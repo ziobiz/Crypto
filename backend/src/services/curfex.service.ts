@@ -26,6 +26,8 @@ export function normalizeCurfexConfig(raw: Partial<HqCurfexConfig>): HqCurfexCon
   const currencies = Array.isArray(raw.currencies) && raw.currencies.length
     ? (raw.currencies.filter((c) => allowed.has(String(c))) as NonNullable<HqCurfexConfig['currencies']>)
     : base.currencies;
+  const defaultCollectionMode =
+    raw.defaultCollectionMode === 'VIRTUAL' ? 'VIRTUAL' : 'FIXED';
   return {
     enabled: raw.enabled === true,
     clientId: String(raw.clientId ?? '').trim(),
@@ -36,6 +38,7 @@ export function normalizeCurfexConfig(raw: Partial<HqCurfexConfig>): HqCurfexCon
     sandbox: raw.sandbox !== false,
     webhookSecret: String(raw.webhookSecret ?? '').trim(),
     autoApproveOnDeposit: raw.autoApproveOnDeposit !== false,
+    defaultCollectionMode,
   };
 }
 
@@ -105,6 +108,31 @@ export function isCurfexCurrencyEnabled(config: HqCurfexConfig, currency: string
   if (!config.enabled) return false;
   const list = config.currencies?.length ? config.currencies : ['JPY'];
   return list.includes(currency as NonNullable<HqCurfexConfig['currencies']>[number]);
+}
+
+export type UsdtCollectionModeSetting = 'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL';
+
+/**
+ * 고객 설정 + 본사 기본 → 실효 모드(FIXED|VIRTUAL).
+ * VIRTUAL이어도 해당 통화 CURFEX 미적용이면 FIXED.
+ */
+export function resolveUsdtCollectionProvider(input: {
+  customerMode?: UsdtCollectionModeSetting | null;
+  config: HqCurfexConfig;
+  currency: string;
+}): 'FIXED' | 'CURFEX' {
+  const preferred: 'FIXED' | 'VIRTUAL' =
+    !input.customerMode || input.customerMode === 'FOLLOW_HQ'
+      ? input.config.defaultCollectionMode === 'VIRTUAL'
+        ? 'VIRTUAL'
+        : 'FIXED'
+      : input.customerMode === 'VIRTUAL'
+        ? 'VIRTUAL'
+        : 'FIXED';
+  if (preferred === 'VIRTUAL' && isCurfexCurrencyEnabled(input.config, input.currency)) {
+    return 'CURFEX';
+  }
+  return 'FIXED';
 }
 
 export type CurfexPaymentRequestInput = {

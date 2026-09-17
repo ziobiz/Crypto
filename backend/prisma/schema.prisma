@@ -138,6 +138,13 @@ enum FeeBillingMethod {
   HYBRID
 }
 
+/// 고객 USDT 계좌이체 수취방식 (고정 / TINPASS 가상계좌)
+enum UsdtCollectionMode {
+  FOLLOW_HQ
+  FIXED
+  VIRTUAL
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ORGANIZATION — 5단계 영업 조직 트리
 // ─────────────────────────────────────────────────────────────────────────────
@@ -300,6 +307,8 @@ model CustomerProfile {
   simulatorRateMode SimulatorRateMode @default(LIVE)
   /// 수수료 청구방식 — FOLLOW_HQ면 본사 기본(INTEGRATED/ITEMIZED/HYBRID)
   feeBillingMethod FeeBillingMethod @default(FOLLOW_HQ)
+  /// 입금 계좌 방식 — FOLLOW_HQ면 본사 기본(FIXED/VIRTUAL). VIRTUAL= TINPASS 가상계좌
+  usdtCollectionMode UsdtCollectionMode @default(FOLLOW_HQ)
 
   /// 본사 허용 시에만 관리자 1 + 운영자 2 멀티계정 활성화
   operatorsEnabled Boolean @default(false)

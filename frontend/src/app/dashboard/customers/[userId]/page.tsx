@@ -45,6 +45,9 @@ export default function CustomerKycDetailPage() {
   const [simRateMode, setSimRateMode] = useState<'LIVE' | 'SAND'>('LIVE');
   const [operatorsEnabled, setOperatorsEnabled] = useState(false);
   const [walletFeesVisible, setWalletFeesVisible] = useState(false);
+  const [usdtCollectionMode, setUsdtCollectionMode] = useState<'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL'>(
+    'FOLLOW_HQ',
+  );
 
   const load = () => {
     api.kyc.getByUser(userId).then(setKyc).catch(console.error);
@@ -61,6 +64,12 @@ export default function CustomerKycDetailPage() {
     setSimRateMode(profile.customerProfile.simulatorRateMode === 'SAND' ? 'SAND' : 'LIVE');
     setOperatorsEnabled(profile.customerProfile.operatorsEnabled === true);
     setWalletFeesVisible(profile.customerProfile.walletFeesVisible === true);
+    setUsdtCollectionMode(
+      profile.customerProfile.usdtCollectionMode === 'FIXED' ||
+        profile.customerProfile.usdtCollectionMode === 'VIRTUAL'
+        ? profile.customerProfile.usdtCollectionMode
+        : 'FOLLOW_HQ',
+    );
   }, [profile]);
 
   const simDirty =
@@ -75,6 +84,10 @@ export default function CustomerKycDetailPage() {
   const feesDirty =
     !!profile?.customerProfile &&
     walletFeesVisible !== (profile.customerProfile.walletFeesVisible === true);
+
+  const collectionDirty =
+    !!profile?.customerProfile &&
+    usdtCollectionMode !== (profile.customerProfile.usdtCollectionMode ?? 'FOLLOW_HQ');
 
   async function saveSimulatorSettings() {
     if (!profile) return;
@@ -117,6 +130,21 @@ export default function CustomerKycDetailPage() {
       const next = await api.users.update(profile.id, { walletFeesVisible });
       setProfile(next);
       setMsg(t('customers.walletFees.saved'));
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : t('users.saveFailed'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function saveCollectionModeSettings() {
+    if (!profile) return;
+    setLoading(true);
+    setMsg('');
+    try {
+      const next = await api.users.update(profile.id, { usdtCollectionMode });
+      setProfile(next);
+      setMsg(t('customers.collectionMode.saved'));
     } catch (err) {
       setMsg(err instanceof Error ? err.message : t('users.saveFailed'));
     } finally {
@@ -185,6 +213,7 @@ export default function CustomerKycDetailPage() {
         msg !== t('customers.simulator.saved') &&
         msg !== t('customers.operators.saved') &&
         msg !== t('customers.walletFees.saved') &&
+        msg !== t('customers.collectionMode.saved') &&
         msg !== t('kyc.reviewSaved') &&
         msg !== t('users.saved') && (
           <p className="text-xs text-red-600">{msg}</p>
@@ -263,6 +292,45 @@ export default function CustomerKycDetailPage() {
                 className="pg-btn pg-btn-primary text-xs disabled:opacity-50"
               >
                 {loading ? t('common.saving') : t('customers.simulator.save')}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+      {profile?.customerProfile && (
+        <div className="pg-card">
+          <div className="pg-card-head text-xs">{t('customers.col.collectionMode')}</div>
+          <div className="pg-card-body space-y-2 text-xs">
+            <p className="text-[11px] leading-relaxed text-slate-500">
+              {t('customers.collectionMode.hint')}
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="font-medium text-slate-800">{t('customers.col.account')}</span>
+              <select
+                className="pg-select h-8 min-w-[10rem] shrink-0 px-2 py-1 text-xs"
+                disabled={loading || !canEditCustomer}
+                value={usdtCollectionMode}
+                onChange={(e) =>
+                  setUsdtCollectionMode(e.target.value as 'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL')
+                }
+                aria-label={t('customers.col.collectionMode')}
+              >
+                <option value="FOLLOW_HQ">{t('collectionMode.FOLLOW_HQ')}</option>
+                <option value="FIXED">{t('collectionMode.FIXED')}</option>
+                <option value="VIRTUAL">{t('collectionMode.VIRTUAL')}</option>
+              </select>
+            </div>
+            {msg === t('customers.collectionMode.saved') && (
+              <p className="text-green-700">{msg}</p>
+            )}
+            {canEditCustomer && (
+              <button
+                type="button"
+                disabled={loading || !collectionDirty}
+                onClick={saveCollectionModeSettings}
+                className="pg-btn pg-btn-primary text-xs disabled:opacity-50"
+              >
+                {loading ? t('common.saving') : t('common.save')}
               </button>
             )}
           </div>
