@@ -98,7 +98,73 @@ export const HQ_CONFIG_KEYS = {
   simulatorCommissionRisk: 'hq.commission.simulator_risk',
   simulatorFeeTiers: 'hq.commission.simulator_fee_tiers',
   workflowDisplay: 'hq.workflow.display',
+  /** 고정계좌 USDT 견적 응답(자동/수동·대기시간) */
+  usdtQuoteResponse: 'hq.usdt.quote_response',
 } as const;
+
+/** 자동 확정 지연(분). 0 = 즉시 */
+export const USDT_QUOTE_AUTO_DELAY_MINUTES = [
+  0, 1, 3, 5, 10, 30, 60, 180, 360, 720, 1440, 2880, 4320,
+] as const;
+export type UsdtQuoteAutoDelayMinutes = (typeof USDT_QUOTE_AUTO_DELAY_MINUTES)[number];
+
+/** 수동 모드 SLA 목표(시간) */
+export const USDT_QUOTE_MANUAL_SLA_HOURS = [3, 6, 12, 24] as const;
+export type UsdtQuoteManualSlaHours = (typeof USDT_QUOTE_MANUAL_SLA_HOURS)[number];
+
+export type HqUsdtQuoteResponsePolicy = {
+  /** 고정계좌 이체에 견적 확정 흐름 사용 */
+  enabled: boolean;
+  mode: 'AUTO' | 'MANUAL';
+  autoDelayMinutes: UsdtQuoteAutoDelayMinutes;
+  manualSlaHours: UsdtQuoteManualSlaHours;
+  /** 신청 페이지 무동작(분) → USDT 목록 회귀 */
+  applyIdleMinutes: number;
+  /** 신청 페이지 최대 체류(분) — 수수료 변동 방지 */
+  applyMaxMinutes: number;
+  /** 견적 확정 후 유효·처리 기한(분). 초과 시 자동 종료·일일 1회 소진 */
+  quoteValidMinutes: number;
+};
+
+export function defaultUsdtQuoteResponsePolicy(): HqUsdtQuoteResponsePolicy {
+  return {
+    enabled: true,
+    mode: 'AUTO',
+    autoDelayMinutes: 0,
+    manualSlaHours: 3,
+    applyIdleMinutes: 5,
+    applyMaxMinutes: 10,
+    quoteValidMinutes: 20,
+  };
+}
+
+function clampTimerMinutes(n: unknown, fallback: number, min: number, max: number): number {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(v)));
+}
+
+export function normalizeUsdtQuoteResponsePolicy(
+  raw: Partial<HqUsdtQuoteResponsePolicy> | null | undefined,
+): HqUsdtQuoteResponsePolicy {
+  const base = defaultUsdtQuoteResponsePolicy();
+  if (!raw) return base;
+  const delay = Number(raw.autoDelayMinutes);
+  const sla = Number(raw.manualSlaHours);
+  return {
+    enabled: raw.enabled !== false,
+    mode: raw.mode === 'MANUAL' ? 'MANUAL' : 'AUTO',
+    autoDelayMinutes: (USDT_QUOTE_AUTO_DELAY_MINUTES as readonly number[]).includes(delay)
+      ? (delay as UsdtQuoteAutoDelayMinutes)
+      : base.autoDelayMinutes,
+    manualSlaHours: (USDT_QUOTE_MANUAL_SLA_HOURS as readonly number[]).includes(sla)
+      ? (sla as UsdtQuoteManualSlaHours)
+      : base.manualSlaHours,
+    applyIdleMinutes: clampTimerMinutes(raw.applyIdleMinutes, base.applyIdleMinutes, 1, 60),
+    applyMaxMinutes: clampTimerMinutes(raw.applyMaxMinutes, base.applyMaxMinutes, 1, 120),
+    quoteValidMinutes: clampTimerMinutes(raw.quoteValidMinutes, base.quoteValidMinutes, 1, 240),
+  };
+}
 
 export type HqOrgShareSlice = {
   /** 수수료 풀에서 가져가는 비율 (%) */
@@ -347,6 +413,60 @@ export type CustomerTransactionLimitsPolicy = Record<
   Record<SymbolFeeCurrency, CurrencyTransactionLimits>
 >;
 
+/** USDT 기준 1회 한도 리스크 타입 (MAX RISK = XR) */
+export const USDT_RISK_LIMIT_TIERS = ['LR', 'MR', 'HR', 'XR', 'SR'] as const;
+export type UsdtRiskLimitTier = (typeof USDT_RISK_LIMIT_TIERS)[number];
+/** 고객 선택: 본사 5종 또는 직접입력(ML) */
+export type UsdtRiskLimitCode = UsdtRiskLimitTier | 'ML';
+
+export type UsdtRiskLimitBand = {
+  /** 1회 최소 USDT (0 = 제한 없음) */
+  minUsdt: number;
+  /** 1회 최대 USDT (0 = 제한 없음) */
+  maxUsdt: number;
+};
+
+export type HqUsdtRiskLimitTiers = Record<UsdtRiskLimitTier, UsdtRiskLimitBand>;
+
+export const DEFAULT_USDT_RISK_LIMIT_TIERS: HqUsdtRiskLimitTiers = {
+  LR: { minUsdt: 100, maxUsdt: 3_000 },
+  MR: { minUsdt: 100, maxUsdt: 10_000 },
+  HR: { minUsdt: 100, maxUsdt: 30_000 },
+  XR: { minUsdt: 100, maxUsdt: 100_000 },
+  SR: { minUsdt: 100, maxUsdt: 500_000 },
+};
+
+export function normalizeUsdtRiskLimitBand(
+  raw?: Partial<UsdtRiskLimitBand> | null,
+  fallback?: UsdtRiskLimitBand,
+): UsdtRiskLimitBand {
+  const base = fallback ?? { minUsdt: 0, maxUsdt: 0 };
+  const minUsdt = Math.max(0, Number(raw?.minUsdt ?? base.minUsdt) || 0);
+  const maxUsdt = Math.max(0, Number(raw?.maxUsdt ?? base.maxUsdt) || 0);
+  return {
+    minUsdt,
+    maxUsdt: maxUsdt > 0 && minUsdt > 0 && maxUsdt < minUsdt ? minUsdt : maxUsdt,
+  };
+}
+
+export function normalizeHqUsdtRiskLimitTiers(
+  raw?: Partial<Record<string, Partial<UsdtRiskLimitBand>>> | null,
+): HqUsdtRiskLimitTiers {
+  const out = {} as HqUsdtRiskLimitTiers;
+  for (const tier of USDT_RISK_LIMIT_TIERS) {
+    out[tier] = normalizeUsdtRiskLimitBand(raw?.[tier], DEFAULT_USDT_RISK_LIMIT_TIERS[tier]);
+  }
+  return out;
+}
+
+export function normalizeUsdtRiskLimitCode(raw?: string | null): UsdtRiskLimitCode {
+  if (raw === 'ML') return 'ML';
+  if ((USDT_RISK_LIMIT_TIERS as readonly string[]).includes(raw ?? '')) {
+    return raw as UsdtRiskLimitTier;
+  }
+  return 'MR';
+}
+
 export type FeeMode = 'percent' | 'fixed';
 
 export type HqCommissionRiskConfig = {
@@ -366,10 +486,18 @@ export type HqCommissionRiskConfig = {
   defaultOtherFeeUsdt: number;
   defaultOtherFeePercent?: number;
   defaultOtherFeeMode?: FeeMode;
-  /** USDT 매입 수수료·비용 도식 표시 항목 (LIVE) */
+  /** USDT 매입 수수료·비용 도식 표시 항목 (LIVE) — 고객용 */
   feeDiagramDisplay?: FeeDiagramDisplayConfig;
-  /** 시뮬레이터 SAND 전용 도식 표시 (미설정 시 LIVE feeDiagramDisplay 복제) */
+  /** 시뮬레이터 SAND 전용 도식 (미설정 시 LIVE 복제) — 고객용 */
   sandboxFeeDiagramDisplay?: FeeDiagramDisplayConfig;
+  /** 본사·운영자용 LIVE 도식 (기본 전부 전부 ON) */
+  hqFeeDiagramDisplay?: FeeDiagramDisplayConfig;
+  /** 본사·운영자용 Sandbox 도식 */
+  hqSandboxFeeDiagramDisplay?: FeeDiagramDisplayConfig;
+  /** 총 수수료(합계·항목) 화면 노출 — LIVE·Sandbox 공통. 기본 true */
+  showTotalFee?: boolean;
+  /** USDT 기준 리스크 한도 5종 (LR/MR/HR/XR/SR) */
+  usdtRiskLimitTiers?: HqUsdtRiskLimitTiers;
   /** @deprecated — transactionLimits 로 이전 */
   maxTicketAmountKrw: number;
   riskEnabled: boolean;
@@ -515,6 +643,8 @@ export type FeeDiagramDisplayConfig = {
   requiredFiat: boolean;
   /** 도식 중앙 수수료율 열 */
   showRates: boolean;
+  /** 총 수수료(합계·항목별) 금액 줄 표시. false면 수령·입금액·환율만 */
+  showTotalFee: boolean;
   /** 본사 기본 청구방식 (통합/개별/하이브리드) */
   defaultFeeBillingMethod: FeeBillingPresentation;
   /** 요청에 대해 해석된 청구방식 (API가 고객·본사 기본을 반영해 채움) */
@@ -532,8 +662,16 @@ export const DEFAULT_FEE_DIAGRAM_DISPLAY: FeeDiagramDisplayConfig = {
   net: true,
   requiredFiat: true,
   showRates: true,
+  showTotalFee: true,
   defaultFeeBillingMethod: 'ITEMIZED',
 };
+
+export type TotalFeeVisibility = 'FOLLOW_HQ' | 'SHOW' | 'HIDE';
+
+export function normalizeTotalFeeVisibility(raw?: string | null): TotalFeeVisibility {
+  if (raw === 'SHOW' || raw === 'HIDE' || raw === 'FOLLOW_HQ') return raw;
+  return 'FOLLOW_HQ';
+}
 
 export function normalizeFeeBillingPresentation(
   raw?: string | null,
@@ -672,8 +810,12 @@ export type HqPlatformConfig = {
   siteName: string;
   /** 브라우저 탭 제목. 비우면 siteName 사용 */
   tabTitle?: string;
-  /** LINE·WhatsApp 링크 미리보기 이미지 (/api/branding/og). 제목=siteName, 설명=authMainText */
+  /** LINE·WhatsApp 링크 미리보기 이미지 (/api/branding/og) */
   ogImageUrl?: string;
+  /** 링크 미리보기 제목. 비우면 siteName */
+  ogTitle?: string;
+  /** 링크 미리보기 설명(LINE·WhatsApp). 배경 브랜드 문구와 별도 */
+  ogDescription?: string;
   /** 로그인 후 좌측 메뉴 상단 로고 (/api/branding/logo) */
   logoUrl?: string;
   /** 첫화면(로그인) 우측 패널 상단 로고 (/api/branding/auth-logo) — 로그인 후 로고와 별도 */
@@ -682,7 +824,7 @@ export type HqPlatformConfig = {
   faviconUrl?: string;
   /** 로그인 첫화면 왼쪽 배경 (/api/branding/background) */
   authBackgroundUrl?: string;
-  /** 왼쪽 배경 위 브랜드 문구 (줄바꿈 가능) — LINE·WhatsApp 미리보기 설명에도 사용 */
+  /** 왼쪽 배경 위 브랜드 문구 (줄바꿈 가능). 비우면 화면에 문구 미표시. 메신저 미리보기와 무관 */
   authMainText?: string;
   /** 링크 미리보기 캐시 무효화용 버전 (저장할 때마다 증가) */
   linkPreviewRevision?: number;
@@ -698,6 +840,20 @@ export type HqPlatformConfig = {
   customerRegistrationEnabled?: boolean;
   /** 미사용 자동 로그아웃 (분) — 10·30·60·90·120 */
   idleTimeoutMinutes?: number;
+  /**
+   * 비활성 계정 로그인 시 기본 안내 (다국어).
+   * 비활성 사유(관리 로그)가 있으면 사유를 우선하고, 없으면 이 문구를 사용.
+   */
+  inactiveLoginNoticeI18n?: Partial<Record<'KR' | 'US' | 'JP' | 'CH' | 'TH', string>>;
+  /**
+   * 비활성 사유 빠른 선택 프리셋 (BASIC / INCONVENIENCE / WARNING).
+   * 운영자가 비활성 시 선택하거나 직접 작성 가능.
+   */
+  inactiveLoginNoticePresets?: Array<{
+    id: 'BASIC' | 'INCONVENIENCE' | 'WARNING';
+    title?: string;
+    bodyI18n?: Partial<Record<'KR' | 'US' | 'JP' | 'CH' | 'TH', string>>;
+  }>;
   /** USDT 매입 기본 구매 통화 */
   defaultUsdtFiatCurrency?: 'KRW' | 'JPY' | 'THB' | 'CNY';
   /** 시뮬레이터 기록 자동 삭제 보관 개월 (기본 3) */
@@ -834,6 +990,8 @@ export const WORKFLOW_LOCALES = ['KR', 'US', 'JP', 'CH', 'TH'] as const;
 export type WorkflowLocale = (typeof WORKFLOW_LOCALES)[number];
 
 export const USDT_WORKFLOW_STATUSES = [
+  'QUOTE_PENDING',
+  'QUOTE_CONFIRMED',
   'APPLICATION_COMPLETED',
   'CARD_PAYMENT_PENDING',
   'DEPOSIT_PROOF_PENDING',
@@ -890,6 +1048,8 @@ export function defaultWorkflowDisplay(): HqWorkflowDisplayConfig {
       hoursAfterHours: 12,
     },
     usdtStatusLabels: {
+      QUOTE_PENDING: L('견적대기', 'Quote pending', '見積待ち', '待报价', 'รอใบเสนอราคา'),
+      QUOTE_CONFIRMED: L('견적확정', 'Quote confirmed', '見積確定', '报价确认', 'ยืนยันใบเสนอราคา'),
       APPLICATION_COMPLETED: L('접수완료', 'Received', '受付完了', '已受理', 'รับเรื่องแล้ว'),
       CARD_PAYMENT_PENDING: L('카드결제중', 'Card pending', 'カード決済中', '卡支付中', 'รอชำระบัตร'),
       DEPOSIT_PROOF_PENDING: L('입금대기', 'Awaiting deposit', '入金待ち', '待入金', 'รอฝากเงิน'),

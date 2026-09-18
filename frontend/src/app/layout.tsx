@@ -3,11 +3,11 @@ import { Providers } from './providers';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: "ONTHELINE's Tinpass Crypto Trading ANYTIME, ANYWHERE",
-  description: "ONTHELINE's Tinpass Crypto Trading ANYTIME, ANYWHERE",
+  title: 'TINPASS',
+  description: 'TINPASS crypto trading platform',
   openGraph: {
-    title: "ONTHELINE's Tinpass Crypto Trading ANYTIME, ANYWHERE",
-    description: "ONTHELINE's Tinpass Crypto Trading ANYTIME, ANYWHERE",
+    title: 'TINPASS',
+    description: 'TINPASS crypto trading platform',
     type: 'website',
   },
 };

@@ -58,9 +58,16 @@ const createSchema = z.object({
   simulatorEnabled: z.boolean().optional(),
   simulatorRateMode: z.enum(['LIVE', 'SAND']).optional(),
   feeBillingMethod: z.enum(['FOLLOW_HQ', 'INTEGRATED', 'ITEMIZED', 'HYBRID']).optional(),
+  totalFeeVisibility: z.enum(['FOLLOW_HQ', 'SHOW', 'HIDE']).optional(),
   usdtCollectionMode: z.enum(['FOLLOW_HQ', 'FIXED', 'VIRTUAL']).optional(),
+  usdtQuoteResponseMode: z.enum(['FOLLOW_HQ', 'AUTO', 'MANUAL', 'OFF']).optional(),
+  usdtQuoteAutoDelayMinutes: z.number().int().min(0).max(60).nullable().optional(),
+  usdtQuoteManualSlaHours: z.number().int().min(1).max(168).nullable().optional(),
   operatorsEnabled: z.boolean().optional(),
   walletFeesVisible: z.boolean().optional(),
+  usdtRiskLimitCode: z.enum(['LR', 'MR', 'HR', 'XR', 'SR', 'ML']).optional(),
+  usdtLimitMinUsdt: z.number().nonnegative().nullable().optional(),
+  usdtLimitMaxUsdt: z.number().nonnegative().nullable().optional(),
 });
 
 const updateSchema = z.object({
@@ -71,13 +78,22 @@ const updateSchema = z.object({
   isActive: z.boolean().optional(),
   recruitingOrgId: z.string().optional(),
   statusReason: z.string().optional(),
+  /** 비활성 로그인 안내 (선택). 비우면 HQ 기본 안내 */
+  statusLoginNotice: z.string().optional().nullable(),
   feeShare: z.unknown().optional(),
   simulatorEnabled: z.boolean().optional(),
   simulatorRateMode: z.enum(['LIVE', 'SAND']).optional(),
   feeBillingMethod: z.enum(['FOLLOW_HQ', 'INTEGRATED', 'ITEMIZED', 'HYBRID']).optional(),
+  totalFeeVisibility: z.enum(['FOLLOW_HQ', 'SHOW', 'HIDE']).optional(),
   usdtCollectionMode: z.enum(['FOLLOW_HQ', 'FIXED', 'VIRTUAL']).optional(),
+  usdtQuoteResponseMode: z.enum(['FOLLOW_HQ', 'AUTO', 'MANUAL', 'OFF']).optional(),
+  usdtQuoteAutoDelayMinutes: z.number().int().nullable().optional(),
+  usdtQuoteManualSlaHours: z.number().int().nullable().optional(),
   operatorsEnabled: z.boolean().optional(),
   walletFeesVisible: z.boolean().optional(),
+  usdtRiskLimitCode: z.enum(['LR', 'MR', 'HR', 'XR', 'SR', 'ML']).optional(),
+  usdtLimitMinUsdt: z.number().nonnegative().nullable().optional(),
+  usdtLimitMaxUsdt: z.number().nonnegative().nullable().optional(),
 });
 
 const walletApprovalSchema = z.object({

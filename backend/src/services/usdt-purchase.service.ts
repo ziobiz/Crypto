@@ -25,6 +25,7 @@ import {
   resolveFeesForAmount,
   grossUsdtFromPurchaseSnapshots,
   getFeeDiagramDisplayForCustomer,
+  getCommissionRiskConfig,
 } from './transaction-fee.service';
 import { buildFeeSnapshotFields } from '../lib/fee-component';
 import {
@@ -45,9 +46,17 @@ import {
   type LocalPremiumCurrency,
 } from './local-market-premium.service';
 import {
+  countDailyTicketsForCustomer,
   getCustomerTransactionLimitSummary,
+  QUOTE_VALIDITY_EXPIRED_REASON,
   validateCustomerTransactionAmount,
 } from './transaction-limit.service';
+import { validateUsdtRiskLimitAmount } from './usdt-risk-limit.service';
+import {
+  computeQuoteDueAt,
+  getEffectiveQuotePolicyForCustomer,
+  getUsdtQuoteResponsePolicy,
+} from './usdt-quote-policy.service';
 
 const DEPOSIT_WINDOW_MS = 2 * 60 * 60 * 1000;
 
@@ -78,6 +87,14 @@ const USDT_PURCHASE_INCLUDE = {
 
 /** 운영자 전용 상태 전환 */
 const ADMIN_TRANSITIONS: Record<UsdtPurchaseStatus, UsdtPurchaseStatus[]> = {
+  [UsdtPurchaseStatus.QUOTE_PENDING]: [
+    UsdtPurchaseStatus.QUOTE_CONFIRMED,
+    UsdtPurchaseStatus.CANCELLED,
+  ],
+  [UsdtPurchaseStatus.QUOTE_CONFIRMED]: [
+    UsdtPurchaseStatus.DEPOSIT_PROOF_PENDING,
+    UsdtPurchaseStatus.CANCELLED,
+  ],
   [UsdtPurchaseStatus.APPLICATION_COMPLETED]: [
     UsdtPurchaseStatus.DEPOSIT_PROOF_PENDING,
     UsdtPurchaseStatus.CANCELLED,
@@ -100,8 +117,10 @@ const ADMIN_TRANSITIONS: Record<UsdtPurchaseStatus, UsdtPurchaseStatus[]> = {
   [UsdtPurchaseStatus.CANCELLED]: [],
 };
 
-/** 고객: 입금 증빙 제출 시 전환 */
+/** 고객: 견적 확정 후 입금 증빙 / 입금 증빙 제출 시 전환 */
 const CUSTOMER_TRANSITIONS: Record<UsdtPurchaseStatus, UsdtPurchaseStatus[]> = {
+  [UsdtPurchaseStatus.QUOTE_PENDING]: [],
+  [UsdtPurchaseStatus.QUOTE_CONFIRMED]: [UsdtPurchaseStatus.DEPOSIT_PROOF_PENDING],
   [UsdtPurchaseStatus.APPLICATION_COMPLETED]: [UsdtPurchaseStatus.DEPOSIT_PROOF_PENDING],
   [UsdtPurchaseStatus.CARD_PAYMENT_PENDING]: [],
   [UsdtPurchaseStatus.DEPOSIT_PROOF_PENDING]: [UsdtPurchaseStatus.ADMIN_REVIEWING],
@@ -133,31 +152,79 @@ function checkBankMatch(
 
 async function expireDepositWindowIfNeeded(
   ticketId: string,
-  detail: { status: UsdtPurchaseStatus; depositDeadlineAt: Date | null },
+  detail: {
+    status: UsdtPurchaseStatus;
+    depositDeadlineAt: Date | null;
+    quoteConfirmedAt?: Date | null;
+  },
   systemUserId: string,
 ): Promise<boolean> {
-  if (detail.status !== UsdtPurchaseStatus.DEPOSIT_PROOF_PENDING) return false;
+  const expireStatuses: UsdtPurchaseStatus[] = [
+    UsdtPurchaseStatus.QUOTE_CONFIRMED,
+    UsdtPurchaseStatus.DEPOSIT_PROOF_PENDING,
+  ];
+  if (!expireStatuses.includes(detail.status)) return false;
   if (!detail.depositDeadlineAt || detail.depositDeadlineAt > new Date()) return false;
+
+  const fromStatus = detail.status;
+  const fromQuote = !!detail.quoteConfirmedAt || fromStatus === UsdtPurchaseStatus.QUOTE_CONFIRMED;
+  const cancelReason = fromQuote
+    ? `${QUOTE_VALIDITY_EXPIRED_REASON}: 견적 유효시간 초과 — 일일 거래 1회 소진`
+    : '입금 기한(2시간) 초과';
+  const note = fromQuote
+    ? '견적 유효시간 초과 — 자동 종료(일일 1회 소진)'
+    : '입금 기한(2시간) 초과 — 자동 취소';
 
   await prisma.$transaction(async (tx) => {
     await tx.usdtPurchaseDetail.update({
       where: { ticketId },
       data: {
         status: UsdtPurchaseStatus.CANCELLED,
-        cancelReason: '입금 기한(2시간) 초과',
+        cancelReason,
       },
     });
     await tx.ticketStatusHistory.create({
       data: {
         ticketId,
-        fromStatus: UsdtPurchaseStatus.DEPOSIT_PROOF_PENDING,
+        fromStatus,
         toStatus: UsdtPurchaseStatus.CANCELLED,
         changedById: systemUserId,
-        note: '입금 기한(2시간) 초과 — 자동 취소',
+        note,
       },
     });
   });
   return true;
+}
+
+/** 견적 확정·입금대기 티켓의 유효시간 만료 일괄 처리 */
+export async function processExpiredQuoteValidity(): Promise<number> {
+  const system = await prisma.user.findFirst({
+    where: { role: UserRole.SUPER_ADMIN, deletedAt: null },
+    select: { id: true },
+  });
+  if (!system) return 0;
+  const now = new Date();
+  const rows = await prisma.usdtPurchaseDetail.findMany({
+    where: {
+      status: {
+        in: [UsdtPurchaseStatus.QUOTE_CONFIRMED, UsdtPurchaseStatus.DEPOSIT_PROOF_PENDING],
+      },
+      depositDeadlineAt: { lt: now },
+    },
+    select: {
+      ticketId: true,
+      status: true,
+      depositDeadlineAt: true,
+      quoteConfirmedAt: true,
+    },
+    take: 100,
+  });
+  let n = 0;
+  for (const row of rows) {
+    const ok = await expireDepositWindowIfNeeded(row.ticketId, row, system.id);
+    if (ok) n += 1;
+  }
+  return n;
 }
 
 function toLocalPremiumInfo(premium: LocalMarketPremiumAnalysis) {
@@ -262,7 +329,18 @@ export async function previewUsdtTransactionFees(
   const feeDiagramDisplay = await getFeeDiagramDisplayForCustomer(user.customerProfileId);
   const { rate } = await fetchUsdtFiatRate(currency);
 
+  const assertUsdtRisk = async (usdtAmount: number) => {
+    if (!user.customerProfileId || !(usdtAmount > 0)) return;
+    await validateUsdtRiskLimitAmount({
+      customerProfileId: user.customerProfileId,
+      usdtAmount,
+      fiatCurrency: currency,
+      exchangeRate: rate,
+    });
+  };
+
   if (input.targetUsdtAmount != null && input.targetUsdtAmount > 0) {
+    await assertUsdtRisk(input.targetUsdtAmount);
     const quoted = await quoteFromTarget(wallet, currency, input.targetUsdtAmount, rate, undefined, user.customerProfileId);
     let transactionLimits;
     if (user.customerProfileId && quoted.fiatAmount > 0) {
@@ -298,6 +376,9 @@ export async function previewUsdtTransactionFees(
   }
 
   const fiatAmount = input.fiatAmount ?? 0;
+  if (fiatAmount > 0 && rate > 0) {
+    await assertUsdtRisk(fiatAmount / rate);
+  }
   const fees = await resolveFeesForPurchase(wallet, currency, fiatAmount, rate, { customerProfileId: user.customerProfileId });
   const amountPolicy = await getCurrencyAmountDisplayPolicy();
   const breakdown =
@@ -366,6 +447,9 @@ export async function simulateHqUsdtQuote(input: {
   targetUsdtAmount?: number;
   network?: string;
   feePolicy?: 'live' | 'sandbox';
+  customerProfileId?: string | null;
+  /** 고객만 true — 본사/운영자는 한도·±% 참고범위 미적용 */
+  enforceCustomerLimits?: boolean;
 }) {
   const sessionPolicy = await hqPolicyService.getSessionPolicy();
   const currency = input.fiatCurrency ?? sessionPolicy.defaultUsdtFiatCurrency ?? 'JPY';
@@ -378,10 +462,23 @@ export async function simulateHqUsdtQuote(input: {
   const feeOpts = input.feePolicy === 'sandbox' ? { feePolicy: 'sandbox' as const } : undefined;
   const policyBasis = input.feePolicy === 'sandbox' ? ('SANDBOX' as const) : ('HQ' as const);
   const diagramScope = input.feePolicy === 'sandbox' ? ('sandbox' as const) : ('live' as const);
-  const feeDiagramDisplay = await getFeeDiagramDisplayForCustomer(null, diagramScope);
+  const enforceCustomerLimits = Boolean(input.enforceCustomerLimits && input.customerProfileId);
+  const feeDiagramDisplay = await getFeeDiagramDisplayForCustomer(
+    input.customerProfileId ?? null,
+    diagramScope,
+    enforceCustomerLimits ? 'customer' : 'hq',
+  );
+  const amountRangePct = enforceCustomerLimits ? 5 : undefined;
 
   try {
     if (input.targetUsdtAmount != null && Number(input.targetUsdtAmount) > 0) {
+      await validateUsdtRiskLimitAmount({
+        customerProfileId: input.customerProfileId ?? null,
+        usdtAmount: Number(input.targetUsdtAmount),
+        enforce: enforceCustomerLimits,
+        fiatCurrency: currency,
+        exchangeRate: rate,
+      });
       const quoted = await quoteFromTarget(
         wallet,
         currency,
@@ -401,10 +498,20 @@ export async function simulateHqUsdtQuote(input: {
         feeDiagramDisplay,
         policyBasis,
         currencyAmountDisplay: await getCurrencyAmountDisplayPolicy(),
+        amountRangePct,
       };
     }
 
     const fiatAmount = input.fiatAmount ?? 0;
+    if (fiatAmount > 0 && rate > 0) {
+      await validateUsdtRiskLimitAmount({
+        customerProfileId: input.customerProfileId ?? null,
+        usdtAmount: fiatAmount / rate,
+        enforce: enforceCustomerLimits,
+        fiatCurrency: currency,
+        exchangeRate: rate,
+      });
+    }
     const fees = await resolveFeesForPurchase(wallet, currency, fiatAmount, rate, feeOpts);
     const amountPolicy = await getCurrencyAmountDisplayPolicy();
     const breakdown =
@@ -439,6 +546,7 @@ export async function simulateHqUsdtQuote(input: {
       feeDiagramDisplay,
       policyBasis,
       currencyAmountDisplay: amountPolicy,
+      amountRangePct,
     };
   } catch (e) {
     if (isAppError(e)) throw e;
@@ -496,6 +604,12 @@ export async function createUsdtPurchaseTicket(
   let localPremiumSnapshot: LocalMarketPremiumAnalysis | null = null;
 
   if (input.targetUsdtAmount != null && input.targetUsdtAmount > 0) {
+    await validateUsdtRiskLimitAmount({
+      customerProfileId: user.customerProfileId,
+      usdtAmount: input.targetUsdtAmount,
+      fiatCurrency: currency,
+      exchangeRate: rate,
+    });
     const quoted = await quoteFromTarget(wallet, currency, input.targetUsdtAmount, rate, undefined, user.customerProfileId);
     fees = quoted.fees;
     fiatAmount = quoted.fiatAmount;
@@ -510,6 +624,14 @@ export async function createUsdtPurchaseTicket(
     max = range.max;
   } else {
     fiatAmount = input.fiatAmount!;
+    if (rate > 0) {
+      await validateUsdtRiskLimitAmount({
+        customerProfileId: user.customerProfileId,
+        usdtAmount: fiatAmount / rate,
+        fiatCurrency: currency,
+        exchangeRate: rate,
+      });
+    }
     fees = await resolveFeesForPurchase(wallet, currency, fiatAmount, rate, { customerProfileId: user.customerProfileId });
     const amountPolicy = await getCurrencyAmountDisplayPolicy();
     feeBreakdown = finalizeFiatBreakdown(
@@ -531,7 +653,13 @@ export async function createUsdtPurchaseTicket(
 
   const customerProfile = await prisma.customerProfile.findUnique({
     where: { id: user.customerProfileId },
-    select: { customerType: true, usdtCollectionMode: true },
+    select: {
+      customerType: true,
+      usdtCollectionMode: true,
+      usdtQuoteResponseMode: true,
+      usdtQuoteAutoDelayMinutes: true,
+      usdtQuoteManualSlaHours: true,
+    },
   });
   if (!customerProfile) {
     throw new AppError(404, 'Customer profile not found', 'NOT_FOUND');
@@ -544,7 +672,27 @@ export async function createUsdtPurchaseTicket(
     fiatAmount,
   });
 
-  const depositDeadlineAt = new Date(Date.now() + DEPOSIT_WINDOW_MS);
+  const quotePolicy = await getEffectiveQuotePolicyForCustomer({
+    usdtQuoteResponseMode: customerProfile.usdtQuoteResponseMode,
+    usdtQuoteAutoDelayMinutes: customerProfile.usdtQuoteAutoDelayMinutes,
+    usdtQuoteManualSlaHours: customerProfile.usdtQuoteManualSlaHours,
+  });
+  const curfexCfg = await getCurfexConfig();
+  const useVirtual =
+    resolveUsdtCollectionProvider({
+      customerMode: customerProfile.usdtCollectionMode,
+      config: curfexCfg,
+      currency,
+    }) === 'CURFEX';
+  /**
+   * 은행이체(고정·CURFEX) + 견적 정책 ON → 견적대기/확정.
+   * 고객별 견적 모드(FOLLOW_HQ/AUTO/MANUAL/OFF)가 본사 정책을 오버라이드.
+   * CURFEX 가상계좌는 견적 확정 후 발급(확정 금액 기준).
+   * 견적 OFF면 기존처럼 신청 직후 입금대기(+CURFEX면 즉시 계좌발급).
+   * 카드는 별도 서비스로 즉시 PG 결제 유지.
+   */
+  const useQuoteFlow = quotePolicy.enabled;
+
   const feeSnapshots = buildFeeSnapshotFields(fees, {
     fxFeeUsdt: feeBreakdown?.fxFeeUsdt ?? 0,
     gasFeeUsdt: feeBreakdown?.gasFeeUsdt ?? 0,
@@ -563,15 +711,13 @@ export async function createUsdtPurchaseTicket(
     curfexRefNo?: string;
     curfexStatusCode?: string;
     collectionAccountJson?: object;
-  } = { collectionProvider: 'FIXED' };
+  } = { collectionProvider: useVirtual ? 'CURFEX' : 'FIXED' };
 
-  const curfexCfg = await getCurfexConfig();
-  const useVirtual = resolveUsdtCollectionProvider({
-    customerMode: customerProfile.usdtCollectionMode,
-    config: curfexCfg,
-    currency,
-  }) === 'CURFEX';
-  if (useVirtual) {
+  const depositDeadlineAt = useQuoteFlow ? null : new Date(Date.now() + DEPOSIT_WINDOW_MS);
+  const quoteDueAt = useQuoteFlow ? computeQuoteDueAt(quotePolicy) : null;
+
+  // 견적 OFF일 때만 신청 즉시 CURFEX 계좌 발급. 견적 ON이면 확정 후 발급.
+  if (useVirtual && !useQuoteFlow) {
     const collection = await createCurfexCollection({
       sendAmount: fiatAmount,
       currency,
@@ -580,8 +726,8 @@ export async function createUsdtPurchaseTicket(
       customerEmail: dbUser?.email || user.email,
       customerType: customerProfile.customerType === 'CORPORATE' ? 'CORPORATE' : 'INDIVIDUAL',
       description: `TINPASS USDT ${ticketNo}`,
-      paymentDueDateTime: depositDeadlineAt.toISOString(),
-      requestExpiryDateTime: depositDeadlineAt.toISOString(),
+      paymentDueDateTime: (depositDeadlineAt ?? new Date(Date.now() + DEPOSIT_WINDOW_MS)).toISOString(),
+      requestExpiryDateTime: (depositDeadlineAt ?? new Date(Date.now() + DEPOSIT_WINDOW_MS)).toISOString(),
     });
     collectionFields = {
       collectionProvider: 'CURFEX',
@@ -591,6 +737,10 @@ export async function createUsdtPurchaseTicket(
     };
   }
 
+  const initialStatus = useQuoteFlow
+    ? UsdtPurchaseStatus.QUOTE_PENDING
+    : UsdtPurchaseStatus.APPLICATION_COMPLETED;
+
   const ticket = await prisma.$transaction(async (tx) => {
     const created = await tx.transactionTicket.create({
       data: {
@@ -599,7 +749,7 @@ export async function createUsdtPurchaseTicket(
         customerId: user.customerProfileId!,
         usdtPurchase: {
           create: {
-            status: UsdtPurchaseStatus.APPLICATION_COMPLETED,
+            status: initialStatus,
             fiatAmount,
             fiatCurrency: currency,
             exchangeRate: rate,
@@ -613,6 +763,8 @@ export async function createUsdtPurchaseTicket(
             expectedUsdtMax: max,
             targetUsdtAmount: targetUsdt,
             depositDeadlineAt,
+            quoteMode: useQuoteFlow ? quotePolicy.mode : null,
+            quoteDueAt,
             ...feeSnapshots,
             walletId: wallet.id,
             ...collectionFields,
@@ -626,26 +778,28 @@ export async function createUsdtPurchaseTicket(
       data: {
         ticketId: created.id,
         fromStatus: null,
-        toStatus: UsdtPurchaseStatus.APPLICATION_COMPLETED,
+        toStatus: initialStatus,
         changedById: user.id,
-        note: 'USDT 매입 신청',
+        note: useQuoteFlow ? 'USDT 매입 신청 (견적 대기)' : 'USDT 매입 신청',
       },
     });
 
-    await tx.usdtPurchaseDetail.update({
-      where: { ticketId: created.id },
-      data: { status: UsdtPurchaseStatus.DEPOSIT_PROOF_PENDING },
-    });
+    if (!useQuoteFlow) {
+      await tx.usdtPurchaseDetail.update({
+        where: { ticketId: created.id },
+        data: { status: UsdtPurchaseStatus.DEPOSIT_PROOF_PENDING },
+      });
 
-    await tx.ticketStatusHistory.create({
-      data: {
-        ticketId: created.id,
-        fromStatus: UsdtPurchaseStatus.APPLICATION_COMPLETED,
-        toStatus: UsdtPurchaseStatus.DEPOSIT_PROOF_PENDING,
-        changedById: user.id,
-        note: `입금 증빙 대기 (기한: ${depositDeadlineAt.toISOString()})`,
-      },
-    });
+      await tx.ticketStatusHistory.create({
+        data: {
+          ticketId: created.id,
+          fromStatus: UsdtPurchaseStatus.APPLICATION_COMPLETED,
+          toStatus: UsdtPurchaseStatus.DEPOSIT_PROOF_PENDING,
+          changedById: user.id,
+          note: `입금 증빙 대기 (기한: ${depositDeadlineAt!.toISOString()})`,
+        },
+      });
+    }
 
     return tx.transactionTicket.findUniqueOrThrow({
       where: { id: created.id },
@@ -664,7 +818,171 @@ export async function createUsdtPurchaseTicket(
     otpVerified: false,
   });
 
+  // AUTO + 즉시(0분): 생성 직후 확정
+  if (
+    useQuoteFlow &&
+    quotePolicy.mode === 'AUTO' &&
+    quotePolicy.autoDelayMinutes === 0
+  ) {
+    return confirmUsdtQuote(user, ticket.id, { system: true });
+  }
+
   return serializeTicket(ticket, (await getWorkflowDisplay()).sla);
+}
+
+/**
+ * 견적 확정 — 자동 잡·즉시 AUTO·관리자 「확정하기」
+ * 확정 입금액이 고객 송금 기준이 된다.
+ * CURFEX 건은 확정 금액으로 가상계좌를 이때 발급한다.
+ */
+export async function confirmUsdtQuote(
+  actor: AuthUser | { id: string },
+  ticketId: string,
+  opts?: {
+    system?: boolean;
+    confirmedFiatAmount?: number;
+    confirmedUsdtAmount?: number;
+    adminNote?: string;
+  },
+) {
+  const ticket = await prisma.transactionTicket.findUnique({
+    where: { id: ticketId, type: TicketType.USDT_PURCHASE },
+    include: USDT_PURCHASE_INCLUDE,
+  });
+  if (!ticket?.usdtPurchase) {
+    throw new AppError(404, 'Ticket not found', 'NOT_FOUND');
+  }
+  const detail = ticket.usdtPurchase;
+  if (detail.status !== UsdtPurchaseStatus.QUOTE_PENDING) {
+    throw new AppError(400, 'Quote is not pending', 'INVALID_STATE');
+  }
+
+  if (!opts?.system) {
+    const { canChangeTicketStatus } = await import('./ticket-access.service');
+    if (!canChangeTicketStatus(actor as AuthUser)) {
+      throw new AppError(403, 'Operator role required', 'FORBIDDEN');
+    }
+  }
+
+  const confirmedFiat =
+    opts?.confirmedFiatAmount != null && opts.confirmedFiatAmount > 0
+      ? opts.confirmedFiatAmount
+      : Number(detail.fiatAmount);
+  const confirmedUsdt =
+    opts?.confirmedUsdtAmount != null && opts.confirmedUsdtAmount > 0
+      ? opts.confirmedUsdtAmount
+      : Number(detail.expectedUsdtAmount);
+  const now = new Date();
+  const actorId = actor.id;
+  const quotePolicy = await getUsdtQuoteResponsePolicy();
+  const quoteValidMs = Math.max(1, quotePolicy.quoteValidMinutes) * 60 * 1000;
+  const depositDeadlineAt = new Date(now.getTime() + quoteValidMs);
+
+  let curfexIssue: {
+    curfexRefNo: string;
+    curfexStatusCode: string;
+    collectionAccountJson: object;
+  } | null = null;
+
+  const needsCurfexIssue =
+    detail.collectionProvider === 'CURFEX' && !detail.curfexRefNo;
+  if (needsCurfexIssue) {
+    const currency = detail.fiatCurrency as FiatCurrency;
+    const customerUser = ticket.customer?.user;
+    const collection = await createCurfexCollection({
+      sendAmount: confirmedFiat,
+      currency,
+      merchantReference: ticket.ticketNo,
+      customerName: customerUser?.name || customerUser?.email || 'customer',
+      customerEmail: customerUser?.email || 'noreply@tinpass.com',
+      customerType:
+        ticket.customer?.customerType === 'CORPORATE' ? 'CORPORATE' : 'INDIVIDUAL',
+      description: `TINPASS USDT ${ticket.ticketNo}`,
+      paymentDueDateTime: depositDeadlineAt.toISOString(),
+      requestExpiryDateTime: depositDeadlineAt.toISOString(),
+    });
+    curfexIssue = {
+      curfexRefNo: collection.refNo,
+      curfexStatusCode: collection.statusCode,
+      collectionAccountJson: collection.collectionAccount as object,
+    };
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    await tx.usdtPurchaseDetail.update({
+      where: { ticketId },
+      data: {
+        status: UsdtPurchaseStatus.QUOTE_CONFIRMED,
+        quoteConfirmedAt: now,
+        confirmedFiatAmount: confirmedFiat,
+        confirmedUsdtAmount: confirmedUsdt,
+        fiatAmount: confirmedFiat,
+        expectedUsdtAmount: confirmedUsdt,
+        // 확정 후 범위는 단일 금액
+        expectedUsdtMin: confirmedUsdt,
+        expectedUsdtMax: confirmedUsdt,
+        // 확정 시점부터 입금 기한 시작 (CURFEX 계좌 만료와 맞춤)
+        depositDeadlineAt,
+        ...(opts?.adminNote ? { adminNote: opts.adminNote } : {}),
+        ...(curfexIssue
+          ? {
+              curfexRefNo: curfexIssue.curfexRefNo,
+              curfexStatusCode: curfexIssue.curfexStatusCode,
+              collectionAccountJson: curfexIssue.collectionAccountJson,
+            }
+          : {}),
+      },
+    });
+    await tx.ticketStatusHistory.create({
+      data: {
+        ticketId,
+        fromStatus: UsdtPurchaseStatus.QUOTE_PENDING,
+        toStatus: UsdtPurchaseStatus.QUOTE_CONFIRMED,
+        changedById: actorId,
+        note: opts?.system
+          ? curfexIssue
+            ? '견적 자동 확정 · CURFEX 계좌 발급'
+            : '견적 자동 확정'
+          : curfexIssue
+            ? `견적 확정 · CURFEX 계좌 발급 (입금 ${confirmedFiat} / ${confirmedUsdt} USDT)`
+            : `견적 확정 (입금 ${confirmedFiat} / ${confirmedUsdt} USDT)`,
+      },
+    });
+    return tx.transactionTicket.findUniqueOrThrow({
+      where: { id: ticketId },
+      include: USDT_PURCHASE_INCLUDE,
+    });
+  });
+
+  return serializeTicket(updated, (await getWorkflowDisplay()).sla);
+}
+
+/** 만료된 AUTO 견적 자동 확정 */
+export async function processDueUsdtQuoteConfirmations(): Promise<number> {
+  const now = new Date();
+  const due = await prisma.usdtPurchaseDetail.findMany({
+    where: {
+      status: UsdtPurchaseStatus.QUOTE_PENDING,
+      quoteMode: 'AUTO',
+      quoteDueAt: { lte: now },
+    },
+    select: {
+      ticketId: true,
+      ticket: { select: { customer: { select: { userId: true } } } },
+    },
+  });
+  let count = 0;
+  for (const row of due) {
+    const systemUserId = row.ticket.customer?.userId;
+    if (!systemUserId) continue;
+    try {
+      await confirmUsdtQuote({ id: systemUserId }, row.ticketId, { system: true });
+      count += 1;
+    } catch (err) {
+      console.error('[usdt-quote] auto-confirm failed', row.ticketId, err);
+    }
+  }
+  return count;
 }
 
 export async function listUsdtPurchaseTickets(user: AuthUser) {
@@ -832,6 +1150,43 @@ export async function transitionUsdtPurchaseStatus(
     );
   }
 
+  if (toStatus === UsdtPurchaseStatus.QUOTE_CONFIRMED) {
+    return confirmUsdtQuote(user, ticketId, {
+      adminNote: extra?.adminNote,
+    });
+  }
+
+  if (toStatus === UsdtPurchaseStatus.DEPOSIT_PROOF_PENDING) {
+    const deadline =
+      ticket.usdtPurchase.depositDeadlineAt &&
+      ticket.usdtPurchase.depositDeadlineAt > new Date()
+        ? ticket.usdtPurchase.depositDeadlineAt
+        : new Date(Date.now() + DEPOSIT_WINDOW_MS);
+    await prisma.usdtPurchaseDetail.update({
+      where: { ticketId },
+      data: {
+        status: toStatus,
+        depositDeadlineAt: deadline,
+        ...(extra?.adminNote && { adminNote: extra.adminNote }),
+        ...(extra?.cancelReason && { cancelReason: extra.cancelReason }),
+      },
+    });
+    await prisma.ticketStatusHistory.create({
+      data: {
+        ticketId,
+        fromStatus,
+        toStatus,
+        changedById: user.id,
+        note: extra?.adminNote || extra?.cancelReason || `입금 증빙 대기 (기한: ${deadline.toISOString()})`,
+      },
+    });
+    const refreshed = await prisma.transactionTicket.findUniqueOrThrow({
+      where: { id: ticketId },
+      include: USDT_PURCHASE_INCLUDE,
+    });
+    return serializeTicket(refreshed, (await getWorkflowDisplay()).sla);
+  }
+
   if (toStatus === UsdtPurchaseStatus.COMPLETED) {
     if (!extra?.usdtTxId) {
       throw new AppError(400, 'usdtTxId is required for completion', 'VALIDATION_ERROR');
@@ -926,7 +1281,8 @@ export async function transitionUsdtPurchaseStatus(
 }
 
 export async function getUsdtDepositContext(user: AuthUser) {
-  const [receivingAccounts, registeredBank, curfexCfg, currencyTrade, customerMode] = await Promise.all([
+  const [receivingAccounts, registeredBank, curfexCfg, currencyTrade, customerMode, hqQuote] =
+    await Promise.all([
     hqPolicyService.getDepositReceivingAccounts(),
     user.role === UserRole.CUSTOMER || user.role === UserRole.CUSTOMER_OPERATOR
       ? prisma.bankAccount.findFirst({
@@ -938,9 +1294,15 @@ export async function getUsdtDepositContext(user: AuthUser) {
     user.customerProfileId
       ? prisma.customerProfile.findUnique({
           where: { id: user.customerProfileId },
-          select: { usdtCollectionMode: true },
+          select: {
+            usdtCollectionMode: true,
+            usdtQuoteResponseMode: true,
+            usdtQuoteAutoDelayMinutes: true,
+            usdtQuoteManualSlaHours: true,
+          },
         })
       : Promise.resolve(null),
+    getUsdtQuoteResponsePolicy(),
   ]);
   const mode = customerMode?.usdtCollectionMode ?? 'FOLLOW_HQ';
   const currencies = (curfexCfg.currencies ?? ['JPY']) as string[];
@@ -952,6 +1314,21 @@ export async function getUsdtDepositContext(user: AuthUser) {
         currency: c,
       }) === 'CURFEX',
   );
+  const quoteResponse = await getEffectiveQuotePolicyForCustomer(customerMode);
+
+  let dailyTicketCount = 0;
+  let maxDailyTicketsPerCustomer = 0;
+  if (user.customerProfileId) {
+    const [count, risk] = await Promise.all([
+      countDailyTicketsForCustomer(user.customerProfileId),
+      getCommissionRiskConfig(),
+    ]);
+    dailyTicketCount = count;
+    maxDailyTicketsPerCustomer = risk.maxDailyTicketsPerCustomer;
+  }
+  const dailyTicketLimitReached =
+    maxDailyTicketsPerCustomer > 0 && dailyTicketCount >= maxDailyTicketsPerCustomer;
+
   return {
     receivingAccounts,
     currencyTrade,
@@ -967,6 +1344,14 @@ export async function getUsdtDepositContext(user: AuthUser) {
         }
       : null,
     depositWindowHours: 2,
+    quoteValidMinutes: hqQuote.quoteValidMinutes,
+    applyIdleMinutes: hqQuote.applyIdleMinutes,
+    applyMaxMinutes: hqQuote.applyMaxMinutes,
+    dailyTicketCount,
+    maxDailyTicketsPerCustomer,
+    dailyTicketLimitReached,
+    quoteResponse,
+    usdtQuoteResponseMode: customerMode?.usdtQuoteResponseMode ?? 'FOLLOW_HQ',
   };
 }
 
@@ -1018,6 +1403,11 @@ function serializeTicket(
     expectedUsdtMax: detail.expectedUsdtMax ? Number(detail.expectedUsdtMax) : null,
     targetUsdtAmount: detail.targetUsdtAmount ? Number(detail.targetUsdtAmount) : null,
     depositDeadlineAt: detail.depositDeadlineAt,
+    quoteMode: detail.quoteMode ?? null,
+    quoteDueAt: detail.quoteDueAt,
+    quoteConfirmedAt: detail.quoteConfirmedAt,
+    confirmedFiatAmount: detail.confirmedFiatAmount != null ? Number(detail.confirmedFiatAmount) : null,
+    confirmedUsdtAmount: detail.confirmedUsdtAmount != null ? Number(detail.confirmedUsdtAmount) : null,
     bankMismatch: detail.bankMismatch,
     cancelReason: detail.cancelReason,
     depositAmount: detail.depositAmount ? Number(detail.depositAmount) : null,

@@ -132,3 +132,14 @@ export function formatDate(date: string) {
     timeStyle: 'short',
   }).format(new Date(date));
 }
+
+/** 날짜만 `2026.09.18` 형식 (로케일 무관) */
+export function formatDateDot(date: string | Date | null | undefined): string {
+  if (date == null || date === '') return '—';
+  const d = typeof date === 'string' || date instanceof Date ? new Date(date) : null;
+  if (!d || Number.isNaN(d.getTime())) return '—';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}.${m}.${day}`;
+}

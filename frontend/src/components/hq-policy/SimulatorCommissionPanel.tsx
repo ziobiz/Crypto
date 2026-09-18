@@ -19,6 +19,13 @@ const EMPTY_SANDBOX: HqCommissionRiskConfig = {
   defaultGasFeeUsdt: 0,
   defaultTransferFeeUsdt: 0,
   defaultOtherFeeUsdt: 0,
+  usdtRiskLimitTiers: {
+    LR: { minUsdt: 0, maxUsdt: 0 },
+    MR: { minUsdt: 0, maxUsdt: 0 },
+    HR: { minUsdt: 0, maxUsdt: 0 },
+    XR: { minUsdt: 0, maxUsdt: 0 },
+    SR: { minUsdt: 0, maxUsdt: 0 },
+  },
   maxTicketAmountKrw: 0,
   riskEnabled: true,
   maxDailyTicketsPerCustomer: 0,

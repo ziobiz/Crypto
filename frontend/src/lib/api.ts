@@ -8,6 +8,7 @@ export class ApiError extends Error {
     public status: number,
     message: string,
     public code?: string,
+    public details?: unknown,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -53,13 +54,15 @@ async function request<T>(
   if (typeof window !== 'undefined') {
     const sensitive = sessionStorage.getItem('crypto-sensitive-token');
     if (sensitive) headers['X-Sensitive-Token'] = sensitive;
+    const locale = localStorage.getItem('crypto_ui_locale');
+    if (locale) headers['X-Locale'] = locale;
   }
 
   const res = await fetch(`${API_URL}${path}`, { ...options, headers });
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new ApiError(res.status, err.error ?? 'Request failed', err.code);
+    throw new ApiError(res.status, err.error ?? 'Request failed', err.code, err.details);
   }
 
   if (res.status === 204) return undefined as T;
@@ -353,6 +356,18 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify(data),
       }),
+    confirmQuote: (
+      id: string,
+      data?: {
+        confirmedFiatAmount?: number;
+        confirmedUsdtAmount?: number;
+        adminNote?: string;
+      },
+    ) =>
+      request<UsdtTicket>(`/api/tickets/usdt-purchase/${id}/confirm-quote`, {
+        method: 'POST',
+        body: JSON.stringify(data ?? {}),
+      }),
     setBrokerUsdt: (id: string, brokerUsdtAmount: number) =>
       request<UsdtTicket>(`/api/tickets/usdt-purchase/${id}/broker-usdt`, {
         method: 'PATCH',
@@ -596,6 +611,9 @@ export type SimulatorRunRow = {
   customerName?: string;
   customerEmail?: string;
   userId?: string;
+  /** 고객 mine 응답: 계산 결과와 동일한 총수수료 노출·±범위 */
+  feeDiagramDisplay?: FeeDiagramDisplayConfig;
+  amountRangePct?: number | null;
 };
 
 export type SimulatorHqListResponse = {
@@ -660,7 +678,15 @@ export type ProfitAnalysisRow = {
 
 export type FeeBillingPresentation = 'INTEGRATED' | 'ITEMIZED' | 'HYBRID';
 export type FeeBillingMethod = 'FOLLOW_HQ' | FeeBillingPresentation;
+export type TotalFeeVisibility = 'FOLLOW_HQ' | 'SHOW' | 'HIDE';
 export type UsdtCollectionMode = 'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL';
+export type UsdtQuoteResponseMode = 'FOLLOW_HQ' | 'AUTO' | 'MANUAL' | 'OFF';
+export const USDT_QUOTE_AUTO_DELAY_MINUTES = [
+  0, 1, 3, 5, 10, 30, 60, 180, 360, 720, 1440, 2880, 4320,
+] as const;
+export const USDT_QUOTE_MANUAL_SLA_HOURS = [3, 6, 12, 24] as const;
+export type UsdtRiskLimitCode = 'LR' | 'MR' | 'HR' | 'XR' | 'SR' | 'ML';
+export const USDT_RISK_LIMIT_CODES: UsdtRiskLimitCode[] = ['LR', 'MR', 'HR', 'XR', 'SR', 'ML'];
 
 export interface FeeDiagramDisplayConfig {
   gross: boolean;
@@ -674,6 +700,8 @@ export interface FeeDiagramDisplayConfig {
   net: boolean;
   requiredFiat: boolean;
   showRates: boolean;
+  /** 총 수수료(합계·항목) 금액 줄. false면 수령·입금·환율만 */
+  showTotalFee?: boolean;
   /** 본사 기본 청구방식 */
   defaultFeeBillingMethod?: FeeBillingPresentation;
   /** 해석된 청구방식 (API) */
@@ -725,6 +753,8 @@ export interface Organization {
   simulatorRateMode?: 'LIVE' | 'SAND';
   deletedAt?: string | null;
   purgeAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
   parent?: { id: string; code: string; name: string; type: string } | null;
 }
 
@@ -844,7 +874,14 @@ export interface ManagedUser {
     simulatorEnabled?: boolean;
     simulatorRateMode?: 'LIVE' | 'SAND';
     feeBillingMethod?: FeeBillingMethod;
+    totalFeeVisibility?: TotalFeeVisibility;
+    usdtRiskLimitCode?: UsdtRiskLimitCode;
+    usdtLimitMinUsdt?: number | null;
+    usdtLimitMaxUsdt?: number | null;
     usdtCollectionMode?: UsdtCollectionMode;
+    usdtQuoteResponseMode?: UsdtQuoteResponseMode;
+    usdtQuoteAutoDelayMinutes?: number | null;
+    usdtQuoteManualSlaHours?: number | null;
     operatorsEnabled?: boolean;
     walletFeesVisible?: boolean;
     recruitingOrg?: { id: string; code: string; name: string };
@@ -897,6 +934,8 @@ export interface UserManagementLogItem {
   id: string;
   action: 'REGISTER' | 'ACTIVATE' | 'DEACTIVATE';
   reason: string;
+  /** 비활성 로그인 안내 (내부 사유와 별도) */
+  loginNotice?: string | null;
   createdAt: string;
   changedBy: { id: string; email: string; name: string; role: string };
 }
@@ -928,9 +967,16 @@ export interface CreateUserInput {
   simulatorEnabled?: boolean;
   simulatorRateMode?: 'LIVE' | 'SAND';
   feeBillingMethod?: FeeBillingMethod;
+  totalFeeVisibility?: TotalFeeVisibility;
   usdtCollectionMode?: UsdtCollectionMode;
+  usdtQuoteResponseMode?: UsdtQuoteResponseMode;
+  usdtQuoteAutoDelayMinutes?: number | null;
+  usdtQuoteManualSlaHours?: number | null;
   operatorsEnabled?: boolean;
   walletFeesVisible?: boolean;
+  usdtRiskLimitCode?: UsdtRiskLimitCode;
+  usdtLimitMinUsdt?: number | null;
+  usdtLimitMaxUsdt?: number | null;
 }
 
 export interface UpdateUserInput {
@@ -941,13 +987,22 @@ export interface UpdateUserInput {
   isActive?: boolean;
   recruitingOrgId?: string;
   statusReason?: string;
+  /** 비활성 시 로그인 안내 (선택). 비우면 HQ 기본/프리셋 안내 */
+  statusLoginNotice?: string | null;
   feeShare?: CustomerFeeShare;
   simulatorEnabled?: boolean;
   simulatorRateMode?: 'LIVE' | 'SAND';
   feeBillingMethod?: FeeBillingMethod;
+  totalFeeVisibility?: TotalFeeVisibility;
   usdtCollectionMode?: UsdtCollectionMode;
+  usdtQuoteResponseMode?: UsdtQuoteResponseMode;
+  usdtQuoteAutoDelayMinutes?: number | null;
+  usdtQuoteManualSlaHours?: number | null;
   operatorsEnabled?: boolean;
   walletFeesVisible?: boolean;
+  usdtRiskLimitCode?: UsdtRiskLimitCode;
+  usdtLimitMinUsdt?: number | null;
+  usdtLimitMaxUsdt?: number | null;
 }
 
 export type WalletApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
@@ -1049,6 +1104,25 @@ export interface UsdtDepositContext {
   hqDefaultCollectionMode?: 'FIXED' | 'VIRTUAL';
   registeredBank: { bankName: string; accountNumber: string; accountHolder: string } | null;
   depositWindowHours: number;
+  /** 신청 페이지 무동작(분) */
+  applyIdleMinutes?: number;
+  /** 신청 페이지 최대 체류(분) */
+  applyMaxMinutes?: number;
+  /** 견적 확정 후 유효(분) */
+  quoteValidMinutes?: number;
+  dailyTicketCount?: number;
+  maxDailyTicketsPerCustomer?: number;
+  dailyTicketLimitReached?: boolean;
+  quoteResponse?: {
+    enabled: boolean;
+    mode: 'AUTO' | 'MANUAL';
+    autoDelayMinutes: number;
+    manualSlaHours: number;
+    applyIdleMinutes?: number;
+    applyMaxMinutes?: number;
+    quoteValidMinutes?: number;
+  };
+  usdtQuoteResponseMode?: UsdtQuoteResponseMode;
 }
 
 export interface BankAccountInfo {
@@ -1128,6 +1202,8 @@ export interface UsdtFeePreview {
   transactionLimits?: TransactionLimitSummary;
   feeDiagramDisplay?: FeeDiagramDisplayConfig;
   currencyAmountDisplay?: HqCurrencyAmountDisplayPolicy;
+  /** 금액 범위 표시 비율 — 거래신청 8, 시뮬 5 */
+  amountRangePct?: number;
   paymentMethod?: 'CARD';
   cardFeePercent?: number;
   cardFeeFiat?: number;
@@ -1167,6 +1243,10 @@ export interface TransactionLimitSummary {
   remainingMonthly: number | null;
   effectiveMin: number;
   effectiveMax: number | null;
+  /** 금일 활성 티켓 건수 (견적대기 포함) */
+  dailyTicketCount?: number;
+  /** 본사 리스크: 고객 일일 최대 거래 건수 (0=무제한) */
+  maxDailyTicketsPerCustomer?: number;
 }
 
 export interface KimchiPremiumInfo {
@@ -1195,6 +1275,11 @@ export interface UsdtTicket {
   expectedUsdtMax?: number | null;
   targetUsdtAmount?: number | null;
   depositDeadlineAt?: string | null;
+  quoteMode?: string | null;
+  quoteDueAt?: string | null;
+  quoteConfirmedAt?: string | null;
+  confirmedFiatAmount?: number | null;
+  confirmedUsdtAmount?: number | null;
   bankMismatch?: boolean;
   cancelReason?: string | null;
   depositAmount?: number | null;
@@ -1563,6 +1648,19 @@ export const hqPolicyApi = {
       method: 'PUT',
       body: JSON.stringify({ currencyAmountDisplay }),
     }),
+  saveUsdtQuoteResponse: (usdtQuoteResponse: {
+    enabled: boolean;
+    mode: 'AUTO' | 'MANUAL';
+    autoDelayMinutes: number;
+    manualSlaHours: number;
+    applyIdleMinutes: number;
+    applyMaxMinutes: number;
+    quoteValidMinutes: number;
+  }) =>
+    request<HqCommissionPayload>('/api/hq-policy/commission/usdt-quote-response', {
+      method: 'PUT',
+      body: JSON.stringify({ usdtQuoteResponse }),
+    }),
   saveSimulatorCommissionRisk: (risk: HqCommissionRiskConfig) =>
     request<HqCommissionPayload>('/api/hq-policy/commission/simulator/risk', {
       method: 'PUT',
@@ -1828,6 +1926,15 @@ export type TransactionFees = {
   operatingFeeFixedUsdt?: number;
 };
 
+export type UsdtRiskLimitTier = 'LR' | 'MR' | 'HR' | 'XR' | 'SR';
+
+export type UsdtRiskLimitBand = {
+  minUsdt: number;
+  maxUsdt: number;
+};
+
+export type HqUsdtRiskLimitTiers = Record<UsdtRiskLimitTier, UsdtRiskLimitBand>;
+
 export interface HqCommissionRiskConfig {
   defaultFxFeePercent: number;
   defaultFxFeeUsdt?: number;
@@ -1842,8 +1949,16 @@ export interface HqCommissionRiskConfig {
   defaultOtherFeePercent?: number;
   defaultOtherFeeMode?: FeeMode;
   feeDiagramDisplay?: FeeDiagramDisplayConfig;
-  /** 시뮬레이터 SAND 전용 도식 (없으면 LIVE feeDiagramDisplay와 동일하게 취급) */
+  /** 시뮬레이터 SAND 전용 도식 (없으면 LIVE feeDiagramDisplay와 동일하게 취급) — 고객용 */
   sandboxFeeDiagramDisplay?: FeeDiagramDisplayConfig;
+  /** 본사·운영자용 LIVE 도식 (기본 전부 ON) */
+  hqFeeDiagramDisplay?: FeeDiagramDisplayConfig;
+  /** 본사·운영자용 Sandbox 도식 */
+  hqSandboxFeeDiagramDisplay?: FeeDiagramDisplayConfig;
+  /** 총 수수료 노출 — LIVE·Sandbox 공통 */
+  showTotalFee?: boolean;
+  /** USDT 기준 리스크 한도 5종 (LR/MR/HR/XR/SR) */
+  usdtRiskLimitTiers?: HqUsdtRiskLimitTiers;
   maxTicketAmountKrw: number;
   riskEnabled: boolean;
   maxDailyTicketsPerCustomer: number;
@@ -1944,6 +2059,10 @@ export interface CustomerFeeGridRow {
   applyStartDate: string;
   totalPercent: number;
   totalFixedUsdt: number;
+  /** USDT 매입 견적 응답 (고객 프로필). TRADE_ESCROW 행에도 동일 값 포함 */
+  usdtQuoteResponseMode?: UsdtQuoteResponseMode;
+  usdtQuoteAutoDelayMinutes?: number | null;
+  usdtQuoteManualSlaHours?: number | null;
 }
 
 export interface CustomerFeeHistoryRow {
@@ -2001,6 +2120,15 @@ export interface HqCommissionPayload {
   feeTypes?: FeeTypeTemplate[];
   gasNetworks?: HqGasNetworkPolicy;
   currencyAmountDisplay?: HqCurrencyAmountDisplayPolicy;
+  usdtQuoteResponse?: {
+    enabled: boolean;
+    mode: 'AUTO' | 'MANUAL';
+    autoDelayMinutes: number;
+    manualSlaHours: number;
+    applyIdleMinutes?: number;
+    applyMaxMinutes?: number;
+    quoteValidMinutes?: number;
+  };
   customerFeeShareOverrides?: Array<{
     userId: string;
     email: string;
@@ -2052,8 +2180,12 @@ export interface HqPlatformConfig {
   siteName: string;
   /** 브라우저 탭. 비우면 siteName */
   tabTitle?: string;
-  /** LINE·WhatsApp 미리보기 이미지. 제목=siteName, 설명=authMainText */
+  /** LINE·WhatsApp 미리보기 이미지 */
   ogImageUrl?: string;
+  /** LINE·WhatsApp 미리보기 제목. 비우면 사이트 이름 */
+  ogTitle?: string;
+  /** LINE·WhatsApp 미리보기 설명. 로그인 배경 문구와 별도 */
+  ogDescription?: string;
   logoUrl?: string;
   authLogoUrl?: string;
   faviconUrl?: string;
@@ -2066,6 +2198,14 @@ export interface HqPlatformConfig {
   >;
   customerRegistrationEnabled?: boolean;
   idleTimeoutMinutes?: number;
+  /** 비활성 계정 로그인 기본 안내 (다국어) */
+  inactiveLoginNoticeI18n?: Partial<Record<'KR' | 'JP' | 'US' | 'CH' | 'TH', string>>;
+  /** 비활성 사유 빠른 선택 프리셋 */
+  inactiveLoginNoticePresets?: Array<{
+    id: 'BASIC' | 'INCONVENIENCE' | 'WARNING';
+    title?: string;
+    bodyI18n?: Partial<Record<'KR' | 'JP' | 'US' | 'CH' | 'TH', string>>;
+  }>;
   defaultUsdtFiatCurrency?: 'KRW' | 'JPY' | 'THB' | 'CNY';
   simulatorRetentionMonths?: number;
   depositReceivingAccounts?: Partial<Record<'KRW' | 'JPY' | 'THB' | 'CNY', DepositReceivingAccountInfo>>;

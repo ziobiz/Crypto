@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
 import { HQ_CONFIG_KEYS, type HqPlatformConfig } from '../constants/hq-policy';
 import type { AuthUser } from '../types/auth';
+import { getFeeDiagramDisplayForCustomer } from './transaction-fee.service';
 
 export type SimulatorMode = 'fiat' | 'target';
 
@@ -112,15 +113,26 @@ export async function logSimulatorRun(user: AuthUser, input: SimulatorRunInput) 
   return serializeRun(created);
 }
 
+/** 고객 시뮬 계산 결과와 동일: ±N% 예상 구간 */
+const CUSTOMER_SIM_AMOUNT_RANGE_PCT = 5;
+
 export async function listMyRecentRuns(user: AuthUser, limit = 2) {
   if (isHqAccount(user)) return [];
-  const rows = await prisma.simulatorRun.findMany({
-    where: { userId: user.id },
-    orderBy: { createdAt: 'desc' },
-    take: Math.min(3, Math.max(1, limit)),
-    include: { user: { select: { id: true, name: true, email: true } } },
-  });
-  return rows.map(serializeRun);
+  const [rows, feeDiagramDisplay] = await Promise.all([
+    prisma.simulatorRun.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: 'desc' },
+      take: Math.min(3, Math.max(1, limit)),
+      include: { user: { select: { id: true, name: true, email: true } } },
+    }),
+    getFeeDiagramDisplayForCustomer(user.customerProfileId),
+  ]);
+  const amountRangePct = CUSTOMER_SIM_AMOUNT_RANGE_PCT;
+  return rows.map((row) => ({
+    ...serializeRun(row),
+    feeDiagramDisplay,
+    amountRangePct,
+  }));
 }
 
 export async function listHqSimulatorRuns(user: AuthUser, page: number, pageSize: number | 'all') {

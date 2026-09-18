@@ -13,6 +13,7 @@ import {
 } from '../services/exchange-rate.service';
 import {
   createUsdtPurchaseTicket,
+  confirmUsdtQuote,
   getUsdtDepositContext,
   getUsdtPurchaseTicket,
   listUsdtPurchaseTickets,
@@ -97,6 +98,8 @@ router.get(
     if (!network) {
       throw new AppError(400, 'Withdrawal network is required', 'NETWORK_REQUIRED');
     }
+    const role = req.user!.role;
+    const isMerchantCustomer = role === 'CUSTOMER' || role === 'CUSTOMER_OPERATOR';
     res.json(
       await simulateHqUsdtQuote({
         fiatCurrency: currency,
@@ -104,6 +107,8 @@ router.get(
         targetUsdtAmount,
         network,
         feePolicy: feePolicyFromMode(feeMode),
+        customerProfileId: isMerchantCustomer ? req.user!.customerProfileId : null,
+        enforceCustomerLimits: isMerchantCustomer,
       }),
     );
   }),
@@ -280,6 +285,7 @@ router.patch(
     const user = req.user!;
 
     const adminOnlyStatuses: UsdtPurchaseStatus[] = [
+      UsdtPurchaseStatus.QUOTE_CONFIRMED,
       UsdtPurchaseStatus.ADMIN_REVIEWING,
       UsdtPurchaseStatus.TRANSFER_IN_PROGRESS,
       UsdtPurchaseStatus.COMPLETED,
@@ -298,6 +304,30 @@ router.patch(
       amountConfirmAcknowledged: body.amountConfirmAcknowledged ?? undefined,
     });
     res.json(ticket);
+  }),
+);
+
+const confirmQuoteSchema = z.object({
+  confirmedFiatAmount: z.number().positive().optional(),
+  confirmedUsdtAmount: z.number().positive().optional(),
+  adminNote: z.string().optional(),
+});
+
+router.post(
+  '/:id/confirm-quote',
+  asyncHandler(async (req, res) => {
+    if (!canOperateUsdtTicket(req.user!)) {
+      throw new AppError(403, 'Operator role required', 'FORBIDDEN');
+    }
+    const body = confirmQuoteSchema.parse(req.body ?? {});
+    await assertTicketAccess(req.user!, req.params.id);
+    res.json(
+      await confirmUsdtQuote(req.user!, req.params.id, {
+        confirmedFiatAmount: body.confirmedFiatAmount,
+        confirmedUsdtAmount: body.confirmedUsdtAmount,
+        adminNote: body.adminNote,
+      }),
+    );
   }),
 );
 
@@ -390,6 +420,13 @@ router.post(
       select: { collectionProvider: true, status: true },
     });
     const isCurfex = detail?.collectionProvider === 'CURFEX';
+    if (
+      detail?.status !== UsdtPurchaseStatus.QUOTE_CONFIRMED &&
+      detail?.status !== UsdtPurchaseStatus.DEPOSIT_PROOF_PENDING &&
+      detail?.status !== UsdtPurchaseStatus.APPLICATION_COMPLETED
+    ) {
+      throw new AppError(400, 'Documents not accepted at this stage', 'INVALID_STATE');
+    }
 
     const files = req.files as Record<string, Express.Multer.File[]> | undefined;
     const sourceOfFunds = files?.sourceOfFunds ?? [];
@@ -398,7 +435,7 @@ router.post(
     if (sourceOfFunds.length === 0) {
       throw new AppError(400, 'Source of funds document is required', 'VALIDATION_ERROR');
     }
-    // 전용계좌(고정): 신청 시 송금증(입금 영수증) 필수. 가상계좌(CURFEX)는 불필요.
+    // 전용계좌(고정): 송금증(입금 영수증) 필수. 가상계좌(CURFEX)는 불필요.
     if (!isCurfex && depositReceipt.length === 0) {
       throw new AppError(400, 'Deposit receipt (remittance slip) is required', 'VALIDATION_ERROR');
     }
@@ -424,9 +461,15 @@ router.post(
       );
     }
 
-    // 자금원천만 올린 경우: 고정·CURFEX 모두 입금 대기(DEPOSIT_PROOF_PENDING) 유지.
-    // 고정은 상세에서 입금증 업로드 시 ADMIN_REVIEWING, CURFEX는 자동 감지.
-    // (레거시) 신청 시 입금증까지 같이 온 고정 티켓만 즉시 심사로 넘김.
+    if (detail?.status === UsdtPurchaseStatus.QUOTE_CONFIRMED) {
+      await transitionUsdtPurchaseStatus(
+        req.user!,
+        ticketId,
+        UsdtPurchaseStatus.DEPOSIT_PROOF_PENDING,
+      );
+    }
+
+    // 고정계좌: 입금증 포함 시 심사로
     if (!isCurfex && depositReceipt.length > 0) {
       const ticket = await transitionUsdtPurchaseStatus(
         req.user!,

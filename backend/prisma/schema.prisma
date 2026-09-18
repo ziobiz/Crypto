@@ -70,9 +70,11 @@ enum CardPaymentStatus {
   DECLINED
 }
 
-/// USDT 매입 5단계 상태
+/// USDT 매입 상태 (고정계좌: 견적대기→확정→입금증빙…)
 enum UsdtPurchaseStatus {
-  APPLICATION_COMPLETED   // 1) 신청 완료
+  QUOTE_PENDING           // 견적 대기 (잠정)
+  QUOTE_CONFIRMED         // 견적 확정 (입금 요청액 확정)
+  APPLICATION_COMPLETED   // 1) 신청 완료 (카드·레거시)
   CARD_PAYMENT_PENDING    // 카드 결제 처리 중
   DEPOSIT_PROOF_PENDING   // 2) 입금 증빙 대기
   ADMIN_REVIEWING         // 3) 관리자 확인 중
@@ -138,11 +140,26 @@ enum FeeBillingMethod {
   HYBRID
 }
 
+/// 총 수수료(합계·항목) 화면 노출 — FOLLOW_HQ면 본사 showTotalFee
+enum TotalFeeVisibility {
+  FOLLOW_HQ
+  SHOW
+  HIDE
+}
+
 /// 고객 USDT 계좌이체 수취방식 (고정 / TINPASS 가상계좌)
 enum UsdtCollectionMode {
   FOLLOW_HQ
   FIXED
   VIRTUAL
+}
+
+/// 고객 USDT 견적 응답 — FOLLOW_HQ면 본사 정책
+enum UsdtQuoteResponseMode {
+  FOLLOW_HQ
+  AUTO
+  MANUAL
+  OFF
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -271,7 +288,10 @@ model UserManagementLog {
   userId      String
   user        User                 @relation("UserMgmtLogs", fields: [userId], references: [id], onDelete: Cascade)
   action      UserManagementAction
+  /// 내부 변경 사유 (감사 기록 — 로그인 화면에 노출하지 않음)
   reason      String
+  /// 비활성 시 로그인 안내 문구 (비우면 HQ 기본/프리셋 안내 사용). 프리셋 마커 `__INACTIVE_PRESET__:ID` 가능
+  loginNotice String?              @map("login_notice")
   changedById String
   changedBy   User                 @relation("UserMgmtChangedBy", fields: [changedById], references: [id])
   createdAt   DateTime             @default(now())
@@ -307,8 +327,22 @@ model CustomerProfile {
   simulatorRateMode SimulatorRateMode @default(LIVE)
   /// 수수료 청구방식 — FOLLOW_HQ면 본사 기본(INTEGRATED/ITEMIZED/HYBRID)
   feeBillingMethod FeeBillingMethod @default(FOLLOW_HQ)
+  /// 총 수수료 노출 — FOLLOW_HQ면 본사 showTotalFee. HIDE면 LIVE·Sandbox 합계/항목 숨김
+  totalFeeVisibility TotalFeeVisibility @default(FOLLOW_HQ)
+  /// USDT 1회 한도: LR/MR/HR/XR/SR=본사 타입, ML=직접입력
+  usdtRiskLimitCode String @default("MR")
+  /// ML일 때 1회 최소 USDT
+  usdtLimitMinUsdt Float?
+  /// ML일 때 1회 최대 USDT
+  usdtLimitMaxUsdt Float?
   /// 입금 계좌 방식 — FOLLOW_HQ면 본사 기본(FIXED/VIRTUAL). VIRTUAL= TINPASS 가상계좌
   usdtCollectionMode UsdtCollectionMode @default(FOLLOW_HQ)
+  /// USDT 견적 응답 — FOLLOW_HQ면 본사 수수료 정책. AUTO/MANUAL/OFF는 고객 개별
+  usdtQuoteResponseMode UsdtQuoteResponseMode @default(FOLLOW_HQ)
+  /// AUTO일 때 확정 대기(분). null이면 본사 autoDelayMinutes 사용
+  usdtQuoteAutoDelayMinutes Int?
+  /// MANUAL일 때 SLA(시간). null이면 본사 manualSlaHours 사용
+  usdtQuoteManualSlaHours Int?
 
   /// 본사 허용 시에만 관리자 1 + 운영자 2 멀티계정 활성화
   operatorsEnabled Boolean @default(false)
@@ -556,8 +590,16 @@ model UsdtPurchaseDetail {
   /// 고객 희망 수령 USDT (수수료 차감 후)
   targetUsdtAmount   Decimal? @db.Decimal(18, 8)
 
-  /// 입금 증빙 제출 기한 (신청 후 2시간)
+  /// 입금 증빙 제출 기한 (견적 확정 후 2시간)
   depositDeadlineAt  DateTime?
+  /// AUTO | MANUAL (견적 응답 정책 스냅샷)
+  quoteMode          String?
+  /// 자동 확정 예정 시각 / 수동 SLA 목표
+  quoteDueAt         DateTime?
+  quoteConfirmedAt   DateTime?
+  /// 확정 입금 요청액·수령 USDT (확정 후 송금 기준)
+  confirmedFiatAmount Decimal? @db.Decimal(18, 2)
+  confirmedUsdtAmount Decimal? @db.Decimal(18, 8)
   /// 등록 통장과 입금자 불일치
   bankMismatch       Boolean  @default(false)
   cancelReason       String?
@@ -613,6 +655,7 @@ model UsdtPurchaseDetail {
   updatedAt DateTime @updatedAt
 
   @@index([status])
+  @@index([quoteDueAt])
   @@map("usdt_purchase_details")
 }
 

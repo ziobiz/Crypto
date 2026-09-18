@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useT } from '@/context/LocaleProvider';
+import { useDoubleConfirm } from '@/hooks/useDoubleConfirm';
 import {
   api,
   hqPolicyApi,
@@ -20,6 +21,8 @@ import {
   type HqCurrencyAmountDisplayPolicy,
   type SymbolFeeCurrency,
   type SymbolFeeTierRow,
+  type UsdtRiskLimitTier,
+  type HqUsdtRiskLimitTiers,
 } from '@/lib/api';
 import type { MessageKey } from '@/i18n/messages';
 import { FormattedAmountInput } from '@/components/FormattedAmountInput';
@@ -47,7 +50,7 @@ type LimitCustomerType = (typeof LIMIT_CUSTOMER_TYPES)[number];
 
 type FeeDiagramToggleKey = Exclude<
   keyof FeeDiagramDisplayConfig,
-  'showRates' | 'defaultFeeBillingMethod' | 'billingMethod'
+  'showRates' | 'showTotalFee' | 'defaultFeeBillingMethod' | 'billingMethod'
 >;
 
 const FEE_DIAGRAM_KEYS: Array<{ key: FeeDiagramToggleKey; labelKey: MessageKey }> = [
@@ -105,31 +108,63 @@ const DEFAULT_FEE_DIAGRAM: FeeDiagramDisplayConfig = {
   net: true,
   requiredFiat: true,
   showRates: true,
+  showTotalFee: true,
   defaultFeeBillingMethod: 'ITEMIZED',
 };
 
 function withFeeDiagramDefaults(risk: HqCommissionRiskConfig): HqCommissionRiskConfig {
-  const live = { ...DEFAULT_FEE_DIAGRAM, ...risk.feeDiagramDisplay };
+  const showTotalFee = risk.showTotalFee !== false;
+  const live = {
+    ...DEFAULT_FEE_DIAGRAM,
+    ...risk.feeDiagramDisplay,
+    showTotalFee,
+  };
   const sandbox = {
     ...DEFAULT_FEE_DIAGRAM,
     ...live,
     ...risk.sandboxFeeDiagramDisplay,
+    showTotalFee,
+  };
+  const hqLive = {
+    ...DEFAULT_FEE_DIAGRAM,
+    ...risk.hqFeeDiagramDisplay,
+    showTotalFee: true,
+    showRates: risk.hqFeeDiagramDisplay?.showRates ?? true,
+  };
+  const hqSandbox = {
+    ...DEFAULT_FEE_DIAGRAM,
+    ...hqLive,
+    ...risk.hqSandboxFeeDiagramDisplay,
+    showTotalFee: true,
+    showRates: risk.hqSandboxFeeDiagramDisplay?.showRates ?? risk.hqFeeDiagramDisplay?.showRates ?? true,
   };
   return {
     ...risk,
+    showTotalFee,
     feeDiagramDisplay: live,
     sandboxFeeDiagramDisplay: sandbox,
+    hqFeeDiagramDisplay: hqLive,
+    hqSandboxFeeDiagramDisplay: hqSandbox,
   };
 }
 
 type FeeDiagramEnv = 'live' | 'sandbox';
+type FeeDiagramAudience = 'customer' | 'hq';
 
 function patchFeeDiagramEnv(
   prev: HqCommissionRiskConfig,
   env: FeeDiagramEnv,
   patch: Partial<FeeDiagramDisplayConfig>,
+  audience: FeeDiagramAudience = 'customer',
 ): HqCommissionRiskConfig {
-  const key = env === 'live' ? 'feeDiagramDisplay' : 'sandboxFeeDiagramDisplay';
+  const key =
+    audience === 'hq'
+      ? env === 'live'
+        ? 'hqFeeDiagramDisplay'
+        : 'hqSandboxFeeDiagramDisplay'
+      : env === 'live'
+        ? 'feeDiagramDisplay'
+        : 'sandboxFeeDiagramDisplay';
   const current = prev[key] ?? DEFAULT_FEE_DIAGRAM;
   return {
     ...prev,
@@ -179,6 +214,42 @@ function ensureTransactionLimits(risk: HqCommissionRiskConfig): HqCommissionRisk
     };
   }
   return { ...risk, transactionLimits: policy };
+}
+
+const USDT_RISK_LIMIT_TIERS: UsdtRiskLimitTier[] = ['LR', 'MR', 'HR', 'XR', 'SR'];
+
+const DEFAULT_USDT_RISK_LIMIT_TIERS: HqUsdtRiskLimitTiers = {
+  LR: { minUsdt: 100, maxUsdt: 3_000 },
+  MR: { minUsdt: 100, maxUsdt: 10_000 },
+  HR: { minUsdt: 100, maxUsdt: 30_000 },
+  XR: { minUsdt: 100, maxUsdt: 100_000 },
+  SR: { minUsdt: 100, maxUsdt: 500_000 },
+};
+
+const USDT_RISK_TIER_LABEL_KEYS: Record<UsdtRiskLimitTier, MessageKey> = {
+  LR: 'hq.commission.usdtRiskTier.LR',
+  MR: 'hq.commission.usdtRiskTier.MR',
+  HR: 'hq.commission.usdtRiskTier.HR',
+  XR: 'hq.commission.usdtRiskTier.XR',
+  SR: 'hq.commission.usdtRiskTier.SR',
+};
+
+function ensureUsdtRiskLimitTiers(risk: HqCommissionRiskConfig): HqCommissionRiskConfig {
+  const raw = risk.usdtRiskLimitTiers;
+  const tiers = {} as HqUsdtRiskLimitTiers;
+  for (const tier of USDT_RISK_LIMIT_TIERS) {
+    const band = raw?.[tier];
+    const fallback = DEFAULT_USDT_RISK_LIMIT_TIERS[tier];
+    tiers[tier] = {
+      minUsdt: Math.max(0, Number(band?.minUsdt ?? fallback.minUsdt) || 0),
+      maxUsdt: Math.max(0, Number(band?.maxUsdt ?? fallback.maxUsdt) || 0),
+    };
+  }
+  return { ...risk, usdtRiskLimitTiers: tiers };
+}
+
+function withRiskDefaults(risk: HqCommissionRiskConfig): HqCommissionRiskConfig {
+  return ensureUsdtRiskLimitTiers(ensureTransactionLimits(withFeeDiagramDefaults(risk)));
 }
 
 const RATE_SOURCES: ExchangeRateSourceId[] = [
@@ -282,6 +353,7 @@ function mergeWithOrganizations(
 
 export default function HqCommissionPage() {
   const t = useT();
+  const { requestConfirm, dialog: doubleConfirmDialog } = useDoubleConfirm();
   const [data, setData] = useState<HqCommissionPayload | null>(null);
   const [risk, setRisk] = useState<HqCommissionRiskConfig | null>(null);
   const [orgRows, setOrgRows] = useState<OrgRateRow[]>([]);
@@ -310,6 +382,17 @@ export default function HqCommissionPage() {
   const [currencyAmount, setCurrencyAmount] = useState<HqCurrencyAmountDisplayPolicy>(DEFAULT_CURRENCY_AMOUNT);
   const [savingCurrencyAmount, setSavingCurrencyAmount] = useState(false);
   const [currencyAmountMsg, setCurrencyAmountMsg] = useState('');
+  const [quoteResponse, setQuoteResponse] = useState({
+    enabled: true,
+    mode: 'AUTO' as 'AUTO' | 'MANUAL',
+    autoDelayMinutes: 0,
+    manualSlaHours: 3,
+    applyIdleMinutes: 5,
+    applyMaxMinutes: 10,
+    quoteValidMinutes: 20,
+  });
+  const [savingQuote, setSavingQuote] = useState(false);
+  const [quoteMsg, setQuoteMsg] = useState('');
   const [savingRates, setSavingRates] = useState(false);
   const [msg, setMsg] = useState('');
   const [ratesMsg, setRatesMsg] = useState('');
@@ -349,7 +432,7 @@ export default function HqCommissionPage() {
     Promise.all([hqPolicyApi.getCommission(), api.organizations()])
       .then(([commission, orgs]) => {
         setData(commission);
-        setRisk(ensureTransactionLimits(withFeeDiagramDefaults({
+        setRisk(withRiskDefaults({
           ...commission.risk,
           defaultFxFeePercent: commission.risk.defaultFxFeePercent ?? 0,
           defaultTransferFeeUsdt:
@@ -357,7 +440,7 @@ export default function HqCommissionPage() {
             commission.risk.defaultPlatformFeeUsdt ??
             0,
           defaultOtherFeeUsdt: commission.risk.defaultOtherFeeUsdt ?? 0,
-        })));
+        }));
         const baseRows = buildOrgRows(commission);
         setOrgRows(mergeWithOrganizations(baseRows, commission, orgs));
         const types = commission.feeTypes ?? [];
@@ -370,28 +453,82 @@ export default function HqCommissionPage() {
           ...DEFAULT_CURRENCY_AMOUNT,
           ...(commission.currencyAmountDisplay ?? {}),
         });
+        if (commission.usdtQuoteResponse) {
+          const q = commission.usdtQuoteResponse;
+          setQuoteResponse({
+            enabled: q.enabled !== false,
+            mode: q.mode === 'MANUAL' ? 'MANUAL' : 'AUTO',
+            autoDelayMinutes: q.autoDelayMinutes ?? 0,
+            manualSlaHours: q.manualSlaHours ?? 3,
+            applyIdleMinutes: q.applyIdleMinutes ?? 5,
+            applyMaxMinutes: q.applyMaxMinutes ?? 10,
+            quoteValidMinutes: q.quoteValidMinutes ?? 20,
+          });
+        }
       })
       .catch((e) => setError(e instanceof Error ? e.message : t('common.loadFailed')));
   }, [t]);
 
   async function saveCurrencyAmountDisplay() {
-    setSavingCurrencyAmount(true);
-    setCurrencyAmountMsg('');
-    try {
-      const next = await hqPolicyApi.saveCurrencyAmountDisplay(currencyAmount);
-      setData(next);
-      setCurrencyAmount({
-        ...DEFAULT_CURRENCY_AMOUNT,
-        ...(next.currencyAmountDisplay ?? {}),
-      });
-      const { setCurrencyAmountDisplayPolicy } = await import('@/lib/format');
-      setCurrencyAmountDisplayPolicy(next.currencyAmountDisplay ?? DEFAULT_CURRENCY_AMOUNT);
-      setCurrencyAmountMsg(t('hq.saved'));
-    } catch (e) {
-      setCurrencyAmountMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
-    } finally {
-      setSavingCurrencyAmount(false);
-    }
+    requestConfirm({
+      title: t('hq.commission.currencyAmountSave'),
+      step1: t('common.doubleConfirm.step1'),
+      step2: t('common.doubleConfirm.step2'),
+      confirmLabel: t('common.save'),
+      onConfirm: async () => {
+        setSavingCurrencyAmount(true);
+        setCurrencyAmountMsg('');
+        try {
+          const next = await hqPolicyApi.saveCurrencyAmountDisplay(currencyAmount);
+          setData(next);
+          setCurrencyAmount({
+            ...DEFAULT_CURRENCY_AMOUNT,
+            ...(next.currencyAmountDisplay ?? {}),
+          });
+          const { setCurrencyAmountDisplayPolicy } = await import('@/lib/format');
+          setCurrencyAmountDisplayPolicy(next.currencyAmountDisplay ?? DEFAULT_CURRENCY_AMOUNT);
+          setCurrencyAmountMsg(t('hq.saved'));
+        } catch (e) {
+          setCurrencyAmountMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
+        } finally {
+          setSavingCurrencyAmount(false);
+        }
+      },
+    });
+  }
+
+  async function saveUsdtQuoteResponse() {
+    requestConfirm({
+      title: t('hq.commission.quoteResponseSave'),
+      step1: t('common.doubleConfirm.step1'),
+      step2: t('common.doubleConfirm.step2'),
+      confirmLabel: t('common.save'),
+      onConfirm: async () => {
+        setSavingQuote(true);
+        setQuoteMsg('');
+        try {
+          const next = await hqPolicyApi.saveUsdtQuoteResponse(quoteResponse);
+          setData(next);
+          if (next.usdtQuoteResponse) {
+            const q = next.usdtQuoteResponse;
+            setQuoteResponse({
+              enabled: q.enabled !== false,
+              mode: q.mode === 'MANUAL' ? 'MANUAL' : 'AUTO',
+              autoDelayMinutes: q.autoDelayMinutes ?? 0,
+              manualSlaHours: q.manualSlaHours ?? 3,
+              applyIdleMinutes: q.applyIdleMinutes ?? 5,
+              applyMaxMinutes: q.applyMaxMinutes ?? 10,
+              quoteValidMinutes: q.quoteValidMinutes ?? 20,
+            });
+          }
+          setQuoteMsg(t('hq.saved'));
+        } catch (e) {
+          setQuoteMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
+        } finally {
+          setSavingQuote(false);
+        }
+      },
+    });
   }
 
   const currencyTiers = useMemo(() => {
@@ -571,23 +708,31 @@ export default function HqCommissionPage() {
       setMsg(t('hq.commission.tierFinishEditFirst'));
       return;
     }
-    setSavingRisk(true);
-    setMsg('');
-    try {
-      const payload = ensureTransactionLimits({
-        ...risk,
-        maxTicketAmountKrw:
-          risk.transactionLimits?.INDIVIDUAL?.KRW?.perTransactionMax ?? risk.maxTicketAmountKrw,
-      });
-      const next = await hqPolicyApi.saveCommissionRisk(payload);
-      setData(next);
-      setRisk(ensureTransactionLimits(withFeeDiagramDefaults(next.risk)));
-      setMsg(t('hq.saved'));
-    } catch (e) {
-      setMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
-    } finally {
-      setSavingRisk(false);
-    }
+    requestConfirm({
+      title: t('hq.commission.showFeeRatesSave'),
+      step1: t('common.doubleConfirm.step1'),
+      step2: t('common.doubleConfirm.step2'),
+      confirmLabel: t('common.save'),
+      onConfirm: async () => {
+        setSavingRisk(true);
+        setMsg('');
+        try {
+          const payload = withRiskDefaults({
+            ...risk,
+            maxTicketAmountKrw:
+              risk.transactionLimits?.INDIVIDUAL?.KRW?.perTransactionMax ?? risk.maxTicketAmountKrw,
+          });
+          const next = await hqPolicyApi.saveCommissionRisk(payload);
+          setData(next);
+          setRisk(withRiskDefaults(next.risk));
+          setMsg(t('hq.saved'));
+        } catch (e) {
+          setMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
+        } finally {
+          setSavingRisk(false);
+        }
+      },
+    });
   }
 
   async function saveRates() {
@@ -643,6 +788,7 @@ export default function HqCommissionPage() {
 
   return (
     <div className="pg-stack">
+      {doubleConfirmDialog}
       <section className="pg-section">
         <div className="pg-section-head">{t('hq.commission.rateSourceTitle')}</div>
         <div className="pg-section-pad space-y-3">
@@ -780,99 +926,197 @@ export default function HqCommissionPage() {
           <div className="pg-card-head">{t('hq.commission.showFeeRatesTitle')}</div>
           <div className="pg-card-body space-y-3">
             <p className="pg-hint text-xs">{t('hq.commission.showFeeRatesDesc')}</p>
-            <div className="grid gap-4 lg:grid-cols-2">
-              {(
-                [
-                  {
-                    env: 'live' as const,
-                    titleKey: 'hq.commission.showFeeRatesLive' as MessageKey,
-                    cfg: risk.feeDiagramDisplay,
-                    radioName: 'showFeeRatesLive',
-                  },
-                  {
-                    env: 'sandbox' as const,
-                    titleKey: 'hq.commission.showFeeRatesSandbox' as MessageKey,
-                    cfg: risk.sandboxFeeDiagramDisplay,
-                    radioName: 'showFeeRatesSandbox',
-                  },
-                ] as const
-              ).map(({ env, titleKey, cfg, radioName }) => {
-                const showRates = cfg?.showRates ?? DEFAULT_FEE_DIAGRAM.showRates;
-                const billing =
-                  cfg?.defaultFeeBillingMethod ?? DEFAULT_FEE_DIAGRAM.defaultFeeBillingMethod;
-                return (
-                  <div
-                    key={env}
-                    className="space-y-3 rounded-md border border-slate-200 bg-slate-50/60 p-3"
-                  >
-                    <p className="text-sm font-semibold text-slate-800">{t(titleKey)}</p>
-                    <div className="flex flex-wrap gap-4">
-                      <label className="flex items-center gap-2 text-sm">
-                        <input
-                          type="radio"
-                          name={radioName}
-                          checked={showRates === true}
-                          onChange={() =>
-                            setRisk((prev) =>
-                              prev ? patchFeeDiagramEnv(prev, env, { showRates: true }) : prev,
-                            )
-                          }
-                        />
-                        {t('hq.commission.showFeeRatesOn')}
-                      </label>
-                      <label className="flex items-center gap-2 text-sm">
-                        <input
-                          type="radio"
-                          name={radioName}
-                          checked={showRates === false}
-                          onChange={() =>
-                            setRisk((prev) =>
-                              prev ? patchFeeDiagramEnv(prev, env, { showRates: false }) : prev,
-                            )
-                          }
-                        />
-                        {t('hq.commission.showFeeRatesOff')}
-                      </label>
-                    </div>
-                    <div className="border-t border-slate-200 pt-3 space-y-2">
-                      <p className="pg-label text-sm">{t('hq.commission.defaultBillingMethod')}</p>
-                      <p className="pg-hint text-xs">
-                        {t(
-                          env === 'live'
-                            ? 'hq.commission.defaultBillingMethodDescLive'
-                            : 'hq.commission.defaultBillingMethodDescSandbox',
+            {(
+              [
+                {
+                  audience: 'customer' as const,
+                  audienceTitle: 'hq.commission.showFeeRatesAudienceCustomer' as MessageKey,
+                  audienceHint: 'hq.commission.showFeeRatesAudienceCustomerHint' as MessageKey,
+                  liveCfg: risk.feeDiagramDisplay,
+                  sandCfg: risk.sandboxFeeDiagramDisplay,
+                },
+                {
+                  audience: 'hq' as const,
+                  audienceTitle: 'hq.commission.showFeeRatesAudienceHq' as MessageKey,
+                  audienceHint: 'hq.commission.showFeeRatesAudienceHqHint' as MessageKey,
+                  liveCfg: risk.hqFeeDiagramDisplay,
+                  sandCfg: risk.hqSandboxFeeDiagramDisplay,
+                },
+              ] as const
+            ).map(({ audience, audienceTitle, audienceHint, liveCfg, sandCfg }) => (
+              <div key={audience} className="space-y-3 rounded-md border border-slate-200 p-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">{t(audienceTitle)}</p>
+                  <p className="mt-0.5 pg-hint text-xs">{t(audienceHint)}</p>
+                </div>
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {(
+                    [
+                      {
+                        env: 'live' as const,
+                        titleKey: 'hq.commission.showFeeRatesLive' as MessageKey,
+                        cfg: liveCfg,
+                        radioName: `showFeeRates-${audience}-live`,
+                      },
+                      {
+                        env: 'sandbox' as const,
+                        titleKey: 'hq.commission.showFeeRatesSandbox' as MessageKey,
+                        cfg: sandCfg,
+                        radioName: `showFeeRates-${audience}-sandbox`,
+                      },
+                    ] as const
+                  ).map(({ env, titleKey, cfg, radioName }) => {
+                    const showRates = cfg?.showRates ?? DEFAULT_FEE_DIAGRAM.showRates;
+                    const billing =
+                      cfg?.defaultFeeBillingMethod ?? DEFAULT_FEE_DIAGRAM.defaultFeeBillingMethod;
+                    return (
+                      <div
+                        key={`${audience}-${env}`}
+                        className="space-y-3 rounded-md border border-slate-200 bg-slate-50/60 p-3"
+                      >
+                        <p className="text-sm font-semibold text-slate-800">{t(titleKey)}</p>
+                        <div className="flex flex-wrap gap-4">
+                          <label className="flex items-center gap-2 text-sm">
+                            <input
+                              type="radio"
+                              name={radioName}
+                              checked={showRates === true}
+                              onChange={() =>
+                                setRisk((prev) =>
+                                  prev
+                                    ? patchFeeDiagramEnv(prev, env, { showRates: true }, audience)
+                                    : prev,
+                                )
+                              }
+                            />
+                            {t('hq.commission.showFeeRatesOn')}
+                          </label>
+                          <label className="flex items-center gap-2 text-sm">
+                            <input
+                              type="radio"
+                              name={radioName}
+                              checked={showRates === false}
+                              onChange={() =>
+                                setRisk((prev) =>
+                                  prev
+                                    ? patchFeeDiagramEnv(prev, env, { showRates: false }, audience)
+                                    : prev,
+                                )
+                              }
+                            />
+                            {t('hq.commission.showFeeRatesOff')}
+                          </label>
+                        </div>
+                        {audience === 'customer' && (
+                          <div className="border-t border-slate-200 pt-3 space-y-2">
+                            <p className="pg-label text-sm">{t('hq.commission.defaultBillingMethod')}</p>
+                            <p className="pg-hint text-xs">
+                              {t(
+                                env === 'live'
+                                  ? 'hq.commission.defaultBillingMethodDescLive'
+                                  : 'hq.commission.defaultBillingMethodDescSandbox',
+                              )}
+                            </p>
+                            <div className="flex flex-wrap items-center gap-3">
+                              <select
+                                className="pg-input max-w-xs text-sm"
+                                value={billing}
+                                onChange={(e) =>
+                                  setRisk((prev) =>
+                                    prev
+                                      ? patchFeeDiagramEnv(
+                                          prev,
+                                          env,
+                                          {
+                                            defaultFeeBillingMethod: e.target.value as
+                                              | 'INTEGRATED'
+                                              | 'ITEMIZED'
+                                              | 'HYBRID',
+                                          },
+                                          'customer',
+                                        )
+                                      : prev,
+                                  )
+                                }
+                              >
+                                <option value="ITEMIZED">{t('feeBilling.ITEMIZED')}</option>
+                                <option value="INTEGRATED">{t('feeBilling.INTEGRATED')}</option>
+                                <option value="HYBRID">{t('feeBilling.HYBRID')}</option>
+                              </select>
+                              <span className="text-xs text-slate-600">
+                                {t('hq.commission.currentDefaultBilling')}:{' '}
+                                <strong>{t(`feeBilling.${billing}` as MessageKey)}</strong>
+                              </span>
+                            </div>
+                          </div>
                         )}
-                      </p>
-                      <div className="flex flex-wrap items-center gap-3">
-                        <select
-                          className="pg-input max-w-xs text-sm"
-                          value={billing}
-                          onChange={(e) =>
-                            setRisk((prev) =>
-                              prev
-                                ? patchFeeDiagramEnv(prev, env, {
-                                    defaultFeeBillingMethod: e.target.value as
-                                      | 'INTEGRATED'
-                                      | 'ITEMIZED'
-                                      | 'HYBRID',
-                                  })
-                                : prev,
-                            )
-                          }
-                        >
-                          <option value="ITEMIZED">{t('feeBilling.ITEMIZED')}</option>
-                          <option value="INTEGRATED">{t('feeBilling.INTEGRATED')}</option>
-                          <option value="HYBRID">{t('feeBilling.HYBRID')}</option>
-                        </select>
-                        <span className="text-xs text-slate-600">
-                          {t('hq.commission.currentDefaultBilling')}:{' '}
-                          <strong>{t(`feeBilling.${billing}` as MessageKey)}</strong>
-                        </span>
                       </div>
-                    </div>
-                  </div>
-                );
-              })}
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+            <div className="border-t border-slate-200 pt-3 space-y-2">
+              <p className="pg-label text-sm">{t('hq.commission.showTotalFeeTitle')}</p>
+              <p className="pg-hint text-xs">{t('hq.commission.showTotalFeeDesc')}</p>
+              <div className="flex flex-wrap gap-4">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="showTotalFee"
+                    checked={(risk.showTotalFee ?? true) === true}
+                    onChange={() =>
+                      setRisk((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              showTotalFee: true,
+                              feeDiagramDisplay: {
+                                ...DEFAULT_FEE_DIAGRAM,
+                                ...prev.feeDiagramDisplay,
+                                showTotalFee: true,
+                              },
+                              sandboxFeeDiagramDisplay: {
+                                ...DEFAULT_FEE_DIAGRAM,
+                                ...prev.sandboxFeeDiagramDisplay,
+                                showTotalFee: true,
+                              },
+                            }
+                          : prev,
+                      )
+                    }
+                  />
+                  {t('hq.commission.showFeeRatesOn')}
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="showTotalFee"
+                    checked={(risk.showTotalFee ?? true) === false}
+                    onChange={() =>
+                      setRisk((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              showTotalFee: false,
+                              feeDiagramDisplay: {
+                                ...DEFAULT_FEE_DIAGRAM,
+                                ...prev.feeDiagramDisplay,
+                                showTotalFee: false,
+                              },
+                              sandboxFeeDiagramDisplay: {
+                                ...DEFAULT_FEE_DIAGRAM,
+                                ...prev.sandboxFeeDiagramDisplay,
+                                showTotalFee: false,
+                              },
+                            }
+                          : prev,
+                      )
+                    }
+                  />
+                  {t('hq.commission.showFeeRatesOff')}
+                </label>
+              </div>
             </div>
             <div className="flex flex-wrap items-center gap-3 pt-1">
               <button
@@ -961,6 +1205,155 @@ export default function HqCommissionPage() {
                 {savingCurrencyAmount ? t('hq.saving') : t('hq.commission.currencyAmountSave')}
               </button>
               {currencyAmountMsg && <span className="pg-hint">{currencyAmountMsg}</span>}
+            </div>
+          </div>
+        </div>
+
+        <div className="pg-card">
+          <div className="pg-card-head">{t('hq.commission.quoteResponseTitle')}</div>
+          <div className="pg-card-body space-y-3">
+            <p className="pg-hint text-xs">{t('hq.commission.quoteResponseDesc')}</p>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={quoteResponse.enabled}
+                onChange={(e) =>
+                  setQuoteResponse((p) => ({ ...p, enabled: e.target.checked }))
+                }
+              />
+              {t('hq.commission.quoteResponseEnabled')}
+            </label>
+            <div className="flex flex-wrap gap-4 text-sm">
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="quoteMode"
+                  checked={quoteResponse.mode === 'AUTO'}
+                  onChange={() => setQuoteResponse((p) => ({ ...p, mode: 'AUTO' }))}
+                />
+                {t('hq.commission.quoteModeAuto')}
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="quoteMode"
+                  checked={quoteResponse.mode === 'MANUAL'}
+                  onChange={() => setQuoteResponse((p) => ({ ...p, mode: 'MANUAL' }))}
+                />
+                {t('hq.commission.quoteModeManual')}
+              </label>
+            </div>
+            {quoteResponse.mode === 'AUTO' && (
+              <div>
+                <label className="pg-label">{t('hq.commission.quoteAutoDelay')}</label>
+                <select
+                  className="pg-input mt-1 max-w-xs"
+                  value={quoteResponse.autoDelayMinutes}
+                  onChange={(e) =>
+                    setQuoteResponse((p) => ({
+                      ...p,
+                      autoDelayMinutes: Number(e.target.value),
+                    }))
+                  }
+                >
+                  {[0, 1, 3, 5, 10, 30, 60, 180, 360, 720, 1440, 2880, 4320].map((m) => (
+                    <option key={m} value={m}>
+                      {m === 0
+                        ? t('hq.commission.quoteDelayImmediate')
+                        : m < 60
+                          ? t('hq.commission.quoteDelayMinutes', { n: String(m) })
+                          : m < 1440
+                            ? t('hq.commission.quoteDelayHours', { n: String(m / 60) })
+                            : t('hq.commission.quoteDelayDays', { n: String(m / 1440) })}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {quoteResponse.mode === 'MANUAL' && (
+              <div>
+                <label className="pg-label">{t('hq.commission.quoteManualSla')}</label>
+                <select
+                  className="pg-input mt-1 max-w-xs"
+                  value={quoteResponse.manualSlaHours}
+                  onChange={(e) =>
+                    setQuoteResponse((p) => ({
+                      ...p,
+                      manualSlaHours: Number(e.target.value),
+                    }))
+                  }
+                >
+                  {[3, 6, 12, 24].map((h) => (
+                    <option key={h} value={h}>
+                      {t('hq.commission.quoteDelayHours', { n: String(h) })}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div className="rounded border border-slate-100 bg-slate-50/80 p-3 space-y-3">
+              <p className="pg-hint text-xs">{t('hq.commission.quoteTimersDesc')}</p>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <label className="pg-field">
+                  <span className="pg-label">{t('hq.commission.applyIdleMinutes')}</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={60}
+                    className="pg-input mt-1 w-full"
+                    value={quoteResponse.applyIdleMinutes}
+                    onChange={(e) =>
+                      setQuoteResponse((p) => ({
+                        ...p,
+                        applyIdleMinutes: Math.max(1, Number(e.target.value) || 1),
+                      }))
+                    }
+                  />
+                </label>
+                <label className="pg-field">
+                  <span className="pg-label">{t('hq.commission.applyMaxMinutes')}</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={120}
+                    className="pg-input mt-1 w-full"
+                    value={quoteResponse.applyMaxMinutes}
+                    onChange={(e) =>
+                      setQuoteResponse((p) => ({
+                        ...p,
+                        applyMaxMinutes: Math.max(1, Number(e.target.value) || 1),
+                      }))
+                    }
+                  />
+                </label>
+                <label className="pg-field">
+                  <span className="pg-label">{t('hq.commission.quoteValidMinutes')}</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={240}
+                    className="pg-input mt-1 w-full"
+                    value={quoteResponse.quoteValidMinutes}
+                    onChange={(e) =>
+                      setQuoteResponse((p) => ({
+                        ...p,
+                        quoteValidMinutes: Math.max(1, Number(e.target.value) || 1),
+                      }))
+                    }
+                  />
+                </label>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                className="pg-btn pg-btn-primary text-xs"
+                disabled={savingQuote}
+                onClick={() => void saveUsdtQuoteResponse()}
+              >
+                {savingQuote ? t('hq.saving') : t('hq.commission.quoteResponseSave')}
+              </button>
+              {quoteMsg && <span className="pg-hint">{quoteMsg}</span>}
             </div>
           </div>
         </div>
@@ -1387,6 +1780,83 @@ export default function HqCommissionPage() {
                 </table>
               </div>
               <p className="pg-hint text-[10px]">{t('hq.commission.limitZeroHint')}</p>
+            </div>
+
+            <div className="space-y-2">
+              <p className="pg-label">{t('hq.commission.usdtRiskTiersTitle')}</p>
+              <p className="pg-hint text-xs">{t('hq.commission.usdtRiskTiersDesc')}</p>
+              <div className="pg-card pg-table-wrap">
+                <table className="pg-table">
+                  <thead>
+                    <tr>
+                      <th>{t('hq.commission.usdtRiskTierCode')}</th>
+                      <th>{t('hq.commission.usdtRiskTierLabel')}</th>
+                      <th>{t('hq.commission.usdtRiskTierMin')}</th>
+                      <th>{t('hq.commission.usdtRiskTierMax')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {USDT_RISK_LIMIT_TIERS.map((tier) => {
+                      const band = risk.usdtRiskLimitTiers?.[tier] ?? DEFAULT_USDT_RISK_LIMIT_TIERS[tier];
+                      return (
+                        <tr key={tier}>
+                          <td className="font-mono font-medium">{tier}</td>
+                          <td>{t(USDT_RISK_TIER_LABEL_KEYS[tier])}</td>
+                          <td>
+                            <FormattedAmountInput
+                              min={0}
+                              commitOnBlur
+                              className="pg-input w-28 text-xs"
+                              value={band.minUsdt}
+                              onChange={(n) =>
+                                setRisk((prev) => {
+                                  if (!prev) return prev;
+                                  const base = ensureUsdtRiskLimitTiers(prev);
+                                  return {
+                                    ...base,
+                                    usdtRiskLimitTiers: {
+                                      ...base.usdtRiskLimitTiers!,
+                                      [tier]: {
+                                        ...base.usdtRiskLimitTiers![tier],
+                                        minUsdt: Math.max(0, n),
+                                      },
+                                    },
+                                  };
+                                })
+                              }
+                            />
+                          </td>
+                          <td>
+                            <FormattedAmountInput
+                              min={0}
+                              commitOnBlur
+                              className="pg-input w-28 text-xs"
+                              value={band.maxUsdt}
+                              onChange={(n) =>
+                                setRisk((prev) => {
+                                  if (!prev) return prev;
+                                  const base = ensureUsdtRiskLimitTiers(prev);
+                                  return {
+                                    ...base,
+                                    usdtRiskLimitTiers: {
+                                      ...base.usdtRiskLimitTiers!,
+                                      [tier]: {
+                                        ...base.usdtRiskLimitTiers![tier],
+                                        maxUsdt: Math.max(0, n),
+                                      },
+                                    },
+                                  };
+                                })
+                              }
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <p className="pg-hint text-[10px]">{t('hq.commission.usdtRiskTierZeroHint')}</p>
             </div>
 
             <div className="flex flex-wrap items-end gap-3">

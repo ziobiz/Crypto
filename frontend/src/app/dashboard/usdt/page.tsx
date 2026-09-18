@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthProvider';
 import { useT } from '@/context/LocaleProvider';
-import { api, UsdtTicket } from '@/lib/api';
+import { api, UsdtDepositContext, UsdtTicket } from '@/lib/api';
 import { StatusBadge, buildUsdtStatusContext } from '@/components/StatusBadge';
 import { PageSizeBar } from '@/components/PageSizeBar';
 import { SortableTh } from '@/components/ListTableControls';
@@ -35,6 +35,8 @@ import {
 } from '@/components/layout/MobileStackList';
 
 const USDT_STATUSES = [
+  'QUOTE_PENDING',
+  'QUOTE_CONFIRMED',
   'APPLICATION_COMPLETED',
   'CARD_PAYMENT_PENDING',
   'DEPOSIT_PROOF_PENDING',
@@ -97,6 +99,8 @@ export default function UsdtListPage() {
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number | 'all'>(50);
+  const [depositCtx, setDepositCtx] = useState<UsdtDepositContext | null>(null);
+  const dailyBlocked = !!depositCtx?.dailyTicketLimitReached;
 
   const load = useCallback(() => {
     api.usdt.list().then(setTickets).catch(console.error);
@@ -104,7 +108,10 @@ export default function UsdtListPage() {
 
   useEffect(() => {
     load();
-  }, [load]);
+    if (user?.role === 'CUSTOMER' || user?.role === 'CUSTOMER_OPERATOR') {
+      api.usdt.depositContext().then(setDepositCtx).catch(console.error);
+    }
+  }, [load, user?.role]);
 
   function toggleSort(key: string) {
     if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -223,12 +230,19 @@ export default function UsdtListPage() {
 
   const newBtn =
     user?.role === 'CUSTOMER' || user?.role === 'CUSTOMER_OPERATOR' ? (
-      kycOk ? (
+      kycOk && !dailyBlocked ? (
         <Link href="/dashboard/usdt/new" className="pg-btn pg-btn-primary w-full sm:w-auto">
           {t('usdt.new')}
         </Link>
       ) : (
-        <span className="pg-btn pg-btn-primary w-full cursor-not-allowed opacity-50 sm:w-auto" title={t('kyc.requiredToTrade')}>
+        <span
+          className="pg-btn pg-btn-primary w-full cursor-not-allowed opacity-50 sm:w-auto"
+          title={
+            dailyBlocked
+              ? t('usdt.dailyLimitReachedShort')
+              : t('kyc.requiredToTrade')
+          }
+        >
           {t('usdt.new')}
         </span>
       )
@@ -240,6 +254,13 @@ export default function UsdtListPage() {
         <ReferenceClocks compact baseTimezone={baseTimezone} serviceTimezone={serviceTimezone} country={country} />
         <div className="flex flex-wrap items-center justify-end gap-2">{newBtn}</div>
       </div>
+      {dailyBlocked && (
+        <div className="pg-callout pg-callout-error text-sm">
+          {t('usdt.dailyLimitReached', {
+            max: depositCtx?.maxDailyTicketsPerCustomer ?? 0,
+          })}
+        </div>
+      )}
 
       <TransactionFilterBar
         value={draft}

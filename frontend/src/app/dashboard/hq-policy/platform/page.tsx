@@ -298,8 +298,33 @@ export default function HqPlatformPage() {
             placeholder="Crypto Workflow"
           />
           <span className="mt-1 block text-xs text-gray-500">{t('hq.platform.authMainTextDesc')}</span>
-          <span className="mt-1 block text-xs text-blue-700">{t('hq.platform.authMainTextOgHint')}</span>
         </label>
+
+        <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50/80 p-4">
+          <p className="text-xs font-semibold text-slate-800">{t('hq.platform.ogShareTitle')}</p>
+          <p className="text-xs text-slate-500">{t('hq.platform.ogShareDesc')}</p>
+          <label className="block text-sm">
+            <span className="text-gray-600">{t('hq.platform.ogTitle')}</span>
+            <input
+              type="text"
+              value={config.ogTitle ?? ''}
+              onChange={(e) => setConfig({ ...config, ogTitle: e.target.value })}
+              className="pg-input mt-1"
+              placeholder={config.siteName || 'TINPASS'}
+            />
+            <span className="mt-1 block text-xs text-gray-500">{t('hq.platform.ogTitleHint')}</span>
+          </label>
+          <label className="block text-sm">
+            <span className="text-gray-600">{t('hq.platform.ogDescription')}</span>
+            <textarea
+              value={config.ogDescription ?? ''}
+              onChange={(e) => setConfig({ ...config, ogDescription: e.target.value })}
+              rows={2}
+              className="pg-input mt-1"
+            />
+            <span className="mt-1 block text-xs text-gray-500">{t('hq.platform.ogDescriptionHint')}</span>
+          </label>
+        </div>
 
         <BrandAssetField
           label={t('hq.platform.ogImage')}

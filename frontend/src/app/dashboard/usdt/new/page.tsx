@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthProvider';
 import { useT } from '@/context/LocaleProvider';
@@ -23,8 +23,8 @@ import { ReferenceClocks } from '@/components/ReferenceClocks';
 import { CopyableMono } from '@/components/CopyButton';
 import { displayWalletLabel } from '@/lib/wallet-label';
 import { isKycApproved } from '@/lib/kyc';
-
-const FIAT_CURRENCIES = ['KRW', 'JPY', 'THB', 'CNY'] as const;
+import { useDoubleConfirm } from '@/hooks/useDoubleConfirm';
+import { useApplySessionTimers } from '@/hooks/useApplySessionTimers';const FIAT_CURRENCIES = ['KRW', 'JPY', 'THB', 'CNY'] as const;
 type FiatCurrency = (typeof FIAT_CURRENCIES)[number];
 const ALL_CURRENCY_TRADE: Record<FiatCurrency, { transfer: boolean; card: boolean }> = {
   KRW: { transfer: true, card: true },
@@ -39,6 +39,7 @@ export default function UsdtNewPage() {
   const router = useRouter();
   const { user } = useAuth();
   const t = useT();
+  const { requestConfirm, dialog: doubleConfirmDialog } = useDoubleConfirm();
   const kycOk = isKycApproved(user);
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [rate, setRate] = useState<ExchangeRateResponse | null>(null);
@@ -57,6 +58,24 @@ export default function UsdtNewPage() {
   const [sourceFiles, setSourceFiles] = useState<File[]>([]);
   const [depositReceiptFiles, setDepositReceiptFiles] = useState<File[]>([]);
   const [depositCtx, setDepositCtx] = useState<UsdtDepositContext | null>(null);
+  const dailyBlocked = !!depositCtx?.dailyTicketLimitReached;
+
+  const onSessionExpire = useCallback(
+    (reason: 'max' | 'idle') => {
+      window.alert(
+        reason === 'idle' ? t('usdt.applyIdleExpired') : t('usdt.applySessionExpired'),
+      );
+      router.replace('/dashboard/usdt');
+    },
+    [router, t],
+  );
+
+  const { sessionLabel } = useApplySessionTimers({
+    enabled: !dailyBlocked && depositCtx != null,
+    applyMaxMinutes: depositCtx?.applyMaxMinutes ?? 10,
+    applyIdleMinutes: depositCtx?.applyIdleMinutes ?? 5,
+    onExpire: onSessionExpire,
+  });
 
   useEffect(() => {
     const def = user?.sessionPolicy?.defaultUsdtFiatCurrency;
@@ -154,27 +173,115 @@ export default function UsdtNewPage() {
         ? cardChargeFiat > 0
         : fiatAmount > 0);
 
+  // 금액·수단 변경 시 잠정 견적 초기화
   useEffect(() => {
-    if (!canPreview) {
-      setFeePreview(null);
-      return;
-    }
-    const base = { walletId, fiatCurrency, paymentMethod: isCard ? ('CARD' as const) : undefined };
-    const params =
-      inputMode === 'target'
-        ? { ...base, targetUsdtAmount: usdtAmount }
-        : inputMode === 'cardCharge'
-          ? { ...base, cardChargeFiat }
-          : { ...base, fiatAmount };
-    api.usdt.fees(params).then(setFeePreview).catch(() => setFeePreview(null));
-  }, [walletId, fiatCurrency, inputMode, usdtAmount, fiatAmount, cardChargeFiat, canPreview, isCard]);
+    setFeePreview(null);
+  }, [walletId, fiatCurrency, inputMode, usdtAmount, fiatAmount, cardChargeFiat, isCard]);
 
   const fiatRate = rate?.usdtFiatRate ?? rate?.usdtKrwRate ?? 0;
   const breakdown = feePreview?.breakdown ?? null;
+  /** 은행이체 + 견적정책 ON → 신청 후 상세에서 확정·거래 (고객별 OFF면 즉시) */
+  const useQuoteFlow = !isCard && depositCtx?.quoteResponse?.enabled !== false;
+
+  const buildFeeParams = () => {
+    const base = { walletId, fiatCurrency, paymentMethod: isCard ? ('CARD' as const) : undefined };
+    if (inputMode === 'target') return { ...base, targetUsdtAmount: usdtAmount };
+    if (inputMode === 'cardCharge') return { ...base, cardChargeFiat };
+    return { ...base, fiatAmount };
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (dailyBlocked) {
+      setError(
+        t('usdt.dailyLimitReached', {
+          max: depositCtx?.maxDailyTicketsPerCustomer ?? 0,
+        }),
+      );
+      return;
+    }
+    if (useQuoteFlow) {
+      if (!kycOk) {
+        setError(t('kyc.requiredToTrade'));
+        return;
+      }
+      if (!canPreview) {
+        setError(t('usdt.amountRequired'));
+        return;
+      }
+      if (!bankMethodAvailable) {
+        setError(t('usdt.fiatTransferDisabled', { currency: fiatCurrency }));
+        return;
+      }
+
+      // 1차: 수수료 미리보기만 (일일 건수 미소진)
+      if (!feePreview?.breakdown) {
+        setLoading(true);
+        try {
+          const preview = await api.usdt.fees(buildFeeParams());
+          setFeePreview(preview);
+        } catch (err) {
+          if (err instanceof ApiError && err.code === 'FIAT_TRANSFER_DISABLED') {
+            setError(t('usdt.fiatTransferDisabled', { currency: fiatCurrency }));
+          } else if (
+            err instanceof ApiError &&
+            (err.code === 'USDT_RISK_MIN' || err.code === 'USDT_RISK_MAX')
+          ) {
+            setError(err.message);
+            setFeePreview(null);
+          } else {
+            setError(err instanceof Error ? err.message : t('usdt.submitFailed'));
+          }
+        } finally {
+          setLoading(false);
+        }
+        return;
+      }
+
+      // 2차: 더블확인 후 티켓 생성 → 일일 건수 카운팅
+      const limits = feePreview.transactionLimits;
+      const maxDaily = limits?.maxDailyTicketsPerCustomer ?? 0;
+      const nextN = (limits?.dailyTicketCount ?? 0) + 1;
+      const step1 =
+        maxDaily > 0
+          ? t('usdt.quoteDailyConfirmStep1', { n: nextN, max: maxDaily })
+          : t('usdt.quoteDailyConfirmUnlimited');
+
+      requestConfirm({
+        title: t('usdt.quoteDailyConfirmTitle'),
+        step1,
+        step2: t('usdt.quoteDailyConfirmStep2'),
+        confirmLabel: t('usdt.requestQuote'),
+        onConfirm: async () => {
+          setLoading(true);
+          setError('');
+          try {
+            const ticket = await api.usdt.create(
+              inputMode === 'target'
+                ? { targetUsdtAmount: usdtAmount, walletId, fiatCurrency }
+                : { fiatAmount, walletId, fiatCurrency },
+            );
+            router.push(`/dashboard/usdt/${ticket.id}`);
+          } catch (err) {
+            if (err instanceof ApiError && err.code === 'FIAT_TRANSFER_DISABLED') {
+              setError(t('usdt.fiatTransferDisabled', { currency: fiatCurrency }));
+            } else if (
+              err instanceof ApiError &&
+              (err.code === 'USDT_RISK_MIN' || err.code === 'USDT_RISK_MAX')
+            ) {
+              setError(err.message);
+              setFeePreview(null);
+            } else {
+              setError(err instanceof Error ? err.message : t('usdt.submitFailed'));
+            }
+          } finally {
+            setLoading(false);
+          }
+        },
+      });
+      return;
+    }
     if (isCard && !cardMethodAvailable) {
       setError(t('usdt.fiatCardDisabled', { currency: fiatCurrency }));
       return;
@@ -209,8 +316,23 @@ export default function UsdtNewPage() {
       setError(t('kyc.requiredToTrade'));
       return;
     }
+    if (!canPreview) {
+      setError(t('usdt.amountRequired'));
+      return;
+    }
+
     setLoading(true);
     try {
+      if (!feePreview?.breakdown) {
+        const preview = await api.usdt.fees({
+          ...buildFeeParams(),
+          paymentMethod: isCard ? 'CARD' : undefined,
+        });
+        setFeePreview(preview);
+        setLoading(false);
+        return;
+      }
+
       if (isCard) {
         const ticket = await api.usdt.create({
           walletId,
@@ -247,6 +369,9 @@ export default function UsdtNewPage() {
         setError(t('usdt.fiatTransferDisabled', { currency: fiatCurrency }));
       } else if (err instanceof ApiError && err.code === 'FIAT_CARD_DISABLED') {
         setError(t('usdt.fiatCardDisabled', { currency: fiatCurrency }));
+      } else if (err instanceof ApiError && (err.code === 'USDT_RISK_MIN' || err.code === 'USDT_RISK_MAX')) {
+        setError(err.message);
+        setFeePreview(null);
       } else {
         setError(err instanceof Error ? err.message : t('usdt.submitFailed'));
       }
@@ -257,10 +382,23 @@ export default function UsdtNewPage() {
 
   return (
     <div className="pg-stack">
-      <ReferenceClocks compact />
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="inline-flex items-center gap-1.5 rounded border border-rose-300 bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
+          <span>{t('usdt.applySessionLabel')}</span>
+          <span className="font-mono tabular-nums tracking-wide">{sessionLabel}</span>
+        </span>
+        <ReferenceClocks compact />
+      </div>
       <p className="pg-hint">
         {isCard ? t('usdt.cardFlowHint') : t('usdt.manualFlowHint')}
       </p>
+      {dailyBlocked && (
+        <div className="pg-callout pg-callout-error text-sm">
+          {t('usdt.dailyLimitReached', {
+            max: depositCtx?.maxDailyTicketsPerCustomer ?? 0,
+          })}
+        </div>
+      )}
       {!kycOk && (
         <div className="pg-callout pg-callout-warn text-sm">
           {t('kyc.requiredToTrade')}{' '}
@@ -272,7 +410,7 @@ export default function UsdtNewPage() {
         <UsdtRatePanel compact />
       </ContentCard>
 
-      <div className="grid gap-6 lg:grid-cols-5 lg:items-start">
+      <div className={`grid gap-6 lg:grid-cols-5 lg:items-start ${dailyBlocked ? 'pointer-events-none opacity-50' : ''}`}>
         <form onSubmit={handleSubmit} className="space-y-5 lg:col-span-2">
           <ContentCard>
             <div className="mb-5">
@@ -436,7 +574,14 @@ export default function UsdtNewPage() {
 
             {isCard && cardPaymentEnabled && <CardPaymentForm value={cardForm} onChange={setCardForm} />}
 
-            {!isCard && (
+            {useQuoteFlow && (
+              <div className="mt-6 space-y-2 border-t border-slate-200 pt-5">
+                <p className="pg-label">{t('usdt.applyQuote')}</p>
+                <p className="pg-hint">{t('usdt.applyQuoteHint')}</p>
+              </div>
+            )}
+
+            {!isCard && !useQuoteFlow && (
               <div className="mt-6 space-y-3 border-t border-slate-200 pt-5">
                 <p className="pg-label">{t('usdt.funding.applyTitle')}</p>
                 <p className="pg-hint">
@@ -510,10 +655,24 @@ export default function UsdtNewPage() {
 
             <button
               type="submit"
-              disabled={loading || wallets.length === 0 || !breakdown || !kycOk}
-              className="pg-btn pg-btn-primary mt-5 w-full disabled:opacity-50"
+              disabled={
+                dailyBlocked || loading || wallets.length === 0 || !canPreview || !kycOk
+              }
+              className={`pg-btn mt-5 w-full disabled:opacity-50 ${
+                useQuoteFlow && !breakdown ? 'pg-btn-info' : 'pg-btn-primary'
+              }`}
             >
-              {loading ? t('usdt.processing') : isCard ? t('usdt.submitCard') : t('usdt.submit')}
+              {loading
+                ? t('usdt.processing')
+                : useQuoteFlow
+                  ? breakdown
+                    ? t('usdt.requestQuote')
+                    : t('usdt.applyQuote')
+                  : breakdown
+                    ? isCard
+                      ? t('usdt.submitCard')
+                      : t('usdt.submitConfirm')
+                    : t('usdt.submitCheck')}
             </button>
           </ContentCard>
         </form>
@@ -531,15 +690,13 @@ export default function UsdtNewPage() {
               cardFeeFiat={feePreview?.cardFeeFiat}
               cardChargeFiat={feePreview?.cardChargeFiat}
               cardFeePercent={feePreview?.cardFeePercent}
+              amountRangePct={undefined}
+              showExactWithRange={false}
             />
           ) : (
             <div className="pg-card border-dashed">
               <div className="pg-card-body py-12 text-center pg-hint">
-                {inputMode === 'target'
-                  ? t('usdt.previewHintTarget')
-                  : inputMode === 'cardCharge'
-                    ? t('usdt.previewHintCardCharge')
-                    : t('usdt.previewHintFiat')}
+                {useQuoteFlow ? t('usdt.previewHintApply') : t('usdt.previewHintSubmit')}
               </div>
             </div>
           )}
@@ -571,6 +728,7 @@ export default function UsdtNewPage() {
           )}
         </div>
       </div>
+      {doubleConfirmDialog}
     </div>
   );
 }

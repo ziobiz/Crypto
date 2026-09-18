@@ -5,18 +5,22 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api, setToken, ApiError } from '@/lib/api';
 import { useAuth } from '@/context/AuthProvider';
-import { useT } from '@/context/LocaleProvider';
+import { useLocale, useT } from '@/context/LocaleProvider';
 import { AuthChrome } from '@/components/layout/AuthChrome';
 import { OtpCodeInput } from '@/components/OtpCodeInput';
 import { TurnstileWidget } from '@/components/TurnstileWidget';
 import { useBranding } from '@/hooks/useBranding';
+import type { Locale } from '@/i18n/locales';
 
 type Step = 'credentials' | 'changePassword' | 'enrollEmail' | 'enrollTotp' | 'loginOtp';
+
+type InactiveNoticeMessages = Partial<Record<Locale, string>> & { KR?: string };
 
 export default function LoginPage() {
   const { refresh } = useAuth();
   const router = useRouter();
   const t = useT();
+  const { locale } = useLocale();
   const [step, setStep] = useState<Step>('credentials');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -32,6 +36,9 @@ export default function LoginPage() {
   const [turnstileToken, setTurnstileToken] = useState('');
   const [turnstileReset, setTurnstileReset] = useState(0);
   const [error, setError] = useState('');
+  const [inactiveNoticeMessages, setInactiveNoticeMessages] = useState<InactiveNoticeMessages | null>(
+    null,
+  );
   const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
   const branding = useBranding();
@@ -46,6 +53,17 @@ export default function LoginPage() {
     }
   }, [t]);
 
+  // 비활성 안내: 상단 언어 전환 시 즉시 재표시
+  useEffect(() => {
+    if (!inactiveNoticeMessages) return;
+    const msg =
+      inactiveNoticeMessages[locale] ||
+      inactiveNoticeMessages.KR ||
+      inactiveNoticeMessages.US ||
+      t('auth.accountInactiveDefault');
+    setError(msg);
+  }, [locale, inactiveNoticeMessages, t]);
+
   const finishSession = async (token: string) => {
     setToken(token);
     await refresh();
@@ -56,6 +74,7 @@ export default function LoginPage() {
     if (otpSubmitLock.current || loading) return;
     otpSubmitLock.current = true;
     setError('');
+    setInactiveNoticeMessages(null);
     setLoading(true);
     try {
       await fn();
@@ -68,6 +87,7 @@ export default function LoginPage() {
   const handleCredentials = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setInactiveNoticeMessages(null);
     if (!turnstileToken) {
       setError(t('auth.turnstileRequired'));
       return;
@@ -105,6 +125,20 @@ export default function LoginPage() {
         setError(t('auth.turnstileRequired'));
       } else if (err instanceof ApiError && err.code === 'TURNSTILE_FAILED') {
         setError(t('auth.turnstileFailed'));
+      } else if (err instanceof ApiError && err.code === 'ACCOUNT_INACTIVE') {
+        const details = err.details as
+          | { inactiveNotice?: { messages?: InactiveNoticeMessages } }
+          | undefined;
+        const messages = details?.inactiveNotice?.messages;
+        if (messages && typeof messages === 'object') {
+          setInactiveNoticeMessages(messages);
+          setError(
+            messages[locale] || messages.KR || err.message || t('auth.accountInactiveDefault'),
+          );
+        } else {
+          setInactiveNoticeMessages(null);
+          setError(err.message || t('auth.accountInactiveDefault'));
+        }
       } else {
         setError(err instanceof Error ? err.message : t('auth.loginFailed'));
       }

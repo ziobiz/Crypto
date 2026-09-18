@@ -14,6 +14,7 @@ import {
   gasFeeUsdtForNetwork,
   normalizeFeeBillingPresentation,
   normalizeGasNetworkPolicy,
+  normalizeHqUsdtRiskLimitTiers,
 } from '../constants/hq-policy';
 import { mergeLiveFeesWithSandboxBasic, sandboxBasicDeltas, applySandboxGasDelta } from '../lib/sandbox-fee-merge';
 import { computeFeeAmounts, normalizeTransactionFees } from '../lib/fee-component';
@@ -104,10 +105,14 @@ export function tierToTransactionFees(tier: SymbolFeeTierRow): TransactionFees {
 
 export function normalizeFeeDiagramDisplay(
   raw?: Partial<FeeDiagramDisplayConfig>,
+  showTotalFeeFallback = true,
 ): FeeDiagramDisplayConfig {
+  const showTotalFee =
+    typeof raw?.showTotalFee === 'boolean' ? raw.showTotalFee : showTotalFeeFallback;
   return {
     ...DEFAULT_FEE_DIAGRAM_DISPLAY,
     ...raw,
+    showTotalFee,
     defaultFeeBillingMethod: normalizeFeeBillingPresentation(
       raw?.defaultFeeBillingMethod ?? DEFAULT_FEE_DIAGRAM_DISPLAY.defaultFeeBillingMethod,
     ),
@@ -121,6 +126,7 @@ export function normalizeCommissionRisk(raw: Partial<HqCommissionRiskConfig>): H
     raw.defaultTransferFeeUsdt ??
     raw.defaultPlatformFeeUsdt ??
     defaults.transferFeeUsdt;
+  const showTotalFee = raw.showTotalFee !== false;
 
   return {
     defaultFxFeePercent: raw.defaultFxFeePercent ?? defaults.fxFeePercent,
@@ -135,9 +141,19 @@ export function normalizeCommissionRisk(raw: Partial<HqCommissionRiskConfig>): H
     defaultOtherFeeUsdt: raw.defaultOtherFeeUsdt ?? defaults.otherFeeUsdt,
     defaultOtherFeePercent: raw.defaultOtherFeePercent ?? defaults.otherFeePercent,
     defaultOtherFeeMode: raw.defaultOtherFeeMode ?? defaults.otherFeeMode,
-    feeDiagramDisplay: normalizeFeeDiagramDisplay(raw.feeDiagramDisplay),
+    showTotalFee,
+    feeDiagramDisplay: normalizeFeeDiagramDisplay(raw.feeDiagramDisplay, showTotalFee),
     sandboxFeeDiagramDisplay: normalizeFeeDiagramDisplay(
       raw.sandboxFeeDiagramDisplay ?? raw.feeDiagramDisplay,
+      showTotalFee,
+    ),
+    hqFeeDiagramDisplay: normalizeFeeDiagramDisplay(
+      raw.hqFeeDiagramDisplay ?? DEFAULT_FEE_DIAGRAM_DISPLAY,
+      true,
+    ),
+    hqSandboxFeeDiagramDisplay: normalizeFeeDiagramDisplay(
+      raw.hqSandboxFeeDiagramDisplay ?? raw.hqFeeDiagramDisplay ?? DEFAULT_FEE_DIAGRAM_DISPLAY,
+      true,
     ),
     maxTicketAmountKrw: raw.maxTicketAmountKrw ?? 100_000_000,
     riskEnabled: raw.riskEnabled ?? true,
@@ -146,6 +162,7 @@ export function normalizeCommissionRisk(raw: Partial<HqCommissionRiskConfig>): H
       raw.transactionLimits,
       raw.maxTicketAmountKrw ?? 100_000_000,
     ),
+    usdtRiskLimitTiers: normalizeHqUsdtRiskLimitTiers(raw.usdtRiskLimitTiers),
     notes: raw.notes ?? '',
   };
 }
@@ -202,41 +219,64 @@ export async function getSimulatorHqTransactionFees(): Promise<TransactionFees> 
 }
 
 export type FeePolicyScope = 'live' | 'sandbox';
+export type FeeDiagramAudience = 'customer' | 'hq';
 
 export async function getFeeDiagramDisplay(
   scope: FeePolicyScope = 'live',
+  audience: FeeDiagramAudience = 'customer',
 ): Promise<FeeDiagramDisplayConfig> {
   const risk = await getCommissionRiskConfig();
-  if (scope === 'sandbox') {
-    return (
-      risk.sandboxFeeDiagramDisplay ??
-      risk.feeDiagramDisplay ??
-      normalizeFeeDiagramDisplay()
-    );
+  if (audience === 'hq') {
+    const diagram =
+      scope === 'sandbox'
+        ? risk.hqSandboxFeeDiagramDisplay ?? risk.hqFeeDiagramDisplay
+        : risk.hqFeeDiagramDisplay;
+    return normalizeFeeDiagramDisplay(diagram ?? DEFAULT_FEE_DIAGRAM_DISPLAY, true);
   }
-  return risk.feeDiagramDisplay ?? normalizeFeeDiagramDisplay();
+  const showTotalFee = risk.showTotalFee !== false;
+  const diagram =
+    scope === 'sandbox'
+      ? risk.sandboxFeeDiagramDisplay ?? risk.feeDiagramDisplay
+      : risk.feeDiagramDisplay;
+  return normalizeFeeDiagramDisplay(diagram, showTotalFee);
 }
 
-/** 고객·본사 기본을 반영한 도식 표시 설정 (billingMethod 해석 포함) */
+/** 고객·본사 기본을 반영한 도식 표시 설정 (billingMethod·showTotalFee 해석 포함) */
 export async function getFeeDiagramDisplayForCustomer(
   customerProfileId?: string | null,
   scope: FeePolicyScope = 'live',
+  audience: FeeDiagramAudience = 'customer',
 ): Promise<FeeDiagramDisplayConfig> {
-  const base = await getFeeDiagramDisplay(scope);
-  const hqDefault = normalizeFeeBillingPresentation(base.defaultFeeBillingMethod);
-  if (!customerProfileId || scope === 'sandbox') {
-    return { ...base, billingMethod: hqDefault };
+  const base = await getFeeDiagramDisplay(scope, audience);
+  if (audience === 'hq') {
+    return {
+      ...base,
+      billingMethod: normalizeFeeBillingPresentation(base.defaultFeeBillingMethod),
+      showTotalFee: base.showTotalFee !== false,
+    };
   }
-  const profile = await prisma.customerProfile.findUnique({
-    where: { id: customerProfileId },
-    select: { feeBillingMethod: true },
-  });
-  const method = profile?.feeBillingMethod;
-  const billingMethod =
-    !method || method === 'FOLLOW_HQ'
-      ? hqDefault
-      : normalizeFeeBillingPresentation(method);
-  return { ...base, billingMethod };
+  const hqBilling = normalizeFeeBillingPresentation(base.defaultFeeBillingMethod);
+  let showTotalFee = base.showTotalFee !== false;
+  let billingMethod = hqBilling;
+
+  if (customerProfileId) {
+    const profile = await prisma.customerProfile.findUnique({
+      where: { id: customerProfileId },
+      select: { feeBillingMethod: true, totalFeeVisibility: true },
+    });
+    if (scope !== 'sandbox') {
+      const method = profile?.feeBillingMethod;
+      billingMethod =
+        !method || method === 'FOLLOW_HQ'
+          ? hqBilling
+          : normalizeFeeBillingPresentation(method);
+    }
+    const vis = profile?.totalFeeVisibility;
+    if (vis === 'SHOW') showTotalFee = true;
+    else if (vis === 'HIDE') showTotalFee = false;
+  }
+
+  return { ...base, billingMethod, showTotalFee };
 }
 
 export async function getGasNetworkPolicy() {

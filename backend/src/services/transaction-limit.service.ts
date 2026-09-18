@@ -17,12 +17,36 @@ import {
 import { normalizeCommissionRisk } from './transaction-fee.service';
 
 const ACTIVE_STATUSES: UsdtPurchaseStatus[] = [
+  UsdtPurchaseStatus.QUOTE_PENDING,
+  UsdtPurchaseStatus.QUOTE_CONFIRMED,
   UsdtPurchaseStatus.APPLICATION_COMPLETED,
   UsdtPurchaseStatus.DEPOSIT_PROOF_PENDING,
   UsdtPurchaseStatus.ADMIN_REVIEWING,
   UsdtPurchaseStatus.TRANSFER_IN_PROGRESS,
   UsdtPurchaseStatus.COMPLETED,
 ];
+
+/** 견적 유효시간 만료로 자동 취소된 건 — 일일 기회 1회로 집계 */
+export const QUOTE_VALIDITY_EXPIRED_REASON = 'QUOTE_VALIDITY_EXPIRED';
+
+export async function countDailyTicketsForCustomer(
+  customerId: string,
+  now = new Date(),
+): Promise<number> {
+  return prisma.usdtPurchaseDetail.count({
+    where: {
+      ticket: { customerId },
+      createdAt: { gte: startOfUtcDay(now) },
+      OR: [
+        { status: { in: ACTIVE_STATUSES } },
+        {
+          status: UsdtPurchaseStatus.CANCELLED,
+          cancelReason: { startsWith: QUOTE_VALIDITY_EXPIRED_REASON },
+        },
+      ],
+    },
+  });
+}
 
 async function loadRiskConfig(): Promise<HqCommissionRiskConfig> {
   const row = await prisma.systemConfig.findUnique({
@@ -149,13 +173,7 @@ export async function validateCustomerTransactionAmount(input: {
     input.currency,
   );
 
-  const dailyTicketCount = await prisma.usdtPurchaseDetail.count({
-    where: {
-      status: { in: ACTIVE_STATUSES },
-      ticket: { customerId: input.customerId },
-      createdAt: { gte: startOfUtcDay() },
-    },
-  });
+  const dailyTicketCount = await countDailyTicketsForCustomer(input.customerId);
 
   if (
     risk.maxDailyTicketsPerCustomer > 0 &&
@@ -215,6 +233,7 @@ export async function getCustomerTransactionLimitSummary(
   const limits = risk.transactionLimits[typeKey][currency];
   const totals = await getCustomerFiatTotals(customerId, currency);
   const check = checkTransactionAmount(limits, 0, totals.dailyTotal, totals.monthlyTotal);
+  const dailyTicketCount = await countDailyTicketsForCustomer(customerId);
   return {
     enabled: risk.riskEnabled,
     limits,
@@ -230,5 +249,7 @@ export async function getCustomerTransactionLimitSummary(
         : null,
     effectiveMin: check.minAmount,
     effectiveMax: check.maxAmount,
+    dailyTicketCount,
+    maxDailyTicketsPerCustomer: risk.maxDailyTicketsPerCustomer,
   };
 }

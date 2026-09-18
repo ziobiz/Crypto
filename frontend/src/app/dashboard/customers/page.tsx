@@ -4,15 +4,18 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthProvider';
-import { useT } from '@/context/LocaleProvider';
+import { useLocale, useT } from '@/context/LocaleProvider';
 import {
   api,
   customerFeesApi,
+  hqPolicyApi,
+  USDT_RISK_LIMIT_CODES,
   type CreateUserInput,
   type FeeTypeTemplate,
   type ManagedUser,
   type Organization,
   type UpdateUserInput,
+  type UsdtRiskLimitCode,
 } from '@/lib/api';
 import type { MessageKey } from '@/i18n/messages';
 import { WALLET_NETWORKS } from '@/constants/wallet-networks';
@@ -20,6 +23,16 @@ import { ReferenceClocks } from '@/components/ReferenceClocks';
 import { SRateBadge } from '@/components/SRateBadge';
 import { detailRowProps } from '@/lib/table-row-detail';
 import { localizeFeeTypeLabel } from '@/lib/fee-type-label';
+import { formatDateDot } from '@/lib/format';
+import { useDoubleConfirm } from '@/hooks/useDoubleConfirm';
+import { InactiveReasonPresetPicker } from '@/components/InactiveReasonPresetPicker';
+import {
+  encodeInactivePresetReason,
+  formatLoginNoticeDisplay,
+  mergeInactiveNoticePresets,
+  type InactiveNoticePreset,
+  type InactiveNoticePresetId,
+} from '@/lib/inactive-notice-presets';
 
 const CUSTOMER_REGISTER_ORG_TYPES = ['HEAD_OFFICE', 'MASTER_DISTRIBUTOR'] as const;
 
@@ -43,9 +56,29 @@ const emptyCreate: CreateUserInput = {
   usdtFeeTypeCode: '',
   tradeFeeTypeCode: '',
   feeBillingMethod: 'FOLLOW_HQ',
+  totalFeeVisibility: 'FOLLOW_HQ',
   usdtCollectionMode: 'FOLLOW_HQ',
+  usdtQuoteResponseMode: 'FOLLOW_HQ',
   operatorsEnabled: false,
+  usdtRiskLimitCode: 'MR',
+  usdtLimitMinUsdt: null,
+  usdtLimitMaxUsdt: null,
 };
+
+function riskLimitLabelKey(code: string | undefined | null): MessageKey {
+  const normalized = (code ?? 'MR').toUpperCase();
+  if (USDT_RISK_LIMIT_CODES.includes(normalized as UsdtRiskLimitCode)) {
+    return `customers.riskLimit.${normalized}` as MessageKey;
+  }
+  return 'customers.riskLimit.MR';
+}
+
+function listLimitDisplay(code: string | undefined | null): string {
+  const normalized = (code ?? 'MR').toUpperCase();
+  if (normalized === 'ML') return 'ML';
+  if (['LR', 'MR', 'HR', 'XR', 'SR'].includes(normalized)) return normalized;
+  return 'MR';
+}
 
 function kycBadgeClass(status?: string | null): string {
   if (status === 'APPROVED') return 'pg-badge-kyc-pass';
@@ -90,6 +123,8 @@ function effectiveFeeTypeLabel(
 export default function CustomersPage() {
   const { user: me } = useAuth();
   const t = useT();
+  const { locale } = useLocale();
+  const { requestConfirm, dialog: doubleConfirmDialog } = useDoubleConfirm();
   const router = useRouter();
   const isSuperAdmin = me?.role === 'SUPER_ADMIN';
   const canRegisterCustomer =
@@ -113,6 +148,13 @@ export default function CustomersPage() {
   const [editForm, setEditForm] = useState<UpdateUserInput>({});
   const [newPassword, setNewPassword] = useState('');
   const [statusReason, setStatusReason] = useState('');
+  const [statusLoginNotice, setStatusLoginNotice] = useState('');
+  const [statusNoticePresetId, setStatusNoticePresetId] = useState<InactiveNoticePresetId | null>(
+    null,
+  );
+  const [inactivePresets, setInactivePresets] = useState<InactiveNoticePreset[]>(
+    mergeInactiveNoticePresets(),
+  );
   const [initialIsActive, setInitialIsActive] = useState(true);
   const [form, setForm] = useState<CreateUserInput>(emptyCreate);
   const [feeTypes, setFeeTypes] = useState<FeeTypeTemplate[]>([]);
@@ -139,6 +181,10 @@ export default function CustomersPage() {
 
   useEffect(() => {
     api.organizations().then(setOrgs).catch(console.error);
+    hqPolicyApi
+      .getPlatform()
+      .then((p) => setInactivePresets(mergeInactiveNoticePresets(p.config.inactiveLoginNoticePresets)))
+      .catch(console.error);
   }, []);
 
   useEffect(() => {
@@ -168,12 +214,18 @@ export default function CustomersPage() {
         simulatorEnabled: detail.customerProfile?.simulatorEnabled !== false,
         simulatorRateMode: detail.customerProfile?.simulatorRateMode ?? 'LIVE',
         feeBillingMethod: detail.customerProfile?.feeBillingMethod ?? 'FOLLOW_HQ',
+        totalFeeVisibility: detail.customerProfile?.totalFeeVisibility ?? 'FOLLOW_HQ',
         usdtCollectionMode: detail.customerProfile?.usdtCollectionMode ?? 'FOLLOW_HQ',
         operatorsEnabled: detail.customerProfile?.operatorsEnabled === true,
+        usdtRiskLimitCode: (detail.customerProfile?.usdtRiskLimitCode as UsdtRiskLimitCode) ?? 'MR',
+        usdtLimitMinUsdt: detail.customerProfile?.usdtLimitMinUsdt ?? null,
+        usdtLimitMaxUsdt: detail.customerProfile?.usdtLimitMaxUsdt ?? null,
       });
       setInitialIsActive(detail.isActive);
       setNewPassword('');
       setStatusReason('');
+      setStatusLoginNotice('');
+      setStatusNoticePresetId(null);
       setModal('edit');
     } catch (e) {
       setError(e instanceof Error ? e.message : t('users.loadError'));
@@ -189,10 +241,26 @@ export default function CustomersPage() {
       setMsg(t('users.statusReasonRequired'));
       return;
     }
-    try {
+
+    const activating = editForm.isActive === true;
+    const noticeForSave =
+      statusChanging && !activating && statusNoticePresetId
+        ? encodeInactivePresetReason(statusNoticePresetId)
+        : statusChanging && !activating
+          ? statusLoginNotice.trim() || null
+          : null;
+    const noticeLabel =
+      statusChanging && !activating
+        ? noticeForSave
+          ? formatLoginNoticeDisplay(noticeForSave, locale, inactivePresets)
+          : t('users.loginNoticeEmptyHint')
+        : '';
+
+    const runSave = async () => {
       await api.users.update(editing.id, {
         ...editForm,
         statusReason: statusChanging ? statusReason.trim() : undefined,
+        statusLoginNotice: statusChanging ? noticeForSave : undefined,
       });
       if (newPassword.length >= 6) {
         await api.users.resetPassword(editing.id, newPassword);
@@ -201,35 +269,77 @@ export default function CustomersPage() {
       setEditing(null);
       setMsg(t('users.saved'));
       load();
+    };
+
+    if (statusChanging) {
+      requestConfirm({
+        title: activating ? t('users.activateConfirmTitle') : t('users.deactivateConfirmTitle'),
+        step1: activating
+          ? t('users.activateConfirmStep1', { email: editing.email })
+          : t('users.deactivateConfirmStep1', { email: editing.email }),
+        step2: activating
+          ? t('users.activateConfirmStep2', { reason: statusReason.trim() })
+          : t('users.deactivateConfirmStep2Notice', {
+              reason: statusReason.trim(),
+              notice: noticeLabel,
+            }),
+        confirmLabel: activating ? t('users.active') : t('users.inactive'),
+        onConfirm: async () => {
+          try {
+            await runSave();
+          } catch (err) {
+            setMsg(err instanceof Error ? err.message : t('users.saveFailed'));
+          }
+        },
+      });
+      return;
+    }
+
+    try {
+      await runSave();
     } catch (err) {
       setMsg(err instanceof Error ? err.message : t('users.saveFailed'));
     }
   }
 
   async function handleResetPassword(u: ManagedUser) {
-    if (!window.confirm(t('users.resetPasswordConfirm', { email: u.email }))) return;
-    setMsg('');
-    setError('');
-    try {
-      const res = await api.users.resetPassword(u.id);
-      setMsg(t('users.passwordResetDone', { password: res.initialPassword ?? '' }));
-      load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('users.resetPasswordFailed'));
-    }
+    requestConfirm({
+      title: t('users.resetPasswordBtn'),
+      step1: t('users.resetPasswordConfirm', { email: u.email }),
+      step2: t('common.doubleConfirm.step2'),
+      confirmLabel: t('users.resetPasswordBtn'),
+      onConfirm: async () => {
+        setMsg('');
+        setError('');
+        try {
+          const res = await api.users.resetPassword(u.id);
+          setMsg(t('users.passwordResetDone', { password: res.initialPassword ?? '' }));
+          load();
+        } catch (err) {
+          setError(err instanceof Error ? err.message : t('users.resetPasswordFailed'));
+        }
+      },
+    });
   }
 
   async function handleResetOtp(u: ManagedUser) {
-    if (!window.confirm(t('users.resetOtpConfirm', { email: u.email }))) return;
-    setMsg('');
-    setError('');
-    try {
-      await api.users.resetOtp(u.id);
-      setMsg(t('users.otpResetDone', { email: u.email }));
-      load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('users.resetOtpFailed'));
-    }
+    requestConfirm({
+      title: t('users.resetOtpBtn'),
+      step1: t('users.resetOtpConfirm', { email: u.email }),
+      step2: t('common.doubleConfirm.step2'),
+      confirmLabel: t('users.resetOtpBtn'),
+      onConfirm: async () => {
+        setMsg('');
+        setError('');
+        try {
+          await api.users.resetOtp(u.id);
+          setMsg(t('users.otpResetDone', { email: u.email }));
+          load();
+        } catch (err) {
+          setError(err instanceof Error ? err.message : t('users.resetOtpFailed'));
+        }
+      },
+    });
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -254,6 +364,7 @@ export default function CustomersPage() {
 
   return (
     <div className="pg-stack">
+      {doubleConfirmDialog}
       <ReferenceClocks compact />
       <div className="pg-toolbar">
         <p className="pg-hint">{t('customers.subtitle')}</p>
@@ -340,8 +451,9 @@ export default function CustomersPage() {
             <tr>
               <th>{t('users.col.email')}</th>
               <th>{t('users.col.name')}</th>
-              <th>{t('auth.customerType')}</th>
-              <th>{t('users.recruitOrg')}</th>
+              <th>{t('customers.col.customer')}</th>
+              <th>{t('customers.col.branch')}</th>
+              <th>{t('customers.col.createdAt')}</th>
               <th>{t('users.col.status')}</th>
               <th>{t('customers.col.sRate')}</th>
               <th>{t('customers.col.simulator')}</th>
@@ -349,6 +461,7 @@ export default function CustomersPage() {
               <th>{t('customers.col.fees')}</th>
               <th>{t('customers.col.kyc')}</th>
               <th>{t('customers.col.account')}</th>
+              <th>{t('customers.col.limit')}</th>
               <th>{t('customers.col.feeType')}</th>
               <th>{t('customers.col.billingMethod')}</th>
               <th>{t('users.col.actions')}</th>
@@ -357,13 +470,13 @@ export default function CustomersPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={14} className="pg-empty">
+                <td colSpan={16} className="pg-empty">
                   {t('common.loading')}
                 </td>
               </tr>
             ) : users.length === 0 ? (
               <tr>
-                <td colSpan={14} className="pg-empty">
+                <td colSpan={16} className="pg-empty">
                   {t('customers.empty')}
                 </td>
               </tr>
@@ -394,6 +507,7 @@ export default function CustomersPage() {
                       : t('auth.individual')}
                   </td>
                   <td>{u.customerProfile?.recruitingOrg?.name ?? '—'}</td>
+                  <td className="whitespace-nowrap tabular-nums">{formatDateDot(u.createdAt)}</td>
                   <td>
                     <span className={`pg-badge ${u.isActive ? 'pg-badge-success' : 'pg-badge-muted'}`}>
                       {u.isActive ? t('users.active') : t('users.inactive')}
@@ -458,6 +572,11 @@ export default function CustomersPage() {
                     </span>
                   </td>
                   <td>
+                    <span className="font-mono text-xs tracking-wide">
+                      {listLimitDisplay(u.customerProfile?.usdtRiskLimitCode)}
+                    </span>
+                  </td>
+                  <td>
                     <div className="text-[11px] leading-snug text-gray-700">
                       <div>
                         <span className="text-gray-500">{t('ticket.USDT_PURCHASE')}: </span>
@@ -466,6 +585,12 @@ export default function CustomersPage() {
                       <div>
                         <span className="text-gray-500">{t('ticket.TRADE_ESCROW')}: </span>
                         {tradeFee ?? '—'}
+                      </div>
+                      <div>
+                        <span className="text-gray-500">{t('customers.col.quoteResponse')}: </span>
+                        {t(
+                          `quoteResponse.${u.customerProfile?.usdtQuoteResponseMode ?? 'FOLLOW_HQ'}` as MessageKey,
+                        )}
                       </div>
                     </div>
                   </td>
@@ -594,6 +719,76 @@ export default function CustomersPage() {
                   <option value="CORPORATE">{t('auth.corporate')}</option>
                 </select>
               </label>
+              <div className="pg-inset-panel sm:col-span-2">
+                <p className="pg-inset-title">{t('customers.riskLimit.title')}</p>
+                <p className="mt-1 pg-hint">{t('customers.riskLimit.hint')}</p>
+                <label className="pg-field mt-3">
+                  <span className="pg-field-label">{t('customers.riskLimit.select')}</span>
+                  <select
+                    value={form.usdtRiskLimitCode ?? 'MR'}
+                    onChange={(e) => {
+                      const code = e.target.value as UsdtRiskLimitCode;
+                      setForm({
+                        ...form,
+                        usdtRiskLimitCode: code,
+                        usdtLimitMinUsdt: code === 'ML' ? form.usdtLimitMinUsdt ?? 0 : null,
+                        usdtLimitMaxUsdt: code === 'ML' ? form.usdtLimitMaxUsdt ?? 0 : null,
+                      });
+                    }}
+                    className="pg-input mt-1"
+                  >
+                    {USDT_RISK_LIMIT_CODES.map((code) => (
+                      <option key={code} value={code}>
+                        {t(riskLimitLabelKey(code))}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {form.usdtRiskLimitCode === 'ML' && (
+                  <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <label className="pg-field">
+                      <span className="pg-field-label">
+                        {t('customers.riskLimit.minUsdt')}
+                        <span className="pg-field-required"> *</span>
+                      </span>
+                      <input
+                        type="number"
+                        min={0}
+                        step="any"
+                        required
+                        value={form.usdtLimitMinUsdt ?? ''}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            usdtLimitMinUsdt: e.target.value === '' ? null : Number(e.target.value),
+                          })
+                        }
+                        className="pg-input mt-1"
+                      />
+                    </label>
+                    <label className="pg-field">
+                      <span className="pg-field-label">
+                        {t('customers.riskLimit.maxUsdt')}
+                        <span className="pg-field-required"> *</span>
+                      </span>
+                      <input
+                        type="number"
+                        min={0}
+                        step="any"
+                        required
+                        value={form.usdtLimitMaxUsdt ?? ''}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            usdtLimitMaxUsdt: e.target.value === '' ? null : Number(e.target.value),
+                          })
+                        }
+                        className="pg-input mt-1"
+                      />
+                    </label>
+                  </div>
+                )}
+              </div>
               <div className="pg-inset-panel">
                 <p className="pg-inset-title">{t('users.bankSection')}</p>
                 <label className="pg-field">
@@ -788,6 +983,26 @@ export default function CustomersPage() {
                   </label>
                 </div>
                 <label className="pg-field mt-3">
+                  <span className="pg-field-label">{t('customers.col.quoteResponse')}</span>
+                  <select
+                    className="pg-input mt-1"
+                    value={form.usdtQuoteResponseMode ?? 'FOLLOW_HQ'}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        usdtQuoteResponseMode: e.target
+                          .value as CreateUserInput['usdtQuoteResponseMode'],
+                      })
+                    }
+                  >
+                    <option value="FOLLOW_HQ">{t('quoteResponse.FOLLOW_HQ')}</option>
+                    <option value="AUTO">{t('quoteResponse.AUTO')}</option>
+                    <option value="MANUAL">{t('quoteResponse.MANUAL')}</option>
+                    <option value="OFF">{t('quoteResponse.OFF')}</option>
+                  </select>
+                  <p className="mt-1 pg-hint">{t('customers.quoteResponse.formHint')}</p>
+                </label>
+                <label className="pg-field mt-3">
                   <span className="pg-field-label">{t('customers.col.billingMethod')}</span>
                   <select
                     className="pg-input mt-1"
@@ -805,6 +1020,24 @@ export default function CustomersPage() {
                     <option value="HYBRID">{t('feeBilling.HYBRID')}</option>
                   </select>
                   <span className="mt-1 block text-xs text-slate-500">{t('customers.billingMethod.hint')}</span>
+                </label>
+                <label className="pg-field mt-3">
+                  <span className="pg-field-label">{t('customers.totalFee.title')}</span>
+                  <select
+                    className="pg-input mt-1"
+                    value={form.totalFeeVisibility ?? 'FOLLOW_HQ'}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        totalFeeVisibility: e.target.value as CreateUserInput['totalFeeVisibility'],
+                      })
+                    }
+                  >
+                    <option value="FOLLOW_HQ">{t('totalFee.FOLLOW_HQ')}</option>
+                    <option value="SHOW">{t('totalFee.SHOW')}</option>
+                    <option value="HIDE">{t('totalFee.HIDE')}</option>
+                  </select>
+                  <span className="mt-1 block text-xs text-slate-500">{t('customers.totalFee.hint')}</span>
                 </label>
                 <p className="mt-2 pg-hint text-xs">{t('feeShare.manageInFees')}</p>
               </div>
@@ -882,6 +1115,76 @@ export default function CustomersPage() {
                   ))}
                 </select>
               </label>
+              <div className="pg-inset-panel">
+                <p className="pg-inset-title">{t('customers.riskLimit.title')}</p>
+                <p className="mt-1 pg-hint">{t('customers.riskLimit.hint')}</p>
+                <label className="pg-field mt-3">
+                  <span className="pg-field-label">{t('customers.riskLimit.select')}</span>
+                  <select
+                    value={editForm.usdtRiskLimitCode ?? 'MR'}
+                    onChange={(e) => {
+                      const code = e.target.value as UsdtRiskLimitCode;
+                      setEditForm({
+                        ...editForm,
+                        usdtRiskLimitCode: code,
+                        usdtLimitMinUsdt: code === 'ML' ? editForm.usdtLimitMinUsdt ?? 0 : null,
+                        usdtLimitMaxUsdt: code === 'ML' ? editForm.usdtLimitMaxUsdt ?? 0 : null,
+                      });
+                    }}
+                    className="pg-input mt-1"
+                  >
+                    {USDT_RISK_LIMIT_CODES.map((code) => (
+                      <option key={code} value={code}>
+                        {t(riskLimitLabelKey(code))}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {editForm.usdtRiskLimitCode === 'ML' && (
+                  <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <label className="pg-field">
+                      <span className="pg-field-label">
+                        {t('customers.riskLimit.minUsdt')}
+                        <span className="pg-field-required"> *</span>
+                      </span>
+                      <input
+                        type="number"
+                        min={0}
+                        step="any"
+                        required
+                        value={editForm.usdtLimitMinUsdt ?? ''}
+                        onChange={(e) =>
+                          setEditForm({
+                            ...editForm,
+                            usdtLimitMinUsdt: e.target.value === '' ? null : Number(e.target.value),
+                          })
+                        }
+                        className="pg-input mt-1"
+                      />
+                    </label>
+                    <label className="pg-field">
+                      <span className="pg-field-label">
+                        {t('customers.riskLimit.maxUsdt')}
+                        <span className="pg-field-required"> *</span>
+                      </span>
+                      <input
+                        type="number"
+                        min={0}
+                        step="any"
+                        required
+                        value={editForm.usdtLimitMaxUsdt ?? ''}
+                        onChange={(e) =>
+                          setEditForm({
+                            ...editForm,
+                            usdtLimitMaxUsdt: e.target.value === '' ? null : Number(e.target.value),
+                          })
+                        }
+                        className="pg-input mt-1"
+                      />
+                    </label>
+                  </div>
+                )}
+              </div>
               <div className="pg-inset-panel">
                 <p className="pg-inset-title">{t('customers.col.collectionMode')}</p>
                 <p className="mt-1 pg-hint">{t('customers.collectionMode.hint')}</p>
@@ -962,6 +1265,24 @@ export default function CustomersPage() {
                   </select>
                   <span className="mt-1 block text-xs text-slate-500">{t('customers.billingMethod.hint')}</span>
                 </label>
+                <label className="pg-field mt-2">
+                  <span className="pg-field-label">{t('customers.totalFee.title')}</span>
+                  <select
+                    value={editForm.totalFeeVisibility ?? 'FOLLOW_HQ'}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        totalFeeVisibility: e.target.value as UpdateUserInput['totalFeeVisibility'],
+                      })
+                    }
+                    className="pg-input mt-1"
+                  >
+                    <option value="FOLLOW_HQ">{t('totalFee.FOLLOW_HQ')}</option>
+                    <option value="SHOW">{t('totalFee.SHOW')}</option>
+                    <option value="HIDE">{t('totalFee.HIDE')}</option>
+                  </select>
+                  <span className="mt-1 block text-xs text-slate-500">{t('customers.totalFee.hint')}</span>
+                </label>
               </div>
               <label className="pg-field">
                 <span className="pg-field-label">{t('users.col.status')}</span>
@@ -980,17 +1301,41 @@ export default function CustomersPage() {
                     {t('users.statusReason')}
                     <span className="pg-field-required"> *</span>
                   </span>
+                  <p className="pg-hint mt-1 text-[11px]">{t('users.statusReasonInternalHint')}</p>
                   <textarea
                     required
-                    rows={3}
+                    rows={2}
                     value={statusReason}
                     onChange={(e) => setStatusReason(e.target.value)}
-                    className="pg-input mt-1 min-h-[72px]"
-                    placeholder={
-                      editForm.isActive
-                        ? t('users.activateReasonPlaceholder')
-                        : t('users.deactivateReasonPlaceholder')
-                    }
+                    className="pg-input mt-1 min-h-[56px]"
+                    placeholder={t('users.statusReasonInternalPlaceholder')}
+                  />
+                </label>
+              )}
+              {statusChanging && editForm.isActive === false && (
+                <label className="pg-field">
+                  <span className="pg-field-label">{t('users.loginNotice')}</span>
+                  <p className="pg-hint mt-1 text-[11px]">{t('users.loginNoticeHint')}</p>
+                  <div className="mt-1">
+                    <InactiveReasonPresetPicker
+                      presets={inactivePresets}
+                      locale={locale}
+                      selectedId={statusNoticePresetId}
+                      onSelect={(p) => {
+                        setStatusNoticePresetId(p.id);
+                        setStatusLoginNotice(p.bodyI18n[locale] || p.bodyI18n.KR);
+                      }}
+                    />
+                  </div>
+                  <textarea
+                    rows={3}
+                    value={statusLoginNotice}
+                    onChange={(e) => {
+                      setStatusLoginNotice(e.target.value);
+                      setStatusNoticePresetId(null);
+                    }}
+                    className="pg-input mt-2 min-h-[72px]"
+                    placeholder={t('users.loginNoticePlaceholder')}
                   />
                 </label>
               )}

@@ -30,6 +30,7 @@ import {
   type ResolvedTransactionFees,
 } from './usdt-fee-breakdown.service';
 import { validateCustomerTransactionAmount } from './transaction-limit.service';
+import { validateUsdtRiskLimitAmount } from './usdt-risk-limit.service';
 import {
   previewUsdtTransactionFees,
   USDT_PURCHASE_INCLUDE,
@@ -216,6 +217,14 @@ export async function createUsdtCardPurchase(
     cardFeeFiat = split.cardFeeFiat;
     fiatAmount = split.fiatForConversion;
     validateCardChargeAmount(cardPolicy, currency, cardChargeFiat);
+    if (rate > 0) {
+      await validateUsdtRiskLimitAmount({
+        customerProfileId: user.customerProfileId,
+        usdtAmount: fiatAmount / rate,
+        fiatCurrency: currency,
+        exchangeRate: rate,
+      });
+    }
     fees = await resolveFeesForPurchase(wallet, currency, fiatAmount, rate, { customerProfileId: user.customerProfileId });
     feeBreakdown = breakdownFromFiat(fiatAmount, rate, fees);
     expected = feeBreakdown.netUsdt;
@@ -223,6 +232,12 @@ export async function createUsdtCardPurchase(
     min = range.min;
     max = range.max;
   } else {
+    await validateUsdtRiskLimitAmount({
+      customerProfileId: user.customerProfileId,
+      usdtAmount: Number(input.targetUsdtAmount),
+      fiatCurrency: currency,
+      exchangeRate: rate,
+    });
     const preview = await previewUsdtCardFees(user, {
       walletId: input.walletId,
       fiatCurrency: currency,

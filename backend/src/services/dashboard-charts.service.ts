@@ -11,6 +11,8 @@ import {
 export type ChartRange = '7d' | '30d' | '12m';
 
 const FLOW_STATUSES: UsdtPurchaseStatus[] = [
+  UsdtPurchaseStatus.QUOTE_PENDING,
+  UsdtPurchaseStatus.QUOTE_CONFIRMED,
   UsdtPurchaseStatus.APPLICATION_COMPLETED,
   UsdtPurchaseStatus.DEPOSIT_PROOF_PENDING,
   UsdtPurchaseStatus.ADMIN_REVIEWING,

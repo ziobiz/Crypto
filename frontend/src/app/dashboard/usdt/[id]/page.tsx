@@ -106,8 +106,20 @@ export default function UsdtDetailPage() {
     { kind: 'variance'; variance: UsdtAmountVariance } | { kind: 'missing-actual' } | null
   >(null);
 
+  const [sourceFiles, setSourceFiles] = useState<File[]>([]);
+  const [depositReceiptFiles, setDepositReceiptFiles] = useState<File[]>([]);
+  const [confirmFiat, setConfirmFiat] = useState('');
+  const [confirmUsdt, setConfirmUsdt] = useState('');
+
   const { country, baseTimezone, serviceTimezone } = useReferenceTimeState();
   const countdown = useCountdown(ticket?.depositDeadlineAt);
+  const quoteCountdown = useCountdown(ticket?.quoteDueAt);
+  const showQuoteValidTimer =
+    !!ticket?.depositDeadlineAt &&
+    (ticket?.status === 'QUOTE_CONFIRMED' ||
+      (ticket?.status === 'DEPOSIT_PROOF_PENDING' && !!ticket?.quoteConfirmedAt));
+  const quoteValidMinutes =
+    depositCtx?.quoteValidMinutes ?? depositCtx?.quoteResponse?.quoteValidMinutes ?? 20;
   const isCurfex =
     ticket?.collectionProvider === 'CURFEX' || ticket?.curfexAutoDetect === true;
 
@@ -132,11 +144,27 @@ export default function UsdtDetailPage() {
     return () => clearInterval(idTimer);
   }, [id, isCurfex, ticket?.status]);
 
+  // AUTO 견적: 확정 대기 중 폴링
+  useEffect(() => {
+    if (ticket?.status !== 'QUOTE_PENDING') return;
+    const idTimer = setInterval(() => {
+      load();
+    }, 10_000);
+    return () => clearInterval(idTimer);
+  }, [id, ticket?.status]);
+
   useEffect(() => {
     if (ticket?.registeredBank?.accountHolder && !depositorName) {
       setDepositorName(ticket.registeredBank.accountHolder);
     }
   }, [ticket, depositorName]);
+
+  useEffect(() => {
+    if (ticket?.status === 'QUOTE_PENDING') {
+      setConfirmFiat(String(ticket.fiatAmount));
+      setConfirmUsdt(String(ticket.expectedUsdtAmount));
+    }
+  }, [ticket?.id, ticket?.status]);
 
   if (!ticket) return <p className="pg-hint">{t('common.loading')}</p>;
 
@@ -144,9 +172,10 @@ export default function UsdtDetailPage() {
   const isCustomer = user?.role === 'CUSTOMER' || user?.role === 'CUSTOMER_OPERATOR';
   const receivingFixed =
     depositCtx?.receivingAccounts?.[ticket.fiatCurrency as 'KRW' | 'JPY' | 'THB' | 'CNY'];
+  // CURFEX: 견적 확정 후에만 가상계좌 발급 → 확정 전에는 계좌 미표시(고정계좌로 폴백하지 않음)
   const receivingRaw =
-    ticket.collectionProvider === 'CURFEX' && ticket.collectionAccount
-      ? ticket.collectionAccount
+    ticket.collectionProvider === 'CURFEX'
+      ? ticket.collectionAccount ?? null
       : receivingFixed;
   const isCurfexAccount = ticket.collectionProvider === 'CURFEX' && !!ticket.collectionAccount;
   const receiving = receivingRaw
@@ -232,6 +261,35 @@ export default function UsdtDetailPage() {
     }
   };
 
+  const handleConfirmQuote = async () => {
+    setLoading(true);
+    try {
+      const fiat = parseFloat(confirmFiat);
+      const usdt = parseFloat(confirmUsdt);
+      await api.usdt.confirmQuote(id, {
+        confirmedFiatAmount: Number.isFinite(fiat) && fiat > 0 ? fiat : undefined,
+        confirmedUsdtAmount: Number.isFinite(usdt) && usdt > 0 ? usdt : undefined,
+      });
+      await load();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTradeAfterQuote = async () => {
+    if (sourceFiles.length === 0 || depositReceiptFiles.length === 0) return;
+    setLoading(true);
+    try {
+      await api.usdt.uploadApplicationDocs(id, {
+        sourceOfFunds: sourceFiles,
+        depositReceipt: depositReceiptFiles,
+      });
+      await load();
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const parseActualUsdtInput = () => {
     const raw = actualUsdt.trim();
     if (!raw) return null;
@@ -282,10 +340,20 @@ export default function UsdtDetailPage() {
   };
 
   const rateLabel = `1 USDT = ${ticket.exchangeRate.toLocaleString()} ${ticket.fiatCurrency}`;
+  const displayFiat =
+    ticket.confirmedFiatAmount != null ? ticket.confirmedFiatAmount : ticket.fiatAmount;
+  const displayUsdt =
+    ticket.confirmedUsdtAmount != null
+      ? ticket.confirmedUsdtAmount
+      : ticket.expectedUsdtAmount;
   const expectedRange =
-    ticket.expectedUsdtMin != null && ticket.expectedUsdtMax != null
-      ? `${ticket.expectedUsdtMin.toFixed(4)} ~ ${ticket.expectedUsdtMax.toFixed(4)} USDT`
-      : `${ticket.expectedUsdtAmount.toFixed(4)} USDT`;
+    ticket.status === 'QUOTE_CONFIRMED' || ticket.confirmedUsdtAmount != null
+      ? `${displayUsdt.toFixed(4)} USDT`
+      : ticket.status === 'QUOTE_PENDING'
+        ? `${ticket.expectedUsdtAmount.toFixed(4)} USDT`
+        : ticket.expectedUsdtMin != null && ticket.expectedUsdtMax != null
+          ? `${ticket.expectedUsdtMin.toFixed(4)} ~ ${ticket.expectedUsdtMax.toFixed(4)} USDT`
+          : `${ticket.expectedUsdtAmount.toFixed(4)} USDT`;
 
   const depositExpired =
     ticket.depositDeadlineAt &&
@@ -293,6 +361,7 @@ export default function UsdtDetailPage() {
     ticket.status === 'DEPOSIT_PROOF_PENDING';
 
   const isCard = ticket.paymentMethod === 'CARD';
+  const showDepositAccount = !!receiving && !isCard && ticket.status !== 'QUOTE_PENDING';
   const showAdmin =
     user?.role === 'SUPER_ADMIN' ||
     user?.role === 'ORGANIZER' ||
@@ -323,8 +392,19 @@ export default function UsdtDetailPage() {
 
   return (
     <div className="pg-stack">
+      {showQuoteValidTimer && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="inline-flex items-center gap-1.5 rounded border border-rose-300 bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
+            <span>{t('usdt.quoteValidLabel')}</span>
+            <span className="font-mono tabular-nums tracking-wide">{countdown || '—'}</span>
+          </span>
+          <p className="text-[11px] text-rose-800/80">
+            {t('usdt.quoteValidHint', { minutes: quoteValidMinutes })}
+          </p>
+        </div>
+      )}
       <DetailHero
-        fromLabel={formatCurrency(ticket.fiatAmount, ticket.fiatCurrency)}
+        fromLabel={formatCurrency(displayFiat, ticket.fiatCurrency)}
         toLabel={heroToUsdt}
         meta={
           <>
@@ -344,6 +424,133 @@ export default function UsdtDetailPage() {
           </>
         }
       />
+
+      {ticket.status === 'QUOTE_PENDING' && (
+        <div className="pg-card">
+          <div className="pg-card-body pg-callout pg-callout-warn space-y-2">
+            <p className="font-semibold">{t('usdt.quote.pendingTitle')}</p>
+            <p className="pg-hint">{t('usdt.quote.pendingDesc')}</p>
+            {ticket.quoteDueAt && (
+              <p className="text-sm">
+                {t('usdt.quote.dueAt')}: <span className="font-mono tabular-nums">{quoteCountdown}</span>
+              </p>
+            )}
+            <dl className="grid gap-1 text-sm sm:grid-cols-2">
+              <div>
+                <dt className="pg-muted">{t('usdt.quote.provisionalFiat')}</dt>
+                <dd className="font-mono font-semibold">
+                  {formatCurrency(ticket.fiatAmount, ticket.fiatCurrency)}
+                </dd>
+              </div>
+              <div>
+                <dt className="pg-muted">{t('usdt.quote.provisionalUsdt')}</dt>
+                <dd className="font-mono font-semibold">{ticket.expectedUsdtAmount.toFixed(4)} USDT</dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+      )}
+
+      {ticket.status === 'QUOTE_CONFIRMED' && (
+        <div className="pg-card">
+          <div className="pg-card-body pg-callout pg-callout-info space-y-2">
+            <p className="font-semibold">{t('usdt.quote.resultTitle')}</p>
+            <p className="pg-hint">{t('usdt.quote.resultDesc')}</p>
+            <p className="text-xs text-rose-800">
+              {t('usdt.quoteValidHint', { minutes: quoteValidMinutes })}
+            </p>
+            <dl className="grid gap-1 text-sm sm:grid-cols-2">
+              <div>
+                <dt className="pg-muted">{t('usdt.quote.confirmedFiat')}</dt>
+                <dd className="font-mono text-lg font-bold text-rose-800">
+                  {formatCurrency(displayFiat, ticket.fiatCurrency)}
+                </dd>
+              </div>
+              <div>
+                <dt className="pg-muted">{t('usdt.quote.confirmedUsdt')}</dt>
+                <dd className="font-mono text-lg font-bold">{displayUsdt.toFixed(4)} USDT</dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+      )}
+
+      {isOperator && ticket.status === 'QUOTE_PENDING' && (
+        <div className="pg-section">
+          <div className="pg-section-head">{t('usdt.quote.adminConfirmTitle')}</div>
+          <div className="pg-section-pad space-y-3">
+            <p className="pg-hint">{t('usdt.quote.adminConfirmDesc')}</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="pg-label">{t('usdt.quote.confirmedFiat')}</label>
+                <input
+                  className="pg-input mt-1 w-full"
+                  value={confirmFiat}
+                  onChange={(e) => setConfirmFiat(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="pg-label">{t('usdt.quote.confirmedUsdt')}</label>
+                <input
+                  className="pg-input mt-1 w-full"
+                  value={confirmUsdt}
+                  onChange={(e) => setConfirmUsdt(e.target.value)}
+                />
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleConfirmQuote}
+              disabled={loading}
+              className="pg-btn pg-btn-primary disabled:opacity-50"
+            >
+              {t('usdt.quote.confirmBtn')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isCustomer && ticket.status === 'QUOTE_CONFIRMED' && !isCard && (
+        <div className="pg-section">
+          <div className="pg-section-head">{t('usdt.quote.tradeTitle')}</div>
+          <div className="pg-section-pad space-y-3">
+            <p className="pg-hint">{t('usdt.quote.tradeDesc')}</p>
+            <div>
+              <label className="pg-label">{t('usdt.funding.sourceFiles')}</label>
+              <div className="mt-1">
+                <LocalizedFileInput
+                  accept=".xlsx,.xls,.pdf,image/*"
+                  multiple
+                  files={sourceFiles}
+                  onFiles={setSourceFiles}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="pg-label">
+                {t('usdt.funding.depositReceipt')}
+                <span className="ml-1 text-rose-600">*</span>
+              </label>
+              <div className="mt-1">
+                <LocalizedFileInput
+                  accept=".pdf,image/*"
+                  multiple
+                  files={depositReceiptFiles}
+                  onFiles={setDepositReceiptFiles}
+                />
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleTradeAfterQuote}
+              disabled={loading || sourceFiles.length === 0 || depositReceiptFiles.length === 0}
+              className="pg-btn pg-btn-primary disabled:opacity-50"
+            >
+              {t('usdt.quote.tradeBtn')}
+            </button>
+          </div>
+        </div>
+      )}
 
       {ticket.status === 'DEPOSIT_PROOF_PENDING' && ticket.depositDeadlineAt && !isCard && (
         <div className="pg-card">
@@ -386,7 +593,7 @@ export default function UsdtDetailPage() {
         </div>
       )}
 
-      {receiving && !isCard && (
+      {showDepositAccount && (
         <div className="pg-card">
           <div className="pg-card-body pg-callout pg-callout-info space-y-2">
             <p className="font-semibold">
@@ -586,8 +793,14 @@ export default function UsdtDetailPage() {
             ticket.feeDiagramDisplay?.billingMethod ??
             ticket.feeDiagramDisplay?.defaultFeeBillingMethod ??
             'ITEMIZED';
+          const showFeeAmounts = ticket.feeDiagramDisplay?.showTotalFee !== false;
           const showIntegrated = billing === 'INTEGRATED' || billing === 'HYBRID';
           const showItemized = billing === 'ITEMIZED' || billing === 'HYBRID';
+          if (!showFeeAmounts) {
+            return (
+              <p className="text-xs text-slate-500">{t('usdt.fee.totalFeeHidden')}</p>
+            );
+          }
           return (
             <>
               {showIntegrated && (

@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthProvider';
-import { useT } from '@/context/LocaleProvider';
+import { useLocale, useT } from '@/context/LocaleProvider';
 import {
   api,
+  hqPolicyApi,
   type CreateUserInput,
   type ManagedUser,
   type Organization,
@@ -14,6 +15,15 @@ import {
 import type { MessageKey } from '@/i18n/messages';
 import { OrgCreateFields } from '@/components/orgs/OrgCreateFields';
 import { DoubleConfirmDialog } from '@/components/DoubleConfirmDialog';
+import { useDoubleConfirm } from '@/hooks/useDoubleConfirm';
+import { InactiveReasonPresetPicker } from '@/components/InactiveReasonPresetPicker';
+import {
+  encodeInactivePresetReason,
+  formatLoginNoticeDisplay,
+  mergeInactiveNoticePresets,
+  type InactiveNoticePreset,
+  type InactiveNoticePresetId,
+} from '@/lib/inactive-notice-presets';
 import { type OrgTypeCode } from '@/lib/org-types';
 import { detailRowProps } from '@/lib/table-row-detail';
 
@@ -36,6 +46,7 @@ const emptyCreate: CreateUserInput = {
 export default function UsersPage() {
   const { user: me } = useAuth();
   const t = useT();
+  const { locale } = useLocale();
   const isSuperAdmin = me?.role === 'SUPER_ADMIN';
   const canAssignOrganizer = (me?.email ?? '').toLowerCase() === 'ziobizm@gmail.com' && isSuperAdmin;
   const [passwordConfirm, setPasswordConfirm] = useState('');
@@ -64,8 +75,16 @@ export default function UsersPage() {
   const [editForm, setEditForm] = useState<UpdateUserInput>({});
   const [newPassword, setNewPassword] = useState('');
   const [statusReason, setStatusReason] = useState('');
+  const [statusLoginNotice, setStatusLoginNotice] = useState('');
+  const [statusNoticePresetId, setStatusNoticePresetId] = useState<InactiveNoticePresetId | null>(
+    null,
+  );
+  const [inactivePresets, setInactivePresets] = useState<InactiveNoticePreset[]>(
+    mergeInactiveNoticePresets(),
+  );
   const [initialIsActive, setInitialIsActive] = useState(true);
   const [deleting, setDeleting] = useState<ManagedUser | null>(null);
+  const { requestConfirm, dialog: doubleConfirmDialog } = useDoubleConfirm();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -89,6 +108,10 @@ export default function UsersPage() {
 
   useEffect(() => {
     api.organizations().then(setOrgs).catch(console.error);
+    hqPolicyApi
+      .getPlatform()
+      .then((p) => setInactivePresets(mergeInactiveNoticePresets(p.config.inactiveLoginNoticePresets)))
+      .catch(console.error);
   }, []);
 
   useEffect(() => {
@@ -121,6 +144,8 @@ export default function UsersPage() {
       });
       setInitialIsActive(detail.isActive);
       setStatusReason('');
+      setStatusLoginNotice('');
+      setStatusNoticePresetId(null);
       setNewPassword('');
       setModal('edit');
     } catch (err) {
@@ -180,10 +205,26 @@ export default function UsersPage() {
       setMsg(t('users.statusReasonRequired'));
       return;
     }
-    try {
+
+    const activating = editForm.isActive === true;
+    const noticeForSave =
+      statusChanging && !activating && statusNoticePresetId
+        ? encodeInactivePresetReason(statusNoticePresetId)
+        : statusChanging && !activating
+          ? statusLoginNotice.trim() || null
+          : null;
+    const noticeLabel =
+      statusChanging && !activating
+        ? noticeForSave
+          ? formatLoginNoticeDisplay(noticeForSave, locale, inactivePresets)
+          : t('users.loginNoticeEmptyHint')
+        : '';
+
+    const runSave = async () => {
       await api.users.update(editing.id, {
         ...editForm,
         statusReason: statusChanging ? statusReason.trim() : undefined,
+        statusLoginNotice: statusChanging ? noticeForSave : undefined,
       });
       if (newPassword.length >= 6) {
         await api.users.resetPassword(editing.id, newPassword);
@@ -191,35 +232,77 @@ export default function UsersPage() {
       setModal(null);
       setMsg(t('users.saved'));
       load();
+    };
+
+    if (statusChanging) {
+      requestConfirm({
+        title: activating ? t('users.activateConfirmTitle') : t('users.deactivateConfirmTitle'),
+        step1: activating
+          ? t('users.activateConfirmStep1', { email: editing.email })
+          : t('users.deactivateConfirmStep1', { email: editing.email }),
+        step2: activating
+          ? t('users.activateConfirmStep2', { reason: statusReason.trim() })
+          : t('users.deactivateConfirmStep2Notice', {
+              reason: statusReason.trim(),
+              notice: noticeLabel,
+            }),
+        confirmLabel: activating ? t('users.active') : t('users.inactive'),
+        onConfirm: async () => {
+          try {
+            await runSave();
+          } catch (err) {
+            setMsg(err instanceof Error ? err.message : t('users.saveFailed'));
+          }
+        },
+      });
+      return;
+    }
+
+    try {
+      await runSave();
     } catch (err) {
       setMsg(err instanceof Error ? err.message : t('users.saveFailed'));
     }
   }
 
   async function handleResetPassword(u: ManagedUser) {
-    if (!window.confirm(t('users.resetPasswordConfirm', { email: u.email }))) return;
-    setMsg('');
-    setError('');
-    try {
-      const res = await api.users.resetPassword(u.id);
-      setMsg(t('users.passwordResetDone', { password: res.initialPassword ?? '' }));
-      load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('users.resetPasswordFailed'));
-    }
+    requestConfirm({
+      title: t('users.resetPasswordBtn'),
+      step1: t('users.resetPasswordConfirm', { email: u.email }),
+      step2: t('common.doubleConfirm.step2'),
+      confirmLabel: t('users.resetPasswordBtn'),
+      onConfirm: async () => {
+        setMsg('');
+        setError('');
+        try {
+          const res = await api.users.resetPassword(u.id);
+          setMsg(t('users.passwordResetDone', { password: res.initialPassword ?? '' }));
+          load();
+        } catch (err) {
+          setError(err instanceof Error ? err.message : t('users.resetPasswordFailed'));
+        }
+      },
+    });
   }
 
   async function handleResetOtp(u: ManagedUser) {
-    if (!window.confirm(t('users.resetOtpConfirm', { email: u.email }))) return;
-    setMsg('');
-    setError('');
-    try {
-      await api.users.resetOtp(u.id);
-      setMsg(t('users.otpResetDone', { email: u.email }));
-      load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('users.resetOtpFailed'));
-    }
+    requestConfirm({
+      title: t('users.resetOtpBtn'),
+      step1: t('users.resetOtpConfirm', { email: u.email }),
+      step2: t('common.doubleConfirm.step2'),
+      confirmLabel: t('users.resetOtpBtn'),
+      onConfirm: async () => {
+        setMsg('');
+        setError('');
+        try {
+          await api.users.resetOtp(u.id);
+          setMsg(t('users.otpResetDone', { email: u.email }));
+          load();
+        } catch (err) {
+          setError(err instanceof Error ? err.message : t('users.resetOtpFailed'));
+        }
+      },
+    });
   }
 
   async function confirmDeleteUser() {
@@ -258,6 +341,7 @@ export default function UsersPage() {
 
   return (
     <div className="pg-stack">
+      {doubleConfirmDialog}
       <div className="pg-toolbar">
         <p className="pg-hint">{t('users.subtitle')}</p>
         <button type="button" onClick={openCreate} className="pg-btn pg-btn-primary">
@@ -644,17 +728,38 @@ export default function UsersPage() {
               </Field>
               {statusChanging && (
                 <Field label={t('users.statusReason')} required>
+                  <p className="pg-hint mb-1 text-[11px]">{t('users.statusReasonInternalHint')}</p>
                   <textarea
                     required
-                    rows={3}
+                    rows={2}
                     value={statusReason}
                     onChange={(e) => setStatusReason(e.target.value)}
-                    className="pg-input min-h-[72px]"
-                    placeholder={
-                      editForm.isActive
-                        ? t('users.activateReasonPlaceholder')
-                        : t('users.deactivateReasonPlaceholder')
-                    }
+                    className="pg-input min-h-[56px]"
+                    placeholder={t('users.statusReasonInternalPlaceholder')}
+                  />
+                </Field>
+              )}
+              {statusChanging && editForm.isActive === false && (
+                <Field label={t('users.loginNotice')}>
+                  <p className="pg-hint mb-1 text-[11px]">{t('users.loginNoticeHint')}</p>
+                  <InactiveReasonPresetPicker
+                    presets={inactivePresets}
+                    locale={locale}
+                    selectedId={statusNoticePresetId}
+                    onSelect={(p) => {
+                      setStatusNoticePresetId(p.id);
+                      setStatusLoginNotice(p.bodyI18n[locale] || p.bodyI18n.KR);
+                    }}
+                  />
+                  <textarea
+                    rows={3}
+                    value={statusLoginNotice}
+                    onChange={(e) => {
+                      setStatusLoginNotice(e.target.value);
+                      setStatusNoticePresetId(null);
+                    }}
+                    className="pg-input mt-2 min-h-[72px]"
+                    placeholder={t('users.loginNoticePlaceholder')}
                   />
                 </Field>
               )}
@@ -681,6 +786,12 @@ export default function UsersPage() {
                         </div>
                         <div className="pg-muted">{adminLabel(log.changedBy)}</div>
                         <div className="mt-0.5">{log.reason}</div>
+                        {log.loginNotice ? (
+                          <div className="mt-0.5 text-slate-600">
+                            {t('users.loginNotice')}:{' '}
+                            {formatLoginNoticeDisplay(log.loginNotice, locale, inactivePresets)}
+                          </div>
+                        ) : null}
                       </div>
                     ))}
                   </div>

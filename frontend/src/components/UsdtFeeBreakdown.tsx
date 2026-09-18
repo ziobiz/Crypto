@@ -65,6 +65,7 @@ const DEFAULT_DISPLAY: FeeDiagramDisplayConfig = {
   net: true,
   requiredFiat: true,
   showRates: true,
+  showTotalFee: true,
   defaultFeeBillingMethod: 'ITEMIZED',
 };
 
@@ -78,18 +79,23 @@ export function UsdtFeeBreakdownPanel({
   cardFeeFiat,
   cardChargeFiat,
   cardFeePercent,
-  isCardPayment,
+  isCardPayment = false,
+  /** 입금/수령 금액 ±N% 범위 표시. exact도 함께 보여줄지 여부 */
+  amountRangePct,
+  showExactWithRange = false,
 }: {
   breakdown: UsdtFeeBreakdown;
   currency: string;
   exchangeRate: number;
-  source?: string;
+  source?: string | null;
   fees?: FeeRates;
-  display?: FeeDiagramDisplayConfig;
-  cardFeeFiat?: number;
-  cardChargeFiat?: number;
-  cardFeePercent?: number;
+  display?: FeeDiagramDisplayConfig | null;
+  cardFeeFiat?: number | null;
+  cardChargeFiat?: number | null;
+  cardFeePercent?: number | null;
   isCardPayment?: boolean;
+  amountRangePct?: number | null;
+  showExactWithRange?: boolean;
 }) {
   const t = useT();
   const cfg = { ...DEFAULT_DISPLAY, ...display };
@@ -200,8 +206,9 @@ export function UsdtFeeBreakdownPanel({
 
   const showIntegrated = billingMethod === 'INTEGRATED' || billingMethod === 'HYBRID';
   const showItemized = billingMethod === 'ITEMIZED' || billingMethod === 'HYBRID';
+  const showFeeAmounts = cfg.showTotalFee !== false;
 
-  if (showIntegrated) {
+  if (showFeeAmounts && showIntegrated) {
     allSteps.push({
       key: 'integratedFee',
       label: t('usdt.fee.integratedTotal'),
@@ -211,7 +218,7 @@ export function UsdtFeeBreakdownPanel({
     });
   }
 
-  if (showItemized) {
+  if (showFeeAmounts && showItemized) {
     for (const p of itemizedFeeParts) {
       allSteps.push({
         key: p.key,
@@ -224,11 +231,22 @@ export function UsdtFeeBreakdownPanel({
   }
 
   if (cfg.net) {
+    const netExact = `${breakdown.netUsdt.toFixed(4)} USDT`;
+    let netValue = netExact;
+    if (amountRangePct != null && amountRangePct > 0) {
+      const d = breakdown.netUsdt * (amountRangePct / 100);
+      const low = Math.max(0, breakdown.netUsdt - d);
+      const high = breakdown.netUsdt + d;
+      const range = `${low.toFixed(4)} ~ ${high.toFixed(4)} USDT`;
+      netValue = showExactWithRange
+        ? `${range}\n${t('usdt.fee.refExact')}: ${netExact}`
+        : range;
+    }
     allSteps.push({
       key: 'net',
       label: t('usdt.fee.net'),
       rate: '—',
-      value: `${breakdown.netUsdt.toFixed(4)} USDT`,
+      value: netValue,
       tone: 'bg-rose-50 border-rose-200',
     });
   }
@@ -289,19 +307,42 @@ export function UsdtFeeBreakdownPanel({
                   {s.rate}
                 </span>
               )}
-              <span className="text-[11px] font-medium tabular-nums text-right">{s.value}</span>
+              <span className="text-[11px] font-medium tabular-nums text-right whitespace-pre-line">
+                {s.value}
+              </span>
             </div>
           ))}
         </div>
       )}
       {cfg.requiredFiat && (
-        <div className="mt-3 rounded border border-rose-100 bg-rose-50/60 px-3 py-2">
-          <p className="text-gray-600">
+        <div className="mt-3 rounded border border-blue-100 bg-blue-50/70 px-3 py-2">
+          <p className="text-blue-800/80">
             {isCardPayment ? t('usdt.fee.fiatForConversion') : t('usdt.fee.requiredFiat')}
           </p>
-          <p className="text-lg font-bold text-rose-800 tabular-nums text-center">
-            {formatFiatAmount(breakdown.requiredFiat, currency)}
-          </p>
+          {amountRangePct != null && amountRangePct > 0 ? (
+            (() => {
+              const mid = breakdown.requiredFiat;
+              const d = mid * (amountRangePct / 100);
+              const low = Math.max(0, mid - d);
+              const high = mid + d;
+              return (
+                <div className="space-y-0.5 text-center">
+                  <p className="text-lg font-bold text-blue-700 tabular-nums">
+                    {formatFiatAmount(low, currency)} ~ {formatFiatAmount(high, currency)}
+                  </p>
+                  <p className="text-lg font-bold text-blue-700 tabular-nums">
+                    {showExactWithRange
+                      ? `${t('usdt.fee.refExact')}: ${formatFiatAmount(mid, currency)}`
+                      : t('usdt.fee.rangeHint')}
+                  </p>
+                </div>
+              );
+            })()
+          ) : (
+            <p className="text-lg font-bold text-blue-700 tabular-nums text-center">
+              {formatFiatAmount(breakdown.requiredFiat, currency)}
+            </p>
+          )}
         </div>
       )}
       {isCardPayment && cardChargeFiat != null && cardChargeFiat > 0 && (

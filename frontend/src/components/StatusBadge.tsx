@@ -10,6 +10,8 @@ export type UsdtStatusContext = {
 };
 
 const STATUS_KEYS: Record<string, MessageKey> = {
+  QUOTE_PENDING: 'status.QUOTE_PENDING',
+  QUOTE_CONFIRMED: 'status.QUOTE_CONFIRMED',
   APPLICATION_COMPLETED: 'status.APPLICATION_COMPLETED',
   CARD_PAYMENT_PENDING: 'status.CARD_PAYMENT_PENDING',
   DEPOSIT_PROOF_PENDING: 'status.DEPOSIT_PROOF_PENDING',
@@ -32,6 +34,8 @@ const STATUS_KEYS: Record<string, MessageKey> = {
 };
 
 const STATUS_BADGE: Record<string, string> = {
+  QUOTE_PENDING: 'pg-badge-warn',
+  QUOTE_CONFIRMED: 'pg-badge-info',
   APPLICATION_COMPLETED: 'pg-badge-info',
   CARD_PAYMENT_PENDING: 'pg-badge-warn',
   DEPOSIT_PROOF_PENDING: 'pg-badge-warn',

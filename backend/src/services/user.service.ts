@@ -8,7 +8,43 @@ import { getHqTransactionFees } from './transaction-fee.service';
 import type { AuthUser } from '../types/auth';
 import { logAdminChange, sanitizeUserSnapshot, type AuditContext } from './admin-change-log.service';
 import { isHqChiefAdmin, isHqRootAdminEmail, isStaffManagerRole } from '../constants/hq-admin';
+import {
+  normalizeUsdtRiskLimitBand,
+  normalizeUsdtRiskLimitCode,
+  type UsdtRiskLimitCode,
+} from '../constants/hq-policy';
 import { nextUserPurgeAt } from './deletion.service';
+
+function resolveUsdtRiskLimitFields(input: {
+  usdtRiskLimitCode?: string | null;
+  usdtLimitMinUsdt?: number | null;
+  usdtLimitMaxUsdt?: number | null;
+}): {
+  usdtRiskLimitCode: UsdtRiskLimitCode;
+  usdtLimitMinUsdt: number | null;
+  usdtLimitMaxUsdt: number | null;
+} {
+  const code = normalizeUsdtRiskLimitCode(input.usdtRiskLimitCode);
+  if (code === 'ML') {
+    if (input.usdtLimitMinUsdt == null || input.usdtLimitMaxUsdt == null) {
+      throw new AppError(400, 'ML 한도는 최소·최대 USDT가 필요합니다', 'VALIDATION');
+    }
+    const band = normalizeUsdtRiskLimitBand({
+      minUsdt: input.usdtLimitMinUsdt,
+      maxUsdt: input.usdtLimitMaxUsdt,
+    });
+    return {
+      usdtRiskLimitCode: 'ML',
+      usdtLimitMinUsdt: band.minUsdt,
+      usdtLimitMaxUsdt: band.maxUsdt,
+    };
+  }
+  return {
+    usdtRiskLimitCode: code,
+    usdtLimitMinUsdt: null,
+    usdtLimitMaxUsdt: null,
+  };
+}
 
 const CUSTOMER_REGISTER_ORG_TYPES: OrgType[] = [
   OrgType.HEAD_OFFICE,
@@ -39,7 +75,14 @@ const userSelect = {
       simulatorEnabled: true,
       simulatorRateMode: true,
       feeBillingMethod: true,
+      totalFeeVisibility: true,
+      usdtRiskLimitCode: true,
+      usdtLimitMinUsdt: true,
+      usdtLimitMaxUsdt: true,
       usdtCollectionMode: true,
+      usdtQuoteResponseMode: true,
+      usdtQuoteAutoDelayMinutes: true,
+      usdtQuoteManualSlaHours: true,
       operatorsEnabled: true,
       walletFeesVisible: true,
       recruitingOrg: { select: { id: true, code: true, name: true, path: true } },
@@ -76,6 +119,7 @@ const managementLogSelect = {
   id: true,
   action: true,
   reason: true,
+  loginNotice: true,
   createdAt: true,
   changedBy: { select: adminBriefSelect },
 } satisfies Prisma.UserManagementLogSelect;
@@ -84,13 +128,16 @@ async function logUserManagement(input: {
   userId: string;
   action: UserManagementAction;
   reason: string;
+  loginNotice?: string | null;
   changedById: string;
 }) {
+  const notice = input.loginNotice?.trim() || null;
   await prisma.userManagementLog.create({
     data: {
       userId: input.userId,
       action: input.action,
       reason: input.reason.trim(),
+      loginNotice: notice,
       changedById: input.changedById,
     },
   });
@@ -380,9 +427,16 @@ export const userService = {
       simulatorEnabled?: boolean;
       simulatorRateMode?: 'LIVE' | 'SAND';
       feeBillingMethod?: 'FOLLOW_HQ' | 'INTEGRATED' | 'ITEMIZED' | 'HYBRID';
+      totalFeeVisibility?: 'FOLLOW_HQ' | 'SHOW' | 'HIDE';
       usdtCollectionMode?: 'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL';
+      usdtQuoteResponseMode?: 'FOLLOW_HQ' | 'AUTO' | 'MANUAL' | 'OFF';
+      usdtQuoteAutoDelayMinutes?: number | null;
+      usdtQuoteManualSlaHours?: number | null;
       operatorsEnabled?: boolean;
       walletFeesVisible?: boolean;
+      usdtRiskLimitCode?: string;
+      usdtLimitMinUsdt?: number | null;
+      usdtLimitMaxUsdt?: number | null;
     },
     audit?: AuditContext,
   ) {
@@ -429,6 +483,11 @@ export const userService = {
     if (data.role === UserRole.CUSTOMER) {
       const hqFees = await getHqTransactionFees();
       const network = data.walletNetwork?.trim() || 'TRC20';
+      const riskLimit = resolveUsdtRiskLimitFields({
+        usdtRiskLimitCode: data.usdtRiskLimitCode ?? 'MR',
+        usdtLimitMinUsdt: data.usdtLimitMinUsdt,
+        usdtLimitMaxUsdt: data.usdtLimitMaxUsdt,
+      });
       created = await prisma.user.create({
         data: {
           email,
@@ -450,7 +509,20 @@ export const userService = {
               simulatorEnabled: data.simulatorEnabled !== false,
               simulatorRateMode: data.simulatorRateMode ?? 'LIVE',
               feeBillingMethod: data.feeBillingMethod ?? 'FOLLOW_HQ',
+              totalFeeVisibility: data.totalFeeVisibility ?? 'FOLLOW_HQ',
+              usdtRiskLimitCode: riskLimit.usdtRiskLimitCode,
+              usdtLimitMinUsdt: riskLimit.usdtLimitMinUsdt,
+              usdtLimitMaxUsdt: riskLimit.usdtLimitMaxUsdt,
               usdtCollectionMode: data.usdtCollectionMode ?? 'FOLLOW_HQ',
+              usdtQuoteResponseMode: data.usdtQuoteResponseMode ?? 'FOLLOW_HQ',
+              usdtQuoteAutoDelayMinutes:
+                data.usdtQuoteResponseMode === 'AUTO'
+                  ? data.usdtQuoteAutoDelayMinutes ?? 0
+                  : null,
+              usdtQuoteManualSlaHours:
+                data.usdtQuoteResponseMode === 'MANUAL'
+                  ? data.usdtQuoteManualSlaHours ?? 3
+                  : null,
               operatorsEnabled: data.operatorsEnabled === true,
               walletFeesVisible: data.walletFeesVisible === true,
             },
@@ -558,13 +630,22 @@ export const userService = {
       isActive?: boolean;
       recruitingOrgId?: string;
       statusReason?: string;
+      /** 비활성 로그인 안내 (선택). 비우면 HQ 기본 안내 */
+      statusLoginNotice?: string | null;
       feeShare?: unknown;
       simulatorEnabled?: boolean;
       simulatorRateMode?: 'LIVE' | 'SAND';
       feeBillingMethod?: 'FOLLOW_HQ' | 'INTEGRATED' | 'ITEMIZED' | 'HYBRID';
+      totalFeeVisibility?: 'FOLLOW_HQ' | 'SHOW' | 'HIDE';
       usdtCollectionMode?: 'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL';
+      usdtQuoteResponseMode?: 'FOLLOW_HQ' | 'AUTO' | 'MANUAL' | 'OFF';
+      usdtQuoteAutoDelayMinutes?: number | null;
+      usdtQuoteManualSlaHours?: number | null;
       operatorsEnabled?: boolean;
       walletFeesVisible?: boolean;
+      usdtRiskLimitCode?: string;
+      usdtLimitMinUsdt?: number | null;
+      usdtLimitMaxUsdt?: number | null;
     },
     audit?: AuditContext,
   ) {
@@ -630,9 +711,16 @@ export const userService = {
       simulatorEnabled?: boolean;
       simulatorRateMode?: 'LIVE' | 'SAND';
       feeBillingMethod?: 'FOLLOW_HQ' | 'INTEGRATED' | 'ITEMIZED' | 'HYBRID';
+      totalFeeVisibility?: 'FOLLOW_HQ' | 'SHOW' | 'HIDE';
       usdtCollectionMode?: 'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL';
+      usdtQuoteResponseMode?: 'FOLLOW_HQ' | 'AUTO' | 'MANUAL' | 'OFF';
+      usdtQuoteAutoDelayMinutes?: number | null;
+      usdtQuoteManualSlaHours?: number | null;
       operatorsEnabled?: boolean;
       walletFeesVisible?: boolean;
+      usdtRiskLimitCode?: UsdtRiskLimitCode;
+      usdtLimitMinUsdt?: number | null;
+      usdtLimitMaxUsdt?: number | null;
     } = {};
     if (data.recruitingOrgId && existing.customerProfile) {
       customerProfileUpdate.recruitingOrgId = data.recruitingOrgId;
@@ -647,14 +735,48 @@ export const userService = {
     if (data.feeBillingMethod !== undefined && existing.customerProfile) {
       customerProfileUpdate.feeBillingMethod = data.feeBillingMethod;
     }
+    if (data.totalFeeVisibility !== undefined && existing.customerProfile) {
+      customerProfileUpdate.totalFeeVisibility = data.totalFeeVisibility;
+    }
     if (data.usdtCollectionMode !== undefined && existing.customerProfile) {
       customerProfileUpdate.usdtCollectionMode = data.usdtCollectionMode;
+    }
+    if (data.usdtQuoteResponseMode !== undefined && existing.customerProfile) {
+      customerProfileUpdate.usdtQuoteResponseMode = data.usdtQuoteResponseMode;
+    }
+    if (data.usdtQuoteAutoDelayMinutes !== undefined && existing.customerProfile) {
+      customerProfileUpdate.usdtQuoteAutoDelayMinutes = data.usdtQuoteAutoDelayMinutes;
+    }
+    if (data.usdtQuoteManualSlaHours !== undefined && existing.customerProfile) {
+      customerProfileUpdate.usdtQuoteManualSlaHours = data.usdtQuoteManualSlaHours;
     }
     if (data.operatorsEnabled !== undefined && existing.customerProfile) {
       customerProfileUpdate.operatorsEnabled = data.operatorsEnabled;
     }
     if (data.walletFeesVisible !== undefined && existing.customerProfile) {
       customerProfileUpdate.walletFeesVisible = data.walletFeesVisible;
+    }
+    if (
+      existing.customerProfile &&
+      (data.usdtRiskLimitCode !== undefined ||
+        data.usdtLimitMinUsdt !== undefined ||
+        data.usdtLimitMaxUsdt !== undefined)
+    ) {
+      const riskLimit = resolveUsdtRiskLimitFields({
+        usdtRiskLimitCode:
+          data.usdtRiskLimitCode ?? existing.customerProfile.usdtRiskLimitCode,
+        usdtLimitMinUsdt:
+          data.usdtLimitMinUsdt !== undefined
+            ? data.usdtLimitMinUsdt
+            : existing.customerProfile.usdtLimitMinUsdt,
+        usdtLimitMaxUsdt:
+          data.usdtLimitMaxUsdt !== undefined
+            ? data.usdtLimitMaxUsdt
+            : existing.customerProfile.usdtLimitMaxUsdt,
+      });
+      customerProfileUpdate.usdtRiskLimitCode = riskLimit.usdtRiskLimitCode;
+      customerProfileUpdate.usdtLimitMinUsdt = riskLimit.usdtLimitMinUsdt;
+      customerProfileUpdate.usdtLimitMaxUsdt = riskLimit.usdtLimitMaxUsdt;
     }
 
     const user = await prisma.user.update({
@@ -680,10 +802,15 @@ export const userService = {
     }
 
     if (statusChanging && statusReason) {
+      const isDeactivate = data.isActive === false;
+      const loginNotice = isDeactivate
+        ? data.statusLoginNotice?.trim() || null
+        : null;
       await logUserManagement({
         userId: user.id,
         action: data.isActive ? UserManagementAction.ACTIVATE : UserManagementAction.DEACTIVATE,
         reason: statusReason,
+        loginNotice,
         changedById: actor.id,
       });
     }

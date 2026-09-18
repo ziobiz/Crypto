@@ -39,6 +39,9 @@ import {
   defaultWorkflowDisplay,
   normalizeWorkflowDisplay,
   DEFAULT_JPY_DEPOSIT_RECEIVING_ACCOUNT,
+  DEFAULT_USDT_RISK_LIMIT_TIERS,
+  type HqUsdtQuoteResponsePolicy,
+  normalizeUsdtQuoteResponsePolicy,
 } from '../constants/hq-policy';
 import {
   defaultEmailOtpConfig,
@@ -82,6 +85,12 @@ import {
 import { getAllLocalMarketPremiums } from '../services/local-market-premium.service';
 import { getKimchiPremiumAnalysis } from '../services/kimchi-premium.service';
 import { DEFAULT_LOGIN_NOTICE_I18N } from '../constants/login-notice-i18n';
+import {
+  DEFAULT_INACTIVE_LOGIN_NOTICE_I18N,
+  DEFAULT_INACTIVE_NOTICE_PRESETS,
+  mergeInactiveLoginNoticeI18n,
+  mergeInactiveNoticePresets,
+} from '../constants/inactive-login-notice-i18n';
 import { defaultTransactionLimitsPolicy } from '../lib/transaction-limit-policy';
 import {
   logAdminChange,
@@ -190,6 +199,7 @@ function defaultCommissionRisk(): HqCommissionRiskConfig {
     defaultGasFeeUsdt: fees.gasFeeUsdt,
     defaultTransferFeeUsdt: fees.transferFeeUsdt,
     defaultOtherFeeUsdt: fees.otherFeeUsdt,
+    usdtRiskLimitTiers: DEFAULT_USDT_RISK_LIMIT_TIERS,
     maxTicketAmountKrw: 100_000_000,
     riskEnabled: true,
     maxDailyTicketsPerCustomer: 10,
@@ -246,7 +256,16 @@ function normalizePlatformConfig(raw: Partial<HqPlatformConfig>): HqPlatformConf
     defaultUsdtFiatCurrency: merged.defaultUsdtFiatCurrency ?? 'JPY',
     simulatorRetentionMonths: clampSimulatorRetention(merged.simulatorRetentionMonths),
     loginNoticeI18n: mergeLoginNoticeI18n(merged.loginNoticeI18n),
+    inactiveLoginNoticeI18n: mergeInactiveLoginNoticeI18n(merged.inactiveLoginNoticeI18n),
+    inactiveLoginNoticePresets: mergeInactiveNoticePresets(merged.inactiveLoginNoticePresets),
     authMainText: String(merged.authMainText ?? ''),
+    /** 구버전: og 필드 없으면 배경 문구로 1회 이관(메신저 공백 방지) */
+    ogTitle: Object.prototype.hasOwnProperty.call(raw ?? {}, 'ogTitle')
+      ? String(raw?.ogTitle ?? '')
+      : '',
+    ogDescription: Object.prototype.hasOwnProperty.call(raw ?? {}, 'ogDescription')
+      ? String(raw?.ogDescription ?? '')
+      : String(merged.authMainText ?? ''),
     linkPreviewRevision: Math.max(0, Math.floor(Number(merged.linkPreviewRevision) || 0)),
     depositReceivingAccounts: normalizeDepositReceivingAccounts(merged.depositReceivingAccounts),
     baseTimezone: normalizeIanaTimezone(merged.baseTimezone, 'Asia/Seoul'),
@@ -318,9 +337,17 @@ function defaultPlatform(): HqPlatformConfig {
     tabTitle: '',
     footerText: '',
     authMainText: '',
+    ogTitle: '',
+    ogDescription: '',
     linkPreviewRevision: 0,
     loginNoticeEnabled: true,
     loginNoticeI18n: { ...DEFAULT_LOGIN_NOTICE_I18N },
+    inactiveLoginNoticeI18n: { ...DEFAULT_INACTIVE_LOGIN_NOTICE_I18N },
+    inactiveLoginNoticePresets: DEFAULT_INACTIVE_NOTICE_PRESETS.map((p) => ({
+      id: p.id,
+      title: p.title,
+      bodyI18n: { ...p.bodyI18n },
+    })),
     customerRegistrationEnabled: false,
     idleTimeoutMinutes: 30,
     defaultUsdtFiatCurrency: 'JPY',
@@ -575,7 +602,22 @@ export const hqPolicyService = {
         await getConfig(HQ_CONFIG_KEYS.gasNetworks, defaultGasNetworkPolicy()),
       ),
       currencyAmountDisplay: await getCurrencyAmountDisplayPolicy(),
+      usdtQuoteResponse: await (
+        await import('./usdt-quote-policy.service')
+      ).getUsdtQuoteResponsePolicy(),
     };
+  },
+
+  async saveUsdtQuoteResponse(audit: AuditContext, policy: HqUsdtQuoteResponsePolicy) {
+    const normalized = normalizeUsdtQuoteResponsePolicy(policy);
+    await putConfigWithAudit(audit, {
+      key: HQ_CONFIG_KEYS.usdtQuoteResponse,
+      value: normalized,
+      description: 'USDT 고정계좌 견적 응답 정책',
+      entityType: 'HQ_USDT_QUOTE_RESPONSE',
+      summary: `견적응답 ${normalized.enabled ? normalized.mode : 'OFF'}`,
+    });
+    return this.getCommissionPayload();
   },
 
   async saveCurrencyAmountDisplay(audit: AuditContext, policy: HqCurrencyAmountDisplayPolicy) {
@@ -842,6 +884,8 @@ export const hqPolicyService = {
         ...config,
         // 클라이언트 값이 최신. 미리보기 캐시 무효화를 위해 저장마다 revision 증가
         authMainText: config.authMainText ?? '',
+        ogTitle: config.ogTitle ?? '',
+        ogDescription: config.ogDescription ?? '',
         siteName: config.siteName ?? existing.siteName,
         linkPreviewRevision: prevRev + 1,
       }),
@@ -1061,7 +1105,7 @@ export const hqPolicyService = {
 
   /**
    * 링크 미리보기(단일). 로그인이 하나이므로 경로와 무관하게 동일.
-   * 제목·설명=배경 브랜드 문구(authMainText). 본문 스크랩 없음.
+   * 제목·설명은 ogTitle / ogDescription (로그인 배경 문구 authMainText와 별도).
    */
   async getPublicOpenGraph(): Promise<{
     title: string;
@@ -1078,15 +1122,15 @@ export const hqPolicyService = {
       }),
     );
     const siteName = (config.siteName || 'TINPASS').trim() || 'TINPASS';
-    // 미리보기에 보이는 핵심 문구 = 배경 브랜드 문구 (없으면 사이트 이름)
-    const description = String(config.authMainText || '')
+    const description = String(config.ogDescription || '')
       .replace(/\r\n/g, '\n')
       .split('\n')
       .map((l) => l.trim())
       .filter(Boolean)
       .join(' ')
       .trim();
-    const title = description || siteName;
+    const ogTitle = String(config.ogTitle || '').trim();
+    const title = ogTitle || description || siteName;
     const revision = Math.max(0, Math.floor(Number(config.linkPreviewRevision) || 0));
     const ogPath = getBrandingAssetPath('og');
     const authLogoPath = getBrandingAssetPath('auth-logo');

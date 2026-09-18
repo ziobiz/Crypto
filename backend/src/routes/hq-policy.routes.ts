@@ -124,6 +124,24 @@ router.put(
 );
 
 router.put(
+  '/commission/usdt-quote-response',
+  asyncHandler(async (req, res) => {
+    const body = req.body as { usdtQuoteResponse?: unknown };
+    if (!body.usdtQuoteResponse || typeof body.usdtQuoteResponse !== 'object') {
+      res.status(400).json({ error: 'usdtQuoteResponse required' });
+      return;
+    }
+    const audit = auditFromRequest(req.user!, req);
+    res.json(
+      await hqPolicyService.saveUsdtQuoteResponse(
+        audit,
+        body.usdtQuoteResponse as import('../constants/hq-policy').HqUsdtQuoteResponsePolicy,
+      ),
+    );
+  }),
+);
+
+router.put(
   '/commission/fee-tiers',
   asyncHandler(async (req, res) => {
     const body = req.body as { feeTiers?: SymbolFeeTierPolicy };

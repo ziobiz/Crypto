@@ -3,6 +3,374 @@ import type { PlatformReleaseNote } from './version';
 /** 본사정책 → 검증관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
 export const PLATFORM_RELEASE_NOTES: PlatformReleaseNote[] = [
   {
+    version: '2.6.105',
+    kind: 'minor',
+    date: '2026-09-18',
+    items: {
+      KR: [
+        '고객관리 목록에 등록일(YYYY.MM.DD) 표시.',
+        '조직관리 목록에 등록일·수정일(YYYY.MM.DD) 표시.',
+      ],
+      US: [
+        'Customer list: registration date (YYYY.MM.DD).',
+        'Organization list: registered and updated dates (YYYY.MM.DD).',
+      ],
+      JP: [
+        '顧客管理一覧に登録日(YYYY.MM.DD)を表示。',
+        '組織管理一覧に登録日・更新日(YYYY.MM.DD)を表示。',
+      ],
+      CH: [
+        '客户管理列表显示注册日（YYYY.MM.DD）。',
+        '组织管理列表显示注册日、修改日（YYYY.MM.DD）。',
+      ],
+      TH: [
+        'รายการลูกค้าแสดงวันที่ลงทะเบียน (YYYY.MM.DD)',
+        'รายการองค์กรแสดงวันที่ลงทะเบียนและวันที่แก้ไข (YYYY.MM.DD)',
+      ],
+    },
+  },
+  {
+    version: '2.6.104',
+    kind: 'minor',
+    date: '2026-09-18',
+    items: {
+      KR: [
+        'USDT 견적 자동 확정 대기: 1·3·5분 옵션 추가 (본사 수수료 설정).',
+        '고객 상세: 견적 응답 본사따름/자동/수동/미사용 개별 설정. 기본은 본사설정따름.',
+      ],
+      US: [
+        'USDT quote auto-confirm delays: added 1 / 3 / 5 minutes (HQ fees).',
+        'Customer detail: per-customer quote response Follow HQ / Auto / Manual / Off (default Follow HQ).',
+      ],
+      JP: [
+        'USDT見積の自動確定待機に1・3・5分を追加(本社手数料)。',
+        '顧客詳細: 見積応答を本社に従う/自動/手動/未使用で個別設定。既定は本社に従う。',
+      ],
+      CH: [
+        'USDT 报价自动确认等待新增 1/3/5 分钟（总部手续费）。',
+        '客户详情：报价响应可按客户设跟随总部/自动/手动/关闭，默认跟随总部。',
+      ],
+      TH: [
+        'หน่วงยืนยันใบเสนอราคาอัตโนมัติเพิ่ม 1/3/5 นาที (ค่าธรรมเนียม HQ)',
+        'รายละเอียดลูกค้า: ตั้งใบเสนอราคาตาม HQ/อัตโนมัติ/ด้วยมือ/ปิด ต่อลูกค้า ค่าเริ่มต้นตาม HQ',
+      ],
+    },
+  },
+  {
+    version: '2.6.103',
+    kind: 'minor',
+    date: '2026-09-18',
+    items: {
+      KR: [
+        '비활성 로그인 안내: API가 다국어 문구 맵을 함께 반환. 로그인 화면에서 언어 전환 시 안내가 즉시 바뀜.',
+        '프리셋(또는 동일 본문) 저장 건은 KR/US/JP/CH/TH로 전환. 커스텀 문구는 작성 언어 그대로 유지.',
+      ],
+      US: [
+        'Inactive login notice: API returns a multilingual message map; switching language on the login page updates the notice immediately.',
+        'Preset (or matching body) notices switch KR/US/JP/CH/TH; custom text stays as written.',
+      ],
+      JP: [
+        '無効ログイン案内: APIが多言語マップを返却。ログイン画面の言語切替で案内が即時更新。',
+        'プリセット(または同一本文)はKR/US/JP/CH/TH切替。カスタム文は作成言語のまま。',
+      ],
+      CH: [
+        '停用登录提示：API 返回多语言文案；登录页切换语言时提示立即更新。',
+        '预设（或相同正文）可切换 KR/US/JP/CH/TH；自定义文案保持原样。',
+      ],
+      TH: [
+        'ข้อความเข้าสู่ระบบบัญชีปิด: API ส่งแผนที่หลายภาษา สลับภาษาในหน้าเข้าสู่ระบบแล้วข้อความเปลี่ยนทันที',
+        'พรีเซ็ต (หรือข้อความตรงกัน) สลับ KR/US/JP/CH/TH ข้อความกำหนดเองคงภาษาเดิม',
+      ],
+    },
+  },
+  {
+    version: '2.6.102',
+    kind: 'minor',
+    date: '2026-09-18',
+    items: {
+      KR: [
+        '활성/비활성: 변경사유(내부 기록)와 안내문구(로그인 노출) 분리. 안내문구 비우면 HQ 기본/프리셋 안내.',
+        '고객 상세·사용자/고객 모달에 프리셋은 안내문구용으로 적용.',
+      ],
+      US: [
+        'Activate/deactivate: split internal change reason vs login notice. Empty notice uses HQ default/preset.',
+        'Presets fill the login notice on customer detail and user/customer modals.',
+      ],
+      JP: [
+        '有効/無効: 変更理由(内部)と案内文(ログイン表示)を分離。案内文空欄時は本社既定/プリセット。',
+        '顧客詳細・ユーザー/顧客モーダルでプリセットは案内文用。',
+      ],
+      CH: [
+        '启用/停用：变更原因（内部）与登录提示分离；提示留空则用总部默认/预设。',
+        '客户详情与用户/客户弹窗中预设用于提示文案。',
+      ],
+      TH: [
+        'เปิด/ปิด: แยกเหตุผลภายในกับข้อความเข้าสู่ระบบ เว้นว่างใช้ข้อความเริ่มต้น/พรีเซ็ต HQ',
+        'พรีเซ็ตใช้กับข้อความแจ้งเตือนในหน้ารายละเอียดลูกค้าและโมดอล',
+      ],
+    },
+  },
+  {
+    version: '2.6.101',
+    kind: 'minor',
+    date: '2026-09-18',
+    items: {
+      KR: [
+        '비활성 안내 프리셋 BASIC·INCONVENIENCE·WARNING 기본 저장. HQ 사용자설정에서 다국어 편집.',
+        '사용자/고객 비활성 시 프리셋 빠른 선택 또는 직접 작성. 프리셋은 로그인 시 다국어 노출.',
+      ],
+      US: [
+        'Inactive notice presets BASIC / INCONVENIENCE / WARNING preloaded; editable in HQ user settings (i18n).',
+        'On deactivate: quick-pick preset or custom text; presets show multilingual copy at login.',
+      ],
+      JP: [
+        '無効案内プリセット BASIC・INCONVENIENCE・WARNING を既定保存。本社ユーザー設定で多言語編集。',
+        '無効化時にプリセット選択または直接入力。プリセットはログイン時に多言語表示。',
+      ],
+      CH: [
+        '停用提示预设 BASIC / INCONVENIENCE / WARNING 预置；总部用户设置可多语言编辑。',
+        '停用时可快速选预设或直接填写；预设登录时按语言显示。',
+      ],
+      TH: [
+        'พรีเซ็ตปิดใช้งาน BASIC / INCONVENIENCE / WARNING บันทึกเริ่มต้น แก้ได้ในตั้งค่าผู้ใช้ HQ',
+        'ตอนปิดใช้งานเลือกพรีเซ็ตหรือพิมพ์เอง พรีเซ็ตแสดงหลายภาษาตอนเข้าสู่ระบบ',
+      ],
+    },
+  },
+  {
+    version: '2.6.100',
+    kind: 'minor',
+    date: '2026-09-18',
+    items: {
+      KR: [
+        '은행이체(고정·CURFEX) 견적 흐름 통일: 신청→견적대기→확정. CURFEX 가상계좌는 견적 확정 후 발급.',
+        '카드 결제는 기존 즉시 PG 흐름 유지. 견적 대기 중에는 입금 계좌 미표시.',
+      ],
+      US: [
+        'Unified bank-transfer quote flow (fixed + CURFEX): apply → quote pending → confirm. CURFEX VA issued after quote confirm.',
+        'Card keeps immediate PG flow. Deposit account hidden while quote is pending.',
+      ],
+      JP: [
+        '銀行振込(固定・CURFEX)の見積フロー統一: 申請→見積待ち→確定。CURFEX仮想口座は見積確定後に発行。',
+        'カードは従来の即時PG。見積待ち中は入金口座非表示。',
+      ],
+      CH: [
+        '银行转账（固定与 CURFEX）报价流程统一：申请→待报价→确认。CURFEX 虚拟账户在报价确认后签发。',
+        '卡支付保持即时 PG。待报价期间不显示入金账户。',
+      ],
+      TH: [
+        'รวมขั้นตอนใบเสนอราคาโอนธนาคาร (คงที่+CURFEX): สมัคร→รอ→ยืนยัน บัญชีเสมือน CURFEX ออกหลังยืนยัน',
+        'การ์ดยังชำระ PG ทันที ซ่อนบัญชีฝากระหว่างรอใบเสนอราคา',
+      ],
+    },
+  },
+  {
+    version: '2.6.99',
+    kind: 'minor',
+    date: '2026-09-18',
+    items: {
+      KR: [
+        '계정 활성/비활성·주요 설정 저장에 2단계 확인(취소 가능) 적용.',
+        '비활성 계정 로그인 시 Invalid 대신 비활성 사유(없으면 본사 사용자설정의 다국어 기본 안내) 표시.',
+      ],
+      US: [
+        'Two-step confirm (with cancel) for activate/deactivate and major setting saves.',
+        'Inactive login shows deactivation reason (or HQ user-settings multilingual default) instead of Invalid credentials.',
+      ],
+      JP: [
+        '有効/無効・主要設定保存に2段階確認(キャンセル可)。',
+        '無効アカウントログインはInvalidの代わりに理由(なければ本社ユーザー設定の多言語既定案内)を表示。',
+      ],
+      CH: [
+        '启用/停用与主要设置保存增加两步确认（可取消）。',
+        '停用账户登录不再显示 Invalid，改为显示停用原因或总部用户设置中的多语言默认提示。',
+      ],
+      TH: [
+        'เปิด/ปิดบัญชีและบันทึกการตั้งค่าสำคัญใช้ยืนยัน 2 ขั้น (ยกเลิกได้)',
+        'เข้าสู่ระบบบัญชีปิดใช้งาน แสดงเหตุผลหรือข้อความเริ่มต้นจากตั้งค่าผู้ใช้ HQ แทน Invalid',
+      ],
+    },
+  },
+  {
+    version: '2.6.98',
+    kind: 'minor',
+    date: '2026-09-18',
+    items: {
+      KR: [
+        'USDT 고정계좌: 신청하기→견적대기→확정 입금액→송금·거래하기. 실거래에서 ±8% 범위 노출 제거.',
+        '본사정책 수수료: 견적 응답(자동/수동·대기시간·활성화). 관리자 견적 확정·자동 확정 잡.',
+      ],
+      US: [
+        'USDT fixed account: Apply → quote pending → confirmed deposit → remit & trade. Removed ±8% range from live trades.',
+        'HQ fees: quote response (auto/manual, delay, enable). Admin confirm + auto-confirm job.',
+      ],
+      JP: [
+        'USDT固定口座: 申請→見積待ち→確定入金→送金・取引。実取引の±8%範囲表示を削除。',
+        '本社手数料: 見積応答(自動/手動・待機・有効)。管理者確定と自動確定ジョブ。',
+      ],
+      CH: [
+        'USDT 固定账户：申请→待报价→确认入金→汇款交易。实交易去掉±8%区间显示。',
+        '总部手续费：报价响应（自动/手动、等待、开关）。管理员确认与自动确认任务。',
+      ],
+      TH: [
+        'USDT บัญชีคงที่: สมัคร→รอใบเสนอราคา→จำนวนฝากยืนยัน→โอนและทำรายการ ลบช่วง±8% จากธุรกรรมจริง',
+        'ค่าธรรมเนียม HQ: ตอบใบเสนอราคา (อัตโนมัติ/ด้วยมือ หน่วงเวลา เปิดใช้) ยืนยันโดยแอดมินและจ็อบอัตโนมัติ',
+      ],
+    },
+  },
+  {
+    version: '2.6.97',
+    kind: 'minor',
+    date: '2026-09-18',
+    items: {
+      KR: [
+        '좌측 메뉴: 운영관리·본사정책 등 하위 펼침은 한 번에 하나만. 본사정책으로 이동·펼치면 운영관리가 접힘.',
+      ],
+      US: [
+        'Left nav: only one expandable group (Operations / HQ Policy) open at a time; opening HQ Policy collapses Operations.',
+      ],
+      JP: [
+        '左メニュー: 運営管理・本社ポリシーなど下位展開は同時に1つ。本社ポリシーへ移動/展開すると運営管理が閉じる。',
+      ],
+      CH: [
+        '左侧菜单：运营管理与总部政策等展开组同时仅一组；进入或展开总部政策时运营管理收起。',
+      ],
+      TH: [
+        'เมนูซ้าย: กลุ่มขยาย (การดำเนินงาน/นโยบาย HQ) เปิดได้ทีละกลุ่ม เมื่อไปหรือขยายนโยบาย HQ การดำเนินงานจะพับ',
+      ],
+    },
+  },
+  {
+    version: '2.6.96',
+    kind: 'minor',
+    date: '2026-09-18',
+    items: {
+      KR: [
+        '세팅된 수수료율 노출: 고객용·본사용 분리. 본사는 LIVE/Sandbox 기본 모두 사용(ON), 고객용은 기존 설정 유지.',
+        '고객 등록/수정·상세에 USDT 한도(LR~SR/ML) 설정 구간을 명확히 표시.',
+      ],
+      US: [
+        'Fee-rate display: split customer vs HQ. HQ defaults LIVE/Sandbox On; customer keeps current settings.',
+        'Clear USDT limit (LR~SR/ML) controls on customer create/edit and detail.',
+      ],
+      JP: [
+        '手数料率表示: 顧客用と本社用を分離。本社はLIVE/Sandbox既定ON、顧客用は既存設定を維持。',
+        '顧客登録/編集・詳細にUSDT限度(LR~SR/ML)設定を明示。',
+      ],
+      CH: [
+        '费率显示：客户用与总部用分离。总部默认 LIVE/Sandbox 开启；客户保留原设置。',
+        '客户注册/编辑与详情明确显示 USDT 额度（LR~SR/ML）。',
+      ],
+      TH: [
+        'แสดงอัตรา: แยกลูกค้ากับ HQ HQ ค่าเริ่ม LIVE/Sandbox เป็นเปิด ลูกค้าคงค่าเดิม',
+        'หน้าสมัคร/แก้ไข/รายละเอียดลูกค้ามีตั้งวงเงิน USDT (LR~SR/ML) ชัดเจน',
+      ],
+    },
+  },
+  {
+    version: '2.6.95',
+    kind: 'minor',
+    date: '2026-09-18',
+    items: {
+      KR: [
+        '시뮬레이터 금액 표시: ±5% 문구 제거. 범위와 참고금액을 동일 크기·색으로 두 줄 표시.',
+      ],
+      US: [
+        'Simulator amounts: removed ±5% label. Range and reference amount shown on two lines with the same size and color.',
+      ],
+      JP: [
+        'シミュレータ金額表示: ±5%表記を削除。範囲と参考金額を同じ大きさ・色で2行表示。',
+      ],
+      CH: [
+        '模拟器金额显示：去掉±5%字样。区间与参考金额同字号同色两行显示。',
+      ],
+      TH: [
+        'การแสดงจำนวนตัวจำลอง: ลบข้อความ ±5% แสดงช่วงและจำนวนอ้างอิงสองบรรทัด ขนาดและสีเดียวกัน',
+      ],
+    },
+  },
+  {
+    version: '2.6.94',
+    kind: 'minor',
+    date: '2026-09-18',
+    items: {
+      KR: [
+        '시뮬레이터(LIVE/Sandbox): 금액 입력 자동계산 제거 → 「시뮬레이션 하기」버튼으로 실행. 고객만 1회 USDT 한도 적용, 본사·운영자는 한도 제외.',
+        '필요 입금액을 수령 USDT와 같은 큰 글씨·파란색으로 강조. 고객은 ±5% 참고범위, 본사는 정확 금액 표시.',
+      ],
+      US: [
+        'Simulator (LIVE/Sandbox): no auto-calc on input — use Run simulation. Per-ticket USDT limits apply to customers only; HQ/ops are exempt.',
+        'Required deposit shown large in blue like received USDT. Customers get ±5% reference; HQ sees exact amounts.',
+      ],
+      JP: [
+        'シミュレータ(LIVE/Sandbox): 入力だけでは自動計算せず「シミュレーションする」で実行。USDT1回限度は顧客のみ、本社・運営は除外。',
+        '必要入金額を受取USDTと同じ大きさの青字で強調。顧客は±5%参考、本社は正確額。',
+      ],
+      CH: [
+        '模拟器(LIVE/Sandbox)：输入不自动计算，需点「开始模拟」。单笔USDT限额仅对客户；总部/运营免限。',
+        '所需入金以蓝色大字与到账 USDT 同级强调。客户±5%参考，总部显示精确金额。',
+      ],
+      TH: [
+        'ตัวจำลอง (LIVE/Sandbox): ไม่คำนวณอัตโนมัติเมื่อกรอก กด「จำลอง」 วงเงิน USDT ต่อครั้งใช้กับลูกค้าเท่านั้น HQ/ผู้ปฏิบัติงานยกเว้น',
+        'ยอดฝากที่ต้องใช้เป็นตัวอักษรใหญ่สีน้ำเงินเหมือน USDT ที่รับ ลูกค้าช่วง ±5% HQ แสดงจำนวนตรง',
+      ],
+    },
+  },
+  {
+    version: '2.6.93',
+    kind: 'minor',
+    date: '2026-09-18',
+    items: {
+      KR: [
+        'USDT 1회 한도: 본사 LR/MR/HR/XR/SR 기본값 + 고객 선택(또는 ML 직접입력). 시뮬·LIVE·카드 모두 USDT 기준 한도 미만/초과 시 진행 차단.',
+        'USDT 신규신청: 금액 입력만으로 수수료 자동계산 금지. 「거래하기」에서 한도 확인 후 ±8% 참고 범위 견적 → 신청 확정.',
+        '시뮬레이터: 입금·수령 금액을 ±5% 범위 + 참고 정확금액 병기. 고객목록 한도열·고객/영업점 컬럼명 정리.',
+      ],
+      US: [
+        'Per-ticket USDT limits: HQ LR/MR/HR/XR/SR defaults + per-customer pick (or ML manual). Blocks simulator, LIVE, and card below/above the USDT band.',
+        'USDT apply: no auto fee calc on amount input. Trade checks limits, shows ±8% reference range, then confirm.',
+        'Simulator: deposit/receive as ±5% range plus exact reference. Customer list Limit column; Customer/Branch headers.',
+      ],
+      JP: [
+        'USDT 1回限度: 本社 LR/MR/HR/XR/SR 既定＋顧客選択（または ML 手動）。シミュ・LIVE・カードでUSDT基準の範囲外は遮断。',
+        'USDT新規: 金額入力だけでは手数料を自動計算しない。「取引する」で限度確認→±8%参考見積→申請確定。',
+        'シミュレータ: 入金・受取を±5%範囲＋参考正確額。顧客一覧に限度列、顧客/営業店見出し。',
+      ],
+      CH: [
+        'USDT单笔限额：总部 LR/MR/HR/XR/SR 默认 + 客户选择（或 ML 手工）。模拟、LIVE、卡支付低于/高于限额均拦截。',
+        'USDT申请：仅输入金额不自动算费。「交易」校验限额并显示±8%参考区间后再确认申请。',
+        '模拟器：入金/到账以±5%区间+参考精确金额。客户列表额度列与客户/营业点列名。',
+      ],
+      TH: [
+        'วงเงิน USDT ต่อครั้ง: ค่าเริ่มต้น HQ LR/MR/HR/XR/SR + เลือกลูกค้า (หรือ ML กำหนดเอง) บล็อกจำลอง/LIVE/บัตรนอกช่วง',
+        'สมัคร USDT: ไม่คำนวณอัตโนมัติตอนกรอก กดทำรายการตรวจวงเงิน แสดงช่วง ±8% แล้วยืนยัน',
+        'จำลอง: ยอดฝาก/รับเป็นช่วง ±5% พร้อมจำนวนอ้างอิง รายการลูกค้าคอลัมน์วงเงิน และชื่อลูกค้า/สาขา',
+      ],
+    },
+  },
+  {
+    version: '2.6.92',
+    kind: 'minor',
+    date: '2026-09-18',
+    items: {
+      KR: [
+        '총 수수료 노출 제한: 본사 기본(시볼 수수료 카드) + 고객별 본사설정따름/노출/숨김. 숨김 시 LIVE·Sandbox 시뮬·USDT 도식에서 합계·항목 수수료를 숨기고 수령·입금·환율만 표시.',
+      ],
+      US: [
+        'Total-fee display control: HQ default on Symbol fees card + per-customer Follow HQ / Show / Hide. When hidden, LIVE & Sandbox simulator and USDT diagrams hide fee amounts; net, deposit, and rate remain.',
+      ],
+      JP: [
+        '合計手数料表示の制限: 本社既定（シンボル手数料カード）＋顧客別「本社に従う/表示/非表示」。非表示時はLIVE・Sandboxのシミュ・図式で手数料金額を隠し、受取・入金・レートのみ表示。',
+      ],
+      CH: [
+        '总手续费显示限制：总部默认（交易对手续费卡片）+ 客户「跟随总部/显示/隐藏」。隐藏时 LIVE·Sandbox 模拟器与图示不显示手续费金额，仅保留到账、入金与汇率。',
+      ],
+      TH: [
+        'จำกัดการแสดงค่าธรรมเนียมรวม: ค่าเริ่มต้น HQ + ลูกค้าตาม HQ/แสดง/ซ่อน เมื่อซ่อนจะไม่โชวยอดค่าธรรมเนียมใน LIVE·Sandbox เหลือเฉพาะรับได้ จำนวนฝาก และอัตรา',
+      ],
+    },
+  },
+  {
     version: '2.6.91',
     kind: 'minor',
     date: '2026-09-18',

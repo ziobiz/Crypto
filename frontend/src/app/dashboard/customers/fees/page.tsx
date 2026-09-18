@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, Fragment } from 'react';
 import { useT } from '@/context/LocaleProvider';
 import {
+  api,
   customerFeesApi,
   type CustomerFeeGridRow,
   type CustomerFeeHistoryRow,
@@ -10,6 +11,7 @@ import {
   type FeeTypeTemplate,
   type HqOrgLevel,
   type HqOrgShareByType,
+  type UsdtQuoteResponseMode,
 } from '@/lib/api';
 import type { MessageKey } from '@/i18n/messages';
 import { sumOrgShareTable } from '@/lib/escrow-share-totals';
@@ -50,6 +52,7 @@ type EditDraft = {
   feeTypeCode: string;
   shares: HqOrgShareByType;
   applyStartDate: string;
+  usdtQuoteResponseMode: UsdtQuoteResponseMode;
 };
 
 export default function CustomerFeesPage() {
@@ -142,6 +145,7 @@ export default function CustomerFeesPage() {
       feeTypeCode: row.feeTypeCode,
       shares: { ...(row.shares ?? emptyShares()) },
       applyStartDate: row.applyStartDate || todayIso(),
+      usdtQuoteResponseMode: (row.usdtQuoteResponseMode ?? 'FOLLOW_HQ') as UsdtQuoteResponseMode,
     });
     setMsg('');
   };
@@ -187,6 +191,14 @@ export default function CustomerFeesPage() {
         applyStartDate: draft.applyStartDate,
         assignTypeOnly: false,
       });
+      if (row.ticketKind === 'USDT_PURCHASE') {
+        const mode = draft.usdtQuoteResponseMode;
+        await api.users.update(row.userId, {
+          usdtQuoteResponseMode: mode,
+          usdtQuoteAutoDelayMinutes: mode === 'AUTO' ? row.usdtQuoteAutoDelayMinutes ?? 0 : null,
+          usdtQuoteManualSlaHours: mode === 'MANUAL' ? row.usdtQuoteManualSlaHours ?? 3 : null,
+        });
+      }
       setMsg(t('customerFees.saved'));
       cancelEdit();
       await load();
@@ -239,6 +251,14 @@ export default function CustomerFeesPage() {
     return localizeFeeTypeLabel(row.feeTypeCode, row.feeTypeName, t);
   };
 
+  const quoteModeLabel = (mode: string | undefined | null) => {
+    const m = mode ?? 'FOLLOW_HQ';
+    if (m === 'AUTO') return t('quoteResponse.AUTO');
+    if (m === 'MANUAL') return t('quoteResponse.MANUAL');
+    if (m === 'OFF') return t('quoteResponse.OFF');
+    return t('quoteResponse.FOLLOW_HQ');
+  };
+
   return (
     <div className="pg-stack">
       <h1 className="pg-page-title">{t('customerFees.title')}</h1>
@@ -255,6 +275,7 @@ export default function CustomerFeesPage() {
                 <th rowSpan={2}>{t('customerFees.col.customer')}</th>
                 <th rowSpan={2}>{t('customerFees.col.trade')}</th>
                 <th rowSpan={2}>{t('customerFees.col.feeType')}</th>
+                <th rowSpan={2}>{t('customerFees.col.quoteResponse')}</th>
                 {ORG_LEVELS.map((lv) => (
                   <th key={lv} colSpan={2}>
                     {t(`org.${lv}` as MessageKey)}
@@ -276,7 +297,7 @@ export default function CustomerFeesPage() {
             <tbody>
               {customerGroups.length === 0 ? (
                 <tr>
-                  <td colSpan={16} className="pg-empty">
+                  <td colSpan={17} className="pg-empty">
                     {t('customers.empty')}
                   </td>
                 </tr>
@@ -291,6 +312,9 @@ export default function CustomerFeesPage() {
                       : { poolPercent: row.totalPercent, perTicketUsdt: row.totalFixedUsdt };
                     const typeOptions = typeOptionsFor(row.ticketKind);
                     const setTone = setIndex % 2 === 0 ? 'pg-fee-set-a' : 'pg-fee-set-b';
+                    const quoteMode = editing
+                      ? draft.usdtQuoteResponseMode
+                      : ((row.usdtQuoteResponseMode ?? 'FOLLOW_HQ') as UsdtQuoteResponseMode);
                     return (
                       <tr
                         key={key}
@@ -323,6 +347,33 @@ export default function CustomerFeesPage() {
                             </select>
                           ) : (
                             <span className="font-medium">{feeTypeLabel(row)}</span>
+                          )}
+                        </td>
+                        <td onClick={(e) => e.stopPropagation()}>
+                          {row.ticketKind === 'USDT_PURCHASE' ? (
+                            editing ? (
+                              <select
+                                className="pg-input !text-xs min-w-[7rem]"
+                                value={quoteMode}
+                                onChange={(e) =>
+                                  setDraft({
+                                    ...draft,
+                                    usdtQuoteResponseMode: e.target
+                                      .value as UsdtQuoteResponseMode,
+                                  })
+                                }
+                                aria-label={t('customerFees.col.quoteResponse')}
+                              >
+                                <option value="FOLLOW_HQ">{t('quoteResponse.FOLLOW_HQ')}</option>
+                                <option value="AUTO">{t('quoteResponse.AUTO')}</option>
+                                <option value="MANUAL">{t('quoteResponse.MANUAL')}</option>
+                                <option value="OFF">{t('quoteResponse.OFF')}</option>
+                              </select>
+                            ) : (
+                              <span className="text-xs">{quoteModeLabel(quoteMode)}</span>
+                            )
+                          ) : (
+                            <span className="text-slate-400">—</span>
                           )}
                         </td>
                         {ORG_LEVELS.map((lv) => (

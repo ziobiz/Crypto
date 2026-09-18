@@ -94,13 +94,27 @@ router.post(
 
     const user = await findUserByLoginEmail(email);
 
-    if (!user || !user.isActive) {
+    if (!user) {
       throw new AppError(401, 'Invalid email or password', 'INVALID_CREDENTIALS');
     }
 
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
       throw new AppError(401, 'Invalid email or password', 'INVALID_CREDENTIALS');
+    }
+
+    if (!user.isActive) {
+      const { resolveInactiveLoginPayload } = await import('../services/inactive-login.service');
+      const localeHint =
+        String(req.headers['x-locale'] ?? '').toUpperCase() ||
+        String(req.headers['accept-language'] ?? '');
+      const payload = await resolveInactiveLoginPayload(user.id, localeHint);
+      throw new AppError(403, payload.message, 'ACCOUNT_INACTIVE', {
+        inactiveNotice: {
+          presetId: payload.presetId,
+          messages: payload.messages,
+        },
+      });
     }
 
     if (user.passwordMustChange) {

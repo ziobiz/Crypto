@@ -10,6 +10,8 @@ import {
 } from '@/lib/api';
 
 const USDT_CODES = [
+  'QUOTE_PENDING',
+  'QUOTE_CONFIRMED',
   'APPLICATION_COMPLETED',
   'CARD_PAYMENT_PENDING',
   'DEPOSIT_PROOF_PENDING',

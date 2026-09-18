@@ -19,6 +19,7 @@ import { startMarketSnapshotCollector } from './services/market-snapshot.service
 import { startEscrowJobScheduler } from './services/escrow-jobs.service';
 import { startDeletionPurgeScheduler } from './services/deletion.service';
 import { startCurfexDepositPoller } from './services/curfex-webhook.service';
+import { startUsdtQuoteJobScheduler } from './services/usdt-quote-jobs.service';
 import { hqPolicyService } from './services/hq-policy.service';
 import { errorHandler } from './middleware/errorHandler';
 import { asyncHandler } from './middleware/asyncHandler';
@@ -55,6 +56,7 @@ export function createApiApp(): express.Application {
   startEscrowJobScheduler();
   startDeletionPurgeScheduler();
   startCurfexDepositPoller();
+  startUsdtQuoteJobScheduler();
   const app = express();
   app.set('trust proxy', 1);
 

@@ -44,8 +44,8 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <tr><td>USDT 매입</td><td>매입 티켓 조회·승인·송금</td></tr>
         <tr><td>무역 에스크로</td><td>에스크로 계약·상태 관리</td></tr>
         <tr><td>수수료 장부</td><td>조직 수수료 정산 내역</td></tr>
-        <tr><td>운영관리</td><td>좌측 펼침: 고객관리 · 수수료관리 · 조직관리 · 사용자관리 · 기록관리</td></tr>
-        <tr><td>본사정책</td><td>좌측에서 한 번 누르면 펼침·다시 누르면 접힘. 하위: 접근·조직항목·수수료·플랫폼·운영·삭제·시뮬레이터·분석·메뉴얼</td></tr>
+        <tr><td>운영관리</td><td>좌측 펼침: 고객관리 · 수수료관리 · 조직관리 · 사용자관리 · 기록관리. 본사정책 등 다른 펼침 메뉴로 이동하면 접힘</td></tr>
+        <tr><td>본사정책</td><td>좌측에서 한 번 누르면 펼침·다시 누르면 접힘(운영관리와 동시에 펼치지 않음). 하위: 접근·조직항목·수수료·플랫폼·운영·삭제·시뮬레이터·분석·메뉴얼</td></tr>
         <tr><td>USDT 시뮬레이터</td><td>입금액/받을 USDT·네트워크·수수료 미리 계산 (본사정책 아래)</td></tr>
         <tr><td>기록 시뮬레이터</td><td>고객 시뮬레이터 사용 분석(위)과 목록(아래)</td></tr>
         <tr><td>거래분석</td><td>중계 입금·지갑 수령 USDT 수기 입력, 환율 자동, 수수료 역산</td></tr>
@@ -59,8 +59,8 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <tr><td>USDT purchase</td><td>Tickets, review, transfer</td></tr>
         <tr><td>Trade escrow</td><td>Contracts & status</td></tr>
         <tr><td>Ledger</td><td>Commission settlement</td></tr>
-        <tr><td>Operations</td><td>Left expand: Customers · Fee management · Organizations · Users · Records</td></tr>
-        <tr><td>HQ Policy</td><td>Click once in the left nav to expand, again to collapse. Children: access, columns, fees, platform, ops, deletion, simulators, analysis, manuals</td></tr>
+        <tr><td>Operations</td><td>Left expand: Customers · Fee management · Organizations · Users · Records. Collapses when you open another expandable group (e.g. HQ Policy)</td></tr>
+        <tr><td>HQ Policy</td><td>Click once to expand, again to collapse (not open together with Operations). Children: access, columns, fees, platform, ops, deletion, simulators, analysis, manuals</td></tr>
         <tr><td>USDT simulator</td><td>Preview deposit / receive USDT, network, fees (under HQ Policy)</td></tr>
         <tr><td>Record simulator</td><td>Usage analysis on top, customer run list below</td></tr>
         <tr><td>Trade analysis</td><td>Manual broker deposit & received USDT; auto rate; reverse fee</td></tr>
@@ -129,7 +129,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <p>이용 고객(회원)은 <strong>사용자관리가 아니라 고객관리</strong>에서 다룹니다. 예전 본사 인증센터 심사는 이 화면으로 합쳤습니다.</p>
         <table><thead><tr><th>구분</th><th>내용</th></tr></thead><tbody>
         <tr><td>사용자관리</td><td>총본사·조직 직원 계정만 등록·수정</td></tr>
-        <tr><td>고객관리</td><td>이용 회원 목록, 활성/비활성, 인증 상태, S RATE·시뮬레이터, 계정 관리</td></tr>
+        <tr><td>고객관리</td><td>이용 회원 목록, 등록일(YYYY.MM.DD), 활성/비활성, 인증 상태, S RATE·시뮬레이터, 계정 관리</td></tr>
         </tbody></table>
         <p>목록·계정 관리</p>
         <ul>
@@ -267,7 +267,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
       title: L('본사정책 허브', 'HQ Policy hub', '本社ポリシーハブ', '总部策略中心', 'ศูนย์นโยบาย HQ'),
       bodyHtml: L(
         `<span class="menu-path">본사정책</span>
-        <p>좌측 메뉴에서 <strong>본사정책</strong>을 한 번 누르면 하위 메뉴가 펼쳐지고, 다시 누르면 접힙니다. 고객관리·조직관리 등 다른 메뉴로 이동해도 펼친 상태는 유지됩니다(브라우저에 기억). 상단 가로 탭은 없으며 좌측에서만 이동합니다.</p>
+        <p>좌측 메뉴에서 <strong>본사정책</strong>을 한 번 누르면 하위 메뉴가 펼쳐지고, 다시 누르면 접힙니다. <strong>운영관리</strong>와 같이 하위가 있는 메뉴는 한 번에 하나만 펼칩니다 — 본사정책으로 이동하거나 펼치면 운영관리는 접힙니다. 상단 가로 탭은 없으며 좌측에서만 이동합니다.</p>
         <ul>
           <li><strong>접근·권한</strong> — 조직 단계별 메뉴 권한, 사용자 OTP·비밀번호</li>
           <li><strong>조직항목</strong> — 화면 컬럼·표시 순서</li>
@@ -281,7 +281,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         </ul>
         <div class="warn-box">설정 저장 시 자동 업데이트 이력이 기록될 수 있습니다. 주요 변경은 V3.0처럼 정수 버전, 소소한 변경은 2.1·2.2·2.4처럼 소수로 관리합니다.</div>`,
         `<span class="menu-path">HQ Policy</span>
-        <p>In the left nav, click <strong>HQ Policy</strong> once to expand children, click again to collapse. Moving to Customers, Organizations, etc. keeps the expanded state (remembered in the browser). There is no top tab bar — navigate from the left only.</p>
+        <p>In the left nav, click <strong>HQ Policy</strong> once to expand children, click again to collapse. Only one expandable group (e.g. Operations vs HQ Policy) stays open — opening or navigating into HQ Policy collapses Operations. There is no top tab bar — navigate from the left only.</p>
         <ul>
           <li><strong>Access</strong> — org menu permissions, OTP/password</li>
           <li><strong>Org columns</strong> — grid columns & order</li>
@@ -295,7 +295,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         </ul>
         <div class="warn-box">Saves may auto-record release history. Major = 3.0; minor = 2.1, 2.2, 2.4.</div>`,
         `<span class="menu-path">本社ポリシー</span>
-        <p>左メニューの<strong>本社ポリシー</strong>を一度押すと下位が開き、もう一度押すと閉じます。顧客管理・組織管理など他メニューへ移っても開いた状態は維持されます（ブラウザに記憶）。上部の横タブはなく、左側からのみ移動します。</p>
+        <p>左メニューの<strong>本社ポリシー</strong>を一度押すと下位が開き、もう一度押すと閉じます。<strong>運営管理</strong>など下位付きメニューは同時に1つだけ開きます — 本社ポリシーへ移動または展開すると運営管理は閉じます。上部の横タブはなく、左側からのみ移動します。</p>
         <ul>
           <li><strong>アクセス・権限</strong> — 組織段階別メニュー権限、ユーザーOTP・パスワード</li>
           <li><strong>組織項目</strong> — 画面カラム・表示順</li>
@@ -309,7 +309,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         </ul>
         <div class="warn-box">設定保存時に自動更新履歴が残ることがあります。主要変更は整数版(例:V3.0)、軽微は小数(2.1, 2.2, 2.4)で管理します。</div>`,
         `<span class="menu-path">总部策略</span>
-        <p>左侧菜单中点击<strong>总部政策</strong>一次展开子项，再点一次收起。切换到客户管理、组织管理等其他菜单时仍保持展开（浏览器记忆）。无顶部横标签，仅从左侧进入。</p>
+        <p>左侧菜单中点击<strong>总部政策</strong>一次展开子项，再点一次收起。与<strong>运营管理</strong>等含子菜单的项同一时间只展开一组 — 进入或展开总部政策时运营管理会收起。无顶部横标签，仅从左侧进入。</p>
         <ul>
           <li><strong>访问·权限</strong> — 按组织层级的菜单权限、用户 OTP·密码</li>
           <li><strong>组织字段</strong> — 界面列与显示顺序</li>
@@ -323,7 +323,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         </ul>
         <div class="warn-box">保存设置时可能自动写入更新历史。主要变更为整数版本（如 V3.0），小改为小数（2.1、2.2、2.4）。</div>`,
         `<span class="menu-path">HQ Policy</span>
-        <p>ในเมนูซ้าย คลิก <strong>นโยบาย HQ</strong> ครั้งหนึ่งเพื่อขยาย คลิกอีกครั้งเพื่อพับ ไปเมนูอื่นเช่น จัดการลูกค้า·องค์กรแล้วยังคงขยายอยู่ (จำในเบราว์เซอร์) ไม่มีแท็บด้านบน — ใช้เมนูซ้ายเท่านั้น</p>
+        <p>ในเมนูซ้าย คลิก <strong>นโยบาย HQ</strong> ครั้งหนึ่งเพื่อขยาย คลิกอีกครั้งเพื่อพับ เมนูที่มีเมนูย่อย (เช่น <strong>การดำเนินงาน</strong> กับนโยบาย HQ) เปิดได้ทีละกลุ่ม — เมื่อไปหรือขยายนโยบาย HQ การดำเนินงานจะพับ ไม่มีแท็บด้านบน — ใช้เมนูซ้ายเท่านั้น</p>
         <ul>
           <li><strong>สิทธิ์การเข้าถึง</strong> — สิทธิ์เมนูตามระดับองค์กร OTP/รหัสผ่านผู้ใช้</li>
           <li><strong>คอลัมน์องค์กร</strong> — คอลัมน์หน้าจอและลำดับแสดง</li>
@@ -575,6 +575,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         `<span class="menu-path">본사정책 → 수수료·리스크 → 시볼(티켓) 수수료</span>
         <p>FX·가스피·송금·기타 수수료마다 <strong>%</strong> 또는 <strong>고정(USDT)</strong>을 선택합니다. 선택한 방식만 계산·도식에 반영됩니다.</p>
         <div class="check-box"><strong>세팅된 수수료율 노출</strong> — <strong>LIVE</strong>와 <strong>Sandbox</strong>를 각각 사용/미사용·본사 기본 청구방식을 설정합니다. 사용 시 해당 환경 도식에 수수료율 열이 표시됩니다.</div>
+        <div class="check-box"><strong>총 수수료 노출</strong> — 본사 기본(LIVE·Sandbox 공통). 미사용 시 시뮬레이터·USDT 도식에서 합계·항목 수수료를 숨기고 수령 USDT·입금액·환율만 표시. 고객별 설정이 있으면 고객이 우선.</div>
         <p>통화·금액 구간별로 행을 편집한 뒤 저장하십시오.</p>
         <p class="mt-2"><strong>시뮬레이터 Sandbox 수수료</strong> (<span class="menu-path">본사정책 → 수수료·리스크 → 시뮬레이터용 수수료</span>, Sandbox 탭)</p>
         <ul>
@@ -587,6 +588,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         `<span class="menu-path">HQ Policy → Fees → Symbol fees</span>
         <p>Each of FX, gas, transfer, other can be <strong>%</strong> or <strong>fixed USDT</strong>. Only the selected mode applies.</p>
         <div class="check-box"><strong>Show fee rates</strong> — Configure <strong>LIVE</strong> and <strong>Sandbox</strong> separately (on/off and HQ default billing). On shows the rate column for that environment.</div>
+        <div class="check-box"><strong>Show total fees</strong> — HQ default (LIVE &amp; Sandbox). Off hides total/itemized fee amounts on simulator and USDT diagram; net USDT, deposit, and rate remain. Per-customer setting overrides HQ.</div>
         <p>Edit rows by currency and amount tier, then save.</p>
         <p class="mt-2"><strong>Simulator Sandbox fees</strong> (<span class="menu-path">HQ Policy → Fees → Simulator fees</span>, Sandbox tab)</p>
         <ul>
@@ -2059,7 +2061,7 @@ export const CUSTOMER_MANUAL: ManualDoc = {
       bodyHtml: L(
         `<span class="menu-path">USDT 매입 → + 신규신청</span>
         <p>목록 필터의 시작일은 <strong>1주 전</strong>, 종료일은 <strong>오늘</strong>이 기본입니다. 무역 에스크로 목록도 같습니다.</p>
-        <p>업무 시작 순서의 <strong>6단계</strong>입니다. 인증패스와 <strong>본사가 승인한 지갑</strong>이 있는 뒤에 신청합니다. 관리자·운영자 모두 신청할 수 있으며, 주요 상태 변경은 OTP 후 운영기록에 남습니다. 희망 수령 USDT 또는 입금 금액을 입력하면 수수료·비용 도식이 표시됩니다.</p>
+        <p>업무 시작 순서의 <strong>6단계</strong>입니다. 인증패스와 <strong>본사가 승인한 지갑</strong>이 있는 뒤에 신청합니다. 관리자·운영자 모두 신청할 수 있으며, 주요 상태 변경은 OTP 후 운영기록에 남습니다. 금액만 입력해도 수수료가 자동 계산되지 않으며, <strong>거래하기</strong>에서 1회 USDT 한도(LR~SR/ML)를 확인한 뒤 ±8% 참고 범위 견적이 표시됩니다.</p>
         <ul>
           <li><strong>계좌 이체</strong> — 안내 계좌로 입금. 통화·방식은 본사 설정에 따름</li>
           <li><strong>카드 결제</strong> — 카드 정보·환불 불가 동의 후 즉시 결제</li>
@@ -2075,7 +2077,7 @@ export const CUSTOMER_MANUAL: ManualDoc = {
         <div class="block-box">카드 결제는 완료 후 카드 취소·환불이 불가합니다. 동의 없이는 진행할 수 없습니다.</div>`,
         `<span class="menu-path">USDT → + New application</span>
         <p>The list filter defaults to start <strong>1 week ago</strong> and end <strong>today</strong>. Trade escrow uses the same dates.</p>
-        <p><strong>Step 6.</strong> Apply after a verification pass and an <strong>HQ-approved wallet</strong>. Admin and operators can both apply; major status changes are OTP-gated and written to operation history. Enter target USDT or deposit amount to see the fee diagram.</p>
+        <p><strong>Step 6.</strong> Apply after a verification pass and an <strong>HQ-approved wallet</strong>. Admin and operators can both apply; major status changes are OTP-gated and written to operation history. Fees are not auto-calculated on amount input — use <strong>Trade</strong> to check the per-ticket USDT limit (LR~SR/ML) and see a ±8% reference quote.</p>
         <ul>
           <li><strong>Bank transfer</strong> — deposit to the shown account. Currency and method follow HQ settings</li>
           <li><strong>Card</strong> — pay immediately after card details and non-refundable waiver</li>
@@ -2091,7 +2093,7 @@ export const CUSTOMER_MANUAL: ManualDoc = {
         <div class="block-box">Card payments are non-refundable after charge. You cannot proceed without agreement.</div>`,
         `<span class="menu-path">USDT購入 → +新規申請</span>
         <p>一覧フィルタの開始日は<strong>1週間前</strong>、終了日は<strong>今日</strong>が既定です。貿易エスクロー一覧も同じです。</p>
-        <p>開始順の<strong>6</strong>です。認証パスと<strong>本社承認済みウォレット</strong>の後に申請します。管理者・運営者とも申請でき、主な状態変更はOTP後に運営記録へ残ります。希望受取USDTまたは入金額を入れると手数料・費用の図式が表示されます。</p>
+        <p>開始順の<strong>6</strong>です。認証パスと<strong>本社承認済みウォレット</strong>の後に申請します。管理者・運営者とも申請でき、主な状態変更はOTP後に運営記録へ残ります。金額入力だけでは手数料は自動計算されず、<strong>取引する</strong>で1回USDT限度(LR~SR/ML)を確認し±8%参考範囲の見積が表示されます。</p>
         <ul>
           <li><strong>口座振込</strong> — 案内口座へ入金。通貨・方式は本社設定に従う</li>
           <li><strong>カード決済</strong> — カード情報・返金不可同意の後に即時決済</li>
@@ -2107,7 +2109,7 @@ export const CUSTOMER_MANUAL: ManualDoc = {
         <div class="block-box">カード決済後の取消・返金はできません。同意なしでは進めません。</div>`,
         `<span class="menu-path">USDT 采购 → +新申请</span>
         <p>列表筛选默认开始日为<strong>一周前</strong>、结束日为<strong>今天</strong>。贸易托管列表相同。</p>
-        <p>开工顺序的<strong>第 6 步</strong>。认证通过且有<strong>总部已批准钱包</strong>后再申请。管理员与操作员均可申请，主要状态变更需 OTP 并写入运营记录。输入希望到账 USDT 或入金额后会显示手续费·费用图示。</p>
+        <p>开工顺序的<strong>第 6 步</strong>。认证通过且有<strong>总部已批准钱包</strong>后再申请。管理员与操作员均可申请，主要状态变更需 OTP 并写入运营记录。仅输入金额不会自动算费，需点<strong>交易</strong>校验单笔 USDT 限额(LR~SR/ML)并以±8%参考区间显示报价。</p>
         <ul>
           <li><strong>银行转账</strong> — 向指引账户入金。币种与方式以总部设置为准</li>
           <li><strong>卡支付</strong> — 填写卡信息并同意不可退款后立即扣款</li>
@@ -2123,7 +2125,7 @@ export const CUSTOMER_MANUAL: ManualDoc = {
         <div class="block-box">卡支付完成后不可取消·退款。未同意无法继续。</div>`,
         `<span class="menu-path">ซื้อ USDT → +สมัครใหม่</span>
         <p>ตัวกรองรายการเริ่มต้นวันเริ่มเป็น<strong>1 สัปดาห์ก่อน</strong> วันสิ้นสุดเป็น<strong>วันนี้</strong> รายการเอสโครว์การค้าก็เช่นกัน</p>
-        <p>ขั้น <strong>6</strong> ของลำดับเริ่มงาน สมัครหลังผ่านการยืนยันและมี<strong>กระเป๋าที่ HQ อนุมัติ</strong> แอดมินและผู้ปฏิบัติงานสมัครได้ การเปลี่ยนสถานะสำคัญต้อง OTP และบันทึกประวัติ ใส่ USDT ที่ต้องการรับหรือยอดฝากแล้วจะเห็นแผนภาพค่าธรรมเนียม</p>
+        <p>ขั้น <strong>6</strong> ของลำดับเริ่มงาน สมัครหลังผ่านการยืนยันและมี<strong>กระเป๋าที่ HQ อนุมัติ</strong> แอดมินและผู้ปฏิบัติงานสมัครได้ การเปลี่ยนสถานะสำคัญต้อง OTP และบันทึกประวัติ การกรอกจำนวนอย่างเดียวไม่คำนวณอัตโนมัติ กด<strong>ทำรายการ</strong>เพื่อตรวจวงเงิน USDT ต่อครั้ง (LR~SR/ML) และแสดงช่วงอ้างอิง ±8%</p>
         <ul>
           <li><strong>โอนบัญชี</strong> — ฝากเข้าบัญชีที่แจ้ง สกุลและวิธีตามการตั้งค่า HQ</li>
           <li><strong>ชำระบัตร</strong> — กรอกบัตรและยอมรับไม่คืนเงินแล้วชำระทันที</li>

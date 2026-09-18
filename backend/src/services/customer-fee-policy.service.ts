@@ -578,6 +578,9 @@ export const customerFeePolicyService = {
       where: { user: { deletedAt: null } },
       select: {
         id: true,
+        usdtQuoteResponseMode: true,
+        usdtQuoteAutoDelayMinutes: true,
+        usdtQuoteManualSlaHours: true,
         user: { select: { id: true, name: true, email: true } },
       },
       orderBy: { user: { name: 'asc' } },
@@ -618,6 +621,9 @@ export const customerFeePolicyService = {
         })),
         totalPercent: effective.operatingPercent,
         totalFixedUsdt: effective.operatingFixedUsdt,
+        usdtQuoteResponseMode: p.usdtQuoteResponseMode ?? 'FOLLOW_HQ',
+        usdtQuoteAutoDelayMinutes: p.usdtQuoteAutoDelayMinutes ?? null,
+        usdtQuoteManualSlaHours: p.usdtQuoteManualSlaHours ?? null,
       });
     }
     return { ticketKind, feeTypes: types, rows };

@@ -55,20 +55,30 @@ export function SideNav({
 
   useEffect(() => {
     setExpanded((prev) => {
-      const next = { ...prev };
+      const parents = items.filter((item) => item.children?.length);
+      if (!parents.length) return prev;
+
+      const activeParent = parents.find((item) => navItemHasActiveChild(item, pathname));
+      const next: Record<string, boolean> = { ...prev };
       let changed = false;
-      for (const item of items) {
-        if (!item.children?.length) continue;
-        const childActive = navItemHasActiveChild(item, pathname);
-        if (childActive) {
+
+      for (const item of parents) {
+        const isActive = activeParent?.href === item.href;
+        if (isActive) {
+          // 활성 하위 그룹만 펼침 — 다른 펼침(운영관리 등)은 접음
           if (!next[item.href] && !userCollapsedRef.current.has(item.href)) {
             next[item.href] = true;
             changed = true;
           }
         } else {
           userCollapsedRef.current.delete(item.href);
+          if (activeParent && next[item.href]) {
+            next[item.href] = false;
+            changed = true;
+          }
         }
       }
+
       if (changed) saveExpanded(next);
       return changed ? next : prev;
     });
@@ -77,9 +87,20 @@ export function SideNav({
   function toggleExpand(href: string) {
     setExpanded((prev) => {
       const willOpen = !prev[href];
-      if (willOpen) userCollapsedRef.current.delete(href);
-      else userCollapsedRef.current.add(href);
-      const next = { ...prev, [href]: willOpen };
+      const parents = items.filter((item) => item.children?.length).map((item) => item.href);
+      const next: Record<string, boolean> = { ...prev };
+
+      if (willOpen) {
+        userCollapsedRef.current.delete(href);
+        for (const parentHref of parents) {
+          next[parentHref] = parentHref === href;
+          if (parentHref !== href) userCollapsedRef.current.delete(parentHref);
+        }
+      } else {
+        userCollapsedRef.current.add(href);
+        next[href] = false;
+      }
+
       saveExpanded(next);
       return next;
     });

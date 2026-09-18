@@ -10,6 +10,7 @@ import type { MessageKey } from '@/i18n/messages';
 import { type OrgTypeCode } from '@/lib/org-types';
 import { SRateBadge } from '@/components/SRateBadge';
 import { detailRowProps } from '@/lib/table-row-detail';
+import { formatDateDot } from '@/lib/format';
 
 export default function OrganizationsPage() {
   const { user: me } = useAuth();
@@ -135,6 +136,8 @@ export default function OrganizationsPage() {
               <th>{t('orgs.col.code')}</th>
               <th>{t('orgs.col.type')}</th>
               <th>{t('orgs.parent')}</th>
+              <th>{t('orgs.col.createdAt')}</th>
+              <th>{t('orgs.col.updatedAt')}</th>
               <th>{t('users.col.status')}</th>
               <th>{t('orgs.col.sRate')}</th>
               <th>{t('orgs.col.simulator')}</th>
@@ -145,13 +148,13 @@ export default function OrganizationsPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={9} className="pg-hint">
+                <td colSpan={11} className="pg-hint">
                   {t('common.loading')}
                 </td>
               </tr>
             ) : orgs.length === 0 ? (
               <tr>
-                <td colSpan={9} className="pg-hint">
+                <td colSpan={11} className="pg-hint">
                   {t('orgs.empty')}
                 </td>
               </tr>
@@ -162,6 +165,12 @@ export default function OrganizationsPage() {
                   <td className="text-center">{o.code}</td>
                   <td className="text-center">{orgTypeLabel(o.type)}</td>
                   <td className="text-center">{o.parent ? o.parent.name : '—'}</td>
+                  <td className="whitespace-nowrap text-center tabular-nums">
+                    {formatDateDot(o.createdAt)}
+                  </td>
+                  <td className="whitespace-nowrap text-center tabular-nums">
+                    {formatDateDot(o.updatedAt)}
+                  </td>
                   <td className="text-center">
                     <span className={`pg-badge ${o.isActive === false ? 'pg-badge-muted' : 'pg-badge-success'}`}>
                       {o.isActive === false ? t('users.inactive') : t('users.active')}

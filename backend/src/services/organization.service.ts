@@ -26,6 +26,7 @@ const orgSelect = {
   deletedAt: true,
   purgeAt: true,
   createdAt: true,
+  updatedAt: true,
   parent: { select: { id: true, code: true, name: true, type: true } },
 } satisfies Prisma.OrganizationSelect;
 

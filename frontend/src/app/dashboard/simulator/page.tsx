@@ -36,6 +36,8 @@ type SimHistoryItem = {
   network: string;
   fees?: UsdtFeePreview['fees'];
   feeDiagramDisplay?: UsdtFeePreview['feeDiagramDisplay'];
+  /** 고객 시뮬 ±N% (계산 결과와 동일하게 기록에도 적용) */
+  amountRangePct?: number | null;
 };
 
 const HISTORY_LIMIT = 3;
@@ -59,7 +61,13 @@ function saveHistory(userId: string, items: SimHistoryItem[]) {
   localStorage.setItem(historyKey(userId), JSON.stringify(items.slice(0, HISTORY_LIMIT)));
 }
 
-function runToHistory(row: SimulatorRunRow): SimHistoryItem {
+function runToHistory(
+  row: SimulatorRunRow,
+  display?: {
+    feeDiagramDisplay?: UsdtFeePreview['feeDiagramDisplay'];
+    amountRangePct?: number | null;
+  },
+): SimHistoryItem {
   const currency = FIAT_CURRENCIES.includes(row.currency as FiatCurrency) ? (row.currency as FiatCurrency) : 'JPY';
   return {
     at: row.createdAt,
@@ -77,6 +85,11 @@ function runToHistory(row: SimulatorRunRow): SimHistoryItem {
     transferFeeUsdt: 0,
     otherFeeUsdt: 0,
     network: row.network,
+    feeDiagramDisplay: display?.feeDiagramDisplay ?? row.feeDiagramDisplay,
+    amountRangePct:
+      display?.amountRangePct !== undefined
+        ? display.amountRangePct
+        : (row.amountRangePct ?? null),
   };
 }
 
@@ -126,8 +139,14 @@ export default function UsdtSimulatorPage() {
   const [targetUsdt, setTargetUsdt] = useState(0);
   const [preview, setPreview] = useState<UsdtFeePreview | null>(null);
   const [previewAt, setPreviewAt] = useState<string | null>(null);
+  /** 입력 변경으로 preview가 비워져도 기록 표시 규칙은 유지 */
+  const [displayPolicy, setDisplayPolicy] = useState<{
+    feeDiagramDisplay?: UsdtFeePreview['feeDiagramDisplay'];
+    amountRangePct?: number | null;
+  } | null>(null);
   const [history, setHistory] = useState<SimHistoryItem[]>([]);
   const [error, setError] = useState('');
+  const [running, setRunning] = useState(false);
   const lastSaved = useRef('');
 
   useEffect(() => {
@@ -142,7 +161,14 @@ export default function UsdtSimulatorPage() {
       api.simulator
         .mine(HISTORY_LIMIT)
         .then((rows) => {
-          const mapped = rows.slice(0, HISTORY_LIMIT).map(runToHistory);
+          const mapped = rows.slice(0, HISTORY_LIMIT).map((r) => runToHistory(r));
+          const first = mapped[0];
+          if (first?.feeDiagramDisplay || first?.amountRangePct != null) {
+            setDisplayPolicy({
+              feeDiagramDisplay: first.feeDiagramDisplay,
+              amountRangePct: first.amountRangePct ?? null,
+            });
+          }
           setHistory(mapped.length ? mapped : loadHistory(user.id));
         })
         .catch(() => setHistory(loadHistory(user.id)));
@@ -156,46 +182,58 @@ export default function UsdtSimulatorPage() {
     if (def && FIAT_CURRENCIES.includes(def)) setFiatCurrency(def);
   }, [user?.sessionPolicy?.defaultUsdtFiatCurrency]);
 
+  // 금액·조건 변경 시 자동계산하지 않음 — 결과만 초기화
+  useEffect(() => {
+    setPreview(null);
+    setPreviewAt(null);
+    setError('');
+  }, [inputMode, fiatAmount, targetUsdt, fiatCurrency, network, feeMode]);
+
   const ready = Boolean(network) && (inputMode === 'fiat' ? fiatAmount > 0 : targetUsdt > 0);
 
-  useEffect(() => {
+  async function runSimulation() {
+    setError('');
     if (!network) {
-      setPreview(null);
-      setPreviewAt(null);
       setError(t('simulator.networkRequired'));
       return;
     }
     if (!ready) {
-      setPreview(null);
-      setPreviewAt(null);
-      setError('');
+      setError(t('simulator.amountRequired'));
       return;
     }
-    const params =
-      inputMode === 'fiat'
-        ? { fiatCurrency, fiatAmount, network, ...(hq ? { feeMode } : {}) }
-        : { fiatCurrency, targetUsdtAmount: targetUsdt, network, ...(hq ? { feeMode } : {}) };
-    api.usdt
-      .simulate(params)
-      .then((p) => {
-        if (!p.breakdown) {
-          setPreview(null);
-          setError(t('simulator.targetFailed'));
-          return;
-        }
-        if (p.currencyAmountDisplay) {
-          setCurrencyAmountDisplayPolicy(p.currencyAmountDisplay);
-        }
-        setPreview(p);
-        setPreviewAt(new Date().toISOString());
-        setError('');
-      })
-      .catch((e) => {
-        const code = e instanceof ApiError ? e.code : undefined;
-        if (code === 'NETWORK_REQUIRED') setError(t('simulator.networkRequired'));
-        else setError(e instanceof Error ? e.message : t('common.loadFailed'));
+    setRunning(true);
+    try {
+      const params =
+        inputMode === 'fiat'
+          ? { fiatCurrency, fiatAmount, network, ...(hq ? { feeMode } : {}) }
+          : { fiatCurrency, targetUsdtAmount: targetUsdt, network, ...(hq ? { feeMode } : {}) };
+      const p = await api.usdt.simulate(params);
+      if (!p.breakdown) {
+        setPreview(null);
+        setError(t('simulator.targetFailed'));
+        return;
+      }
+      if (p.currencyAmountDisplay) {
+        setCurrencyAmountDisplayPolicy(p.currencyAmountDisplay);
+      }
+      setPreview(p);
+      setPreviewAt(new Date().toISOString());
+      setDisplayPolicy({
+        feeDiagramDisplay: p.feeDiagramDisplay,
+        amountRangePct: p.amountRangePct ?? null,
       });
-  }, [ready, inputMode, fiatAmount, targetUsdt, fiatCurrency, network, feeMode, hq, t]);
+      setError('');
+    } catch (e) {
+      setPreview(null);
+      const code = e instanceof ApiError ? e.code : undefined;
+      if (code === 'NETWORK_REQUIRED') setError(t('simulator.networkRequired'));
+      else if (code === 'USDT_RISK_MIN' || code === 'USDT_RISK_MAX') {
+        setError(e instanceof Error ? e.message : t('usdt.riskLimitBlocked'));
+      } else setError(e instanceof Error ? e.message : t('common.loadFailed'));
+    } finally {
+      setRunning(false);
+    }
+  }
 
   useEffect(() => {
     if (!user || !preview?.breakdown || !previewAt) return;
@@ -218,6 +256,7 @@ export default function UsdtSimulatorPage() {
       network,
       fees: preview.fees,
       feeDiagramDisplay: preview.feeDiagramDisplay,
+      amountRangePct: preview.amountRangePct ?? null,
     };
     const fp = fingerprint(item);
     const timer = window.setTimeout(() => {
@@ -229,6 +268,10 @@ export default function UsdtSimulatorPage() {
         return next;
       });
       if (user.role === 'CUSTOMER' || user.role === 'CUSTOMER_OPERATOR') {
+        const displaySnap = {
+          feeDiagramDisplay: preview.feeDiagramDisplay,
+          amountRangePct: preview.amountRangePct ?? null,
+        };
         api.simulator
           .log({
             mode: inputMode,
@@ -241,7 +284,11 @@ export default function UsdtSimulatorPage() {
             exchangeRate: preview.exchangeRate,
           })
           .then(() => api.simulator.mine(HISTORY_LIMIT))
-          .then((rows) => setHistory(rows.slice(0, HISTORY_LIMIT).map(runToHistory)))
+          .then((rows) =>
+            setHistory(
+              rows.slice(0, HISTORY_LIMIT).map((r) => runToHistory(r, displaySnap)),
+            ),
+          )
           .catch(() => undefined);
       }
     }, 900);
@@ -249,6 +296,11 @@ export default function UsdtSimulatorPage() {
   }, [user, preview, previewAt, fiatCurrency, network, inputMode, fiatAmount, targetUsdt]);
 
   const historyRows = history.slice(0, HISTORY_LIMIT);
+  /** 계산 결과와 동일: preview → displayPolicy → 항목 저장값 */
+  const historyShowTotalFee =
+    (preview?.feeDiagramDisplay ?? displayPolicy?.feeDiagramDisplay)?.showTotalFee !== false;
+  const historyRangePct =
+    preview?.amountRangePct ?? displayPolicy?.amountRangePct ?? null;
 
   const breakdown = preview?.breakdown ?? null;
   const rate = preview?.exchangeRate ?? 0;
@@ -373,6 +425,16 @@ export default function UsdtSimulatorPage() {
         )}
 
         {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+
+        <button
+          type="button"
+          className="pg-btn pg-btn-primary mt-4 w-full sm:w-auto"
+          disabled={running || !ready}
+          onClick={() => void runSimulation()}
+        >
+          {running ? t('simulator.running') : t('simulator.run')}
+        </button>
+        <p className="pg-hint mt-2">{t('simulator.runHint')}</p>
       </ContentCard>
 
       {breakdown && (
@@ -385,6 +447,8 @@ export default function UsdtSimulatorPage() {
             requiredFiat={breakdown.requiredFiat}
             netUsdt={breakdown.netUsdt}
             totalFeeUsdt={totalFeeUsdt(preview!)}
+            showTotalFee={preview?.feeDiagramDisplay?.showTotalFee !== false}
+            rangePct={preview?.amountRangePct}
           />
           {hq && (
             <div className="mt-3">
@@ -394,6 +458,8 @@ export default function UsdtSimulatorPage() {
                 exchangeRate={rate}
                 fees={preview?.fees}
                 display={preview?.feeDiagramDisplay}
+                amountRangePct={preview?.amountRangePct}
+                showExactWithRange={Boolean(preview?.amountRangePct)}
               />
             </div>
           )}
@@ -415,6 +481,14 @@ export default function UsdtSimulatorPage() {
                   requiredFiat={item.requiredFiat}
                   netUsdt={item.netUsdt}
                   totalFeeUsdt={item.totalFeeUsdt}
+                  showTotalFee={
+                    item.feeDiagramDisplay?.showTotalFee !== undefined
+                      ? item.feeDiagramDisplay.showTotalFee !== false
+                      : historyShowTotalFee
+                  }
+                  rangePct={
+                    item.amountRangePct != null ? item.amountRangePct : historyRangePct
+                  }
                 />
                 {hq && (
                   <div className="mt-3">
@@ -432,7 +506,14 @@ export default function UsdtSimulatorPage() {
                       currency={item.currency}
                       exchangeRate={item.exchangeRate}
                       fees={item.fees}
-                      display={item.feeDiagramDisplay}
+                      display={item.feeDiagramDisplay ?? preview?.feeDiagramDisplay}
+                      amountRangePct={
+                        item.amountRangePct != null ? item.amountRangePct : historyRangePct
+                      }
+                      showExactWithRange={Boolean(
+                        (item.amountRangePct != null ? item.amountRangePct : historyRangePct) ??
+                          0,
+                      )}
                     />
                   </div>
                 )}
@@ -453,6 +534,8 @@ function SimpleSimSummary({
   requiredFiat,
   netUsdt,
   totalFeeUsdt,
+  showTotalFee = true,
+  rangePct,
 }: {
   at: string | null;
   currency: string;
@@ -461,8 +544,18 @@ function SimpleSimSummary({
   requiredFiat: number;
   netUsdt: number;
   totalFeeUsdt: number;
+  showTotalFee?: boolean;
+  /** 고객 시뮬 ±N%. 본사는 미전달 → 정확 금액만 */
+  rangePct?: number | null;
 }) {
   const t = useT();
+  const showRange = rangePct != null && rangePct > 0;
+  const fiatDelta = showRange ? n(requiredFiat) * (rangePct / 100) : 0;
+  const usdtDelta = showRange ? n(netUsdt) * (rangePct / 100) : 0;
+  const fiatLow = Math.max(0, n(requiredFiat) - fiatDelta);
+  const fiatHigh = n(requiredFiat) + fiatDelta;
+  const usdtLow = Math.max(0, n(netUsdt) - usdtDelta);
+  const usdtHigh = n(netUsdt) + usdtDelta;
   return (
     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
       <div>
@@ -483,18 +576,42 @@ function SimpleSimSummary({
       </div>
       <div>
         <div className="pg-hint">{t('simulator.needFiat')}</div>
-        <div className="font-semibold">
-          {formatFiatAmount(n(requiredFiat), currency)}
-        </div>
+        {showRange ? (
+          <div className="space-y-0.5">
+            <div className="text-lg font-bold tabular-nums text-blue-700">
+              {formatFiatAmount(fiatLow, currency)} ~ {formatFiatAmount(fiatHigh, currency)}
+            </div>
+            <div className="text-lg font-bold tabular-nums text-blue-700">
+              {t('usdt.fee.refExact')}: {formatFiatAmount(n(requiredFiat), currency)}
+            </div>
+          </div>
+        ) : (
+          <div className="text-lg font-bold tabular-nums text-blue-700">
+            {formatFiatAmount(n(requiredFiat), currency)}
+          </div>
+        )}
       </div>
       <div>
         <div className="pg-hint">{t('simulator.receiveUsdt')}</div>
-        <div className="text-lg font-bold tabular-nums text-red-600">{n(netUsdt).toFixed(4)} USDT</div>
+        {showRange ? (
+          <div className="space-y-0.5">
+            <div className="text-lg font-bold tabular-nums text-red-600">
+              {usdtLow.toFixed(4)} ~ {usdtHigh.toFixed(4)} USDT
+            </div>
+            <div className="text-lg font-bold tabular-nums text-red-600">
+              {t('usdt.fee.refExact')}: {n(netUsdt).toFixed(4)} USDT
+            </div>
+          </div>
+        ) : (
+          <div className="text-lg font-bold tabular-nums text-red-600">{n(netUsdt).toFixed(4)} USDT</div>
+        )}
       </div>
-      <div>
-        <div className="pg-hint">{t('simulator.totalFee')}</div>
-        <div className="text-lg font-bold tabular-nums text-green-600">{n(totalFeeUsdt).toFixed(4)} USDT</div>
-      </div>
+      {showTotalFee && (
+        <div>
+          <div className="pg-hint">{t('simulator.totalFee')}</div>
+          <div className="text-lg font-bold tabular-nums text-green-600">{n(totalFeeUsdt).toFixed(4)} USDT</div>
+        </div>
+      )}
     </div>
   );
 }
