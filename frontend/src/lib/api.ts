@@ -350,6 +350,7 @@ export const api = {
         adminNote?: string;
         cancelReason?: string;
         amountConfirmAcknowledged?: boolean;
+        sandboxInvoice?: boolean;
       },
     ) =>
       request<UsdtTicket>(`/api/tickets/usdt-purchase/${id}/status`, {
@@ -1314,6 +1315,7 @@ export interface UsdtTicket {
   actualUsdtAmount?: number;
   brokerUsdtAmount?: number | null;
   adminNote?: string;
+  sandboxInvoice?: boolean;
   commissionSettled: boolean;
   createdAt: string;
   expectedCompleteAt?: string | null;

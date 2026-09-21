@@ -150,10 +150,18 @@ const HQ_POLICY_ITEM: NavItem = {
   children: HQ_POLICY_CHILDREN,
 };
 
+const USDT_SANDBOX_ITEM: NavItem = {
+  href: '/dashboard/usdt/sandbox',
+  labelKey: 'nav.usdtSandbox',
+  shortKey: 'nav.short.usdtSandbox',
+  icon: 'usdt',
+};
+
 export const NAV_ITEMS: Record<string, NavItem[]> = {
   SUPER_ADMIN: [
     { href: '/dashboard', labelKey: 'nav.dashboard', shortKey: 'nav.short.dashboard', icon: 'dashboard' },
     { href: '/dashboard/usdt', labelKey: 'nav.usdt', shortKey: 'nav.short.usdt', icon: 'usdt' },
+    USDT_SANDBOX_ITEM,
     { href: '/dashboard/escrow', labelKey: 'nav.escrow', shortKey: 'nav.short.escrow', icon: 'escrow' },
     { href: '/dashboard/ledger', labelKey: 'nav.ledger', shortKey: 'nav.short.ledger', icon: 'ledger' },
     OPS_ITEM,
@@ -163,6 +171,7 @@ export const NAV_ITEMS: Record<string, NavItem[]> = {
     { href: '/dashboard', labelKey: 'nav.dashboard', shortKey: 'nav.short.dashboard', icon: 'dashboard' },
     SIMULATOR_ITEM,
     { href: '/dashboard/usdt', labelKey: 'nav.usdt', shortKey: 'nav.short.usdt', icon: 'usdt' },
+    USDT_SANDBOX_ITEM,
     { href: '/dashboard/escrow', labelKey: 'nav.escrow', shortKey: 'nav.short.escrow', icon: 'escrow' },
     { href: '/dashboard/ledger', labelKey: 'nav.ledger', shortKey: 'nav.short.ledger', icon: 'ledger' },
     OPS_ITEM_ORG,
@@ -173,6 +182,7 @@ export const NAV_ITEMS: Record<string, NavItem[]> = {
     { href: '/dashboard', labelKey: 'nav.dashboard', shortKey: 'nav.short.dashboard', icon: 'dashboard' },
     SIMULATOR_ITEM,
     { href: '/dashboard/usdt', labelKey: 'nav.usdt', shortKey: 'nav.short.usdt', icon: 'usdt' },
+    USDT_SANDBOX_ITEM,
     { href: '/dashboard/escrow', labelKey: 'nav.escrow', shortKey: 'nav.short.escrow', icon: 'escrow' },
     { href: '/dashboard/ledger', labelKey: 'nav.ledger', shortKey: 'nav.short.ledger', icon: 'ledger' },
     OPS_ITEM_ORG,

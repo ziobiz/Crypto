@@ -10,6 +10,11 @@ import {
 } from './exchange-rate.service';
 import { settleCommission } from './commission.service';
 import { sendTradeReceiptEmail } from './trade-email.service';
+import {
+  buildUsdtPurchaseInvoicePayload,
+  detectUsdtSandboxTicket,
+  notifyInvoiceTransactionCompleted,
+} from './invoice-webhook.service';
 import { hqPolicyService } from './hq-policy.service';
 import { getWorkflowDisplay } from './workflow-display.service';
 import { assertCustomerKycApproved } from './kyc.service';
@@ -1117,6 +1122,8 @@ export async function transitionUsdtPurchaseStatus(
     adminNote?: string;
     cancelReason?: string;
     amountConfirmAcknowledged?: boolean;
+    /** Force Invoice memo [SANDBOX] (sandbox completion page). */
+    sandboxInvoice?: boolean;
   },
 ) {
   const { assertTicketAccess, canChangeTicketStatus } = await import(
@@ -1135,8 +1142,9 @@ export async function transitionUsdtPurchaseStatus(
   if (!ticket?.usdtPurchase) {
     throw new AppError(404, 'Ticket not found', 'NOT_FOUND');
   }
+  const purchase = ticket.usdtPurchase;
 
-  const fromStatus = ticket.usdtPurchase.status;
+  const fromStatus = purchase.status;
   const isAdmin = canChangeTicketStatus(user);
   const allowed = isAdmin
     ? ADMIN_TRANSITIONS[fromStatus]
@@ -1217,7 +1225,21 @@ export async function transitionUsdtPurchaseStatus(
     }
   }
 
+  const sandboxComplete =
+    toStatus === UsdtPurchaseStatus.COMPLETED &&
+    (extra?.sandboxInvoice === true ||
+      detectUsdtSandboxTicket(purchase) ||
+      (await getCurfexConfig()).sandbox === true);
+
   const updated = await prisma.$transaction(async (tx) => {
+    const noteForUpdate = (() => {
+      if (toStatus !== UsdtPurchaseStatus.COMPLETED) return extra?.adminNote;
+      if (!sandboxComplete) return extra?.adminNote;
+      const base = (extra?.adminNote ?? purchase.adminNote ?? '').trim();
+      if (base.includes('[SANDBOX]')) return extra?.adminNote ?? base;
+      return base ? `[SANDBOX] ${base}` : '[SANDBOX]';
+    })();
+
     await tx.usdtPurchaseDetail.update({
       where: { ticketId },
       data: {
@@ -1226,7 +1248,7 @@ export async function transitionUsdtPurchaseStatus(
         ...(extra?.actualUsdtAmount != null && {
           actualUsdtAmount: extra.actualUsdtAmount,
         }),
-        ...(extra?.adminNote && { adminNote: extra.adminNote }),
+        ...(noteForUpdate != null && { adminNote: noteForUpdate }),
         ...(toStatus === UsdtPurchaseStatus.CANCELLED && {
           cancelReason: extra?.cancelReason ?? extra?.adminNote ?? '관리자 취소',
         }),
@@ -1239,7 +1261,7 @@ export async function transitionUsdtPurchaseStatus(
         fromStatus,
         toStatus,
         changedById: user.id,
-        note: extra?.cancelReason ?? extra?.adminNote,
+        note: extra?.cancelReason ?? noteForUpdate ?? extra?.adminNote,
       },
     });
 
@@ -1275,6 +1297,25 @@ export async function transitionUsdtPurchaseStatus(
       actualUsdt: detail.actualUsdtAmount ? Number(detail.actualUsdtAmount) : null,
       usdtTxId: detail.usdtTxId,
     }).catch((err) => console.error('[trade-email]', err));
+  }
+
+  if (toStatus === UsdtPurchaseStatus.COMPLETED) {
+    const detail = updated.usdtPurchase!;
+    const sandbox =
+      extra?.sandboxInvoice === true ||
+      detectUsdtSandboxTicket(detail) ||
+      detail.adminNote?.includes('[SANDBOX]') === true;
+    const { payload, idempotencyKey } = buildUsdtPurchaseInvoicePayload({
+      ticketId: updated.id,
+      ticketNo: updated.ticketNo,
+      fiatAmount: Number(detail.fiatAmount),
+      fiatCurrency: detail.fiatCurrency,
+      assetAmount: Number(detail.actualUsdtAmount ?? detail.expectedUsdtAmount),
+      buyerRef: ticket.customerId || ticket.customer?.user?.email || null,
+      usdtTxId: detail.usdtTxId,
+      sandbox,
+    });
+    void notifyInvoiceTransactionCompleted(payload, idempotencyKey);
   }
 
   return serializeTicket(updated, (await getWorkflowDisplay()).sla);
@@ -1457,6 +1498,7 @@ function serializeTicket(
       : null,
     brokerUsdtAmount: detail.brokerUsdtAmount != null ? Number(detail.brokerUsdtAmount) : null,
     adminNote: detail.adminNote,
+    sandboxInvoice: detectUsdtSandboxTicket(detail),
     wallet: detail.wallet,
     registeredBank: registeredBank
       ? {

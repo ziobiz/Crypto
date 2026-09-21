@@ -25,6 +25,7 @@ export const HQ_PAGE_CATALOG = [
   { path: '/dashboard/hq-policy/cost-analysis', label: '거래분석', group: '본사정책' },
   { path: '/dashboard/hq-policy/profit-analysis', label: '수익분석', group: '본사정책' },
   { path: '/dashboard/usdt', label: 'USDT 매입', group: '업무' },
+  { path: '/dashboard/usdt/sandbox', label: '샌드박스 인보이스', group: '업무' },
   { path: '/dashboard/escrow', label: '무역 에스크로', group: '업무' },
   { path: '/dashboard/ledger', label: '수수료 장부', group: '업무' },
   { path: '/dashboard/wallets', label: '내 지갑', group: '업무' },

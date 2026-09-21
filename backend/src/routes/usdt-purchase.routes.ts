@@ -259,6 +259,7 @@ const statusSchema = z.object({
   adminNote: z.string().optional(),
   cancelReason: z.string().optional(),
   amountConfirmAcknowledged: z.boolean().optional(),
+  sandboxInvoice: z.boolean().optional(),
 });
 
 router.post(
@@ -302,6 +303,7 @@ router.patch(
       adminNote: body.adminNote ?? undefined,
       cancelReason: body.cancelReason ?? undefined,
       amountConfirmAcknowledged: body.amountConfirmAcknowledged ?? undefined,
+      sandboxInvoice: body.sandboxInvoice ?? undefined,
     });
     res.json(ticket);
   }),
