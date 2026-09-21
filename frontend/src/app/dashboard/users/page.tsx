@@ -392,7 +392,7 @@ export default function UsersPage() {
       {msg && !modal && <p className="pg-callout pg-callout-success">{msg}</p>}
 
       <div className="pg-card pg-table-wrap">
-        <table className="pg-table">
+        <table className="pg-table pg-table-ops">
           <thead>
             <tr>
               <th>{t('users.col.email')}</th>

@@ -14,6 +14,7 @@ import hqPolicyRoutes from './routes/hq-policy.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import kycRoutes from './routes/kyc.routes';
 import simulatorRoutes from './routes/simulator.routes';
+import invoiceRoutes from './routes/invoices.routes';
 import costAnalysisRoutes from './routes/cost-analysis.routes';
 import { startMarketSnapshotCollector } from './services/market-snapshot.service';
 import { startEscrowJobScheduler } from './services/escrow-jobs.service';
@@ -129,6 +130,7 @@ export function createApiApp(): express.Application {
   app.use('/api/dashboard', dashboardRoutes);
   app.use('/api/kyc', kycRoutes);
   app.use('/api/simulator', simulatorRoutes);
+  app.use('/api/invoices', invoiceRoutes);
   app.use('/api/cost-analysis', costAnalysisRoutes);
   app.use('/api/merchant', merchantRoutes);
 

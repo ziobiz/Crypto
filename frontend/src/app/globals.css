@@ -429,17 +429,17 @@
     border: 1px solid var(--shell-table-border);
   }
 
-  /* 고객관리 목록: 기본 표보다 한 단계 작은 글자 */
-  .pg-table.pg-table-customers {
+  /* 운영관리 목록: 기본 표보다 한 단계 작은 글자 */
+  .pg-table.pg-table-ops {
     font-size: 11px;
   }
 
-  .pg-table.pg-table-customers th,
-  .pg-table.pg-table-customers th button {
+  .pg-table.pg-table-ops th,
+  .pg-table.pg-table-ops th button {
     font-size: 12px;
   }
 
-  .pg-table.pg-table-customers .pg-action-chip {
+  .pg-table.pg-table-ops .pg-action-chip {
     font-size: 9px;
   }
 

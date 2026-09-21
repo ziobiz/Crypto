@@ -129,7 +129,7 @@ export default function OrganizationsPage() {
       {msg && modal === null && <p className="pg-hint">{msg}</p>}
 
       <div className="pg-card pg-table-wrap">
-        <table className="pg-table">
+        <table className="pg-table pg-table-ops">
           <thead>
             <tr>
               <th>{t('orgs.col.name')}</th>

@@ -59,7 +59,7 @@ export default function OperationHistoryPage() {
       {error && <p className="pg-error">{error}</p>}
       {msg && <p className="pg-hint">{msg}</p>}
       <div className="pg-card pg-table-wrap overflow-x-auto">
-        <table className="pg-table">
+        <table className="pg-table pg-table-ops">
           <thead>
             <tr>
               <th>{t('opHistory.col.time')}</th>

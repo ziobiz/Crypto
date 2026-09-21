@@ -269,7 +269,7 @@ export default function CustomerFeesPage() {
         <p className="pg-hint">{t('common.loading')}</p>
       ) : (
         <div className="pg-card pg-table-wrap overflow-x-auto">
-          <table className="pg-table pg-table-customer-sets">
+          <table className="pg-table pg-table-ops pg-table-customer-sets">
             <thead>
               <tr>
                 <th rowSpan={2}>{t('customerFees.col.customer')}</th>
@@ -509,7 +509,7 @@ export default function CustomerFeesPage() {
             <p className="pg-hint">{t('customerFees.historyEmpty')}</p>
           ) : (
             <div className="pg-card pg-table-wrap overflow-x-auto">
-              <table className="pg-table">
+              <table className="pg-table pg-table-ops">
                 <thead>
                   <tr>
                     <th>{t('customerFees.hist.when')}</th>

@@ -3,6 +3,18 @@ import type { PlatformReleaseNote } from './version';
 /** 본사정책 → 검증관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
 export const PLATFORM_RELEASE_NOTES: PlatformReleaseNote[] = [
   {
+    version: '2.6.107',
+    kind: 'minor',
+    date: '2026-09-21',
+    items: {
+      KR: ['운영관리(수수료·조직·사용자·기록) 목록 글자 크기를 고객관리와 동일하게 맞춤.'],
+      US: ['Operations lists (fees, organizations, users, records) use the same type size as Customers.'],
+      JP: ['運営管理（手数料・組織・ユーザー・記録）一覧の文字サイズを顧客管理と同じに揃えました。'],
+      CH: ['运营管理（手续费、组织、用户、记录）列表字号与客户管理一致。'],
+      TH: ['รายการในจัดการปฏิบัติการ (ค่าธรรมเนียม องค์กร ผู้ใช้ บันทึก) ใช้ขนาดตัวอักษรเดียวกับรายการลูกค้า'],
+    },
+  },
+  {
     version: '2.6.106',
     kind: 'minor',
     date: '2026-09-21',

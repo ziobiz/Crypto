@@ -505,6 +505,45 @@ export const api = {
     return `${API_URL}/api/attachments/${id}/file?token=${token}`;
   },
 
+  invoices: {
+    list: (kind: 'live' | 'simulator' | 'sandbox' | 'all', range?: { from?: string; to?: string }) => {
+      const q = new URLSearchParams({ kind });
+      if (range?.from) q.set('from', range.from);
+      if (range?.to) q.set('to', range.to);
+      return request<{
+        items: Array<{
+          id: string;
+          invoice_no: string;
+          status: string;
+          issued_at: string;
+          currency: string;
+          amount: string | number;
+          ticket_no?: string | null;
+          invoice_kind?: string;
+        }>;
+      }>(`/api/invoices?${q.toString()}`);
+    },
+    async downloadPdf(id: string, filename: string) {
+      const token = getToken();
+      const res = await fetch(`${API_URL}/api/invoices/${encodeURIComponent(id)}/pdf`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new ApiError(res.status, err.error ?? 'PDF failed', err.code);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename.endsWith('.pdf') ? filename : `${filename}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    },
+  },
+
   simulator: {
     log: (data: {
       mode: 'fiat' | 'target';

@@ -3,8 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-/** Old sandbox-complete menu. Invoice download lives under 인보이스. */
-export default function UsdtSandboxRedirectPage() {
+export default function InvoicesIndexPage() {
   const router = useRouter();
   useEffect(() => {
     router.replace('/dashboard/invoices/live');
