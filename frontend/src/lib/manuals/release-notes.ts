@@ -3,6 +3,33 @@ import type { PlatformReleaseNote } from './version';
 /** 본사정책 → 검증관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
 export const PLATFORM_RELEASE_NOTES: PlatformReleaseNote[] = [
   {
+    version: '2.6.106',
+    kind: 'minor',
+    date: '2026-09-21',
+    items: {
+      KR: [
+        '고객관리 목록: 인증패스는 인증, 비밀번호 초기화는 비밀번호, OTP 초기화는 OTP로 표시.',
+        '고객관리 목록 글자 크기를 한 단계 줄임.',
+      ],
+      US: [
+        'Customer list: Verified pass shows as Verified; reset actions show as Password and OTP.',
+        'Customer list type is one step smaller.',
+      ],
+      JP: [
+        '顧客一覧: 認証パスは認証、パスワード初期化はパスワード、OTP初期化はOTPと表示。',
+        '顧客一覧の文字サイズを一段階縮小。',
+      ],
+      CH: [
+        '客户列表：认证通过显示为认证，密码初始化显示为密码，OTP初始化显示为OTP。',
+        '客户列表字号缩小一档。',
+      ],
+      TH: [
+        'รายการลูกค้า: สถานะผ่านการยืนยันแสดงเป็นยืนยัน ปุ่มรีเซ็ตแสดงเป็นรหัสผ่านและ OTP',
+        'ขนาดตัวอักษรในรายการลูกค้าเล็กลงหนึ่งขั้น',
+      ],
+    },
+  },
+  {
     version: '2.6.105',
     kind: 'minor',
     date: '2026-09-18',

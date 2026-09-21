@@ -446,7 +446,7 @@ export default function CustomersPage() {
       {msg && !modal && <p className="pg-callout pg-callout-success">{msg}</p>}
 
       <div className="pg-card pg-table-wrap">
-        <table className="pg-table">
+        <table className="pg-table pg-table-customers">
           <thead>
             <tr>
               <th>{t('users.col.email')}</th>
@@ -561,7 +561,9 @@ export default function CustomersPage() {
                   </td>
                   <td>
                     <span className={`pg-badge ${kycBadgeClass(u.kyc?.status)}`}>
-                      {t(kycStatusKey(u.kyc?.status))}
+                      {u.kyc?.status === 'APPROVED'
+                        ? t('customers.list.kycPass')
+                        : t(kycStatusKey(u.kyc?.status))}
                     </span>
                   </td>
                   <td>
@@ -605,10 +607,10 @@ export default function CustomersPage() {
                         {t('users.edit')}
                       </button>
                       <button type="button" onClick={() => void handleResetPassword(u)} className="pg-action-chip pg-action-chip-warn">
-                        {t('users.resetPasswordBtn')}
+                        {t('customers.list.resetPassword')}
                       </button>
                       <button type="button" onClick={() => void handleResetOtp(u)} className="pg-action-chip pg-action-chip-otp">
-                        {t('users.resetOtpBtn')}
+                        {t('customers.list.resetOtp')}
                       </button>
                       <Link
                         href={`/dashboard/customers/${u.id}`}

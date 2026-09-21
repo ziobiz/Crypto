@@ -429,6 +429,20 @@
     border: 1px solid var(--shell-table-border);
   }
 
+  /* 고객관리 목록: 기본 표보다 한 단계 작은 글자 */
+  .pg-table.pg-table-customers {
+    font-size: 11px;
+  }
+
+  .pg-table.pg-table-customers th,
+  .pg-table.pg-table-customers th button {
+    font-size: 12px;
+  }
+
+  .pg-table.pg-table-customers .pg-action-chip {
+    font-size: 9px;
+  }
+
   .pg-table thead {
     background-color: var(--shell-table-head-bg);
   }
