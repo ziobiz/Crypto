@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { createHash } from 'node:crypto';
 import { UserRole } from '@prisma/client';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { authenticate, requireRoles } from '../middleware/auth';
@@ -13,6 +14,11 @@ import {
   type AnalyticsRange,
   type SimulatorMode,
 } from '../services/simulator-log.service';
+import {
+  buildSimulatorInvoicePayload,
+  isInvoiceWebhookConfigured,
+  notifyInvoiceTransactionCompleted,
+} from '../services/invoice-webhook.service';
 
 const router = Router();
 router.use(authenticate);
@@ -47,6 +53,81 @@ router.post(
       exchangeRate: Number(body.exchangeRate ?? 0),
     });
     res.json(saved ?? { skipped: true });
+  }),
+);
+
+/** Issue a [SIMULATOR] invoice from the current simulation result (LIVE/SAND fee tabs alike). */
+router.post(
+  '/issue-invoice',
+  asyncHandler(async (req, res) => {
+    await assertCanUseUsdtSimulator(req.user!);
+    if (!isInvoiceWebhookConfigured()) {
+      throw new AppError(503, 'Invoice webhook is not configured', 'INVOICE_NOT_CONFIGURED');
+    }
+    const body = req.body as {
+      currency?: string;
+      network?: string;
+      feeMode?: string;
+      requiredFiat?: number;
+      netUsdt?: number;
+      exchangeRate?: number;
+      mode?: string;
+    };
+    const currency = String(body.currency ?? '').trim().toUpperCase();
+    const network = String(body.network ?? '').trim();
+    const requiredFiat = Number(body.requiredFiat ?? 0);
+    const netUsdt = Number(body.netUsdt ?? 0);
+    if (!currency || !network || !(requiredFiat > 0) || !(netUsdt > 0)) {
+      throw new AppError(400, 'Simulation result is incomplete', 'VALIDATION');
+    }
+
+    const runKey = createHash('sha256')
+      .update(
+        [
+          req.user!.id,
+          currency,
+          network,
+          requiredFiat.toFixed(2),
+          netUsdt.toFixed(8),
+          String(body.feeMode ?? ''),
+          String(Date.now()),
+        ].join('|'),
+      )
+      .digest('hex')
+      .slice(0, 24);
+
+    const { payload, idempotencyKey } = buildSimulatorInvoicePayload({
+      userId: req.user!.id,
+      runKey,
+      fiatAmount: requiredFiat,
+      fiatCurrency: currency,
+      assetAmount: netUsdt,
+      network,
+      feeMode: body.feeMode,
+      buyerRef: req.user!.email,
+    });
+
+    const result = await notifyInvoiceTransactionCompleted(payload, idempotencyKey);
+    if (!result.ok) {
+      throw new AppError(
+        result.status && result.status >= 400 && result.status < 500 ? result.status : 502,
+        result.error || 'Invoice webhook failed',
+        'INVOICE_WEBHOOK_FAILED',
+      );
+    }
+
+    res.status(201).json({
+      ok: true,
+      kind: 'simulator',
+      invoiceNo: result.invoiceNo,
+      ticketNo: payload.ticketNo,
+      transactionId: payload.transactionId,
+      amount: payload.amount,
+      currency: payload.currency,
+      assetAmount: payload.assetAmount,
+      memo: payload.memo,
+      idempotencyKey,
+    });
   }),
 );
 

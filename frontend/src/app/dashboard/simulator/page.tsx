@@ -147,6 +147,8 @@ export default function UsdtSimulatorPage() {
   const [history, setHistory] = useState<SimHistoryItem[]>([]);
   const [error, setError] = useState('');
   const [running, setRunning] = useState(false);
+  const [invoiceMsg, setInvoiceMsg] = useState('');
+  const [invoiceErr, setInvoiceErr] = useState('');
   const lastSaved = useRef('');
 
   useEffect(() => {
@@ -193,6 +195,8 @@ export default function UsdtSimulatorPage() {
 
   async function runSimulation() {
     setError('');
+    setInvoiceMsg('');
+    setInvoiceErr('');
     if (!network) {
       setError(t('simulator.networkRequired'));
       return;
@@ -223,6 +227,32 @@ export default function UsdtSimulatorPage() {
         amountRangePct: p.amountRangePct ?? null,
       });
       setError('');
+
+      try {
+        const issued = await api.simulator.issueInvoice({
+          mode: inputMode,
+          currency: fiatCurrency,
+          network,
+          requiredFiat: p.breakdown.requiredFiat,
+          netUsdt: p.breakdown.netUsdt,
+          exchangeRate: p.exchangeRate,
+          ...(hq ? { feeMode } : {}),
+        });
+        setInvoiceMsg(
+          t('simulator.invoiceIssued', {
+            ticketNo: issued.invoiceNo || issued.ticketNo || '—',
+            amount: String(issued.amount || p.breakdown.requiredFiat),
+            currency: issued.currency || fiatCurrency,
+          }),
+        );
+      } catch (ie) {
+        const code = ie instanceof ApiError ? ie.code : undefined;
+        if (code === 'INVOICE_NOT_CONFIGURED') {
+          setInvoiceErr(t('simulator.invoiceNotConfigured'));
+        } else {
+          setInvoiceErr(ie instanceof Error ? ie.message : t('simulator.invoiceFailed'));
+        }
+      }
     } catch (e) {
       setPreview(null);
       const code = e instanceof ApiError ? e.code : undefined;
@@ -425,6 +455,8 @@ export default function UsdtSimulatorPage() {
         )}
 
         {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+        {invoiceMsg && <p className="mt-2 text-sm text-emerald-700">{invoiceMsg}</p>}
+        {invoiceErr && <p className="mt-2 text-sm text-amber-700">{invoiceErr}</p>}
 
         <button
           type="button"
@@ -435,6 +467,7 @@ export default function UsdtSimulatorPage() {
           {running ? t('simulator.running') : t('simulator.run')}
         </button>
         <p className="pg-hint mt-2">{t('simulator.runHint')}</p>
+        <p className="pg-hint mt-1">{t('simulator.invoiceHint')}</p>
       </ContentCard>
 
       {breakdown && (

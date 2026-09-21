@@ -520,6 +520,29 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(data),
       }),
+    issueInvoice: (data: {
+      mode: 'fiat' | 'target';
+      currency: string;
+      network: string;
+      requiredFiat: number;
+      netUsdt: number;
+      exchangeRate: number;
+      feeMode?: 'LIVE' | 'SAND';
+    }) =>
+      request<{
+        ok: boolean;
+        kind: 'simulator';
+        invoiceNo?: string;
+        ticketNo?: string;
+        transactionId?: string;
+        amount?: string;
+        currency?: string;
+        assetAmount?: string;
+        memo?: string;
+      }>('/api/simulator/issue-invoice', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
     mine: (limit = 2) => request<SimulatorRunRow[]>(`/api/simulator/mine?limit=${limit}`),
     hqList: (page: number, pageSize: number | 'all') =>
       request<SimulatorHqListResponse>(

@@ -44,21 +44,22 @@ export function isInvoiceWebhookConfigured(): boolean {
 }
 
 /**
- * Fire-and-forget safe: never throws to callers. Retries once on 5xx/network.
+ * Fire-and-forget safe by default: returns result, never throws.
+ * Retries once on 5xx/network.
  */
 export async function notifyInvoiceTransactionCompleted(
   payload: Omit<InvoiceCompletedPayload, 'site' | 'event'> &
     Partial<Pick<InvoiceCompletedPayload, 'site' | 'event'>>,
   idempotencyKey: string,
-): Promise<void> {
+): Promise<{ ok: boolean; invoiceNo?: string; status?: number; error?: string }> {
   const cfg = readConfig();
   if (!cfg.enabled) {
     console.info('[invoice-webhook] disabled — skip', idempotencyKey);
-    return;
+    return { ok: false, error: 'disabled' };
   }
   if (!cfg.baseUrl || !cfg.apiKey || !cfg.hmacSecret) {
     console.warn('[invoice-webhook] missing INVOICE_* env — skip', idempotencyKey);
-    return;
+    return { ok: false, error: 'missing_env' };
   }
 
   const bodyObj: InvoiceCompletedPayload = {
@@ -100,19 +101,26 @@ export async function notifyInvoiceTransactionCompleted(
       await new Promise((r) => setTimeout(r, 800));
       res = await attempt();
     }
-    const data = await res.json().catch(() => ({}));
+    const data = (await res.json().catch(() => ({}))) as {
+      invoice?: { invoiceNo?: string };
+      error?: string;
+      idempotentReplay?: boolean;
+    };
     if (!res.ok) {
       console.error('[invoice-webhook] failed', res.status, data, idempotencyKey);
-      return;
+      return { ok: false, status: res.status, error: data.error || `http_${res.status}` };
     }
+    const invoiceNo = data.invoice?.invoiceNo;
     console.info(
       '[invoice-webhook] ok',
       idempotencyKey,
-      (data as { invoice?: { invoiceNo?: string } })?.invoice?.invoiceNo || '',
-      (data as { idempotentReplay?: boolean })?.idempotentReplay ? 'replay' : 'created',
+      invoiceNo || '',
+      data.idempotentReplay ? 'replay' : 'created',
     );
+    return { ok: true, status: res.status, invoiceNo };
   } catch (err) {
     console.error('[invoice-webhook] network error', idempotencyKey, err);
+    return { ok: false, error: 'network' };
   }
 }
 
@@ -158,6 +166,45 @@ export function buildUsdtPurchaseInvoicePayload(input: {
       buyerRef: input.buyerRef || undefined,
       productCode: 'USDT-PURCHASE',
       memo: memoParts.join(' | ') || undefined,
+    },
+  };
+}
+
+/** USDT simulator run → Invoice with [SIMULATOR] memo (LIVE/SAND fee mode does not matter). */
+export function buildSimulatorInvoicePayload(input: {
+  userId: string;
+  runKey: string;
+  fiatAmount: number | string;
+  fiatCurrency: string;
+  assetAmount: number | string;
+  network?: string | null;
+  feeMode?: string | null;
+  buyerRef?: string | null;
+}): {
+  payload: Omit<InvoiceCompletedPayload, 'site' | 'event'> &
+    Partial<Pick<InvoiceCompletedPayload, 'site' | 'event'>>;
+  idempotencyKey: string;
+} {
+  const feeMode = (input.feeMode || '').trim().toUpperCase();
+  const memoParts = [
+    '[SIMULATOR]',
+    input.network ? `network: ${input.network}` : '',
+    feeMode ? `feeMode: ${feeMode}` : '',
+  ].filter(Boolean);
+
+  return {
+    idempotencyKey: `tinpass:sim:${input.userId}:${input.runKey}`,
+    payload: {
+      occurredAt: new Date().toISOString(),
+      transactionId: `sim-${input.userId}-${input.runKey}`,
+      ticketNo: `SIM-${input.runKey.slice(0, 12).toUpperCase()}`,
+      amount: String(input.fiatAmount),
+      currency: input.fiatCurrency,
+      asset: 'USDT',
+      assetAmount: String(input.assetAmount),
+      buyerRef: input.buyerRef || undefined,
+      productCode: 'USDT-PURCHASE',
+      memo: memoParts.join(' | '),
     },
   };
 }
