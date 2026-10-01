@@ -17,6 +17,7 @@ import {
 import {
   buildSimulatorInvoicePayload,
   isInvoiceWebhookConfigured,
+  isSimulatorInvoiceIssueEnabled,
   notifyInvoiceTransactionCompleted,
 } from '../services/invoice-webhook.service';
 
@@ -61,7 +62,14 @@ router.post(
   '/issue-invoice',
   asyncHandler(async (req, res) => {
     await assertCanUseUsdtSimulator(req.user!);
-    if (!isInvoiceWebhookConfigured()) {
+    if (!(await isSimulatorInvoiceIssueEnabled())) {
+      throw new AppError(
+        503,
+        'Simulator invoice issuance is disabled',
+        'INVOICE_SIMULATOR_DISABLED',
+      );
+    }
+    if (!isInvoiceWebhookConfigured('simulator')) {
       throw new AppError(503, 'Invoice webhook is not configured', 'INVOICE_NOT_CONFIGURED');
     }
     const body = req.body as {
@@ -107,7 +115,7 @@ router.post(
       buyerRef: req.user!.email,
     });
 
-    const result = await notifyInvoiceTransactionCompleted(payload, idempotencyKey);
+    const result = await notifyInvoiceTransactionCompleted(payload, idempotencyKey, 'simulator');
     if (!result.ok) {
       throw new AppError(
         result.status && result.status >= 400 && result.status < 500 ? result.status : 502,

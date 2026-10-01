@@ -162,6 +162,27 @@ enum UsdtQuoteResponseMode {
   OFF
 }
 
+/// 거래명세 이메일 발송 — FOLLOW_HQ면 본사 tradeReceiptEmailEnabled
+enum TradeReceiptEmailMode {
+  FOLLOW_HQ
+  ENABLED
+  DISABLED
+  HQ_ONLY
+}
+
+/// 거래명세 보기·PDF 노출 — FOLLOW_HQ면 본사 기본 UI 노출
+enum TradeReceiptUiMode {
+  FOLLOW_HQ
+  ENABLED
+  DISABLED
+}
+
+enum TradeReceiptSendStatus {
+  SENT
+  FAILED
+  SKIPPED
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ORGANIZATION — 5단계 영업 조직 트리
 // ─────────────────────────────────────────────────────────────────────────────
@@ -233,6 +254,9 @@ model User {
   totpSecret   String?
   totpEnabled  Boolean   @default(false)
 
+  /// 사용자별 페이지 권한 덮어쓰기 (path → NONE|VIEW|MODIFY|DELETE). null이면 조직/역할 기본
+  pageAccessOverrides Json? @map("page_access_overrides")
+
   /// PG — 초기 비밀번호(이메일아이디+1!) 변경 강제
   passwordMustChange Boolean @default(false)
   /// 회원가입 이메일 인증 완료
@@ -256,6 +280,7 @@ model User {
   wallets         Wallet[]
   bankAccounts    BankAccount[]
   statusChanges   TicketStatusHistory[] @relation("StatusChangedBy")
+  scheduleDelays  TicketScheduleDelay[] @relation("ScheduleDelayCreatedBy")
   otpChallenges   OtpLoginChallenge[]
   adminChangeLogs AdminChangeLog[] @relation("AdminChangeLogs")
   platformReleaseLogs PlatformReleaseLog[] @relation("PlatformReleaseLogs")
@@ -339,6 +364,12 @@ model CustomerProfile {
   usdtCollectionMode UsdtCollectionMode @default(FOLLOW_HQ)
   /// USDT 견적 응답 — FOLLOW_HQ면 본사 수수료 정책. AUTO/MANUAL/OFF는 고객 개별
   usdtQuoteResponseMode UsdtQuoteResponseMode @default(FOLLOW_HQ)
+  /// 거래명세 이메일 — FOLLOW_HQ면 본사 기본. ENABLED/DISABLED는 가맹점 개별(본사보다 우선)
+  tradeReceiptEmailMode TradeReceiptEmailMode @default(FOLLOW_HQ)
+  /// 관리자 상세의 보기·PDF 노출 — FOLLOW_HQ면 본사 기본
+  tradeReceiptAdminUiMode TradeReceiptUiMode @default(FOLLOW_HQ)
+  /// 가맹점 상세의 보기·PDF 노출 — FOLLOW_HQ면 본사 기본
+  tradeReceiptMerchantUiMode TradeReceiptUiMode @default(FOLLOW_HQ)
   /// AUTO일 때 확정 대기(분). null이면 본사 autoDelayMinutes 사용
   usdtQuoteAutoDelayMinutes Int?
   /// MANUAL일 때 SLA(시간). null이면 본사 manualSlaHours 사용
@@ -547,12 +578,33 @@ model TransactionTicket {
   tradeEscrow  TradeEscrowDetail?
   attachments  Attachment[]
   statusHistory TicketStatusHistory[]
+  scheduleDelays TicketScheduleDelay[]
   ledgerEntries LedgerEntry[]
 
   @@index([customerId])
   @@index([type])
   @@index([commissionSettled])
   @@map("transaction_tickets")
+}
+
+/// 예상완료일 지연(추가) 이력 — 배송 지연처럼 시간 단위로 누적
+model TicketScheduleDelay {
+  id       String @id @default(cuid())
+  ticketId String
+  ticket   TransactionTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  /// 12 | 24 | 36 | 48 | 60 | 72 | 84 | 96
+  delayHours Int
+  reason     String
+
+  createdById String
+  createdBy   User @relation("ScheduleDelayCreatedBy", fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([ticketId])
+  @@index([createdAt])
+  @@map("ticket_schedule_delays")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -874,6 +926,31 @@ enum AdminChangeAction {
   CREATE
   UPDATE
   DELETE
+}
+
+/// 거래명세 이메일 발송 이력 (성공·실패·스킵)
+model TradeReceiptEmailLog {
+  id                String                 @id @default(cuid())
+  ticketId          String?
+  ticketNo          String
+  ticketType        String
+  toEmail           String
+  toName            String?
+  subject           String
+  bodyText          String                 @db.Text
+  bodyHtml          String?                @db.Text
+  status            TradeReceiptSendStatus
+  skipReason        String?
+  errorMessage      String?
+  customerProfileId String?
+  createdAt         DateTime               @default(now())
+
+  @@index([createdAt])
+  @@index([ticketNo])
+  @@index([ticketId])
+  @@index([status])
+  @@index([customerProfileId])
+  @@map("trade_receipt_email_logs")
 }
 
 /// 가맹점(관리자·운영자) 업무 이력 — 총본사만 삭제 가능

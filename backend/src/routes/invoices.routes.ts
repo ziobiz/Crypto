@@ -4,17 +4,17 @@ import { authenticate } from '../middleware/auth';
 import { AppError } from '../lib/errors';
 import { isMerchantSide } from '../lib/merchant-role';
 import type { AuthUser } from '../types/auth';
+import { getInvoiceApiClient, type InvoiceChannel } from '../services/invoice-webhook.service';
 
 const router = Router();
 router.use(authenticate);
 
-function invoiceEnv() {
-  const baseUrl = (process.env.INVOICE_BASE_URL || '').trim().replace(/\/+$/, '');
-  const apiKey = (process.env.INVOICE_API_KEY || '').trim();
-  if (!baseUrl || !apiKey) {
+function invoiceEnv(channel: InvoiceChannel) {
+  try {
+    return getInvoiceApiClient(channel);
+  } catch {
     throw new AppError(503, 'Invoice service is not configured', 'INVOICE_NOT_CONFIGURED');
   }
-  return { baseUrl, apiKey };
 }
 
 function buyerScope(user: AuthUser): string | null {
@@ -25,13 +25,16 @@ function buyerScope(user: AuthUser): string | null {
 router.get(
   '/',
   asyncHandler(async (req, res) => {
-    const { baseUrl, apiKey } = invoiceEnv();
-    const kind = String(req.query.kind || 'live');
+    const kindRaw = String(req.query.kind || 'live').toLowerCase();
+    const channel: InvoiceChannel =
+      kindRaw === 'simulator' || kindRaw === 'sim' ? 'simulator' : 'live';
+    const { baseUrl, apiKey } = invoiceEnv(channel);
     const from = String(req.query.from || '');
     const to = String(req.query.to || '');
     const url = new URL(`${baseUrl}/v1/invoices`);
     url.searchParams.set('limit', '100');
-    url.searchParams.set('kind', kind);
+    // Each channel uses its own Invoice site key — list all on that site
+    url.searchParams.set('kind', 'all');
     if (from) url.searchParams.set('from', from);
     if (to) url.searchParams.set('to', to);
     const buyer = buyerScope(req.user!);
@@ -48,11 +51,32 @@ router.get(
 router.get(
   '/:id/pdf',
   asyncHandler(async (req, res) => {
-    const { baseUrl, apiKey } = invoiceEnv();
+    const kindRaw = String(req.query.kind || 'live').toLowerCase();
+    const channel: InvoiceChannel =
+      kindRaw === 'simulator' || kindRaw === 'sim' ? 'simulator' : 'live';
+    const { baseUrl, apiKey } = invoiceEnv(channel);
     const upstream = await fetch(`${baseUrl}/v1/invoices/${encodeURIComponent(req.params.id)}/pdf`, {
       headers: { 'X-Api-Key': apiKey },
     });
     if (!upstream.ok) {
+      // Fallback: try the other channel once (legacy rows may still live on tinpass)
+      const other: InvoiceChannel = channel === 'simulator' ? 'live' : 'simulator';
+      try {
+        const alt = invoiceEnv(other);
+        const retry = await fetch(
+          `${alt.baseUrl}/v1/invoices/${encodeURIComponent(req.params.id)}/pdf`,
+          { headers: { 'X-Api-Key': alt.apiKey } },
+        );
+        if (retry.ok) {
+          res.setHeader('Content-Type', 'application/pdf');
+          const disp = retry.headers.get('content-disposition');
+          if (disp) res.setHeader('Content-Disposition', disp);
+          res.send(Buffer.from(await retry.arrayBuffer()));
+          return;
+        }
+      } catch {
+        /* ignore */
+      }
       const data = await upstream.json().catch(() => ({}));
       throw new AppError(upstream.status, (data as { error?: string }).error || 'PDF download failed', 'INVOICE_PDF_FAILED');
     }

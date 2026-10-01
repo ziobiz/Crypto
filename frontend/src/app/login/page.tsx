@@ -2,8 +2,7 @@
 
 import { useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { api, setToken, ApiError } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/context/AuthProvider';
 import { useLocale, useT } from '@/context/LocaleProvider';
 import { AuthChrome } from '@/components/layout/AuthChrome';
@@ -17,8 +16,7 @@ type Step = 'credentials' | 'changePassword' | 'enrollEmail' | 'enrollTotp' | 'l
 type InactiveNoticeMessages = Partial<Record<Locale, string>> & { KR?: string };
 
 export default function LoginPage() {
-  const { refresh } = useAuth();
-  const router = useRouter();
+  const { completeLogin } = useAuth();
   const t = useT();
   const { locale } = useLocale();
   const [step, setStep] = useState<Step>('credentials');
@@ -65,9 +63,7 @@ export default function LoginPage() {
   }, [locale, inactiveNoticeMessages, t]);
 
   const finishSession = async (token: string) => {
-    setToken(token);
-    await refresh();
-    router.push('/dashboard');
+    await completeLogin(token);
   };
 
   const withOtpLock = async (fn: () => Promise<void>) => {
@@ -204,7 +200,13 @@ export default function LoginPage() {
         const res = await api.verifyOtp(otpToken, code);
         await finishSession(res.token);
       } catch (err) {
-        setError(err instanceof Error ? err.message : t('auth.otpInvalid'));
+        if (err instanceof ApiError && err.code === 'INVALID_OTP_TOKEN') {
+          setError(t('auth.otpSessionExpired'));
+          setStep('credentials');
+          setOtpToken('');
+        } else {
+          setError(err instanceof Error ? err.message : t('auth.otpInvalid'));
+        }
         setOtpCode('');
       }
     });

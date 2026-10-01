@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, clearToken, MeResponse, setToken } from '@/lib/api';
+import { api, ApiError, clearToken, MeResponse, setToken } from '@/lib/api';
 import { clearMaskedPaths } from '@/lib/auth-session';
 import { touchActivity, useIdleTimeout } from '@/hooks/useIdleTimeout';
 
@@ -24,6 +24,11 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+function hasStoredToken(): boolean {
+  if (typeof window === 'undefined') return false;
+  return Boolean(sessionStorage.getItem('token'));
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<MeResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -31,31 +36,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const idleMinutes = user?.sessionPolicy?.idleTimeoutMinutes ?? 30;
 
-  const logout = useCallback((reason?: 'idle') => {
-    const uid = user?.id;
-    clearToken();
-    sessionStorage.removeItem('crypto-sensitive-token');
-    localStorage.removeItem('crypto-nav-tabs');
-    if (uid) localStorage.removeItem(`crypto-nav-tabs:${uid}`);
-    setUser(null);
-    if (reason === 'idle') {
-      sessionStorage.setItem('crypto_idle_minutes', String(idleMinutes));
-    }
-    sessionStorage.removeItem('crypto_last_activity');
-    clearMaskedPaths();
-    router.push(reason === 'idle' ? '/login?idle=1' : '/login');
-  }, [router, idleMinutes, user?.id]);
+  const logout = useCallback(
+    (reason?: 'idle') => {
+      const uid = user?.id;
+      clearToken();
+      sessionStorage.removeItem('crypto-sensitive-token');
+      localStorage.removeItem('crypto-nav-tabs');
+      if (uid) localStorage.removeItem(`crypto-nav-tabs:${uid}`);
+      setUser(null);
+      if (reason === 'idle') {
+        sessionStorage.setItem('crypto_idle_minutes', String(idleMinutes));
+      }
+      sessionStorage.removeItem('crypto_last_activity');
+      clearMaskedPaths();
+      router.push(reason === 'idle' ? '/login?idle=1' : '/login');
+    },
+    [router, idleMinutes, user?.id],
+  );
 
   useIdleTimeout(() => logout('idle'), Boolean(user), idleMinutes);
 
+  /** 401/403만 세션 폐기. 일시적 5xx·네트워크는 유지 (PM2 재시작·배포 직후 보호) */
   const refresh = useCallback(async () => {
     try {
       const me = await api.me();
       setUser(me);
       touchActivity();
-    } catch {
-      clearToken();
-      setUser(null);
+    } catch (e) {
+      const status = e instanceof ApiError ? e.status : 0;
+      if (status === 401 || status === 403) {
+        clearToken();
+        setUser(null);
+        return;
+      }
+      if (!hasStoredToken()) setUser(null);
     }
   }, []);
 
@@ -66,7 +80,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const completeLogin = async (token: string) => {
     setToken(token);
     touchActivity();
-    await refresh();
+    for (let i = 0; i < 3; i++) {
+      try {
+        const me = await api.me();
+        setUser(me);
+        clearMaskedPaths();
+        router.push('/dashboard');
+        return;
+      } catch (e) {
+        const status = e instanceof ApiError ? e.status : 0;
+        if (status === 401 || status === 403) {
+          clearToken();
+          setUser(null);
+          throw e;
+        }
+        await new Promise((r) => setTimeout(r, 400 * (i + 1)));
+      }
+    }
     clearMaskedPaths();
     router.push('/dashboard');
   };

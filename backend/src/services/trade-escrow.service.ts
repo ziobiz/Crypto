@@ -15,6 +15,13 @@ import { getWorkflowDisplay } from './workflow-display.service';
 import { assertCustomerKycApproved } from './kyc.service';
 import { computeExpectedCompleteAt, type HqSlaConfig } from '../constants/hq-policy';
 import {
+  completedAtFromHistory,
+  computeExpectedCompleteWithDelays,
+  serializeScheduleDelays,
+  totalDelayHours,
+} from './ticket-schedule-delay.service';
+import { sendTradeReceiptEmail } from './trade-email.service';
+import {
   acceptanceDeadlineKst,
   classifyEscrowTier,
   schedulePayoutAt,
@@ -38,7 +45,14 @@ const ESCROW_INCLUDE = {
           id: true,
           name: true,
           email: true,
-          customerProfile: { select: { customerType: true, businessName: true } },
+          customerProfile: {
+            select: {
+              id: true,
+              customerType: true,
+              businessName: true,
+              tradeReceiptEmailMode: true,
+            },
+          },
         },
       },
       seller: {
@@ -46,7 +60,14 @@ const ESCROW_INCLUDE = {
           id: true,
           name: true,
           email: true,
-          customerProfile: { select: { customerType: true, businessName: true } },
+          customerProfile: {
+            select: {
+              id: true,
+              customerType: true,
+              businessName: true,
+              tradeReceiptEmailMode: true,
+            },
+          },
         },
       },
     },
@@ -58,6 +79,12 @@ const ESCROW_INCLUDE = {
     },
   },
   attachments: true,
+  scheduleDelays: {
+    orderBy: { createdAt: 'asc' as const },
+    include: {
+      createdBy: { select: { id: true, name: true, email: true } },
+    },
+  },
   statusHistory: {
     orderBy: { createdAt: 'asc' as const },
     include: { changedBy: { select: { id: true, name: true, role: true } } },
@@ -703,6 +730,38 @@ export async function transitionTradeEscrowStatus(
       include: ESCROW_INCLUDE,
     });
   });
+
+  if (toStatus === TradeEscrowStatus.ESCROW_COMPLETED) {
+    const esc = updated.tradeEscrow!;
+    const parties = [
+      {
+        email: esc.buyer.email,
+        name: esc.buyer.name,
+        customerProfileId: esc.buyer.customerProfile?.id ?? null,
+      },
+      {
+        email: esc.seller.email,
+        name: esc.seller.name,
+        customerProfileId: esc.seller.customerProfile?.id ?? null,
+      },
+    ];
+    for (const party of parties) {
+      void sendTradeReceiptEmail({
+        to: party.email,
+        userName: party.name,
+        ticketNo: updated.ticketNo,
+        ticketId: updated.id,
+        ticketType: 'TRADE_ESCROW',
+        fiatAmount: Number(esc.amount),
+        fiatCurrency: esc.currency,
+        expectedUsdt: Number(esc.amount),
+        actualUsdt: null,
+        usdtTxId: esc.payoutTxId,
+        customerProfileId: party.customerProfileId,
+      }).catch((err) => console.error('[trade-email]', err));
+    }
+  }
+
   return serializeEscrowTicket(updated, (await getWorkflowDisplay()).sla);
 }
 
@@ -732,10 +791,19 @@ function serializeEscrowTicket(
   sla: HqSlaConfig,
 ) {
   const detail = ticket.tradeEscrow!;
-  const expectedCompleteAt = computeExpectedCompleteAt(ticket.createdAt, sla).toISOString();
+  const expectedCompleteAt = computeExpectedCompleteWithDelays(
+    ticket.createdAt,
+    sla,
+    ticket.scheduleDelays,
+  ).toISOString();
   const completed =
     detail.status === TradeEscrowStatus.ESCROW_COMPLETED
-      ? (detail.payoutProcessedAt ?? ticket.commissionSettledAt ?? ticket.updatedAt)
+      ? (detail.payoutProcessedAt ??
+          ticket.commissionSettledAt ??
+          (() => {
+            const iso = completedAtFromHistory(ticket.statusHistory, ['ESCROW_COMPLETED']);
+            return iso ? new Date(iso) : ticket.updatedAt;
+          })())
       : null;
   return {
     id: ticket.id,
@@ -746,6 +814,9 @@ function serializeEscrowTicket(
     createdAt: ticket.createdAt,
     updatedAt: ticket.updatedAt,
     expectedCompleteAt,
+    expectedCompleteBaseAt: computeExpectedCompleteAt(ticket.createdAt, sla).toISOString(),
+    scheduleDelayHoursTotal: totalDelayHours(ticket.scheduleDelays),
+    scheduleDelays: serializeScheduleDelays(ticket.scheduleDelays),
     completedAt: completed ? completed.toISOString() : null,
     customer: ticket.customer,
     status: detail.status,

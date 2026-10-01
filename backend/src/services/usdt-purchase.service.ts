@@ -9,7 +9,7 @@ import {
   type FiatCurrency,
 } from './exchange-rate.service';
 import { settleCommission } from './commission.service';
-import { sendTradeReceiptEmail } from './trade-email.service';
+import { resolveTradeReceiptForCustomer, sendTradeReceiptEmail } from './trade-email.service';
 import {
   buildUsdtPurchaseInvoicePayload,
   detectUsdtSandboxTicket,
@@ -25,6 +25,12 @@ import {
   resolveUsdtCollectionProvider,
 } from './curfex.service';
 import { computeExpectedCompleteAt, type HqSlaConfig } from '../constants/hq-policy';
+import {
+  completedAtFromHistory,
+  computeExpectedCompleteWithDelays,
+  serializeScheduleDelays,
+  totalDelayHours,
+} from './ticket-schedule-delay.service';
 import { evaluateUsdtAmountVariance } from '../lib/usdt-amount-guard';
 import {
   resolveFeesForAmount,
@@ -84,6 +90,12 @@ const USDT_PURCHASE_INCLUDE = {
     },
   },
   attachments: true,
+  scheduleDelays: {
+    orderBy: { createdAt: 'asc' as const },
+    include: {
+      createdBy: { select: { id: true, name: true, email: true } },
+    },
+  },
   statusHistory: {
     orderBy: { createdAt: 'asc' as const },
     include: { changedBy: { select: { id: true, name: true, role: true } } },
@@ -1045,7 +1057,8 @@ export async function getUsdtPurchaseTicket(user: AuthUser, ticketId: string) {
 
   const base = serializeTicket(ticket, (await getWorkflowDisplay()).sla);
   const feeDiagramDisplay = await getFeeDiagramDisplayForCustomer(ticket.customerId);
-  return { ...base, feeDiagramDisplay };
+  const tradeReceipt = await resolveTradeReceiptForCustomer(ticket.customer);
+  return { ...base, feeDiagramDisplay, tradeReceipt };
 }
 
 export async function saveDepositProofMetadata(
@@ -1225,21 +1238,7 @@ export async function transitionUsdtPurchaseStatus(
     }
   }
 
-  const sandboxComplete =
-    toStatus === UsdtPurchaseStatus.COMPLETED &&
-    (extra?.sandboxInvoice === true ||
-      detectUsdtSandboxTicket(purchase) ||
-      (await getCurfexConfig()).sandbox === true);
-
   const updated = await prisma.$transaction(async (tx) => {
-    const noteForUpdate = (() => {
-      if (toStatus !== UsdtPurchaseStatus.COMPLETED) return extra?.adminNote;
-      if (!sandboxComplete) return extra?.adminNote;
-      const base = (extra?.adminNote ?? purchase.adminNote ?? '').trim();
-      if (base.includes('[SANDBOX]')) return extra?.adminNote ?? base;
-      return base ? `[SANDBOX] ${base}` : '[SANDBOX]';
-    })();
-
     await tx.usdtPurchaseDetail.update({
       where: { ticketId },
       data: {
@@ -1248,7 +1247,7 @@ export async function transitionUsdtPurchaseStatus(
         ...(extra?.actualUsdtAmount != null && {
           actualUsdtAmount: extra.actualUsdtAmount,
         }),
-        ...(noteForUpdate != null && { adminNote: noteForUpdate }),
+        ...(extra?.adminNote != null && { adminNote: extra.adminNote }),
         ...(toStatus === UsdtPurchaseStatus.CANCELLED && {
           cancelReason: extra?.cancelReason ?? extra?.adminNote ?? '관리자 취소',
         }),
@@ -1261,7 +1260,7 @@ export async function transitionUsdtPurchaseStatus(
         fromStatus,
         toStatus,
         changedById: user.id,
-        note: extra?.cancelReason ?? noteForUpdate ?? extra?.adminNote,
+        note: extra?.cancelReason ?? extra?.adminNote ?? null,
       },
     });
 
@@ -1291,11 +1290,14 @@ export async function transitionUsdtPurchaseStatus(
       to: ticket.customer.user.email,
       userName: ticket.customer.user.name,
       ticketNo: updated.ticketNo,
+      ticketId: updated.id,
+      ticketType: 'USDT_PURCHASE',
       fiatAmount: Number(detail.fiatAmount),
       fiatCurrency: detail.fiatCurrency,
       expectedUsdt: Number(detail.expectedUsdtAmount),
       actualUsdt: detail.actualUsdtAmount ? Number(detail.actualUsdtAmount) : null,
       usdtTxId: detail.usdtTxId,
+      customerProfileId: ticket.customerId,
     }).catch((err) => console.error('[trade-email]', err));
   }
 
@@ -1412,7 +1414,15 @@ function serializeTicket(
     commissionSettledAt: ticket.commissionSettledAt,
     createdAt: ticket.createdAt,
     updatedAt: ticket.updatedAt,
-    expectedCompleteAt: computeExpectedCompleteAt(ticket.createdAt, sla).toISOString(),
+    expectedCompleteAt: computeExpectedCompleteWithDelays(
+      ticket.createdAt,
+      sla,
+      ticket.scheduleDelays,
+    ).toISOString(),
+    expectedCompleteBaseAt: computeExpectedCompleteAt(ticket.createdAt, sla).toISOString(),
+    scheduleDelayHoursTotal: totalDelayHours(ticket.scheduleDelays),
+    scheduleDelays: serializeScheduleDelays(ticket.scheduleDelays),
+    completedAt: completedAtFromHistory(ticket.statusHistory, ['COMPLETED']),
     customer: ticket.customer
       ? {
           ...ticket.customer,

@@ -133,7 +133,7 @@ export default function HqUserSettingsPage() {
   return (
     <section className="pg-section">
       {dialog}
-      <div className="pg-section-head">{t('hq.sub.access.userSettings')}</div>
+      <div className="pg-section-head">{t('hq.sub.access.securitySettings')}</div>
       <div className="pg-section-pad space-y-4">
         <p className="pg-hint">{t('hq.userSettings.desc')}</p>
 

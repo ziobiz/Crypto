@@ -59,6 +59,9 @@ const emptyCreate: CreateUserInput = {
   totalFeeVisibility: 'FOLLOW_HQ',
   usdtCollectionMode: 'FOLLOW_HQ',
   usdtQuoteResponseMode: 'FOLLOW_HQ',
+  tradeReceiptEmailMode: 'FOLLOW_HQ',
+  tradeReceiptAdminUiMode: 'FOLLOW_HQ',
+  tradeReceiptMerchantUiMode: 'FOLLOW_HQ',
   operatorsEnabled: false,
   usdtRiskLimitCode: 'MR',
   usdtLimitMinUsdt: null,
@@ -216,6 +219,10 @@ export default function CustomersPage() {
         feeBillingMethod: detail.customerProfile?.feeBillingMethod ?? 'FOLLOW_HQ',
         totalFeeVisibility: detail.customerProfile?.totalFeeVisibility ?? 'FOLLOW_HQ',
         usdtCollectionMode: detail.customerProfile?.usdtCollectionMode ?? 'FOLLOW_HQ',
+        tradeReceiptEmailMode: detail.customerProfile?.tradeReceiptEmailMode ?? 'FOLLOW_HQ',
+        tradeReceiptAdminUiMode: detail.customerProfile?.tradeReceiptAdminUiMode ?? 'FOLLOW_HQ',
+        tradeReceiptMerchantUiMode:
+          detail.customerProfile?.tradeReceiptMerchantUiMode ?? 'FOLLOW_HQ',
         operatorsEnabled: detail.customerProfile?.operatorsEnabled === true,
         usdtRiskLimitCode: (detail.customerProfile?.usdtRiskLimitCode as UsdtRiskLimitCode) ?? 'MR',
         usdtLimitMinUsdt: detail.customerProfile?.usdtLimitMinUsdt ?? null,
@@ -946,6 +953,70 @@ export default function CustomersPage() {
                 </label>
               </div>
               <div className="pg-inset-panel">
+                <p className="pg-inset-title">{t('customers.receiptEmail.title')}</p>
+                <p className="mt-1 pg-hint">{t('customers.receiptEmail.hint')}</p>
+                <label className="pg-field mt-3">
+                  <span className="pg-field-label">{t('customers.receiptEmail.mode')}</span>
+                  <select
+                    className="pg-input mt-1"
+                    value={form.tradeReceiptEmailMode ?? 'FOLLOW_HQ'}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        tradeReceiptEmailMode: e.target
+                          .value as CreateUserInput['tradeReceiptEmailMode'],
+                      })
+                    }
+                  >
+                    <option value="FOLLOW_HQ">{t('receiptEmail.FOLLOW_HQ')}</option>
+                    <option value="ENABLED">{t('receiptEmail.ENABLED')}</option>
+                    <option value="DISABLED">{t('receiptEmail.DISABLED')}</option>
+                    <option value="HQ_ONLY">{t('receiptEmail.HQ_ONLY')}</option>
+                  </select>
+                </label>
+                {(form.tradeReceiptEmailMode === 'ENABLED' ||
+                  form.tradeReceiptEmailMode === 'HQ_ONLY') && (
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <label className="pg-field">
+                      <span className="pg-field-label">{t('customers.receiptEmail.adminUi')}</span>
+                      <select
+                        className="pg-input mt-1"
+                        value={form.tradeReceiptAdminUiMode ?? 'FOLLOW_HQ'}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            tradeReceiptAdminUiMode: e.target
+                              .value as CreateUserInput['tradeReceiptAdminUiMode'],
+                          })
+                        }
+                      >
+                        <option value="FOLLOW_HQ">{t('receiptUi.FOLLOW_HQ')}</option>
+                        <option value="ENABLED">{t('receiptUi.ENABLED')}</option>
+                        <option value="DISABLED">{t('receiptUi.DISABLED')}</option>
+                      </select>
+                    </label>
+                    <label className="pg-field">
+                      <span className="pg-field-label">{t('customers.receiptEmail.merchantUi')}</span>
+                      <select
+                        className="pg-input mt-1"
+                        value={form.tradeReceiptMerchantUiMode ?? 'FOLLOW_HQ'}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            tradeReceiptMerchantUiMode: e.target
+                              .value as CreateUserInput['tradeReceiptMerchantUiMode'],
+                          })
+                        }
+                      >
+                        <option value="FOLLOW_HQ">{t('receiptUi.FOLLOW_HQ')}</option>
+                        <option value="ENABLED">{t('receiptUi.ENABLED')}</option>
+                        <option value="DISABLED">{t('receiptUi.DISABLED')}</option>
+                      </select>
+                    </label>
+                  </div>
+                )}
+              </div>
+              <div className="pg-inset-panel">
                 <p className="pg-inset-title">{t('customers.hub.fees')}</p>
                 <p className="mt-1 pg-hint">{t('customers.feeType.hint')}</p>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -1207,6 +1278,70 @@ export default function CustomersPage() {
                     <option value="VIRTUAL">{t('collectionMode.VIRTUAL')}</option>
                   </select>
                 </label>
+              </div>
+              <div className="pg-inset-panel">
+                <p className="pg-inset-title">{t('customers.receiptEmail.title')}</p>
+                <p className="mt-1 pg-hint">{t('customers.receiptEmail.hint')}</p>
+                <label className="pg-field mt-3">
+                  <span className="pg-field-label">{t('customers.receiptEmail.mode')}</span>
+                  <select
+                    value={editForm.tradeReceiptEmailMode ?? 'FOLLOW_HQ'}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        tradeReceiptEmailMode: e.target
+                          .value as UpdateUserInput['tradeReceiptEmailMode'],
+                      })
+                    }
+                    className="pg-input mt-1"
+                  >
+                    <option value="FOLLOW_HQ">{t('receiptEmail.FOLLOW_HQ')}</option>
+                    <option value="ENABLED">{t('receiptEmail.ENABLED')}</option>
+                    <option value="DISABLED">{t('receiptEmail.DISABLED')}</option>
+                    <option value="HQ_ONLY">{t('receiptEmail.HQ_ONLY')}</option>
+                  </select>
+                </label>
+                {(editForm.tradeReceiptEmailMode === 'ENABLED' ||
+                  editForm.tradeReceiptEmailMode === 'HQ_ONLY') && (
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <label className="pg-field">
+                      <span className="pg-field-label">{t('customers.receiptEmail.adminUi')}</span>
+                      <select
+                        className="pg-input mt-1"
+                        value={editForm.tradeReceiptAdminUiMode ?? 'FOLLOW_HQ'}
+                        onChange={(e) =>
+                          setEditForm({
+                            ...editForm,
+                            tradeReceiptAdminUiMode: e.target
+                              .value as UpdateUserInput['tradeReceiptAdminUiMode'],
+                          })
+                        }
+                      >
+                        <option value="FOLLOW_HQ">{t('receiptUi.FOLLOW_HQ')}</option>
+                        <option value="ENABLED">{t('receiptUi.ENABLED')}</option>
+                        <option value="DISABLED">{t('receiptUi.DISABLED')}</option>
+                      </select>
+                    </label>
+                    <label className="pg-field">
+                      <span className="pg-field-label">{t('customers.receiptEmail.merchantUi')}</span>
+                      <select
+                        className="pg-input mt-1"
+                        value={editForm.tradeReceiptMerchantUiMode ?? 'FOLLOW_HQ'}
+                        onChange={(e) =>
+                          setEditForm({
+                            ...editForm,
+                            tradeReceiptMerchantUiMode: e.target
+                              .value as UpdateUserInput['tradeReceiptMerchantUiMode'],
+                          })
+                        }
+                      >
+                        <option value="FOLLOW_HQ">{t('receiptUi.FOLLOW_HQ')}</option>
+                        <option value="ENABLED">{t('receiptUi.ENABLED')}</option>
+                        <option value="DISABLED">{t('receiptUi.DISABLED')}</option>
+                      </select>
+                    </label>
+                  </div>
+                )}
               </div>
               <div className="pg-inset-panel">
                 <p className="pg-inset-title">{t('customers.simulator.title')}</p>

@@ -73,6 +73,13 @@ const OPERATION_HISTORY_ITEM: NavItem = {
   icon: 'ledger',
 };
 
+const TRADE_RECEIPTS_ITEM: NavItem = {
+  href: '/dashboard/trade-receipts',
+  labelKey: 'nav.tradeReceipts',
+  shortKey: 'nav.short.tradeReceipts',
+  icon: 'ledger',
+};
+
 const CUSTOMERS_ITEM: NavItem = {
   href: '/dashboard/customers',
   labelKey: 'nav.customers',
@@ -107,6 +114,7 @@ const OPS_CHILDREN: NavItem[] = [
   CUSTOMER_FEES_ITEM,
   ORGS_ITEM,
   USERS_ITEM,
+  TRADE_RECEIPTS_ITEM,
   OPERATION_HISTORY_ITEM,
 ];
 
@@ -116,16 +124,6 @@ const OPS_ITEM: NavItem = {
   shortKey: 'nav.short.ops',
   icon: 'ops',
   children: OPS_CHILDREN,
-};
-
-const OPS_CHILDREN_ORG: NavItem[] = [CUSTOMERS_ITEM, CUSTOMER_FEES_ITEM, ORGS_ITEM, USERS_ITEM];
-
-const OPS_ITEM_ORG: NavItem = {
-  href: '/dashboard/ops',
-  labelKey: 'nav.ops',
-  shortKey: 'nav.short.ops',
-  icon: 'ops',
-  children: OPS_CHILDREN_ORG,
 };
 
 const HQ_POLICY_CHILDREN: NavItem[] = [
@@ -161,46 +159,25 @@ const INVOICE_ITEM: NavItem = {
   ],
 };
 
+/**
+ * 총괄관리자 기준 마스터 트리.
+ * 일반관리자·Organizer·정산관리자는 동일 구조를 쓰고 pageAccess로 숨김.
+ */
+const HQ_MASTER_NAV: NavItem[] = [
+  { href: '/dashboard', labelKey: 'nav.dashboard', shortKey: 'nav.short.dashboard', icon: 'dashboard' },
+  { href: '/dashboard/usdt', labelKey: 'nav.usdt', shortKey: 'nav.short.usdt', icon: 'usdt' },
+  { href: '/dashboard/escrow', labelKey: 'nav.escrow', shortKey: 'nav.short.escrow', icon: 'escrow' },
+  { href: '/dashboard/ledger', labelKey: 'nav.ledger', shortKey: 'nav.short.ledger', icon: 'ledger' },
+  INVOICE_ITEM,
+  OPS_ITEM,
+  HQ_POLICY_ITEM,
+];
+
 export const NAV_ITEMS: Record<string, NavItem[]> = {
-  SUPER_ADMIN: [
-    { href: '/dashboard', labelKey: 'nav.dashboard', shortKey: 'nav.short.dashboard', icon: 'dashboard' },
-    { href: '/dashboard/usdt', labelKey: 'nav.usdt', shortKey: 'nav.short.usdt', icon: 'usdt' },
-    { href: '/dashboard/escrow', labelKey: 'nav.escrow', shortKey: 'nav.short.escrow', icon: 'escrow' },
-    { href: '/dashboard/ledger', labelKey: 'nav.ledger', shortKey: 'nav.short.ledger', icon: 'ledger' },
-    INVOICE_ITEM,
-    OPS_ITEM,
-    HQ_POLICY_ITEM,
-  ],
-  ORG_STAFF: [
-    { href: '/dashboard', labelKey: 'nav.dashboard', shortKey: 'nav.short.dashboard', icon: 'dashboard' },
-    SIMULATOR_ITEM,
-    { href: '/dashboard/usdt', labelKey: 'nav.usdt', shortKey: 'nav.short.usdt', icon: 'usdt' },
-    { href: '/dashboard/escrow', labelKey: 'nav.escrow', shortKey: 'nav.short.escrow', icon: 'escrow' },
-    { href: '/dashboard/ledger', labelKey: 'nav.ledger', shortKey: 'nav.short.ledger', icon: 'ledger' },
-    INVOICE_ITEM,
-    OPS_ITEM_ORG,
-    SIMULATOR_LOGS_ITEM,
-    MANUAL_ITEM,
-  ],
-  ORGANIZER: [
-    { href: '/dashboard', labelKey: 'nav.dashboard', shortKey: 'nav.short.dashboard', icon: 'dashboard' },
-    SIMULATOR_ITEM,
-    { href: '/dashboard/usdt', labelKey: 'nav.usdt', shortKey: 'nav.short.usdt', icon: 'usdt' },
-    { href: '/dashboard/escrow', labelKey: 'nav.escrow', shortKey: 'nav.short.escrow', icon: 'escrow' },
-    { href: '/dashboard/ledger', labelKey: 'nav.ledger', shortKey: 'nav.short.ledger', icon: 'ledger' },
-    INVOICE_ITEM,
-    OPS_ITEM_ORG,
-    SIMULATOR_LOGS_ITEM,
-    COST_ITEM,
-    PROFIT_ITEM,
-    MANUAL_ITEM,
-  ],
-  SETTLEMENT_ADMIN: [
-    { href: '/dashboard', labelKey: 'nav.dashboard', shortKey: 'nav.short.dashboard', icon: 'dashboard' },
-    { href: '/dashboard/ledger', labelKey: 'nav.ledger', shortKey: 'nav.short.ledger', icon: 'ledger' },
-    USERS_ITEM,
-    MANUAL_ITEM,
-  ],
+  SUPER_ADMIN: HQ_MASTER_NAV,
+  ORG_STAFF: HQ_MASTER_NAV,
+  ORGANIZER: HQ_MASTER_NAV,
+  SETTLEMENT_ADMIN: HQ_MASTER_NAV,
   CUSTOMER: [
     { href: '/dashboard', labelKey: 'nav.dashboard', shortKey: 'nav.short.dashboard', icon: 'dashboard' },
     SIMULATOR_ITEM,
@@ -229,7 +206,8 @@ const HQ_POLICY_NAV_PATH = '/dashboard/hq-policy/access';
 
 export function catalogPathForNav(href: string): string | null {
   if (href === '/dashboard/hq-policy') return HQ_POLICY_NAV_PATH;
-  if (href === '/dashboard/ops' || href === '/dashboard/manuals' || href === '/dashboard/organizations') {
+  // 펼침 부모·메뉴얼은 자식/전역 허용 — 개별 권한은 자식 path로 판단
+  if (href === '/dashboard/ops' || href === '/dashboard/manuals' || href === '/dashboard/invoices') {
     return null;
   }
   return href;
@@ -244,6 +222,10 @@ function pathAllowed(href: string, pageAccess?: Record<string, string>): boolean
   return level !== 'NONE';
 }
 
+/**
+ * 권한으로 메뉴 숨김.
+ * 펼침 부모는 허용된 자식이 하나라도 있으면 유지 (본사정책 등).
+ */
 export function filterNavByPageAccess(
   items: NavItem[],
   pageAccess?: Record<string, string>,
@@ -251,10 +233,13 @@ export function filterNavByPageAccess(
   if (!pageAccess) return items;
   return items
     .map((item) => {
+      if (item.children?.length) {
+        const children = item.children.filter((c) => pathAllowed(c.href, pageAccess));
+        if (children.length) return { ...item, children };
+        return pathAllowed(item.href, pageAccess) ? { ...item, children: undefined } : null;
+      }
       if (!pathAllowed(item.href, pageAccess)) return null;
-      if (!item.children?.length) return item;
-      const children = item.children.filter((c) => pathAllowed(c.href, pageAccess));
-      return { ...item, children: children.length ? children : undefined };
+      return item;
     })
     .filter((item): item is NavItem => item != null);
 }

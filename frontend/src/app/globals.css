@@ -203,6 +203,28 @@
     color: var(--shell-content-text);
   }
 
+  /* 본사권한·사용자설정: 대메뉴 카드 제목 — 파스텔 회색으로 구분 */
+  .pg-access-group-head {
+    @apply border-b px-3 py-2.5 text-[13px] font-semibold leading-snug;
+    background-color: #e8eef4;
+    border-color: #c5d0db;
+    color: #334155;
+  }
+
+  /* USDT 정산 지갑 주소 복사 — 파스텔 톤 아이콘 버튼 */
+  .pg-copy-icon-btn {
+    @apply inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-1 transition;
+    background-color: #e0f2fe;
+    border-color: #7dd3fc;
+    color: #075985;
+  }
+  .pg-copy-icon-btn:hover {
+    background-color: #bae6fd;
+  }
+  .pg-copy-icon-btn:active {
+    background-color: #7dd3fc;
+  }
+
   .pg-card-body {
     @apply p-4 text-xs leading-relaxed;
     color: var(--shell-content-text);
@@ -316,7 +338,7 @@
   }
   @media (min-width: 640px) {
     .pg-detail-kv-value {
-      @apply text-right;
+      @apply text-left;
     }
   }
   @media (min-width: 1024px) {
@@ -617,6 +639,32 @@
   .pg-action-chip-danger {
     background-color: #fee2e2;
     color: #991b1b;
+  }
+
+  /* 본사권한 매트릭스: 없음/조회/수정/삭제 파스텔 배경 */
+  .pg-perm-select {
+    @apply rounded border px-2 py-1.5 text-xs font-semibold outline-none;
+    min-width: 6.5rem;
+  }
+  .pg-perm-none {
+    background-color: #f1f5f9;
+    border-color: #cbd5e1;
+    color: #64748b;
+  }
+  .pg-perm-view {
+    background-color: #dbeafe;
+    border-color: #93c5fd;
+    color: #1e40af;
+  }
+  .pg-perm-modify {
+    background-color: #d1fae5;
+    border-color: #6ee7b7;
+    color: #065f46;
+  }
+  .pg-perm-delete {
+    background-color: #ffe4e6;
+    border-color: #fda4af;
+    color: #9f1239;
   }
 
   .pg-row-edit {

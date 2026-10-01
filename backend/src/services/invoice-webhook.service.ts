@@ -1,4 +1,5 @@
 import { createHmac } from 'node:crypto';
+import { hqPolicyService } from './hq-policy.service';
 
 export type InvoiceCompletedPayload = {
   site: string;
@@ -15,7 +16,10 @@ export type InvoiceCompletedPayload = {
   memo?: string;
 };
 
+export type InvoiceChannel = 'live' | 'simulator';
+
 type InvoiceWebhookConfig = {
+  channel: InvoiceChannel;
   baseUrl: string;
   apiKey: string;
   hmacSecret: string;
@@ -23,8 +27,31 @@ type InvoiceWebhookConfig = {
   enabled: boolean;
 };
 
-function readConfig(): InvoiceWebhookConfig {
+function flagTrue(raw: string): boolean {
+  const v = raw.trim().toLowerCase();
+  return v === '1' || v === 'true' || v === 'yes' || v === 'on';
+}
+
+function flagFalse(raw: string): boolean {
+  const v = raw.trim().toLowerCase();
+  return v === '0' || v === 'false' || v === 'no' || v === 'off';
+}
+
+function readConfig(channel: InvoiceChannel): InvoiceWebhookConfig {
   const baseUrl = (process.env.INVOICE_BASE_URL || '').trim().replace(/\/+$/, '');
+
+  if (channel === 'simulator') {
+    const apiKey = (process.env.INVOICE_SIM_API_KEY || '').trim();
+    const hmacSecret = (process.env.INVOICE_SIM_HMAC_SECRET || '').trim();
+    const siteCode =
+      (process.env.INVOICE_SIM_SITE_CODE || 'tinpass-sim').trim() || 'tinpass-sim';
+    const envFlag = (process.env.INVOICE_SIM_ENABLED || '').trim();
+    const enabled =
+      !flagFalse(envFlag) &&
+      (flagTrue(envFlag) || (envFlag === '' && Boolean(baseUrl && apiKey && hmacSecret)));
+    return { channel, baseUrl, apiKey, hmacSecret, siteCode, enabled };
+  }
+
   const apiKey = (process.env.INVOICE_API_KEY || '').trim();
   const hmacSecret = (process.env.INVOICE_HMAC_SECRET || '').trim();
   const siteCode = (process.env.INVOICE_SITE_CODE || 'tinpass').trim() || 'tinpass';
@@ -35,12 +62,35 @@ function readConfig(): InvoiceWebhookConfig {
     enabledFlag === 'yes' ||
     (enabledFlag === '' && Boolean(baseUrl && apiKey && hmacSecret));
 
-  return { baseUrl, apiKey, hmacSecret, siteCode, enabled };
+  return { channel, baseUrl, apiKey, hmacSecret, siteCode, enabled };
 }
 
-export function isInvoiceWebhookConfigured(): boolean {
-  const cfg = readConfig();
+export function isInvoiceWebhookConfigured(channel: InvoiceChannel = 'live'): boolean {
+  const cfg = readConfig(channel);
   return cfg.enabled && Boolean(cfg.baseUrl && cfg.apiKey && cfg.hmacSecret);
+}
+
+/** HQ platform toggle (default on) + env INVOICE_SIM_* credentials. */
+export async function isSimulatorInvoiceIssueEnabled(): Promise<boolean> {
+  if (!isInvoiceWebhookConfigured('simulator')) return false;
+  try {
+    const platform = await hqPolicyService.getPlatformPayload();
+    return platform.config.simulatorInvoiceEnabled !== false;
+  } catch {
+    return true;
+  }
+}
+
+export function getInvoiceApiClient(channel: InvoiceChannel = 'live'): {
+  baseUrl: string;
+  apiKey: string;
+  siteCode: string;
+} {
+  const cfg = readConfig(channel);
+  if (!cfg.baseUrl || !cfg.apiKey) {
+    throw new Error('INVOICE_NOT_CONFIGURED');
+  }
+  return { baseUrl: cfg.baseUrl, apiKey: cfg.apiKey, siteCode: cfg.siteCode };
 }
 
 /**
@@ -51,14 +101,15 @@ export async function notifyInvoiceTransactionCompleted(
   payload: Omit<InvoiceCompletedPayload, 'site' | 'event'> &
     Partial<Pick<InvoiceCompletedPayload, 'site' | 'event'>>,
   idempotencyKey: string,
+  channel: InvoiceChannel = 'live',
 ): Promise<{ ok: boolean; invoiceNo?: string; status?: number; error?: string }> {
-  const cfg = readConfig();
+  const cfg = readConfig(channel);
   if (!cfg.enabled) {
-    console.info('[invoice-webhook] disabled — skip', idempotencyKey);
+    console.info('[invoice-webhook] disabled — skip', channel, idempotencyKey);
     return { ok: false, error: 'disabled' };
   }
   if (!cfg.baseUrl || !cfg.apiKey || !cfg.hmacSecret) {
-    console.warn('[invoice-webhook] missing INVOICE_* env — skip', idempotencyKey);
+    console.warn('[invoice-webhook] missing INVOICE_* env — skip', channel, idempotencyKey);
     return { ok: false, error: 'missing_env' };
   }
 
@@ -107,20 +158,22 @@ export async function notifyInvoiceTransactionCompleted(
       idempotentReplay?: boolean;
     };
     if (!res.ok) {
-      console.error('[invoice-webhook] failed', res.status, data, idempotencyKey);
+      console.error('[invoice-webhook] failed', channel, res.status, data, idempotencyKey);
       return { ok: false, status: res.status, error: data.error || `http_${res.status}` };
     }
     const invoiceNo = data.invoice?.invoiceNo;
     console.info(
       '[invoice-webhook] ok',
+      channel,
       idempotencyKey,
       invoiceNo || '',
       data.idempotentReplay ? 'replay' : 'created',
     );
     return { ok: true, status: res.status, invoiceNo };
-  } catch (err) {
-    console.error('[invoice-webhook] network error', idempotencyKey, err);
-    return { ok: false, error: 'network' };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error('[invoice-webhook] network', channel, msg, idempotencyKey);
+    return { ok: false, error: msg };
   }
 }
 
@@ -170,7 +223,7 @@ export function buildUsdtPurchaseInvoicePayload(input: {
   };
 }
 
-/** USDT simulator run → Invoice with [SIMULATOR] memo (LIVE/SAND fee mode does not matter). */
+/** USDT simulator run → Invoice on tinpass-sim site with [SIMULATOR] memo. */
 export function buildSimulatorInvoicePayload(input: {
   userId: string;
   runKey: string;

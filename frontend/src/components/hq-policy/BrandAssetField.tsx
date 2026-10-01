@@ -42,7 +42,7 @@ export function BrandAssetField({
 
   return (
     <div className="space-y-2">
-      <p className="text-sm font-medium text-gray-700">{label}</p>
+      <p className="pg-label">{label}</p>
       <div className="min-h-[3.5rem] rounded-lg border border-gray-200 bg-gray-50 p-2">
         {src ? (
           preview(src)
@@ -53,7 +53,7 @@ export function BrandAssetField({
       {showUploaded && (
         <p className="text-xs font-medium text-green-600">{uploadedLabel}</p>
       )}
-      <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm hover:bg-gray-50">
+      <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs hover:bg-gray-50">
         <input
           type="file"
           accept={accept}
@@ -66,7 +66,7 @@ export function BrandAssetField({
         />
         {uploading ? savingLabel : uploadLabel}
       </label>
-      {desc ? <p className="text-xs text-gray-500">{desc}</p> : null}
+      {desc ? <p className="pg-hint">{desc}</p> : null}
     </div>
   );
 }

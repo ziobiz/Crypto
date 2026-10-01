@@ -160,6 +160,8 @@ export default function UsdtListPage() {
             return 'fiat';
           case 'status':
             return row.status;
+          case 'remark':
+            return isScheduleDelayed(row) ? 1 : 0;
           case 'expectedComplete':
             return row.expectedCompleteAt ?? '';
           case 'createdAt':
@@ -189,6 +191,21 @@ export default function UsdtListPage() {
     if (row.targetUsdtAmount != null) return t('usdt.inputModeTarget');
     return t('usdt.inputModeFiat');
   }
+  function isScheduleDelayed(row: UsdtTicket) {
+    return (row.scheduleDelayHoursTotal ?? 0) > 0;
+  }
+  function isRemarkClosed(row: UsdtTicket) {
+    return row.status === 'COMPLETED' || row.status === 'CANCELLED';
+  }
+  function remarkLabel(row: UsdtTicket) {
+    return isScheduleDelayed(row) ? t('usdt.remark.delayed') : t('usdt.remark.onSchedule');
+  }
+  function remarkChipClass(row: UsdtTicket) {
+    if (!isScheduleDelayed(row)) return 'pg-field-chip pg-field-chip-slate';
+    // 완료·취소된 지연 건은 이력이 남도록 「지연」 유지, 색만 그레이
+    if (isRemarkClosed(row)) return 'pg-field-chip pg-field-chip-slate opacity-80';
+    return 'pg-field-chip pg-field-chip-red';
+  }
 
   const aggregate = useMemo(() => summarizeUsdtTickets(filtered), [filtered]);
 
@@ -206,6 +223,7 @@ export default function UsdtListPage() {
         t('usdt.col.collection'),
         t('usdt.col.attachments'),
         t('usdt.col.status'),
+        t('usdt.col.remark'),
         t('usdt.col.expectedComplete'),
         t('usdt.col.date'),
       ],
@@ -220,6 +238,7 @@ export default function UsdtListPage() {
         collectionLabel(row),
         row.attachments?.length ?? 0,
         row.status,
+        remarkLabel(row),
         row.expectedCompleteAt
           ? formatDualTimezonePlain(row.expectedCompleteAt, baseTimezone, serviceTimezone, country)
           : '',
@@ -321,6 +340,9 @@ export default function UsdtListPage() {
                 {formatCurrency(ticket.fiatAmount, ticket.fiatCurrency)}
               </MobileStackField>
               <MobileStackField label={t('usdt.col.collection')}>{collectionLabel(ticket)}</MobileStackField>
+              <MobileStackField label={t('usdt.col.remark')}>
+                <span className={remarkChipClass(ticket)}>{remarkLabel(ticket)}</span>
+              </MobileStackField>
               <MobileStackField label={t('usdt.col.date')}>
                 <DualTimezoneDate
                   value={ticket.createdAt}
@@ -361,6 +383,7 @@ export default function UsdtListPage() {
               <SortableTh label={t('usdt.col.collection')} sortKey="collection" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
               <SortableTh label={t('usdt.col.attachments')} sortKey="attachments" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
               <SortableTh label={t('usdt.col.status')} sortKey="status" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
+              <SortableTh label={t('usdt.col.remark')} sortKey="remark" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
               <SortableTh label={t('usdt.col.expectedComplete')} sortKey="expectedComplete" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
               <SortableTh label={t('usdt.col.date')} sortKey="createdAt" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
             </tr>
@@ -408,6 +431,9 @@ export default function UsdtListPage() {
                   <StatusBadge status={ticket.status} kind="usdt" usdtContext={buildUsdtStatusContext(ticket)} />
                 </td>
                 <td>
+                  <span className={remarkChipClass(ticket)}>{remarkLabel(ticket)}</span>
+                </td>
+                <td>
                   <DualTimezoneDate
                     value={ticket.expectedCompleteAt}
                     baseTimezone={baseTimezone}
@@ -427,7 +453,7 @@ export default function UsdtListPage() {
             ))}
             {pageRows.length === 0 && (
               <tr>
-                <td colSpan={admin ? 12 : 11} className="pg-empty">
+                <td colSpan={admin ? 13 : 12} className="pg-empty">
                   {t('usdt.empty')}
                 </td>
               </tr>

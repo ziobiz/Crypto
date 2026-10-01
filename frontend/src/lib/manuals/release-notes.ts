@@ -3,6 +3,554 @@ import type { PlatformReleaseNote } from './version';
 /** 본사정책 → 검증관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
 export const PLATFORM_RELEASE_NOTES: PlatformReleaseNote[] = [
   {
+    version: '2.6.131',
+    kind: 'minor',
+    date: '2026-10-01',
+    items: {
+      KR: [
+        '거래명세: 발송(활성/비활성/본사만)과 보기·PDF 노출을 분리. 플랫폼·가맹점에 관리자 노출·가맹점 노출 설정 추가.',
+      ],
+      US: [
+        'Trade receipt: split send mode from View/PDF visibility. Added admin and merchant visibility settings on Platform and merchant screens.',
+      ],
+      JP: [
+        '取引明細: 送信設定と閲覧・PDF表示を分離。プラットフォーム・加盟店に管理者/加盟店表示設定を追加。',
+      ],
+      CH: [
+        '交易明细：发送模式与查看/PDF 显示分离。平台与商户增加管理员/商户显示设置。',
+      ],
+      TH: [
+        'ใบเสร็จ: แยกโหมดส่งกับการแสดงดู/PDF เพิ่มตั้งค่าการแสดงแอดมิน/ร้านในแพลตฟอร์มและร้าน',
+      ],
+    },
+  },
+  {
+    version: '2.6.130',
+    kind: 'minor',
+    date: '2026-10-01',
+    items: {
+      KR: [
+        '거래명세 보기·PDF·이메일: 한국어·영어·일본어·중국어·태국어 5개국어로 표기.',
+      ],
+      US: [
+        'Trade receipt View/PDF/email now includes all five languages: Korean, English, Japanese, Chinese, Thai.',
+      ],
+      JP: [
+        '取引明細の閲覧・PDF・メールを韓・英・日・中・タイの5言語で表示。',
+      ],
+      CH: [
+        '交易明细查看/PDF/邮件现以韩、英、日、中、泰五种语言显示。',
+      ],
+      TH: [
+        'ใบเสร็จดู/PDF/อีเมลแสดงครบ 5 ภาษา: เกาหลี อังกฤษ ญี่ปุ่น จีน ไทย',
+      ],
+    },
+  },
+  {
+    version: '2.6.129',
+    kind: 'minor',
+    date: '2026-10-01',
+    items: {
+      KR: [
+        '본사정책 > 플랫폼: 「기본 거래명세서 설정」카드를 도메인·SSL과 이메일·OTP 사이에 분리. 전용 저장 버튼 추가.',
+      ],
+      US: [
+        'HQ Policy > Platform: split 「Default trade receipt settings」 into its own card between Domain/SSL and Email/OTP, with a dedicated save button.',
+      ],
+      JP: [
+        '本社ポリシー > プラットフォーム: 「基本取引明細書設定」をドメイン・SSLとメール・OTPの間の独立カードに分離。専用保存ボタン追加。',
+      ],
+      CH: [
+        '总部政策 > 平台：将「默认交易明细设置」单独成卡片，放在域名·SSL 与邮箱·OTP 之间，并增加专用保存。',
+      ],
+      TH: [
+        'นโยบาย HQ > แพลตฟอร์ม: แยกการ์ด「ตั้งค่าใบเสร็จเริ่มต้น」ไว้ระหว่าง Domain/SSL กับ Email/OTP พร้อมปุ่มบันทึกเฉพาะ',
+      ],
+    },
+  },
+  {
+    version: '2.6.128',
+    kind: 'minor',
+    date: '2026-10-01',
+    items: {
+      KR: [
+        'USDT 완료 거래명세 「보기」: 팝업이 비어 보이던 문제 수정(Blob URL). 본사만 모드에서는 본사 보기·PDF만, 가맹점에는 미표시. 이메일 발송 안내는 실제 발송 시에만 표시.',
+      ],
+      US: [
+        'USDT complete receipt View: fixed blank popup (Blob URL). HQ-only shows HQ View/PDF; hidden for merchants. Sent notice only when email was actually enabled.',
+      ],
+      JP: [
+        'USDT完了の取引明細「見る」: 空のポップアップを修正(Blob URL)。本社のみでは本社の閲覧・PDFのみ、加盟店には非表示。送信案内は実際にメール有効時のみ。',
+      ],
+      CH: [
+        'USDT 完成明细「查看」：修复空白弹窗(Blob URL)。仅总部模式下总部可看/PDF，商户不显示。发送提示仅在实际发邮件时显示。',
+      ],
+      TH: [
+        'ใบเสร็จ USDT ปุ่มดู: แก้ป๊อปอัปว่าง (Blob URL) โหมดเฉพาะ HQ เห็นแค่ HQ ร้านไม่เห็น ข้อความส่งอีเมลแสดงเมื่อเปิดส่งจริงเท่านั้น',
+      ],
+    },
+  },
+  {
+    version: '2.6.127',
+    kind: 'minor',
+    date: '2026-10-01',
+    items: {
+      KR: [
+        '본사정책 > 플랫폼: 사이트 이름 기준(text-xs)으로 로고·파비콘·배경·미리보기·입금계좌·이메일 등 라벨·제목 글자 크기 통일.',
+      ],
+      US: [
+        'HQ Policy > Platform: unified label/title font size to match Site name (text-xs) across logos, favicon, background, preview, deposit accounts, and email.',
+      ],
+      JP: [
+        '本社ポリシー > プラットフォーム: サイト名基準(text-xs)でロゴ・ファビコン・背景・プレビュー・入金口座・メール等のラベル・見出しサイズを統一。',
+      ],
+      CH: [
+        '总部政策 > 平台：按站点名称字号(text-xs)统一Logo、图标、背景、预览、入金账户、邮件等标签与标题。',
+      ],
+      TH: [
+        'นโยบาย HQ > แพลตฟอร์ม: รวมขนาดตัวอักษรป้าย/หัวข้อให้เท่าชื่อไซต์ (text-xs) ทั้งโลโก้ ฟาวิคอน พื้นหลัง พรีวิว บัญชีฝาก และอีเมล',
+      ],
+    },
+  },
+  {
+    version: '2.6.126',
+    kind: 'minor',
+    date: '2026-10-01',
+    items: {
+      KR: [
+        '가맹점 고객정보·등록/수정에 거래명세 이메일(본사설정따름/활성/비활성/본사만) 카드 표시.',
+        'USDT 완료 카드: 「거래 명세서 보기·PDF」를 위로, 발송 안내 문구를 아래로 배치.',
+        '샌드박스 완료도 본사·가맹점 설정에 따라 거래명세(보관/이메일)가 동일하게 발생.',
+      ],
+      US: [
+        'Trade receipt email (Follow HQ/Enabled/Disabled/HQ only) on merchant detail and create/edit.',
+        'USDT complete card: View/PDF above, sent notice below.',
+        'Sandbox completion also creates trade receipts per HQ/merchant settings.',
+      ],
+      JP: [
+        '加盟店の顧客情報・登録/修正に取引明細メール（本社設定に従う/有効/無効/本社のみ）を表示。',
+        'USDT完了カード: 閲覧・PDFを上、送信案内を下に配置。',
+        'サンドボックス完了でも本社・加盟店設定に従い取引明細が発生。',
+      ],
+      CH: [
+        '商户客户信息与注册/修改中显示交易明细邮件（跟随总部/启用/停用/仅总部）。',
+        'USDT 完成卡片：查看/PDF 在上，发送提示在下。',
+        '沙盒完成也按总部/商户设置生成交易明细。',
+      ],
+      TH: [
+        'แสดงอีเมลใบเสร็จบนหน้าร้านและลงทะเบียน/แก้ไข (ตาม HQ/เปิด/ปิด/เฉพาะ HQ)',
+        'การ์ดจบ USDT: ดู/PDF อยู่บน ข้อความแจ้งส่งอยู่ล่าง',
+        'จบแซนด์บ็อกซ์ก็สร้างใบเสร็จตามตั้งค่า HQ/ร้าน',
+      ],
+    },
+  },
+  {
+    version: '2.6.125',
+    kind: 'minor',
+    date: '2026-10-01',
+    items: {
+      KR: [
+        '거래명세 본사 기본값을 「본사만」으로 변경. 가맹점 등록 기본은 「본사설정따름」 유지.',
+      ],
+      US: [
+        'HQ trade-receipt default is now HQ only. Merchant registration still defaults to Follow HQ.',
+      ],
+      JP: [
+        '取引明細の本社既定を「本社のみ」に変更。加盟店登録の既定は「本社設定に従う」のまま。',
+      ],
+      CH: [
+        '总部交易明细默认改为「仅总部」。商户注册默认仍为「跟随总部」。',
+      ],
+      TH: [
+        'ค่าเริ่ม HQ ของใบเสร็จเป็นเฉพาะ HQ แล้ว ค่าเริ่มร้านยังตาม HQ',
+      ],
+    },
+  },
+  {
+    version: '2.6.124',
+    kind: 'minor',
+    date: '2026-10-01',
+    items: {
+      KR: [
+        '거래명세: 본사 활성/비활성/본사만, 가맹점 본사설정따름/활성/비활성/본사만. 보기·PDF는 본사만, 가맹점 활성은 안내 문구만. 비활성은 카드·이메일·본사 보관 없음.',
+      ],
+      US: [
+        'Trade receipt: HQ Enabled/Disabled/HQ only; merchant Follow HQ/Enabled/Disabled/HQ only. View and PDF are HQ-only. Merchants on Enabled see the notice only.',
+      ],
+      JP: [
+        '取引明細: 本社は有効/無効/本社のみ、加盟店は本社設定に従う/有効/無効/本社のみ。閲覧・PDFは本社のみ。有効の加盟店は案内文だけ。',
+      ],
+      CH: [
+        '交易明细：总部启用/停用/仅总部，商户跟随总部/启用/停用/仅总部。查看与PDF仅总部可见。商户启用时只显示提示。',
+      ],
+      TH: [
+        'ใบเสร็จ: HQ เปิด/ปิด/เฉพาะ HQ ร้านตาม HQ/เปิด/ปิด/เฉพาะ HQ ปุ่มดูและ PDF เห็นแค่ HQ ร้านที่เปิดเห็นแค่ข้อความ',
+      ],
+    },
+  },
+  {
+    version: '2.6.123',
+    kind: 'minor',
+    date: '2026-10-01',
+    items: {
+      KR: [
+        'USDT 완료 안내: 「거래 명세서 보기」는 새 창, 옆의 PDF는 명세서 파일 다운로드.',
+      ],
+      US: [
+        'USDT completion: View trade receipt opens a new window; PDF downloads the statement.',
+      ],
+      JP: [
+        'USDT完了案内: 「取引明細書を見る」は新しいウィンドウ、PDFは明細書をダウンロード。',
+      ],
+      CH: [
+        'USDT完成提示：「查看交易明细」新窗口打开，旁边的 PDF 下载明细文件。',
+      ],
+      TH: [
+        'เมื่อจบ USDT: ดูใบเสร็จเปิดหน้าต่างใหม่ และ PDF ดาวน์โหลดไฟล์',
+      ],
+    },
+  },
+  {
+    version: '2.6.122',
+    kind: 'minor',
+    date: '2026-10-01',
+    items: {
+      KR: [
+        '운영관리 > 명세서관리: 거래명세 이메일 발송 이력(성공·실패·스킵)·본문 조회. USDT·무역 완료 시 발송·기록. 가맹점별 본사설정따름/활성/비활성, 본사 플랫폼 기본 발송 설정.',
+      ],
+      US: [
+        'Ops > Trade receipts: send history (sent/failed/skipped) with body view. USDT & escrow completion logging. Per-merchant Follow HQ/Enabled/Disabled; HQ platform default remains.',
+      ],
+      JP: [
+        '運営管理>明細書管理: 取引明細メール履歴(成功・失敗・スキップ)と本文確認。USDT・貿易完了で送信記録。加盟店は本社設定に従う/有効/無効、本社プラットフォーム既定あり。',
+      ],
+      CH: [
+        '运营管理>明细管理：交易明细邮件履历（成功/失败/跳过）与正文。USDT与贸易完成时发送并记录。商户可跟随总部/启用/停用，总部平台有默认开关。',
+      ],
+      TH: [
+        'ปฏิบัติการ>จัดการใบเสร็จ: ประวัติส่งอีเมล (สำเร็จ/ล้มเหลว/ข้าม) และเนื้อหา ส่งและบันทึกเมื่อจบ USDT/เอสโครว์ ร้านตั้งตาม HQ/เปิด/ปิด HQ มีค่าเริ่มที่แพลตฟอร์ม',
+      ],
+    },
+  },
+  {
+    version: '2.6.121',
+    kind: 'minor',
+    date: '2026-10-01',
+    items: {
+      KR: [
+        '상태 이력에서 [SANDBOX] 표기 제거(본사·가맹점 공통). 완료 시에도 이력 메모에 샌드박스 문구를 넣지 않음.',
+      ],
+      US: [
+        'Hide [SANDBOX] from status history for HQ and merchants. Completion no longer writes sandbox text into history notes.',
+      ],
+      JP: [
+        '状態履歴から[SANDBOX]表示を削除（本社・加盟店共通）。完了時も履歴メモにサンドボックス文言を入れない。',
+      ],
+      CH: [
+        '状态履历中对总部与商户均隐藏[SANDBOX]。完成时也不再写入沙箱备注。',
+      ],
+      TH: [
+        'ซ่อน [SANDBOX] ในประวัติสถานะทั้ง HQ และร้าน ไม่เขียนข้อความ sandbox ตอนจบแล้ว',
+      ],
+    },
+  },
+  {
+    version: '2.6.120',
+    kind: 'minor',
+    date: '2026-10-01',
+    items: {
+      KR: ['USDT 비고: 완료 전 지연은 레드 파스텔, 완료·취소 후 지연은 그레이.'],
+      US: ['USDT Note: active delay uses red pastel; completed/cancelled delay stays gray.'],
+      JP: ['USDT備考: 完了前の遅延はレッドパステル、完了・取消後はグレー。'],
+      CH: ['USDT备注：完成前延期为红色粉彩，完成/取消后为灰色。'],
+      TH: ['หมายเหตุ USDT: ก่อนจบใช้แดงพาสเทล หลังจบ/ยกเลิกเป็นเทา'],
+    },
+  },
+  {
+    version: '2.6.119',
+    kind: 'minor',
+    date: '2026-10-01',
+    items: {
+      KR: [
+        '상태 이력에 완료일 지연 표시. USDT 비고: 진행 중 지연은 강조, 완료·취소 후 지연은 그레이. 라이브 완료 시 [SANDBOX] 자동 부착 제거.',
+      ],
+      US: [
+        'Status history shows schedule delays. USDT Note: active delay highlighted; past delay on completed tickets is gray. Live completion no longer auto-tags [SANDBOX].',
+      ],
+      JP: [
+        '状態履歴に完了日遅延を表示。USDT備考: 進行中遅延は強調、完了後はグレー。ライブ完了で[SANDBOX]自動付与を停止。',
+      ],
+      CH: [
+        '状态履历显示完成日延期。USDT备注：进行中延期高亮，完成后灰色。实盘完成不再自动加[SANDBOX]。',
+      ],
+      TH: [
+        'ประวัติสถานะแสดงการเลื่อนวันเสร็จ หมายเหตุ USDT: กำลังเลื่อนเน้นสี หลังจบเป็นเทา ปิดแท็ก [SANDBOX] อัตโนมัติตอนจบไลฟ์',
+      ],
+    },
+  },
+  {
+    version: '2.6.118',
+    kind: 'minor',
+    date: '2026-10-01',
+    items: {
+      KR: [
+        'USDT 매입 목록: 상태와 예상완료일 사이에 「비고」열 추가. 일정 지연 시 「지연」, 그 외 「유지」 표시.',
+      ],
+      US: [
+        'USDT list: add Note column between Status and Expected complete — Delayed if schedule extended, otherwise On schedule.',
+      ],
+      JP: [
+        'USDT購入一覧: 状態と予定完了日の間に「備考」列。遅延時は「遅延」、それ以外は「維持」。',
+      ],
+      CH: [
+        'USDT采购列表：在状态与预计完成日之间新增「备注」列；延期显示「延迟」，否则「维持」。',
+      ],
+      TH: [
+        'รายการซื้อ USDT: เพิ่มคอลัมน์หมายเหตุระหว่างสถานะกับวันคาดเสร็จ — ล่าช้า/ตามกำหนด',
+      ],
+    },
+  },
+  {
+    version: '2.6.117',
+    kind: 'minor',
+    date: '2026-10-01',
+    items: {
+      KR: [
+        '예상지연일: 날짜 위 +시간 배지 제거. 본사는 사유 줄에 +시간·등록자 유지, 가맹점은 사유만 표시.',
+      ],
+      US: [
+        'Delayed ETA: remove top +hours badge. HQ still shows +hours/operator in the reason line; merchants see reason only.',
+      ],
+      JP: [
+        '予定遅延日: 日付上の+時間バッジを削除。本社は理由行に+時間・登録者を維持、加盟店は理由のみ。',
+      ],
+      CH: [
+        '预计延期日：去掉日期上方的+小时角标。总部仍在原因行显示+小时/登记人，商户端仅显示原因。',
+      ],
+      TH: [
+        'วันเลื่อนคาด: เอาแบดจ์ +ชม. บนวันที่ออก HQ ยังโชว์ +ชม./ผู้บันทึกในบรรทัดเหตุผล ร้านเห็นแค่เหตุผล',
+      ],
+    },
+  },
+  {
+    version: '2.6.116',
+    kind: 'minor',
+    date: '2026-10-01',
+    items: {
+      KR: [
+        '일정·고객: 일자 왼쪽 정렬(신청일과 동일). 가맹점 화면에서는 +시간·등록자 숨김, 지연일·사유만 표시.',
+      ],
+      US: [
+        'Schedule card: left-align dates like Applied. Merchants see delayed date + reason only (no +hours / operator name).',
+      ],
+      JP: [
+        '日程・顧客: 日付を申請日と同じ左寄せ。加盟店画面は遅延日・理由のみ（+時間・登録者非表示）。',
+      ],
+      CH: [
+        '日程·客户：日期左对齐与申请日一致。商户端仅显示延期日与原因（不显示+小时/登记人）。',
+      ],
+      TH: [
+        'กำหนด·ลูกค้า: ชิดซ้ายเหมือนวันสมัคร ฝั่งร้านเห็นแค่วันเลื่อน+เหตุผล (ไม่โชว์ +ชม./ชื่อผู้บันทึก)',
+      ],
+    },
+  },
+  {
+    version: '2.6.115',
+    kind: 'minor',
+    date: '2026-10-01',
+    items: {
+      KR: [
+        '일정·고객: 고객·신청일·예상완료일(초기)·예상지연일·완료일 행 구조. 지연 시 상태 이력에 「완료일 지연」 기록.',
+      ],
+      US: [
+        'Schedule card: Customer / Applied / Expected (base) / Delayed expected / Completed rows. Delays logged in status history.',
+      ],
+      JP: [
+        '日程・顧客: 顧客・申請日・予定完了(初期)・予定遅延・完了の行表示。遅延は状態履歴に記録。',
+      ],
+      CH: [
+        '日程·客户：客户/申请日/预计完成(初始)/预计延期/完成日分行。延期写入状态履历。',
+      ],
+      TH: [
+        'กำหนด·ลูกค้า: แถวลูกค้า/วันสมัคร/วันคาด(เริ่ม)/วันเลื่อน/วันเสร็จ และบันทึกการเลื่อนในประวัติสถานะ',
+      ],
+    },
+  },
+  {
+    version: '2.6.114',
+    kind: 'minor',
+    date: '2026-10-01',
+    items: {
+      KR: [
+        'USDT·에스크로: 완료일 지연(12~96시간)+사유 추가. 완료 시 실제 완료일 표시. 고객정보에 지갑 QR.',
+        '고객 상세 위치: 운영관리 > 고객관리 > 고객정보.',
+      ],
+      US: [
+        'USDT/Escrow: add completion delay (12–96h)+reason; show actual completed time. Wallet QR on customer info.',
+        'Customer detail breadcrumb: Ops > Customers > Customer info.',
+      ],
+      JP: [
+        'USDT・エスクロー: 完了遅延(12〜96h)+理由。実績完了日表示。顧客情報にウォレットQR。',
+        '顧客詳細パンくず: 運営管理 > 顧客管理 > 顧客情報。',
+      ],
+      CH: [
+        'USDT/托管：完成延期(12–96小时)+原因；显示实际完成时间。客户信息显示钱包二维码。',
+        '客户详情面包屑：运营管理 > 客户管理 > 客户信息。',
+      ],
+      TH: [
+        'USDT/เอสโครว์: เลื่อนวันเสร็จ(12–96 ชม.)+เหตุผล แสดงวันเสร็จจริง และ QR กระเป๋าในข้อมูลลูกค้า',
+        'เส้นทาง: ปฏิบัติการ > ลูกค้า > ข้อมูลลูกค้า',
+      ],
+    },
+  },
+  {
+    version: '2.6.113',
+    kind: 'minor',
+    date: '2026-10-01',
+    items: {
+      KR: [
+        'USDT 정산: 수령 지갑을 QR·주소(COPY)·네트워크 배지로 분리. QR은 등록 주소 문자열만 인코딩.',
+      ],
+      US: [
+        'USDT settlement: receiving wallet shows QR, address with COPY, and network badge. QR encodes address only.',
+      ],
+      JP: [
+        'USDT精算: 受取ウォレットをQR・住所(COPY)・ネットワークバッジに分離。QRは登録住所のみ。',
+      ],
+      CH: [
+        'USDT结算：收款钱包分为二维码、地址(COPY)、网络徽章。二维码仅编码登记地址。',
+      ],
+      TH: [
+        'USDT ชำระ: แยกกระเป๋ารับเป็น QR / ที่อยู่(COPY) / ป้ายเครือข่าย QR เข้ารหัสที่อยู่เท่านั้น',
+      ],
+    },
+  },
+  {
+    version: '2.6.112',
+    kind: 'minor',
+    date: '2026-09-30',
+    items: {
+      KR: [
+        '본사권한: 대시보드·USDT·에스크로·장부를 「메인」 카드로 통합. 대메뉴 제목 배경을 파스텔 회색으로 구분.',
+      ],
+      US: [
+        'HQ permissions: Dashboard/USDT/Escrow/Ledger grouped under Main card. Pastel gray card titles for clearer sections.',
+      ],
+      JP: [
+        '本社権限: ダッシュボード・USDT・エスクロー・台帳を「メイン」カードに統合。大メニュー見出しをパステルグレーに。',
+      ],
+      CH: [
+        '总部权限：仪表盘/USDT/托管/账本合并为「主菜单」卡片。大菜单标题改为柔和灰底以便区分。',
+      ],
+      TH: [
+        'สิทธิ์ HQ: รวมแดชบอร์ด/USDT/เอสโครว์/บัญชีเป็นบัตร「เมนูหลัก」 และหัวบัตรสีเทาพาสเทลให้อ่านง่าย',
+      ],
+    },
+  },
+  {
+    version: '2.6.111',
+    kind: 'minor',
+    date: '2026-09-30',
+    items: {
+      KR: [
+        '본사권한·사용자설정: 좌측 대메뉴(운영관리·본사정책·인보이스 등)와 같이 카드별로 화면 권한을 구분 표시.',
+      ],
+      US: [
+        'HQ permissions / User settings: page access grouped into cards by top-level sidebar menus (Ops, HQ Policy, Invoices, etc.).',
+      ],
+      JP: [
+        '本社権限・ユーザー設定: 左サイド大メニュー（運営管理・本社ポリシー・インボイス等）ごとにカードで権限表示。',
+      ],
+      CH: [
+        '总部权限/用户设置：按侧栏大菜单（运营管理、总部政策、发票等）分卡片展示页面权限。',
+      ],
+      TH: [
+        'สิทธิ์ HQ/ตั้งค่าผู้ใช้: จัดกลุ่มสิทธิ์หน้าเป็นการ์ดตามเมนูหลักด้านซ้าย (ปฏิบัติการ นโยบาย HQ ใบแจ้งหนี้ ฯลฯ)',
+      ],
+    },
+  },
+  {
+    version: '2.6.110',
+    kind: 'minor',
+    date: '2026-09-30',
+    items: {
+      KR: [
+        '본사정책 → 접근·권한: 「사용자설정」에서 관리자별 페이지 접근 설정. 기존 「사용자설정」은 「보안설정」으로 변경.',
+        '본사권한 NONE/VIEW/MODIFY/DELETE 선택 배경을 파스텔 톤으로 구분. 가맹점 대표는 운영자별 페이지 권한 설정 가능.',
+      ],
+      US: [
+        'HQ Access: per-admin page access under User settings; former User settings renamed Security settings.',
+        'Pastel colors for NONE/VIEW/MODIFY/DELETE. Merchant admins can set page access per operator.',
+      ],
+      JP: [
+        '本社ポリシー→アクセス: 「ユーザー設定」で管理者別ページ権限。旧ユーザー設定は「セキュリティ設定」に改称。',
+        'NONE/VIEW/MODIFY/DELETEをパステル色で区別。加盟店代表は運営者ごとにページ権限を設定可能。',
+      ],
+      CH: [
+        '总部政策→访问：在「用户设置」按管理员配置页面权限；原「用户设置」改为「安全设置」。',
+        'NONE/VIEW/MODIFY/DELETE 使用柔和底色区分。商户管理员可为运营者设置页面权限。',
+      ],
+      TH: [
+        'นโยบาย HQ→การเข้าถึง: ตั้งค่าหน้าต่อผู้ดูแลใน「ตั้งค่าผู้ใช้」 และเปลี่ยนชื่อเดิมเป็น「ตั้งค่าความปลอดภัย」',
+        'สีพาสเทลแยก NONE/VIEW/MODIFY/DELETE ผู้ดูแลร้านตั้งสิทธิ์หน้าต่อผู้ดำเนินการได้',
+      ],
+    },
+  },
+  {
+    version: '2.6.109',
+    kind: 'minor',
+    date: '2026-09-30',
+    items: {
+      KR: [
+        '로그인·OTP 후 세션이 풀리던 문제 수정: /me 일시 실패 시 토큰 유지·재시도.',
+        '사이드 메뉴는 전체 이동으로 배포 직후 메뉴 클릭 오류 방지. PM2 메모리 한도 상향.',
+      ],
+      US: [
+        'Fixed session drop after login/OTP: keep token and retry when /me fails briefly.',
+        'Sidebar uses full navigation to avoid post-deploy menu errors. Raised PM2 memory limit.',
+      ],
+      JP: [
+        'ログイン/OTP後にセッションが切れる問題を修正。/me一時失敗時はトークン維持・再試行。',
+        'サイドメニューはフル遷移でデプロイ直後のクリック障害を防止。PM2メモリ上限を引上げ。',
+      ],
+      CH: [
+        '修复登录/OTP后会话丢失：/me 短暂失败时保留令牌并重试。',
+        '侧栏改为整页跳转，避免部署后菜单异常。提高 PM2 内存上限。',
+      ],
+      TH: [
+        'แก้เซสชันหลุดหลังล็อกอิน/OTP: คงโทเคนและลองใหม่เมื่อ /me ล้มชั่วคราว',
+        'เมนูด้านข้างใช้การนำทางเต็มหน้า กันปัญหาหลังดีพลอย และเพิ่มขีดจำกัดหน่วยความจำ PM2',
+      ],
+    },
+  },
+  {
+    version: '2.6.108',
+    kind: 'minor',
+    date: '2026-09-30',
+    items: {
+      KR: [
+        '본사·조직 관리자 메뉴를 총괄관리자 트리로 통일. 역할·접근권한으로 항목 표시.',
+        '대시보드 시세 안내 문구 다국어화. 인보이스 From/To 기본값을 1주 전~오늘로 표시.',
+      ],
+      US: [
+        'HQ/org staff menus unified to Super Admin tree; items filtered by role/page access.',
+        'Dashboard rate disclaimer localized. Invoice From/To defaults to last week–today.',
+      ],
+      JP: [
+        '本社・組織管理者メニューを総括管理者ツリーに統一。役割・権限で表示。',
+        'ダッシュボード相場注記を多言語化。インボイス From/To 既定を1週間前〜今日に。',
+      ],
+      CH: [
+        '总部/组织管理员菜单统一为总管理员树，按角色与权限显示。',
+        '仪表盘汇率提示多语言化。发票 From/To 默认为一周前至今天。',
+      ],
+      TH: [
+        'เมนูผู้ดูแล HQ/องค์กรใช้โครงสร้างเดียวกับผู้ดูแลสูงสุด กรองตามบทบาท/สิทธิ์',
+        'ข้อความอัตราแลกเปลี่ยนบนแดชบอร์ดรองรับหลายภาษา และ From/To ของใบแจ้งหนี้เริ่มต้นเป็น 1 สัปดาห์ก่อนถึงวันนี้',
+      ],
+    },
+  },
+  {
     version: '2.6.107',
     kind: 'minor',
     date: '2026-09-21',

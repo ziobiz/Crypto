@@ -3,8 +3,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthProvider';
 import { useT } from '@/context/LocaleProvider';
-import { api, ApiError } from '@/lib/api';
+import {
+  api,
+  ApiError,
+  type HqPermissionLevel,
+  type MerchantOperatorPageAccess,
+} from '@/lib/api';
 import { SensitiveOtpGate, useSensitiveOtp } from '@/components/SensitiveOtpGate';
+import { PermissionLevelSelect } from '@/components/PermissionLevelSelect';
+import { hqPageLabelKey } from '@/i18n/page-paths';
 
 type OperatorRow = {
   id: string;
@@ -14,6 +21,7 @@ type OperatorRow = {
   isActive: boolean;
   totpEnabled: boolean;
   createdAt: string;
+  hasOverrides?: boolean;
 };
 
 export default function MerchantUsersPage() {
@@ -50,6 +58,9 @@ function MerchantUsersPanel() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [saving, setSaving] = useState(false);
+  const [accessOpId, setAccessOpId] = useState<string | null>(null);
+  const [accessDetail, setAccessDetail] = useState<MerchantOperatorPageAccess | null>(null);
+  const [accessDraft, setAccessDraft] = useState<Record<string, HqPermissionLevel>>({});
 
   const load = useCallback(() => {
     api.merchant
@@ -96,6 +107,59 @@ function MerchantUsersPanel() {
         active ? api.merchant.deactivateOperator(id) : api.merchant.activateOperator(id),
       );
       if (result.cancelled) return;
+      load();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : t('common.saveFailed'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function openPageAccess(id: string) {
+    setError('');
+    setMsg('');
+    setAccessOpId(id);
+    try {
+      const d = await api.merchant.getOperatorPageAccess(id);
+      setAccessDetail(d);
+      const next: Record<string, HqPermissionLevel> = {};
+      for (const page of d.pages) {
+        next[page.path] = (d.overrides?.[page.path] ?? d.base[page.path] ?? 'NONE') as HqPermissionLevel;
+      }
+      setAccessDraft(next);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('common.loadFailed'));
+      setAccessOpId(null);
+    }
+  }
+
+  async function savePageAccess() {
+    if (!accessOpId || !accessDetail) return;
+    setSaving(true);
+    setError('');
+    setMsg('');
+    try {
+      const overrides: Record<string, string> = {};
+      for (const page of accessDetail.pages) {
+        const lv = accessDraft[page.path] ?? 'NONE';
+        const base = accessDetail.base[page.path] ?? 'NONE';
+        if (lv !== base) overrides[page.path] = lv;
+      }
+      const result = await runWithOtp(() =>
+        api.merchant.saveOperatorPageAccess(
+          accessOpId,
+          Object.keys(overrides).length ? overrides : null,
+        ),
+      );
+      if (result.cancelled) return;
+      const next = result.value;
+      setAccessDetail(next);
+      const nextDraft: Record<string, HqPermissionLevel> = {};
+      for (const page of next.pages) {
+        nextDraft[page.path] = (next.overrides?.[page.path] ?? next.base[page.path] ?? 'NONE') as HqPermissionLevel;
+      }
+      setAccessDraft(nextDraft);
+      setMsg(t('merchantUsers.pageAccessSaved'));
       load();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : t('common.saveFailed'));
@@ -177,7 +241,15 @@ function MerchantUsersPanel() {
                   <td>{op.isActive ? t('common.active') : t('common.inactive')}</td>
                   <td>{op.totpEnabled ? 'ON' : 'OFF'}</td>
                   <td>{new Date(op.createdAt).toLocaleString()}</td>
-                  <td>
+                  <td className="space-x-1 whitespace-nowrap">
+                    <button
+                      type="button"
+                      className="pg-btn pg-btn-secondary text-[11px]"
+                      disabled={saving}
+                      onClick={() => openPageAccess(op.id)}
+                    >
+                      {t('merchantUsers.pageAccess')}
+                    </button>
                     <button
                       type="button"
                       className="pg-btn pg-btn-secondary text-[11px]"
@@ -193,6 +265,66 @@ function MerchantUsersPanel() {
           </tbody>
         </table>
       </div>
+
+      {accessOpId && accessDetail && (
+        <div className="pg-card p-4 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-semibold text-[13px]">
+              {t('merchantUsers.pageAccess')} — {accessDetail.user.name} ({accessDetail.user.email})
+            </h2>
+            <button
+              type="button"
+              className="pg-btn pg-btn-secondary text-[11px]"
+              onClick={() => {
+                setAccessOpId(null);
+                setAccessDetail(null);
+              }}
+            >
+              {t('common.cancel')}
+            </button>
+          </div>
+          <p className="pg-hint">{t('merchantUsers.pageAccessHint')}</p>
+          <div className="pg-table-wrap overflow-x-auto">
+            <table className="pg-table">
+              <thead>
+                <tr>
+                  <th>{t('hq.access.screen')}</th>
+                  <th>{t('merchantUsers.pageAccess')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {accessDetail.pages.map((page) => {
+                  const labelKey = hqPageLabelKey(page.path);
+                  const label = labelKey ? t(labelKey) : page.label;
+                  return (
+                    <tr key={page.path}>
+                      <td>
+                        <div className="font-medium">{label}</div>
+                        <div className="pg-hint">{page.path}</div>
+                      </td>
+                      <td>
+                        <PermissionLevelSelect
+                          value={(accessDraft[page.path] ?? 'NONE') as HqPermissionLevel}
+                          levels={accessDetail.permissionLevels}
+                          onChange={(lv) => setAccessDraft((d) => ({ ...d, [page.path]: lv }))}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <button
+            type="button"
+            className="pg-btn pg-btn-primary"
+            disabled={saving}
+            onClick={savePageAccess}
+          >
+            {saving ? t('common.saving') : t('merchantUsers.pageAccessSave')}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

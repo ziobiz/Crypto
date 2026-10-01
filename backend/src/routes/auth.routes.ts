@@ -465,6 +465,7 @@ router.get(
         organizationType: user.organization?.type ?? null,
         simulatorEnabled,
         operatorsEnabled,
+        pageAccessOverrides: (user.pageAccessOverrides ?? null) as Record<string, string> | null,
       }),
       kycStatus,
       wallets,

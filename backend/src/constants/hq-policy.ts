@@ -17,33 +17,46 @@ export type HqOrgLevel = (typeof HQ_ORG_LEVELS)[number];
 export const HQ_ACCESS_ACTORS = [...HQ_ORG_LEVELS, 'CUSTOMER'] as const;
 export type HqAccessActor = (typeof HQ_ACCESS_ACTORS)[number];
 
+/** 사이드바 대메뉴와 동일한 그룹 키 (본사권한 카드 구분)
+ *  main = 단독 메뉴(대시보드·USDT·에스크로·장부) 묶음
+ */
+export const HQ_PAGE_GROUPS = [
+  'main',
+  'invoices',
+  'ops',
+  'hqPolicy',
+  'merchant',
+] as const;
+export type HqPageGroup = (typeof HQ_PAGE_GROUPS)[number];
+
 /** 사이드바·본사권한설정 공통 페이지 카탈로그 */
 export const HQ_PAGE_CATALOG = [
-  { path: '/dashboard', label: '대시보드', group: '업무' },
-  { path: '/dashboard/simulator', label: 'USDT 시뮬레이터', group: '업무' },
-  { path: '/dashboard/simulator-logs', label: '기록 시뮬레이터', group: '본사정책' },
-  { path: '/dashboard/hq-policy/cost-analysis', label: '거래분석', group: '본사정책' },
-  { path: '/dashboard/hq-policy/profit-analysis', label: '수익분석', group: '본사정책' },
-  { path: '/dashboard/usdt', label: 'USDT 매입', group: '업무' },
-  { path: '/dashboard/invoices/live', label: '인보이스 실거래', group: '업무' },
-  { path: '/dashboard/invoices/simulator', label: '인보이스 시뮬레이터', group: '업무' },
-  { path: '/dashboard/escrow', label: '무역 에스크로', group: '업무' },
-  { path: '/dashboard/ledger', label: '수수료 장부', group: '업무' },
-  { path: '/dashboard/wallets', label: '내 지갑', group: '업무' },
-  { path: '/dashboard/merchant-users', label: '가맹점 사용자관리', group: '업무' },
-  { path: '/dashboard/operation-history', label: '기록관리', group: '운영관리' },
-  { path: '/dashboard/kyc', label: '인증센터', group: '업무' },
-  { path: '/dashboard/users', label: '사용자관리', group: '운영관리' },
-  { path: '/dashboard/customers', label: '고객관리', group: '운영관리' },
-  { path: '/dashboard/customers/fees', label: '수수료관리', group: '운영관리' },
-  { path: '/dashboard/organizations', label: '조직관리', group: '운영관리' },
-  { path: '/dashboard/hq-policy/access', label: '접근·권한', group: '본사정책' },
-  { path: '/dashboard/hq-policy/org-columns', label: '조직·화면', group: '본사정책' },
-  { path: '/dashboard/hq-policy/commission', label: '수수료·리스크', group: '본사정책' },
-  { path: '/dashboard/hq-policy/platform', label: '플랫폼', group: '본사정책' },
-  { path: '/dashboard/hq-policy/ops', label: '운영관리', group: '본사정책' },
-  { path: '/dashboard/hq-policy/ops/workflow', label: '진행상태·처리시한', group: '본사정책' },
-  { path: '/dashboard/hq-policy/deletion', label: '삭제관리', group: '본사정책' },
+  { path: '/dashboard', label: '대시보드', group: 'main' },
+  { path: '/dashboard/usdt', label: 'USDT 매입', group: 'main' },
+  { path: '/dashboard/escrow', label: '무역 에스크로', group: 'main' },
+  { path: '/dashboard/ledger', label: '수수료 장부', group: 'main' },
+  { path: '/dashboard/invoices/live', label: '인보이스 실거래', group: 'invoices' },
+  { path: '/dashboard/invoices/simulator', label: '인보이스 시뮬레이터', group: 'invoices' },
+  { path: '/dashboard/customers', label: '고객관리', group: 'ops' },
+  { path: '/dashboard/customers/fees', label: '수수료관리', group: 'ops' },
+  { path: '/dashboard/organizations', label: '조직관리', group: 'ops' },
+  { path: '/dashboard/users', label: '사용자관리', group: 'ops' },
+  { path: '/dashboard/operation-history', label: '기록관리', group: 'ops' },
+  { path: '/dashboard/trade-receipts', label: '명세서관리', group: 'ops' },
+  { path: '/dashboard/hq-policy/access', label: '접근·권한', group: 'hqPolicy' },
+  { path: '/dashboard/hq-policy/org-columns', label: '조직·화면', group: 'hqPolicy' },
+  { path: '/dashboard/hq-policy/commission', label: '수수료·리스크', group: 'hqPolicy' },
+  { path: '/dashboard/hq-policy/platform', label: '플랫폼', group: 'hqPolicy' },
+  { path: '/dashboard/hq-policy/ops', label: '운영관리', group: 'hqPolicy' },
+  { path: '/dashboard/hq-policy/ops/workflow', label: '진행상태·처리시한', group: 'hqPolicy' },
+  { path: '/dashboard/hq-policy/deletion', label: '삭제관리', group: 'hqPolicy' },
+  { path: '/dashboard/simulator', label: 'USDT 시뮬레이터', group: 'hqPolicy' },
+  { path: '/dashboard/simulator-logs', label: '기록 시뮬레이터', group: 'hqPolicy' },
+  { path: '/dashboard/hq-policy/cost-analysis', label: '거래분석', group: 'hqPolicy' },
+  { path: '/dashboard/hq-policy/profit-analysis', label: '수익분석', group: 'hqPolicy' },
+  { path: '/dashboard/kyc', label: '인증센터', group: 'merchant' },
+  { path: '/dashboard/wallets', label: '내 지갑', group: 'merchant' },
+  { path: '/dashboard/merchant-users', label: '가맹점 사용자관리', group: 'merchant' },
 ] as const;
 
 /** 그리드 열 카탈로그 (조직항목설정) */
@@ -860,6 +873,8 @@ export type HqPlatformConfig = {
   defaultUsdtFiatCurrency?: 'KRW' | 'JPY' | 'THB' | 'CNY';
   /** 시뮬레이터 기록 자동 삭제 보관 개월 (기본 3) */
   simulatorRetentionMonths?: number;
+  /** 시뮬레이터 실행 시 Invoice(tinpass-sim) 자동 발급 여부 (기본 true) */
+  simulatorInvoiceEnabled?: boolean;
   /** 고객 입금용 회사 수취 계좌 (통화별) */
   depositReceivingAccounts?: Partial<Record<UsdtFiatCurrency, DepositReceivingAccount>>;
   /** 기준시간 (IANA TZ) — 플랫폼 도메인·SSL */
@@ -984,8 +999,14 @@ export type HqEmailOtpConfig = {
   smtpPassword: string;
   fromAddress: string;
   fromName: string;
-  /** 거래 완료 시 고객에게 거래명세 이메일 자동 발송 */
+  /** 거래 완료 시 고객에게 거래명세 이메일 자동 발송 (레거시). mode가 있으면 mode가 우선 */
   tradeReceiptEmailEnabled: boolean;
+  /** ENABLED=이메일+본사보관, DISABLED=둘 다 없음, HQ_ONLY=본사 명세서만 */
+  tradeReceiptEmailMode?: 'ENABLED' | 'DISABLED' | 'HQ_ONLY';
+  /** 관리자 상세 보기·PDF 노출 (활성/본사만일 때). 기본 true */
+  tradeReceiptAdminUiEnabled?: boolean;
+  /** 가맹점 상세 보기·PDF 노출 (활성/본사만일 때). 기본 false */
+  tradeReceiptMerchantUiEnabled?: boolean;
 };
 
 export const WORKFLOW_LOCALES = ['KR', 'US', 'JP', 'CH', 'TH'] as const;

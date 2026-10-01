@@ -65,7 +65,7 @@ export function UsdtRatePanel({ compact = false }: { compact?: boolean }) {
           </div>
         ))}
       </div>
-      <p className="pg-hint">{rates.disclaimer}</p>
+      <p className="pg-hint">{t('dashboard.rateDisclaimer')}</p>
     </div>
   );
 }

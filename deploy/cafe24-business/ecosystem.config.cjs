@@ -11,7 +11,7 @@ module.exports = {
       script: path.join(root, 'server/dist/index.js'),
       instances: 1,
       exec_mode: 'fork',
-      max_memory_restart: '700M',
+      max_memory_restart: '1024M',
       env: {
         NODE_ENV: 'production',
         WEB_PORT: 3000,

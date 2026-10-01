@@ -10,6 +10,7 @@ import {
   HQ_ACCESS_ACTORS,
   HQ_ORG_LEVELS,
   HQ_PAGE_CATALOG,
+  HQ_PAGE_GROUPS,
   HQ_PERMISSION_LEVELS,
   HQ_VIEW_COLUMN_CATALOG,
   type HqAccessActor,
@@ -166,7 +167,7 @@ function defaultAccessMatrix(): HqAccessMatrix {
         matrix[actor][page.path] = CUSTOMER_DEFAULT_VIEW_PATHS.has(page.path) ? 'VIEW' : 'NONE';
         continue;
       }
-      if (page.group === '본사정책') {
+      if (page.group === 'hqPolicy') {
         matrix[actor][page.path] = actor === 'HEAD_OFFICE' ? 'MODIFY' : 'NONE';
       } else if (actor === 'HEAD_OFFICE') {
         matrix[actor][page.path] = 'DELETE';
@@ -255,6 +256,7 @@ function normalizePlatformConfig(raw: Partial<HqPlatformConfig>): HqPlatformConf
     idleTimeoutMinutes: normalizeIdleTimeoutMinutes(merged.idleTimeoutMinutes),
     defaultUsdtFiatCurrency: merged.defaultUsdtFiatCurrency ?? 'JPY',
     simulatorRetentionMonths: clampSimulatorRetention(merged.simulatorRetentionMonths),
+    simulatorInvoiceEnabled: merged.simulatorInvoiceEnabled !== false,
     loginNoticeI18n: mergeLoginNoticeI18n(merged.loginNoticeI18n),
     inactiveLoginNoticeI18n: mergeInactiveLoginNoticeI18n(merged.inactiveLoginNoticeI18n),
     inactiveLoginNoticePresets: mergeInactiveNoticePresets(merged.inactiveLoginNoticePresets),
@@ -352,6 +354,7 @@ function defaultPlatform(): HqPlatformConfig {
     idleTimeoutMinutes: 30,
     defaultUsdtFiatCurrency: 'JPY',
     simulatorRetentionMonths: 3,
+    simulatorInvoiceEnabled: true,
     depositReceivingAccounts: {
       JPY: DEFAULT_JPY_DEPOSIT_RECEIVING_ACCOUNT(),
     },
@@ -502,6 +505,7 @@ export const hqPolicyService = {
     }
     return {
       pages: HQ_PAGE_CATALOG,
+      pageGroups: HQ_PAGE_GROUPS,
       orgLevels: HQ_ACCESS_ACTORS,
       permissionLevels: HQ_PERMISSION_LEVELS,
       matrix,
@@ -1178,6 +1182,8 @@ export const hqPolicyService = {
     /** CUSTOMER — false면 본사 매트릭스보다 우선해 USDT 시뮬레이터 차단 */
     simulatorEnabled?: boolean | null;
     operatorsEnabled?: boolean | null;
+    /** 사용자별 덮어쓰기 (path → level) */
+    pageAccessOverrides?: Record<string, string> | null;
   }) {
     const payload = await this.getAccessPayload();
     const actor = this.accessActorForUser(user);
@@ -1194,9 +1200,12 @@ export const hqPolicyService = {
         ['/dashboard/usdt', 'MODIFY'],
         ['/dashboard/escrow', 'MODIFY'],
         ['/dashboard/ledger', 'VIEW'],
+        ['/dashboard/invoices/live', 'VIEW'],
+        ['/dashboard/invoices/simulator', 'VIEW'],
         ['/dashboard/users', 'MODIFY'],
         ['/dashboard/customers', 'MODIFY'],
         ['/dashboard/customers/fees', 'MODIFY'],
+        ['/dashboard/organizations', 'MODIFY'],
         ['/dashboard/simulator-logs', 'VIEW'],
         ['/dashboard/hq-policy/cost-analysis', 'MODIFY'],
         ['/dashboard/hq-policy/profit-analysis', 'MODIFY'],
@@ -1210,6 +1219,15 @@ export const hqPolicyService = {
       levels['/dashboard/users'] = 'MODIFY';
     } else {
       levels = { ...(payload.matrix[actor] ?? {}) };
+    }
+
+    // 사용자별 덮어쓰기 (총괄관리자 제외)
+    if (actor !== 'SUPER_ADMIN' && user.pageAccessOverrides && typeof user.pageAccessOverrides === 'object') {
+      for (const [path, raw] of Object.entries(user.pageAccessOverrides)) {
+        if (HQ_PERMISSION_LEVELS.includes(raw as HqPermissionLevel)) {
+          levels[path] = raw as HqPermissionLevel;
+        }
+      }
     }
 
     // 고객별 시뮬레이터 OFF → 본사권한(CUSTOMER 매트릭스)보다 우선 차단
@@ -1228,6 +1246,106 @@ export const hqPolicyService = {
       levels['/dashboard/merchant-users'] = 'NONE';
     }
     return levels;
+  },
+
+  /** HQ: 페이지 권한 편집 가능한 스태프 목록 */
+  async listStaffForPageAccess() {
+    const rows = await prisma.user.findMany({
+      where: {
+        deletedAt: null,
+        role: { in: ['SUPER_ADMIN', 'ORG_STAFF', 'ORGANIZER', 'SETTLEMENT_ADMIN'] },
+      },
+      orderBy: [{ role: 'asc' }, { email: 'asc' }],
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        isActive: true,
+        pageAccessOverrides: true,
+        organization: { select: { id: true, name: true, type: true } },
+      },
+      take: 500,
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      email: r.email,
+      name: r.name,
+      role: r.role,
+      isActive: r.isActive,
+      organization: r.organization,
+      hasOverrides: r.pageAccessOverrides != null,
+    }));
+  },
+
+  async getUserPageAccessDetail(userId: string) {
+    const user = await prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        pageAccessOverrides: true,
+        organization: { select: { id: true, name: true, type: true } },
+        customerProfile: { select: { simulatorEnabled: true, operatorsEnabled: true } },
+      },
+    });
+    if (!user) throw new AppError(404, 'User not found', 'NOT_FOUND');
+    const base = await this.getPageAccessForUser({
+      role: user.role,
+      organizationType: user.organization?.type ?? null,
+      simulatorEnabled: user.customerProfile?.simulatorEnabled,
+      operatorsEnabled: user.customerProfile?.operatorsEnabled,
+      pageAccessOverrides: null,
+    });
+    const overrides = (user.pageAccessOverrides ?? null) as Record<string, HqPermissionLevel> | null;
+    const effective = await this.getPageAccessForUser({
+      role: user.role,
+      organizationType: user.organization?.type ?? null,
+      simulatorEnabled: user.customerProfile?.simulatorEnabled,
+      operatorsEnabled: user.customerProfile?.operatorsEnabled,
+      pageAccessOverrides: overrides,
+    });
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        organization: user.organization,
+      },
+      pages: HQ_PAGE_CATALOG,
+      permissionLevels: HQ_PERMISSION_LEVELS,
+      base,
+      overrides,
+      effective,
+      locked: user.role === 'SUPER_ADMIN',
+    };
+  },
+
+  async saveUserPageAccess(userId: string, overrides: Record<string, string> | null) {
+    const user = await prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
+      select: { id: true, role: true },
+    });
+    if (!user) throw new AppError(404, 'User not found', 'NOT_FOUND');
+    if (user.role === 'SUPER_ADMIN') {
+      throw new AppError(400, 'Super admin page access cannot be restricted', 'VALIDATION');
+    }
+    let value: Record<string, HqPermissionLevel> | null = null;
+    if (overrides && typeof overrides === 'object') {
+      value = {};
+      for (const [path, raw] of Object.entries(overrides)) {
+        if (!HQ_PERMISSION_LEVELS.includes(raw as HqPermissionLevel)) continue;
+        value[path] = raw as HqPermissionLevel;
+      }
+    }
+    await prisma.user.update({
+      where: { id: userId },
+      data: { pageAccessOverrides: value === null ? Prisma.DbNull : value },
+    });
+    return this.getUserPageAccessDetail(userId);
   },
 
   async getWorkflowDisplay(): Promise<HqWorkflowDisplayConfig> {

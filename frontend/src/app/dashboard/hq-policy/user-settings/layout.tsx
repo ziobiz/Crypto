@@ -7,7 +7,8 @@ import type { MessageKey } from '@/i18n/messages';
 
 const SUB_TABS: { href: string; labelKey: MessageKey }[] = [
   { href: '/dashboard/hq-policy/access', labelKey: 'hq.sub.access.permission' },
-  { href: '/dashboard/hq-policy/user-settings', labelKey: 'hq.sub.access.userSettings' },
+  { href: '/dashboard/hq-policy/user-access', labelKey: 'hq.sub.access.userPageAccess' },
+  { href: '/dashboard/hq-policy/user-settings', labelKey: 'hq.sub.access.securitySettings' },
 ];
 
 export default function HqUserSettingsLayout({ children }: { children: React.ReactNode }) {

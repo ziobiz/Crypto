@@ -33,7 +33,10 @@ export function defaultEmailOtpConfig(): HqEmailOtpConfig {
     smtpPassword: process.env.SMTP_PASSWORD ?? '',
     fromAddress: process.env.SMTP_FROM ?? 'ziobizm@gmail.com',
     fromName: 'Crypto Workflow',
-    tradeReceiptEmailEnabled: true,
+    tradeReceiptEmailEnabled: false,
+    tradeReceiptEmailMode: 'HQ_ONLY',
+    tradeReceiptAdminUiEnabled: true,
+    tradeReceiptMerchantUiEnabled: false,
   };
 }
 

@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useT } from '@/context/LocaleProvider';
 import { useNavTabs } from '@/context/NavTabsContext';
@@ -111,6 +110,15 @@ export function SideNav({
     onNavigate?.();
   }
 
+  /** 배포 직후 RSC/Server Action ID 불일치로 소프트 네비가 깨지는 경우 방지 */
+  function hardNav(e: React.MouseEvent<HTMLAnchorElement>, item: NavItem) {
+    go(item);
+    // Ctrl/Cmd+클릭·새 탭은 브라우저 기본 동작
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+    e.preventDefault();
+    window.location.assign(item.href);
+  }
+
   return (
     <nav className="flex flex-1 flex-col overflow-hidden">
       {onCollapse && (
@@ -133,10 +141,10 @@ export function SideNav({
 
           if (!hasChildren) {
             return (
-              <Link
+              <a
                 key={item.href}
                 href={item.href}
-                onClick={() => go(item)}
+                onClick={(e) => hardNav(e, item)}
                 title={t(item.labelKey)}
                 className={`pg-nav-item ${collapsed ? 'justify-center px-2.5' : ''} ${
                   parentActive ? 'pg-nav-item-active' : ''
@@ -144,7 +152,7 @@ export function SideNav({
               >
                 <NavIcon id={item.icon} className="h-[18px] w-[18px] shrink-0 opacity-95" />
                 {!collapsed && <span className="truncate">{t(item.labelKey)}</span>}
-              </Link>
+              </a>
             );
           }
 
@@ -171,17 +179,17 @@ export function SideNav({
                   {item.children!.map((child) => {
                     const active = navChildIsActive(pathname, child, item.children!);
                     return (
-                      <Link
+                      <a
                         key={child.href}
                         href={child.href}
-                        onClick={() => go(child)}
+                        onClick={(e) => hardNav(e, child)}
                         title={t(child.labelKey)}
                         className={`pg-nav-item py-2 text-[12px] ${NAV_CHILD_PL} ${
                           active ? 'pg-nav-item-active' : ''
                         }`}
                       >
                         <span className="truncate">{t(child.labelKey)}</span>
-                      </Link>
+                      </a>
                     );
                   })}
                 </div>

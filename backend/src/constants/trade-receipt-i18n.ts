@@ -1,6 +1,6 @@
-export type TradeReceiptLang = 'ko' | 'ja' | 'en';
+export type TradeReceiptLang = 'ko' | 'en' | 'ja' | 'zh' | 'th';
 
-export const DEFAULT_TRADE_RECEIPT_LANGS: TradeReceiptLang[] = ['ko', 'ja', 'en'];
+export const DEFAULT_TRADE_RECEIPT_LANGS: TradeReceiptLang[] = ['ko', 'en', 'ja', 'zh', 'th'];
 
 type ReceiptStrings = {
   subject: string;
@@ -30,6 +30,19 @@ const STRINGS: Record<TradeReceiptLang, ReceiptStrings> = {
     footer: '본 메일은 거래 처리 결과 안내입니다.',
     sectionTitle: '한국어',
   },
+  en: {
+    subject: 'Trade Receipt',
+    greeting: ', your trade has been completed.',
+    ticketNo: 'Ticket No.',
+    status: 'Status',
+    statusCompleted: 'Completed',
+    fiatAmount: 'Order Amount',
+    expectedUsdt: 'Expected USDT',
+    actualUsdt: 'Actual USDT Sent',
+    txid: 'TXID',
+    footer: 'This email is a notification of your completed trade.',
+    sectionTitle: 'English',
+  },
   ja: {
     subject: '取引明細',
     greeting: '様、取引が完了しました。',
@@ -43,18 +56,31 @@ const STRINGS: Record<TradeReceiptLang, ReceiptStrings> = {
     footer: '本メールは取引処理結果のご案内です。',
     sectionTitle: '日本語',
   },
-  en: {
-    subject: 'Trade Receipt',
-    greeting: ', your trade has been completed.',
-    ticketNo: 'Ticket No.',
-    status: 'Status',
-    statusCompleted: 'Completed',
-    fiatAmount: 'Order Amount',
-    expectedUsdt: 'Expected USDT',
-    actualUsdt: 'Actual USDT Sent',
+  zh: {
+    subject: '交易明细',
+    greeting: '，您的交易已完成。',
+    ticketNo: '票据编号',
+    status: '状态',
+    statusCompleted: '已完成',
+    fiatAmount: '申请金额',
+    expectedUsdt: '预计 USDT',
+    actualUsdt: '实际汇出 USDT',
     txid: 'TXID',
-    footer: 'This email is a notification of your completed trade.',
-    sectionTitle: 'English',
+    footer: '本邮件为交易处理结果通知。',
+    sectionTitle: '中文',
+  },
+  th: {
+    subject: 'ใบเสร็จธุรกรรม',
+    greeting: ' การทำธุรกรรมของคุณเสร็จสมบูรณ์แล้ว',
+    ticketNo: 'เลขที่ตั๋ว',
+    status: 'สถานะ',
+    statusCompleted: 'เสร็จสิ้น',
+    fiatAmount: 'จำนวนที่ขอ',
+    expectedUsdt: 'USDT ที่คาดการณ์',
+    actualUsdt: 'USDT ที่โอนจริง',
+    txid: 'TXID',
+    footer: 'อีเมลนี้เป็นการแจ้งผลการทำธุรกรรม',
+    sectionTitle: 'ไทย',
   },
 };
 
@@ -108,8 +134,7 @@ export function buildMultilingualTradeReceipt(
   data: TradeReceiptContent,
   langs: TradeReceiptLang[] = DEFAULT_TRADE_RECEIPT_LANGS,
 ): { subject: string; text: string; html: string } {
-  const ko = STRINGS.ko;
-  const subject = `[Crypto Workflow] ${ko.subject} / ${STRINGS.ja.subject} / ${STRINGS.en.subject} — ${data.ticketNo}`;
+  const subject = `[Crypto Workflow] ${STRINGS.ko.subject} / ${STRINGS.en.subject} / ${STRINGS.ja.subject} / ${STRINGS.zh.subject} / ${STRINGS.th.subject} — ${data.ticketNo}`;
 
   const sections = langs.map((lang) => buildSection(lang, data));
   const text = sections.map((s) => s.text).join('\n\n');

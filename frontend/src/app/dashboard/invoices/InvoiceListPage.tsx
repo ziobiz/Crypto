@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useT } from '@/context/LocaleProvider';
 import { api, ApiError } from '@/lib/api';
 import { ContentCard } from '@/components/layout/ContentCard';
+import { rangeForQuick } from '@/lib/date-range';
 
 type Kind = 'live' | 'simulator';
 
@@ -33,11 +34,16 @@ function fmtMoney(amount: string | number, currency: string) {
   return `${num} ${currency}`;
 }
 
+function defaultInvoiceRange() {
+  return rangeForQuick('week1');
+}
+
 export function InvoiceListPage({ kind }: { kind: Kind }) {
   const t = useT();
+  const initial = defaultInvoiceRange();
   const [rows, setRows] = useState<Row[]>([]);
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
+  const [from, setFrom] = useState(initial.from);
+  const [to, setTo] = useState(initial.to);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -56,7 +62,10 @@ export function InvoiceListPage({ kind }: { kind: Kind }) {
   }
 
   useEffect(() => {
-    void load({ from: '', to: '' });
+    const range = defaultInvoiceRange();
+    setFrom(range.from);
+    setTo(range.to);
+    void load(range);
     // initial load for this kind only
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kind]);
@@ -69,11 +78,23 @@ export function InvoiceListPage({ kind }: { kind: Kind }) {
       <div className="mb-3 flex flex-wrap items-end gap-2">
         <label className="text-xs">
           {t('invoices.from')}
-          <input className="pg-input" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+          <input
+            className="pg-input"
+            type="date"
+            lang="en"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+          />
         </label>
         <label className="text-xs">
           {t('invoices.to')}
-          <input className="pg-input" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+          <input
+            className="pg-input"
+            type="date"
+            lang="en"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+          />
         </label>
         <button type="button" className="pg-btn pg-btn-primary" disabled={loading} onClick={() => void load()}>
           {t('invoices.search')}
@@ -109,7 +130,11 @@ export function InvoiceListPage({ kind }: { kind: Kind }) {
                   <button
                     type="button"
                     className="pg-btn"
-                    onClick={() => void api.invoices.downloadPdf(row.id, row.invoice_no).catch((e) => setError(e instanceof Error ? e.message : t('invoices.loadFailed')))}
+                    onClick={() =>
+                      void api.invoices
+                        .downloadPdf(row.id, row.invoice_no, kind)
+                        .catch((e) => setError(e instanceof Error ? e.message : t('invoices.loadFailed')))
+                    }
                   >
                     {t('invoices.pdf')}
                   </button>

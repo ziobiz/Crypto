@@ -245,6 +245,13 @@ export const api = {
       request<MerchantOperator>(`/api/merchant/operators/${id}/deactivate`, { method: 'PATCH' }),
     activateOperator: (id: string) =>
       request<MerchantOperator>(`/api/merchant/operators/${id}/activate`, { method: 'PATCH' }),
+    getOperatorPageAccess: (id: string) =>
+      request<MerchantOperatorPageAccess>(`/api/merchant/operators/${id}/page-access`),
+    saveOperatorPageAccess: (id: string, overrides: Record<string, string> | null) =>
+      request<MerchantOperatorPageAccess>(`/api/merchant/operators/${id}/page-access`, {
+        method: 'PUT',
+        body: JSON.stringify({ overrides }),
+      }),
     listOperationLogs: (params?: { page?: number; pageSize?: number }) => {
       const q = new URLSearchParams();
       if (params?.page) q.set('page', String(params.page));
@@ -259,6 +266,24 @@ export const api = {
     },
     deleteOperationLog: (id: string) =>
       request<{ ok: boolean }>(`/api/merchant/operation-logs/${id}`, { method: 'DELETE' }),
+  },
+
+  tradeReceipts: {
+    list: (params?: { page?: number; pageSize?: number; status?: TradeReceiptSendStatus; q?: string }) => {
+      const q = new URLSearchParams();
+      if (params?.page) q.set('page', String(params.page));
+      if (params?.pageSize) q.set('pageSize', String(params.pageSize));
+      if (params?.status) q.set('status', params.status);
+      if (params?.q) q.set('q', params.q);
+      const qs = q.toString();
+      return request<{
+        total: number;
+        page: number;
+        pageSize: number;
+        rows: TradeReceiptEmailLogSummary[];
+      }>(`/api/trade-receipts${qs ? `?${qs}` : ''}`);
+    },
+    get: (id: string) => request<TradeReceiptEmailLogDetail>(`/api/trade-receipts/${id}`),
   },
 
   kyc: {
@@ -357,6 +382,11 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify(data),
       }),
+    addScheduleDelay: (id: string, data: { delayHours: number; reason: string }) =>
+      request<UsdtTicket>(`/api/tickets/usdt-purchase/${id}/schedule-delay`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
     confirmQuote: (
       id: string,
       data?: {
@@ -437,6 +467,11 @@ export const api = {
     ) =>
       request<EscrowTicket>(`/api/tickets/trade-escrow/${id}/status`, {
         method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+    addScheduleDelay: (id: string, data: { delayHours: number; reason: string }) =>
+      request<EscrowTicket>(`/api/tickets/trade-escrow/${id}/schedule-delay`, {
+        method: 'POST',
         body: JSON.stringify(data),
       }),
     accept: (id: string) =>
@@ -523,11 +558,15 @@ export const api = {
         }>;
       }>(`/api/invoices?${q.toString()}`);
     },
-    async downloadPdf(id: string, filename: string) {
+    async downloadPdf(id: string, filename: string, kind: 'live' | 'simulator' = 'live') {
       const token = getToken();
-      const res = await fetch(`${API_URL}/api/invoices/${encodeURIComponent(id)}/pdf`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      const q = new URLSearchParams({ kind });
+      const res = await fetch(
+        `${API_URL}/api/invoices/${encodeURIComponent(id)}/pdf?${q.toString()}`,
+        {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        },
+      );
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: res.statusText }));
         throw new ApiError(res.status, err.error ?? 'PDF failed', err.code);
@@ -743,6 +782,9 @@ export type FeeBillingPresentation = 'INTEGRATED' | 'ITEMIZED' | 'HYBRID';
 export type FeeBillingMethod = 'FOLLOW_HQ' | FeeBillingPresentation;
 export type TotalFeeVisibility = 'FOLLOW_HQ' | 'SHOW' | 'HIDE';
 export type UsdtCollectionMode = 'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL';
+export type TradeReceiptEmailMode = 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED' | 'HQ_ONLY';
+export type TradeReceiptUiMode = 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED';
+export type TradeReceiptSendStatus = 'SENT' | 'FAILED' | 'SKIPPED';
 export type UsdtQuoteResponseMode = 'FOLLOW_HQ' | 'AUTO' | 'MANUAL' | 'OFF';
 export const USDT_QUOTE_AUTO_DELAY_MINUTES = [
   0, 1, 3, 5, 10, 30, 60, 180, 360, 720, 1440, 2880, 4320,
@@ -943,6 +985,9 @@ export interface ManagedUser {
     usdtLimitMaxUsdt?: number | null;
     usdtCollectionMode?: UsdtCollectionMode;
     usdtQuoteResponseMode?: UsdtQuoteResponseMode;
+    tradeReceiptEmailMode?: TradeReceiptEmailMode;
+    tradeReceiptAdminUiMode?: TradeReceiptUiMode;
+    tradeReceiptMerchantUiMode?: TradeReceiptUiMode;
     usdtQuoteAutoDelayMinutes?: number | null;
     usdtQuoteManualSlaHours?: number | null;
     operatorsEnabled?: boolean;
@@ -1033,6 +1078,9 @@ export interface CreateUserInput {
   totalFeeVisibility?: TotalFeeVisibility;
   usdtCollectionMode?: UsdtCollectionMode;
   usdtQuoteResponseMode?: UsdtQuoteResponseMode;
+  tradeReceiptEmailMode?: TradeReceiptEmailMode;
+  tradeReceiptAdminUiMode?: TradeReceiptUiMode;
+  tradeReceiptMerchantUiMode?: TradeReceiptUiMode;
   usdtQuoteAutoDelayMinutes?: number | null;
   usdtQuoteManualSlaHours?: number | null;
   operatorsEnabled?: boolean;
@@ -1059,6 +1107,9 @@ export interface UpdateUserInput {
   totalFeeVisibility?: TotalFeeVisibility;
   usdtCollectionMode?: UsdtCollectionMode;
   usdtQuoteResponseMode?: UsdtQuoteResponseMode;
+  tradeReceiptEmailMode?: TradeReceiptEmailMode;
+  tradeReceiptAdminUiMode?: TradeReceiptUiMode;
+  tradeReceiptMerchantUiMode?: TradeReceiptUiMode;
   usdtQuoteAutoDelayMinutes?: number | null;
   usdtQuoteManualSlaHours?: number | null;
   operatorsEnabled?: boolean;
@@ -1112,6 +1163,16 @@ export interface MerchantOperator {
   isActive: boolean;
   totpEnabled: boolean;
   createdAt: string;
+  hasOverrides?: boolean;
+}
+
+export interface MerchantOperatorPageAccess {
+  user: { id: string; email: string; name: string; role: string };
+  pages: { path: string; label: string; group: string }[];
+  permissionLevels: HqPermissionLevel[];
+  base: Record<string, HqPermissionLevel>;
+  overrides: Record<string, HqPermissionLevel> | null;
+  effective: Record<string, HqPermissionLevel>;
 }
 
 export interface MerchantOperationLog {
@@ -1121,6 +1182,26 @@ export interface MerchantOperationLog {
   createdAt: string;
   actor: { id: string; email: string; name: string; role: string };
   merchantAdmin: { id: string; email: string; name: string };
+}
+
+export interface TradeReceiptEmailLogSummary {
+  id: string;
+  ticketId: string | null;
+  ticketNo: string;
+  ticketType: string;
+  toEmail: string;
+  toName: string | null;
+  subject: string;
+  status: TradeReceiptSendStatus;
+  skipReason: string | null;
+  errorMessage: string | null;
+  customerProfileId: string | null;
+  createdAt: string;
+}
+
+export interface TradeReceiptEmailLogDetail extends TradeReceiptEmailLogSummary {
+  bodyText: string;
+  bodyHtml: string | null;
 }
 
 export interface ExchangeRateResponse {
@@ -1381,12 +1462,23 @@ export interface UsdtTicket {
   commissionSettled: boolean;
   createdAt: string;
   expectedCompleteAt?: string | null;
+  expectedCompleteBaseAt?: string | null;
+  scheduleDelayHoursTotal?: number;
+  scheduleDelays?: {
+    id: string;
+    delayHours: number;
+    reason: string;
+    createdAt: string;
+    createdBy?: { id: string; name: string; email: string };
+  }[];
+  completedAt?: string | null;
   attachments: Attachment[];
   statusHistory: StatusHistory[];
   wallet?: Wallet;
   registeredBank?: BankAccountInfo | null;
   customer?: { user: { name: string; email: string } };
   feeDiagramDisplay?: FeeDiagramDisplayConfig;
+  tradeReceipt?: { archive: boolean; email: boolean; adminUi: boolean; merchantUi: boolean };
 }
 
 export interface EscrowTicket {
@@ -1426,6 +1518,15 @@ export interface EscrowTicket {
   commissionSettled: boolean;
   createdAt: string;
   expectedCompleteAt?: string | null;
+  expectedCompleteBaseAt?: string | null;
+  scheduleDelayHoursTotal?: number;
+  scheduleDelays?: {
+    id: string;
+    delayHours: number;
+    reason: string;
+    createdAt: string;
+    createdBy?: { id: string; name: string; email: string };
+  }[];
   completedAt?: string | null;
   buyer: EscrowParty;
   seller: EscrowParty;
@@ -1648,6 +1749,14 @@ export const hqPolicyApi = {
     request<HqAccessPayload>('/api/hq-policy/access', {
       method: 'PUT',
       body: JSON.stringify({ matrix }),
+    }),
+  listUserAccess: () => request<{ users: HqUserPageAccessRow[] }>('/api/hq-policy/user-access'),
+  getUserAccess: (userId: string) =>
+    request<HqUserPageAccessDetail>(`/api/hq-policy/user-access/${userId}`),
+  saveUserAccess: (userId: string, overrides: Record<string, string> | null) =>
+    request<HqUserPageAccessDetail>(`/api/hq-policy/user-access/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ overrides }),
     }),
   getOrgColumns: () => request<HqOrgColumnsPayload>('/api/hq-policy/org-columns'),
   saveOrgColumns: (config: HqOrgColumnConfig) =>
@@ -1941,9 +2050,36 @@ export type HqAccessMatrix = Record<string, Record<string, HqPermissionLevel>>;
 
 export interface HqAccessPayload {
   pages: { path: string; label: string; group: string }[];
+  pageGroups?: string[];
   orgLevels: string[];
   permissionLevels: HqPermissionLevel[];
   matrix: HqAccessMatrix;
+}
+
+export interface HqUserPageAccessRow {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  isActive: boolean;
+  organization: { id: string; name: string; type: string } | null;
+  hasOverrides: boolean;
+}
+
+export interface HqUserPageAccessDetail {
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    role: string;
+    organization: { id: string; name: string; type: string } | null;
+  };
+  pages: { path: string; label: string; group: string }[];
+  permissionLevels: HqPermissionLevel[];
+  base: Record<string, HqPermissionLevel>;
+  overrides: Record<string, HqPermissionLevel> | null;
+  effective: Record<string, HqPermissionLevel>;
+  locked: boolean;
 }
 
 export interface HqOrgColumnsPayload {
@@ -2272,6 +2408,8 @@ export interface HqPlatformConfig {
   }>;
   defaultUsdtFiatCurrency?: 'KRW' | 'JPY' | 'THB' | 'CNY';
   simulatorRetentionMonths?: number;
+  /** Issue Invoice on simulator runs (tinpass-sim). Default true when configured. */
+  simulatorInvoiceEnabled?: boolean;
   depositReceivingAccounts?: Partial<Record<'KRW' | 'JPY' | 'THB' | 'CNY', DepositReceivingAccountInfo>>;
   baseTimezone?: string;
   serviceTimezone?: string;
@@ -2308,6 +2446,9 @@ export interface HqEmailOtpConfig {
   fromAddress: string;
   fromName: string;
   tradeReceiptEmailEnabled: boolean;
+  tradeReceiptEmailMode?: 'ENABLED' | 'DISABLED' | 'HQ_ONLY';
+  tradeReceiptAdminUiEnabled?: boolean;
+  tradeReceiptMerchantUiEnabled?: boolean;
 }
 
 export interface HqIcopayConfig {

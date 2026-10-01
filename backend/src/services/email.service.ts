@@ -97,6 +97,6 @@ export async function sendGenericEmail(
     });
   } catch (err) {
     console.error('[email] send failed:', err);
-    console.warn(`[email] fallback — message to ${to}:\n${text}`);
+    throw err;
   }
 }

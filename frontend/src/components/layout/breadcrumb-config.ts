@@ -108,9 +108,19 @@ const RULES: RouteRule[] = [
     meta: { titleKey: 'hq.tab.commission', trail: [{ labelKey: 'nav.hqPolicy', href: D.hq }] },
   },
   {
+    test: (p) => p.startsWith('/dashboard/hq-policy/user-access'),
+    meta: {
+      titleKey: 'hq.sub.access.userPageAccess',
+      trail: [
+        { labelKey: 'nav.hqPolicy', href: D.hq },
+        { labelKey: 'hq.hub.access', href: D.hq },
+      ],
+    },
+  },
+  {
     test: (p) => p.startsWith('/dashboard/hq-policy/user-settings'),
     meta: {
-      titleKey: 'hq.sub.access.userSettings',
+      titleKey: 'hq.sub.access.securitySettings',
       trail: [
         { labelKey: 'nav.hqPolicy', href: D.hq },
         { labelKey: 'hq.hub.access', href: D.hq },
@@ -214,6 +224,10 @@ const RULES: RouteRule[] = [
   {
     test: (p) => p.startsWith('/dashboard/operation-history'),
     meta: { titleKey: 'nav.operationHistory', trail: [{ labelKey: 'nav.ops', href: D.ops }] },
+  },
+  {
+    test: (p) => p.startsWith('/dashboard/trade-receipts'),
+    meta: { titleKey: 'nav.tradeReceipts', trail: [{ labelKey: 'nav.ops', href: D.ops }] },
   },
   { test: (p) => p.startsWith('/dashboard/org-fees'), meta: { titleKey: 'nav.orgFees', trail: [] } },
 ];

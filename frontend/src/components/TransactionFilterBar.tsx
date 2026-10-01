@@ -115,6 +115,7 @@ export function TransactionFilterBar({
               <span className="pg-label">{t('filter.dateFrom')}</span>
               <input
                 type="date"
+                lang="en"
                 className="pg-input pg-tx-field mt-0.5 w-[9.5rem]"
                 value={value.dateFrom}
                 onChange={(e) => onChange({ ...value, dateFrom: e.target.value, quick: '' })}
@@ -125,6 +126,7 @@ export function TransactionFilterBar({
               <span className="pg-label">{t('filter.dateTo')}</span>
               <input
                 type="date"
+                lang="en"
                 className="pg-input pg-tx-field mt-0.5 w-[9.5rem]"
                 value={value.dateTo}
                 onChange={(e) => onChange({ ...value, dateTo: e.target.value, quick: '' })}

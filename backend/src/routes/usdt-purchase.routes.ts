@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { z } from 'zod';
-import { AttachmentPurpose, UsdtPurchaseStatus } from '@prisma/client';
+import { AttachmentPurpose, TicketType, UsdtPurchaseStatus } from '@prisma/client';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { authenticate, requireRoles } from '../middleware/auth';
 import { MERCHANT_TRADE_ROLES } from '../lib/merchant-role';
@@ -38,6 +38,7 @@ import {
   previewUsdtCardFees,
 } from '../services/usdt-card-purchase.service';
 import { assertTicketAccess, canOperateUsdtTicket } from '../services/ticket-access.service';
+import { addTicketScheduleDelay } from '../services/ticket-schedule-delay.service';
 import { saveAttachment } from '../services/attachment.service';
 import { hqPolicyService } from '../services/hq-policy.service';
 import { AppError } from '../lib/errors';
@@ -306,6 +307,25 @@ router.patch(
       sandboxInvoice: body.sandboxInvoice ?? undefined,
     });
     res.json(ticket);
+  }),
+);
+
+const delaySchema = z.object({
+  delayHours: z.number().int(),
+  reason: z.string().min(1).max(500),
+});
+
+router.post(
+  '/:id/schedule-delay',
+  asyncHandler(async (req, res) => {
+    const user = req.user!;
+    if (!canOperateUsdtTicket(user)) {
+      throw new AppError(403, 'Operator role required', 'FORBIDDEN');
+    }
+    await assertTicketAccess(user, req.params.id);
+    const body = delaySchema.parse(req.body);
+    await addTicketScheduleDelay(user, req.params.id, body, TicketType.USDT_PURCHASE);
+    res.json(await getUsdtPurchaseTicket(user, req.params.id));
   }),
 );
 

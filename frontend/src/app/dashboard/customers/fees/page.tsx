@@ -478,6 +478,7 @@ export default function CustomerFeesPage() {
                           {editing ? (
                             <input
                               type="date"
+                              lang="en"
                               className="pg-input !text-xs"
                               value={draft.applyStartDate}
                               onChange={(e) =>

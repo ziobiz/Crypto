@@ -74,6 +74,33 @@ router.patch(
 );
 
 router.get(
+  '/operators/:id/page-access',
+  requireRoles(UserRole.CUSTOMER),
+  asyncHandler(async (req, res) => {
+    res.json(await merchantOperatorService.getOperatorPageAccess(req.user!, req.params.id));
+  }),
+);
+
+router.put(
+  '/operators/:id/page-access',
+  requireRoles(UserRole.CUSTOMER),
+  requireSensitiveOtp,
+  asyncHandler(async (req, res) => {
+    const body = req.body as { overrides?: Record<string, string> | null };
+    if (body.overrides === undefined) {
+      res.status(400).json({ error: 'overrides required' });
+      return;
+    }
+    res.json(
+      await merchantOperatorService.saveOperatorPageAccess(req.user!, req.params.id, body.overrides, {
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent') ?? undefined,
+      }),
+    );
+  }),
+);
+
+router.get(
   '/operation-logs',
   requireRoles(UserRole.CUSTOMER, UserRole.CUSTOMER_OPERATOR, UserRole.SUPER_ADMIN),
   asyncHandler(async (req, res) => {

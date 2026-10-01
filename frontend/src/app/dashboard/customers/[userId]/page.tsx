@@ -13,6 +13,8 @@ import {
   USDT_RISK_LIMIT_CODES,
   type KycCase,
   type ManagedUser,
+  type TradeReceiptEmailMode,
+  type TradeReceiptUiMode,
   type UsdtQuoteResponseMode,
   type UsdtRiskLimitCode,
 } from '@/lib/api';
@@ -28,6 +30,7 @@ import {
   type InactiveNoticePresetId,
 } from '@/lib/inactive-notice-presets';
 import type { MessageKey } from '@/i18n/messages';
+import { CustomerWalletQrCard } from '@/components/ScheduleDelayPanel';
 
 function statusKey(status: string): MessageKey {
   if (status === 'PENDING') return 'kyc.status.PENDING';
@@ -81,6 +84,12 @@ export default function CustomerKycDetailPage() {
   );
   const [usdtQuoteResponseMode, setUsdtQuoteResponseMode] =
     useState<UsdtQuoteResponseMode>('FOLLOW_HQ');
+  const [tradeReceiptEmailMode, setTradeReceiptEmailMode] =
+    useState<TradeReceiptEmailMode>('FOLLOW_HQ');
+  const [tradeReceiptAdminUiMode, setTradeReceiptAdminUiMode] =
+    useState<TradeReceiptUiMode>('FOLLOW_HQ');
+  const [tradeReceiptMerchantUiMode, setTradeReceiptMerchantUiMode] =
+    useState<TradeReceiptUiMode>('FOLLOW_HQ');
   const [usdtQuoteAutoDelayMinutes, setUsdtQuoteAutoDelayMinutes] = useState<number>(0);
   const [usdtQuoteManualSlaHours, setUsdtQuoteManualSlaHours] = useState<number>(3);
   const [usdtRiskLimitCode, setUsdtRiskLimitCode] = useState<UsdtRiskLimitCode>('MR');
@@ -124,6 +133,27 @@ export default function CustomerKycDetailPage() {
     const qMode = profile.customerProfile.usdtQuoteResponseMode;
     setUsdtQuoteResponseMode(
       qMode === 'AUTO' || qMode === 'MANUAL' || qMode === 'OFF' ? qMode : 'FOLLOW_HQ',
+    );
+    const receiptMode = profile.customerProfile.tradeReceiptEmailMode;
+    setTradeReceiptEmailMode(
+      receiptMode === 'ENABLED' ||
+        receiptMode === 'DISABLED' ||
+        receiptMode === 'HQ_ONLY' ||
+        receiptMode === 'FOLLOW_HQ'
+        ? receiptMode
+        : 'FOLLOW_HQ',
+    );
+    const adminUi = profile.customerProfile.tradeReceiptAdminUiMode;
+    setTradeReceiptAdminUiMode(
+      adminUi === 'ENABLED' || adminUi === 'DISABLED' || adminUi === 'FOLLOW_HQ'
+        ? adminUi
+        : 'FOLLOW_HQ',
+    );
+    const merchantUi = profile.customerProfile.tradeReceiptMerchantUiMode;
+    setTradeReceiptMerchantUiMode(
+      merchantUi === 'ENABLED' || merchantUi === 'DISABLED' || merchantUi === 'FOLLOW_HQ'
+        ? merchantUi
+        : 'FOLLOW_HQ',
     );
     setUsdtQuoteAutoDelayMinutes(
       typeof profile.customerProfile.usdtQuoteAutoDelayMinutes === 'number'
@@ -174,6 +204,14 @@ export default function CustomerKycDetailPage() {
           (profile.customerProfile.usdtQuoteAutoDelayMinutes ?? 0)) ||
       (usdtQuoteResponseMode === 'MANUAL' &&
         usdtQuoteManualSlaHours !== (profile.customerProfile.usdtQuoteManualSlaHours ?? 3)));
+
+  const receiptDirty =
+    !!profile?.customerProfile &&
+    (tradeReceiptEmailMode !== (profile.customerProfile.tradeReceiptEmailMode ?? 'FOLLOW_HQ') ||
+      tradeReceiptAdminUiMode !==
+        (profile.customerProfile.tradeReceiptAdminUiMode ?? 'FOLLOW_HQ') ||
+      tradeReceiptMerchantUiMode !==
+        (profile.customerProfile.tradeReceiptMerchantUiMode ?? 'FOLLOW_HQ'));
 
   const riskLimitDirty =
     !!profile?.customerProfile &&
@@ -272,6 +310,25 @@ export default function CustomerKycDetailPage() {
       const next = await api.users.update(profile.id, { usdtCollectionMode });
       setProfile(next);
       setMsg(t('customers.collectionMode.saved'));
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : t('users.saveFailed'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function saveReceiptEmailSettings() {
+    if (!profile) return;
+    setLoading(true);
+    setMsg('');
+    try {
+      const next = await api.users.update(profile.id, {
+        tradeReceiptEmailMode,
+        tradeReceiptAdminUiMode,
+        tradeReceiptMerchantUiMode,
+      });
+      setProfile(next);
+      setMsg(t('customers.receiptEmail.saved'));
     } catch (err) {
       setMsg(err instanceof Error ? err.message : t('users.saveFailed'));
     } finally {
@@ -598,6 +655,84 @@ export default function CustomerKycDetailPage() {
       )}
       {profile?.customerProfile && (
         <div className="pg-card">
+          <div className="pg-card-head text-xs">{t('customers.receiptEmail.title')}</div>
+          <div className="pg-card-body space-y-2 text-xs">
+            <p className="text-[11px] leading-relaxed text-slate-500">
+              {t('customers.receiptEmail.hint')}
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="font-medium text-slate-800">{t('customers.receiptEmail.mode')}</span>
+              <select
+                className="pg-select h-8 min-w-[10rem] shrink-0 px-2 py-1 text-xs"
+                disabled={loading || !canEditCustomer}
+                value={tradeReceiptEmailMode}
+                onChange={(e) =>
+                  setTradeReceiptEmailMode(e.target.value as TradeReceiptEmailMode)
+                }
+                aria-label={t('customers.receiptEmail.mode')}
+              >
+                <option value="FOLLOW_HQ">{t('receiptEmail.FOLLOW_HQ')}</option>
+                <option value="ENABLED">{t('receiptEmail.ENABLED')}</option>
+                <option value="DISABLED">{t('receiptEmail.DISABLED')}</option>
+                <option value="HQ_ONLY">{t('receiptEmail.HQ_ONLY')}</option>
+              </select>
+            </div>
+            {(tradeReceiptEmailMode === 'ENABLED' || tradeReceiptEmailMode === 'HQ_ONLY') && (
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="font-medium text-slate-800">
+                    {t('customers.receiptEmail.adminUi')}
+                  </span>
+                  <select
+                    className="pg-select h-8 min-w-[8rem] shrink-0 px-2 py-1 text-xs"
+                    disabled={loading || !canEditCustomer}
+                    value={tradeReceiptAdminUiMode}
+                    onChange={(e) =>
+                      setTradeReceiptAdminUiMode(e.target.value as TradeReceiptUiMode)
+                    }
+                  >
+                    <option value="FOLLOW_HQ">{t('receiptUi.FOLLOW_HQ')}</option>
+                    <option value="ENABLED">{t('receiptUi.ENABLED')}</option>
+                    <option value="DISABLED">{t('receiptUi.DISABLED')}</option>
+                  </select>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="font-medium text-slate-800">
+                    {t('customers.receiptEmail.merchantUi')}
+                  </span>
+                  <select
+                    className="pg-select h-8 min-w-[8rem] shrink-0 px-2 py-1 text-xs"
+                    disabled={loading || !canEditCustomer}
+                    value={tradeReceiptMerchantUiMode}
+                    onChange={(e) =>
+                      setTradeReceiptMerchantUiMode(e.target.value as TradeReceiptUiMode)
+                    }
+                  >
+                    <option value="FOLLOW_HQ">{t('receiptUi.FOLLOW_HQ')}</option>
+                    <option value="ENABLED">{t('receiptUi.ENABLED')}</option>
+                    <option value="DISABLED">{t('receiptUi.DISABLED')}</option>
+                  </select>
+                </div>
+              </div>
+            )}
+            {msg === t('customers.receiptEmail.saved') && (
+              <p className="text-green-700">{msg}</p>
+            )}
+            {canEditCustomer && (
+              <button
+                type="button"
+                disabled={loading || !receiptDirty}
+                onClick={() => void saveReceiptEmailSettings()}
+                className="pg-btn pg-btn-primary text-xs disabled:opacity-50"
+              >
+                {loading ? t('common.saving') : t('common.save')}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+      {profile?.customerProfile && (
+        <div className="pg-card">
           <div className="pg-card-head text-xs">{t('customers.quoteResponse.title')}</div>
           <div className="pg-card-body space-y-2 text-xs">
             <p className="text-[11px] leading-relaxed text-slate-500">
@@ -867,16 +1002,22 @@ export default function CustomerKycDetailPage() {
               <p className="pg-hint">{t('wallets.empty')}</p>
             ) : (
               (profile.wallets ?? []).map((w) => (
-                <div key={w.id} className="flex flex-wrap items-start justify-between gap-2 border-b border-slate-100 pb-2 last:border-0">
-                  <div>
-                    <p className="font-mono text-xs">{w.address}</p>
-                    <p className="pg-muted text-xs">
-                      {w.network}
-                      {w.isDefault ? ` · ${t('wallets.default')}` : ''}
-                      {w.hqRegistered ? ` · ${t('wallets.hqRegistered')}` : ''}
-                      {w.approvalStatus ? ` · ${t(`wallets.${w.approvalStatus === 'PENDING' ? 'pending' : w.approvalStatus === 'REJECTED' ? 'rejected' : 'approved'}`)}` : ''}
-                    </p>
-                  </div>
+                <div key={w.id} className="space-y-2 border-b border-slate-100 pb-3 last:border-0">
+                  <CustomerWalletQrCard
+                    address={w.address}
+                    network={w.network}
+                    meta={[
+                      w.isDefault ? t('wallets.default') : '',
+                      w.hqRegistered ? t('wallets.hqRegistered') : '',
+                      w.approvalStatus
+                        ? t(
+                            `wallets.${w.approvalStatus === 'PENDING' ? 'pending' : w.approvalStatus === 'REJECTED' ? 'rejected' : 'approved'}`,
+                          )
+                        : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  />
                   {isHq && w.approvalStatus === 'PENDING' && !w.hqRegistered ? (
                     <div className="flex gap-1">
                       <button

@@ -10,10 +10,54 @@ import {
   MAX_ACTIVE_MERCHANT_OPERATORS,
   merchantScopeUserId,
 } from '../lib/merchant-role';
+import {
+  HQ_PAGE_CATALOG,
+  HQ_PERMISSION_LEVELS,
+  type HqPermissionLevel,
+} from '../constants/hq-policy';
+import { hqPolicyService } from './hq-policy.service';
 import { recordMerchantOperation } from './merchant-operation-log.service';
+
+/** 가맹점 대표가 운영자에게 부여할 수 있는 페이지 (지갑·사용자관리는 하드락) */
+export const MERCHANT_OPERATOR_PAGE_PATHS = [
+  '/dashboard',
+  '/dashboard/simulator',
+  '/dashboard/usdt',
+  '/dashboard/escrow',
+  '/dashboard/kyc',
+  '/dashboard/invoices/live',
+  '/dashboard/invoices/simulator',
+  '/dashboard/operation-history',
+] as const;
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
+}
+
+async function assertOwnedOperator(actor: AuthUser, operatorId: string) {
+  if (!isMerchantAdmin(actor)) {
+    throw new AppError(403, 'Merchant admin only', 'FORBIDDEN');
+  }
+  if (!actor.operatorsEnabled) {
+    throw new AppError(403, 'Multi-user is not enabled for this merchant', 'FORBIDDEN');
+  }
+  const op = await prisma.user.findFirst({
+    where: {
+      id: operatorId,
+      merchantAdminUserId: actor.id,
+      role: UserRole.CUSTOMER_OPERATOR,
+      deletedAt: null,
+    },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      pageAccessOverrides: true,
+    },
+  });
+  if (!op) throw new AppError(404, 'Operator not found', 'NOT_FOUND');
+  return op;
 }
 
 export async function listMerchantOperators(actor: AuthUser) {
@@ -39,14 +83,84 @@ export async function listMerchantOperators(actor: AuthUser) {
       totpEnabled: true,
       lastLoginAt: true,
       createdAt: true,
+      pageAccessOverrides: true,
     },
   });
   const activeCount = rows.filter((r) => r.isActive).length;
   return {
-    operators: rows,
+    operators: rows.map(({ pageAccessOverrides, ...r }) => ({
+      ...r,
+      hasOverrides: pageAccessOverrides != null,
+    })),
     activeCount,
     maxActive: MAX_ACTIVE_MERCHANT_OPERATORS,
   };
+}
+
+export async function getOperatorPageAccess(actor: AuthUser, operatorId: string) {
+  const op = await assertOwnedOperator(actor, operatorId);
+  const pages = HQ_PAGE_CATALOG.filter((p) =>
+    (MERCHANT_OPERATOR_PAGE_PATHS as readonly string[]).includes(p.path),
+  );
+  const base = await hqPolicyService.getPageAccessForUser({
+    role: 'CUSTOMER_OPERATOR',
+    organizationType: 'CUSTOMER',
+    simulatorEnabled: true,
+    operatorsEnabled: true,
+    pageAccessOverrides: null,
+  });
+  const overrides = (op.pageAccessOverrides ?? null) as Record<string, HqPermissionLevel> | null;
+  const effective = await hqPolicyService.getPageAccessForUser({
+    role: 'CUSTOMER_OPERATOR',
+    organizationType: 'CUSTOMER',
+    simulatorEnabled: true,
+    operatorsEnabled: true,
+    pageAccessOverrides: overrides,
+  });
+  return {
+    user: { id: op.id, email: op.email, name: op.name, role: op.role },
+    pages,
+    permissionLevels: HQ_PERMISSION_LEVELS,
+    base: Object.fromEntries(pages.map((p) => [p.path, base[p.path] ?? 'NONE'])),
+    overrides,
+    effective: Object.fromEntries(pages.map((p) => [p.path, effective[p.path] ?? 'NONE'])),
+  };
+}
+
+export async function saveOperatorPageAccess(
+  actor: AuthUser,
+  operatorId: string,
+  overrides: Record<string, string> | null,
+  meta?: { ipAddress?: string; userAgent?: string },
+) {
+  const op = await assertOwnedOperator(actor, operatorId);
+  let value: Record<string, HqPermissionLevel> | null = null;
+  if (overrides && typeof overrides === 'object') {
+    value = {};
+    for (const [path, raw] of Object.entries(overrides)) {
+      if (!(MERCHANT_OPERATOR_PAGE_PATHS as readonly string[]).includes(path)) continue;
+      if (!HQ_PERMISSION_LEVELS.includes(raw as HqPermissionLevel)) continue;
+      value[path] = raw as HqPermissionLevel;
+    }
+    if (Object.keys(value).length === 0) value = null;
+  }
+  await prisma.user.update({
+    where: { id: op.id },
+    data: { pageAccessOverrides: value === null ? Prisma.DbNull : value },
+  });
+  await recordMerchantOperation({
+    actorId: actor.id,
+    merchantAdminUserId: actor.id,
+    action: 'OPERATOR_PAGE_ACCESS',
+    entityType: 'User',
+    entityId: op.id,
+    summary: `Update page access for ${op.email}`,
+    after: (value ?? {}) as unknown as Prisma.InputJsonValue,
+    otpVerified: true,
+    ipAddress: meta?.ipAddress,
+    userAgent: meta?.userAgent,
+  });
+  return getOperatorPageAccess(actor, operatorId);
 }
 
 export async function createMerchantOperator(

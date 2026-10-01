@@ -249,6 +249,8 @@ export default function UsdtSimulatorPage() {
         const code = ie instanceof ApiError ? ie.code : undefined;
         if (code === 'INVOICE_NOT_CONFIGURED') {
           setInvoiceErr(t('simulator.invoiceNotConfigured'));
+        } else if (code === 'INVOICE_SIMULATOR_DISABLED') {
+          setInvoiceErr(t('simulator.invoiceDisabled'));
         } else {
           setInvoiceErr(ie instanceof Error ? ie.message : t('simulator.invoiceFailed'));
         }

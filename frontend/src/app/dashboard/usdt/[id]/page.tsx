@@ -21,6 +21,14 @@ import { useReferenceTimeState } from '@/components/ReferenceClocks';
 import { formatFeeComponentLabel } from '@/lib/fee-component';
 import type { TransactionFees } from '@/lib/api';
 import { CopyButton, CopyableMono } from '@/components/CopyButton';
+import { UsdtWalletSettlementPanel } from '@/components/UsdtWalletSettlementPanel';
+import { ScheduleDelayPanel } from '@/components/ScheduleDelayPanel';
+import { buildTicketStatusTimeline } from '@/lib/ticket-status-timeline';
+import {
+  buildTradeReceiptDocumentHtml,
+  downloadTradeReceiptPdf,
+  openTradeReceiptWindow,
+} from '@/lib/trade-receipt-document';
 import type { MessageKey } from '@/i18n/messages';
 
 const LOCAL_PREMIUM_CURRENCIES = ['KRW', 'THB', 'JPY'] as const;
@@ -93,6 +101,7 @@ export default function UsdtDetailPage() {
   const t = useT();
   const { locale } = useLocale();
   const [ticket, setTicket] = useState<UsdtTicket | null>(null);
+  const [receiptPdfBusy, setReceiptPdfBusy] = useState(false);
   const [depositCtx, setDepositCtx] = useState<UsdtDepositContext | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [depositAmount, setDepositAmount] = useState('');
@@ -385,6 +394,11 @@ export default function UsdtDetailPage() {
       : expectedRange;
   const usdtCtx = buildUsdtStatusContext(ticket);
   const isTestSeed = ticket.adminNote?.includes('[TEST R2]') ?? false;
+  const statusTimeline = buildTicketStatusTimeline({
+    statusHistory: ticket.statusHistory,
+    scheduleDelays: ticket.scheduleDelays,
+    showHqDelayMeta: showAdmin,
+  });
   const expectedProofKeys = isCurfexAccount
     ? (['SOURCE_OF_FUNDS_DOC', 'FUNDING_FORECAST_REPORT'] as const)
     : (['SOURCE_OF_FUNDS_DOC', 'FUNDING_FORECAST_REPORT', 'FIAT_DEPOSIT_RECEIPT'] as const);
@@ -868,67 +882,136 @@ export default function UsdtDetailPage() {
       )}
 
       {(ticket.usdtTxId || ticket.actualUsdtAmount != null || ticket.wallet) && (
-        <DetailSection title={t('usdt.detail.section.settlement')}>
-          {ticket.actualUsdtAmount != null && (
-            <DetailRow
-              label={t('usdt.detail.actualUsdt')}
-              value={`${ticket.actualUsdtAmount} USDT`}
-              highlight
-            />
-          )}
-          {ticket.usdtTxId && (
-            <DetailRow label={t('usdt.detail.txid')} value={ticket.usdtTxId} mono />
-          )}
-          {ticket.wallet && (
-            <DetailRow
-              label={t('usdt.wallet')}
-              value={`${ticket.wallet.address} (${ticket.wallet.network})`}
-              mono
-            />
-          )}
-        </DetailSection>
+        <div className="pg-section">
+          <div className="pg-section-head">{t('usdt.detail.section.settlement')}</div>
+          <div className="pg-section-pad space-y-3">
+            {(ticket.actualUsdtAmount != null || ticket.usdtTxId) && (
+              <dl className="pg-detail-kv">
+                {ticket.actualUsdtAmount != null && (
+                  <DetailRow
+                    label={t('usdt.detail.actualUsdt')}
+                    value={`${ticket.actualUsdtAmount} USDT`}
+                    highlight
+                  />
+                )}
+                {ticket.usdtTxId && (
+                  <DetailRow label={t('usdt.detail.txid')} value={ticket.usdtTxId} mono />
+                )}
+              </dl>
+            )}
+            {ticket.wallet && (
+              <UsdtWalletSettlementPanel
+                address={ticket.wallet.address}
+                network={ticket.wallet.network}
+              />
+            )}
+            <p className="pg-hint text-[10px]">{t('usdt.walletQrHint')}</p>
+          </div>
+        </div>
       )}
 
       <DetailSection title={t('usdt.detail.section.schedule')}>
-        {showAdmin && ticket.customer && (
-          <DetailRow
-            label={t('usdt.col.customer')}
-            value={`${ticket.customer.user.name} / ${ticket.customer.user.email}`}
-          />
-        )}
-        <DetailRow
-          label={t('usdt.col.date')}
-          value={
-            <DualTimezoneDate
-              value={ticket.createdAt}
-              baseTimezone={baseTimezone}
-              serviceTimezone={serviceTimezone}
-              country={country}
-            />
+        <ScheduleDelayPanel
+          canEdit={showAdmin}
+          showHqMeta={showAdmin}
+          finished={ticket.status === 'COMPLETED' || ticket.status === 'CANCELLED'}
+          expectedCompleteBaseAt={ticket.expectedCompleteBaseAt ?? ticket.expectedCompleteAt}
+          expectedDelayedAt={
+            (ticket.scheduleDelayHoursTotal ?? 0) > 0 ? ticket.expectedCompleteAt : null
+          }
+          completedAt={ticket.completedAt}
+          delays={ticket.scheduleDelays ?? []}
+          delayHoursTotal={ticket.scheduleDelayHoursTotal ?? 0}
+          baseTimezone={baseTimezone}
+          serviceTimezone={serviceTimezone}
+          country={country}
+          onSubmit={async (input) => {
+            const next = await api.usdt.addScheduleDelay(ticket.id, input);
+            setTicket(next);
+          }}
+          leadingRows={
+            <>
+              {showAdmin && ticket.customer && (
+                <DetailRow
+                  label={t('usdt.col.customer')}
+                  value={`${ticket.customer.user.name} / ${ticket.customer.user.email}`}
+                />
+              )}
+              <DetailRow
+                label={t('usdt.col.date')}
+                value={
+                  <DualTimezoneDate
+                    value={ticket.createdAt}
+                    baseTimezone={baseTimezone}
+                    serviceTimezone={serviceTimezone}
+                    country={country}
+                  />
+                }
+              />
+            </>
+          }
+          trailingRows={
+            ticket.cancelReason ? (
+              <DetailRow label={t('usdt.cancelReason')} value={ticket.cancelReason} />
+            ) : null
           }
         />
-        {ticket.expectedCompleteAt && (
-          <DetailRow
-            label={t('usdt.col.expectedComplete')}
-            value={
-              <DualTimezoneDate
-                value={ticket.expectedCompleteAt}
-                baseTimezone={baseTimezone}
-                serviceTimezone={serviceTimezone}
-                country={country}
-              />
-            }
-          />
-        )}
-        {ticket.cancelReason && (
-          <DetailRow label={t('usdt.cancelReason')} value={ticket.cancelReason} />
-        )}
       </DetailSection>
 
-      {ticket.status === 'COMPLETED' && (
+      {ticket.status === 'COMPLETED' &&
+        (showAdmin
+          ? ticket.tradeReceipt?.archive && ticket.tradeReceipt?.adminUi
+          : ticket.tradeReceipt?.email || ticket.tradeReceipt?.merchantUi) && (
         <div className="pg-card border-green-200 bg-green-50">
-          <div className="pg-card-body text-sm text-green-800">
-            {t('usdt.detail.receiptSent')}
+          <div className="pg-card-body space-y-2 text-sm text-green-800">
+            {((showAdmin && ticket.tradeReceipt?.adminUi) ||
+              (!showAdmin && ticket.tradeReceipt?.merchantUi)) && (
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  className="pg-btn pg-btn-secondary"
+                  onClick={() => {
+                    const html = buildTradeReceiptDocumentHtml({
+                      userName: ticket.customer?.user?.name || user?.name || '',
+                      ticketNo: ticket.ticketNo,
+                      fiatAmount: ticket.fiatAmount,
+                      fiatCurrency: ticket.fiatCurrency,
+                      expectedUsdt: ticket.expectedUsdtAmount,
+                      actualUsdt: ticket.actualUsdtAmount,
+                      usdtTxId: ticket.usdtTxId,
+                    });
+                    if (!openTradeReceiptWindow(html)) {
+                      window.alert(t('usdt.detail.receiptPopupBlocked'));
+                    }
+                  }}
+                >
+                  {t('usdt.detail.receiptView')}
+                </button>
+                <button
+                  type="button"
+                  className="pg-btn pg-btn-primary"
+                  disabled={receiptPdfBusy}
+                  onClick={() => {
+                    const html = buildTradeReceiptDocumentHtml({
+                      userName: ticket.customer?.user?.name || user?.name || '',
+                      ticketNo: ticket.ticketNo,
+                      fiatAmount: ticket.fiatAmount,
+                      fiatCurrency: ticket.fiatCurrency,
+                      expectedUsdt: ticket.expectedUsdtAmount,
+                      actualUsdt: ticket.actualUsdtAmount,
+                      usdtTxId: ticket.usdtTxId,
+                    });
+                    setReceiptPdfBusy(true);
+                    void downloadTradeReceiptPdf(html, `${ticket.ticketNo}-receipt.pdf`)
+                      .catch(() => window.alert(t('usdt.detail.receiptPdfFailed')))
+                      .finally(() => setReceiptPdfBusy(false));
+                  }}
+                >
+                  {t('usdt.detail.receiptPdf')}
+                </button>
+              </div>
+            )}
+            {!showAdmin && ticket.tradeReceipt?.email && <p>{t('usdt.detail.receiptSent')}</p>}
           </div>
         </div>
       )}
@@ -1140,11 +1223,14 @@ export default function UsdtDetailPage() {
         <div className="pg-section-head">{t('usdt.detail.history')}</div>
         <div className="pg-section-pad">
           <ol className="space-y-3">
-          {ticket.statusHistory.map((h) => (
+          {statusTimeline.map((h) => (
             <li key={h.id} className="border-l-2 pl-4 text-xs" style={{ borderColor: 'var(--shell-card-border)' }}>
               <StatusBadge status={h.toStatus} kind="usdt" usdtContext={usdtCtx} />
               {h.note && <p className="mt-0.5">{h.note}</p>}
-              <p className="mt-1 pg-hint">{h.changedBy.name} · {formatDate(h.createdAt)}</p>
+              <p className="mt-1 pg-hint">
+                {h.changedBy.name ? `${h.changedBy.name} · ` : ''}
+                {formatDate(h.createdAt)}
+              </p>
             </li>
           ))}
           </ol>

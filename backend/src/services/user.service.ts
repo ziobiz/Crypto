@@ -81,6 +81,9 @@ const userSelect = {
       usdtLimitMaxUsdt: true,
       usdtCollectionMode: true,
       usdtQuoteResponseMode: true,
+      tradeReceiptEmailMode: true,
+      tradeReceiptAdminUiMode: true,
+      tradeReceiptMerchantUiMode: true,
       usdtQuoteAutoDelayMinutes: true,
       usdtQuoteManualSlaHours: true,
       operatorsEnabled: true,
@@ -430,6 +433,9 @@ export const userService = {
       totalFeeVisibility?: 'FOLLOW_HQ' | 'SHOW' | 'HIDE';
       usdtCollectionMode?: 'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL';
       usdtQuoteResponseMode?: 'FOLLOW_HQ' | 'AUTO' | 'MANUAL' | 'OFF';
+      tradeReceiptEmailMode?: 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED' | 'HQ_ONLY';
+      tradeReceiptAdminUiMode?: 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED';
+      tradeReceiptMerchantUiMode?: 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED';
       usdtQuoteAutoDelayMinutes?: number | null;
       usdtQuoteManualSlaHours?: number | null;
       operatorsEnabled?: boolean;
@@ -515,6 +521,9 @@ export const userService = {
               usdtLimitMaxUsdt: riskLimit.usdtLimitMaxUsdt,
               usdtCollectionMode: data.usdtCollectionMode ?? 'FOLLOW_HQ',
               usdtQuoteResponseMode: data.usdtQuoteResponseMode ?? 'FOLLOW_HQ',
+              tradeReceiptEmailMode: data.tradeReceiptEmailMode ?? 'FOLLOW_HQ',
+              tradeReceiptAdminUiMode: data.tradeReceiptAdminUiMode ?? 'FOLLOW_HQ',
+              tradeReceiptMerchantUiMode: data.tradeReceiptMerchantUiMode ?? 'FOLLOW_HQ',
               usdtQuoteAutoDelayMinutes:
                 data.usdtQuoteResponseMode === 'AUTO'
                   ? data.usdtQuoteAutoDelayMinutes ?? 0
@@ -639,6 +648,9 @@ export const userService = {
       totalFeeVisibility?: 'FOLLOW_HQ' | 'SHOW' | 'HIDE';
       usdtCollectionMode?: 'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL';
       usdtQuoteResponseMode?: 'FOLLOW_HQ' | 'AUTO' | 'MANUAL' | 'OFF';
+      tradeReceiptEmailMode?: 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED' | 'HQ_ONLY';
+      tradeReceiptAdminUiMode?: 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED';
+      tradeReceiptMerchantUiMode?: 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED';
       usdtQuoteAutoDelayMinutes?: number | null;
       usdtQuoteManualSlaHours?: number | null;
       operatorsEnabled?: boolean;
@@ -714,6 +726,9 @@ export const userService = {
       totalFeeVisibility?: 'FOLLOW_HQ' | 'SHOW' | 'HIDE';
       usdtCollectionMode?: 'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL';
       usdtQuoteResponseMode?: 'FOLLOW_HQ' | 'AUTO' | 'MANUAL' | 'OFF';
+      tradeReceiptEmailMode?: 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED' | 'HQ_ONLY';
+      tradeReceiptAdminUiMode?: 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED';
+      tradeReceiptMerchantUiMode?: 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED';
       usdtQuoteAutoDelayMinutes?: number | null;
       usdtQuoteManualSlaHours?: number | null;
       operatorsEnabled?: boolean;
@@ -743,6 +758,15 @@ export const userService = {
     }
     if (data.usdtQuoteResponseMode !== undefined && existing.customerProfile) {
       customerProfileUpdate.usdtQuoteResponseMode = data.usdtQuoteResponseMode;
+    }
+    if (data.tradeReceiptEmailMode !== undefined && existing.customerProfile) {
+      customerProfileUpdate.tradeReceiptEmailMode = data.tradeReceiptEmailMode;
+    }
+    if (data.tradeReceiptAdminUiMode !== undefined && existing.customerProfile) {
+      customerProfileUpdate.tradeReceiptAdminUiMode = data.tradeReceiptAdminUiMode;
+    }
+    if (data.tradeReceiptMerchantUiMode !== undefined && existing.customerProfile) {
+      customerProfileUpdate.tradeReceiptMerchantUiMode = data.tradeReceiptMerchantUiMode;
     }
     if (data.usdtQuoteAutoDelayMinutes !== undefined && existing.customerProfile) {
       customerProfileUpdate.usdtQuoteAutoDelayMinutes = data.usdtQuoteAutoDelayMinutes;

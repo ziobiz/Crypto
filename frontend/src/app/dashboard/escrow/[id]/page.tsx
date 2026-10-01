@@ -11,6 +11,9 @@ import { formatCurrency, formatDate } from '@/lib/format';
 import { AttachmentLink } from '@/components/AttachmentLink';
 import { CopyButton } from '@/components/CopyButton';
 import { LocalizedFileInput } from '@/components/LocalizedFileInput';
+import { ScheduleDelayPanel } from '@/components/ScheduleDelayPanel';
+import { useReferenceTimeState } from '@/components/ReferenceClocks';
+import { buildTicketStatusTimeline } from '@/lib/ticket-status-timeline';
 
 const PENDING = ['ESCROW_CREATED', 'SELLER_ACCEPTED'];
 
@@ -37,6 +40,7 @@ export default function EscrowDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const t = useT();
+  const { country, baseTimezone, serviceTimezone } = useReferenceTimeState();
   const [ticket, setTicket] = useState<EscrowTicket | null>(null);
   const [depositCtx, setDepositCtx] = useState<EscrowDepositContext | null>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -86,6 +90,16 @@ export default function EscrowDetailPage() {
   const hasDepositProof = ticket.attachments.some(
     (a) => a.purpose === 'FIAT_DEPOSIT_RECEIPT' || a.purpose === 'USDT_TRANSFER_PROOF',
   );
+  const showHqMeta =
+    user?.role === 'SUPER_ADMIN' ||
+    user?.role === 'ORG_STAFF' ||
+    user?.role === 'ORGANIZER' ||
+    user?.role === 'SETTLEMENT_ADMIN';
+  const statusTimeline = buildTicketStatusTimeline({
+    statusHistory: ticket.statusHistory,
+    scheduleDelays: ticket.scheduleDelays,
+    showHqDelayMeta: showHqMeta,
+  });
 
   return (
     <div className="pg-stack">
@@ -131,10 +145,44 @@ export default function EscrowDetailPage() {
             {ticket.payoutScheduledAt && ticket.status === 'PAYOUT_SCHEDULED' && (
               <Item label={t('escrow.detail.payoutScheduled')} value={formatDate(ticket.payoutScheduledAt)} />
             )}
-            {ticket.status === 'ESCROW_COMPLETED' && ticket.expectedCompleteAt && (
-              <Item label={t('usdt.col.expectedComplete')} value={formatDate(ticket.expectedCompleteAt)} />
-            )}
           </dl>
+          {(user?.role === 'SUPER_ADMIN' ||
+            user?.role === 'ORG_STAFF' ||
+            user?.role === 'ORGANIZER' ||
+            user?.role === 'SETTLEMENT_ADMIN' ||
+            ticket.expectedCompleteAt ||
+            ticket.completedAt) && (
+            <div className="mt-4 border-t border-slate-100 pt-3">
+              <ScheduleDelayPanel
+                canEdit={
+                  user?.role === 'SUPER_ADMIN' ||
+                  user?.role === 'ORG_STAFF' ||
+                  user?.role === 'ORGANIZER' ||
+                  user?.role === 'SETTLEMENT_ADMIN'
+                }
+                showHqMeta={showHqMeta}
+                finished={
+                  ticket.status === 'ESCROW_COMPLETED' ||
+                  ticket.status === 'CANCELLED' ||
+                  ticket.status === 'VOIDED'
+                }
+                expectedCompleteBaseAt={ticket.expectedCompleteBaseAt ?? ticket.expectedCompleteAt}
+                expectedDelayedAt={
+                  (ticket.scheduleDelayHoursTotal ?? 0) > 0 ? ticket.expectedCompleteAt : null
+                }
+                completedAt={ticket.completedAt}
+                delays={ticket.scheduleDelays ?? []}
+                delayHoursTotal={ticket.scheduleDelayHoursTotal ?? 0}
+                baseTimezone={baseTimezone}
+                serviceTimezone={serviceTimezone}
+                country={country}
+                onSubmit={async (input) => {
+                  const next = await api.escrow.addScheduleDelay(ticket.id, input);
+                  setTicket(next);
+                }}
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -269,10 +317,14 @@ export default function EscrowDetailPage() {
         <div className="pg-section-head">{t('escrow.detail.history')}</div>
         <div className="pg-section-pad">
           <ol className="space-y-3">
-            {ticket.statusHistory.map((h) => (
+            {statusTimeline.map((h) => (
               <li key={h.id} className="border-l-2 border-blue-200 pl-4 text-sm">
                 <StatusBadge status={h.toStatus} kind="escrow" />
-                <p className="mt-1 text-gray-500">{h.changedBy.name} · {formatDate(h.createdAt)}</p>
+                {h.note && <p className="mt-0.5 text-xs text-gray-700">{h.note}</p>}
+                <p className="mt-1 text-gray-500">
+                  {h.changedBy.name ? `${h.changedBy.name} · ` : ''}
+                  {formatDate(h.createdAt)}
+                </p>
               </li>
             ))}
           </ol>

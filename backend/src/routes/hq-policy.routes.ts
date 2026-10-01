@@ -58,6 +58,32 @@ router.put(
 );
 
 router.get(
+  '/user-access',
+  asyncHandler(async (_req, res) => {
+    res.json({ users: await hqPolicyService.listStaffForPageAccess() });
+  }),
+);
+
+router.get(
+  '/user-access/:userId',
+  asyncHandler(async (req, res) => {
+    res.json(await hqPolicyService.getUserPageAccessDetail(req.params.userId));
+  }),
+);
+
+router.put(
+  '/user-access/:userId',
+  asyncHandler(async (req, res) => {
+    const body = req.body as { overrides?: Record<string, string> | null };
+    if (body.overrides === undefined) {
+      res.status(400).json({ error: 'overrides required' });
+      return;
+    }
+    res.json(await hqPolicyService.saveUserPageAccess(req.params.userId, body.overrides));
+  }),
+);
+
+router.get(
   '/org-columns',
   asyncHandler(async (_req, res) => {
     res.json(await hqPolicyService.getOrgColumnsPayload());

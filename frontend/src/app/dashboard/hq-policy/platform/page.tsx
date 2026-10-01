@@ -38,6 +38,7 @@ export default function HqPlatformPage() {
   const [testTo, setTestTo] = useState('');
   const [saving, setSaving] = useState(false);
   const [savingEmail, setSavingEmail] = useState(false);
+  const [savingReceipt, setSavingReceipt] = useState(false);
   const [sendingTest, setSendingTest] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingAuthLogo, setUploadingAuthLogo] = useState(false);
@@ -51,6 +52,7 @@ export default function HqPlatformPage() {
   const [uploadOk, setUploadOk] = useState<Partial<Record<BrandAssetKey, boolean>>>({});
   const [msg, setMsg] = useState('');
   const [emailMsg, setEmailMsg] = useState('');
+  const [receiptMsg, setReceiptMsg] = useState('');
   const [editingEmailNumeric, setEditingEmailNumeric] = useState(false);
   const [emailNumericDraft, setEmailNumericDraft] = useState({
     otpExpireMinutes: 5,
@@ -104,6 +106,22 @@ export default function HqPlatformPage() {
       setEmailMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
     } finally {
       setSavingEmail(false);
+    }
+  }
+
+  async function saveTradeReceipt() {
+    if (!email) return;
+    setSavingReceipt(true);
+    setReceiptMsg('');
+    try {
+      const next = await hqPolicyApi.savePlatformEmail(email);
+      setData(next);
+      setEmail(next.email);
+      setReceiptMsg(t('hq.platform.tradeReceiptSaved'));
+    } catch (e) {
+      setReceiptMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
+    } finally {
+      setSavingReceipt(false);
     }
   }
 
@@ -250,7 +268,7 @@ export default function HqPlatformPage() {
             className="pg-input mt-1"
             placeholder={config.siteName || 'TINPASS'}
           />
-          <span className="mt-1 block text-xs text-gray-500">{t('hq.platform.tabTitleHint')}</span>
+          <span className="mt-1 block pg-hint">{t('hq.platform.tabTitleHint')}</span>
         </label>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -288,8 +306,8 @@ export default function HqPlatformPage() {
           />
         </div>
 
-        <label className="block text-sm">
-          <span className="text-gray-600">{t('hq.platform.authMainText')}</span>
+        <label className="block">
+          <span className="pg-label">{t('hq.platform.authMainText')}</span>
           <textarea
             value={config.authMainText ?? ''}
             onChange={(e) => setConfig({ ...config, authMainText: e.target.value })}
@@ -297,14 +315,14 @@ export default function HqPlatformPage() {
             className="pg-input mt-1"
             placeholder="Crypto Workflow"
           />
-          <span className="mt-1 block text-xs text-gray-500">{t('hq.platform.authMainTextDesc')}</span>
+          <span className="mt-1 block pg-hint">{t('hq.platform.authMainTextDesc')}</span>
         </label>
 
         <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50/80 p-4">
-          <p className="text-xs font-semibold text-slate-800">{t('hq.platform.ogShareTitle')}</p>
-          <p className="text-xs text-slate-500">{t('hq.platform.ogShareDesc')}</p>
-          <label className="block text-sm">
-            <span className="text-gray-600">{t('hq.platform.ogTitle')}</span>
+          <p className="pg-label">{t('hq.platform.ogShareTitle')}</p>
+          <p className="pg-hint">{t('hq.platform.ogShareDesc')}</p>
+          <label className="block">
+            <span className="pg-label">{t('hq.platform.ogTitle')}</span>
             <input
               type="text"
               value={config.ogTitle ?? ''}
@@ -312,17 +330,17 @@ export default function HqPlatformPage() {
               className="pg-input mt-1"
               placeholder={config.siteName || 'TINPASS'}
             />
-            <span className="mt-1 block text-xs text-gray-500">{t('hq.platform.ogTitleHint')}</span>
+            <span className="mt-1 block pg-hint">{t('hq.platform.ogTitleHint')}</span>
           </label>
-          <label className="block text-sm">
-            <span className="text-gray-600">{t('hq.platform.ogDescription')}</span>
+          <label className="block">
+            <span className="pg-label">{t('hq.platform.ogDescription')}</span>
             <textarea
               value={config.ogDescription ?? ''}
               onChange={(e) => setConfig({ ...config, ogDescription: e.target.value })}
               rows={2}
               className="pg-input mt-1"
             />
-            <span className="mt-1 block text-xs text-gray-500">{t('hq.platform.ogDescriptionHint')}</span>
+            <span className="mt-1 block pg-hint">{t('hq.platform.ogDescriptionHint')}</span>
           </label>
         </div>
 
@@ -344,7 +362,7 @@ export default function HqPlatformPage() {
         />
 
         <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50/80 p-4">
-          <label className="flex items-center gap-2 text-[11px] font-medium">
+          <label className="flex items-center gap-2 text-xs font-medium">
             <input
               type="checkbox"
               checked={config.customerRegistrationEnabled === true}
@@ -352,12 +370,12 @@ export default function HqPlatformPage() {
             />
             {t('hq.platform.customerRegistration')}
           </label>
-          <p className="text-xs text-slate-600">{t('hq.platform.customerRegistrationDesc')}</p>
+          <p className="pg-hint">{t('hq.platform.customerRegistrationDesc')}</p>
         </div>
 
         <div className="space-y-3 rounded-lg border border-amber-100 bg-amber-50/60 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <label className="flex items-center gap-2 text-[11px] font-medium">
+            <label className="flex items-center gap-2 text-xs font-medium">
               <input
                 type="checkbox"
                 checked={config.loginNoticeEnabled !== false}
@@ -371,7 +389,7 @@ export default function HqPlatformPage() {
                   key={loc}
                   type="button"
                   onClick={() => setNoticeLocale(loc)}
-                  className={`rounded px-2 py-0.5 text-xs font-semibold ${
+                  className={`rounded px-2 py-0.5 text-xs font-medium ${
                     noticeLocale === loc ? 'bg-blue-600 text-white' : 'bg-white text-gray-600'
                   }`}
                 >
@@ -380,7 +398,7 @@ export default function HqPlatformPage() {
               ))}
             </div>
           </div>
-          <p className="text-xs text-amber-900/80">{t('hq.platform.loginNoticeDesc')}</p>
+          <p className="pg-hint">{t('hq.platform.loginNoticeDesc')}</p>
           <input
             value={config.loginNoticeI18n?.[noticeLocale]?.title ?? ''}
             onChange={(e) => updateNoticeField('title', e.target.value)}
@@ -432,8 +450,8 @@ export default function HqPlatformPage() {
           />
         </div>
 
-        <label className="block text-sm">
-          <span className="text-gray-600">{t('hq.platform.footerText')}</span>
+        <label className="block">
+          <span className="pg-label">{t('hq.platform.footerText')}</span>
           <textarea
             value={config.footerText ?? ''}
             onChange={(e) => setConfig({ ...config, footerText: e.target.value })}
@@ -445,9 +463,9 @@ export default function HqPlatformPage() {
 
         <div className="space-y-4 rounded-lg border border-slate-200 bg-slate-50/80 p-4">
           <div>
-            <p className="text-sm font-semibold text-slate-800">{t('hq.platform.depositAccounts')}</p>
-            <p className="mt-1 text-xs text-slate-600">{t('hq.platform.depositAccountsDesc')}</p>
-            <p className="mt-2 text-xs font-medium text-amber-800">{t('hq.platform.depositAccountsWhere')}</p>
+            <p className="pg-label">{t('hq.platform.depositAccounts')}</p>
+            <p className="mt-1 pg-hint">{t('hq.platform.depositAccountsDesc')}</p>
+            <p className="mt-2 pg-hint font-medium text-amber-800">{t('hq.platform.depositAccountsWhere')}</p>
           </div>
           {(['KRW', 'JPY', 'THB', 'CNY'] as const).map((cur) => {
             const acct = config.depositReceivingAccounts?.[cur] ?? {
@@ -536,8 +554,8 @@ export default function HqPlatformPage() {
                     </label>
                   </div>
                 </div>
-                <label className="block text-xs">
-                  <span className="text-slate-600">{t('hq.platform.depositBankName')}</span>
+                <label className="block">
+                  <span className="pg-label">{t('hq.platform.depositBankName')}</span>
                   <input
                     value={acct.bankName}
                     onChange={(e) => patchAcct({ ...acct, bankName: e.target.value })}
@@ -545,8 +563,8 @@ export default function HqPlatformPage() {
                     placeholder="MUFG Bank, Ltd."
                   />
                 </label>
-                <label className="block text-xs">
-                  <span className="text-slate-600">{t('hq.platform.depositBankAddress')}</span>
+                <label className="block">
+                  <span className="pg-label">{t('hq.platform.depositBankAddress')}</span>
                   <input
                     value={acct.bankAddress ?? ''}
                     onChange={(e) => patchAcct({ ...acct, bankAddress: e.target.value })}
@@ -555,8 +573,8 @@ export default function HqPlatformPage() {
                   />
                 </label>
                 <div className="grid gap-2 sm:grid-cols-3">
-                  <label className="block text-xs">
-                    <span className="text-slate-600">{t('hq.platform.depositBankCode')}</span>
+                  <label className="block">
+                    <span className="pg-label">{t('hq.platform.depositBankCode')}</span>
                     <input
                       value={acct.bankCode ?? ''}
                       onChange={(e) => patchAcct({ ...acct, bankCode: e.target.value })}
@@ -564,8 +582,8 @@ export default function HqPlatformPage() {
                       placeholder="0005"
                     />
                   </label>
-                  <label className="block text-xs">
-                    <span className="text-slate-600">{t('hq.platform.depositBranchCode')}</span>
+                  <label className="block">
+                    <span className="pg-label">{t('hq.platform.depositBranchCode')}</span>
                     <input
                       value={acct.branchCode ?? ''}
                       onChange={(e) => patchAcct({ ...acct, branchCode: e.target.value })}
@@ -573,8 +591,8 @@ export default function HqPlatformPage() {
                       placeholder="869"
                     />
                   </label>
-                  <label className="block text-xs">
-                    <span className="text-slate-600">{t('hq.platform.depositAccountType')}</span>
+                  <label className="block">
+                    <span className="pg-label">{t('hq.platform.depositAccountType')}</span>
                     <input
                       value={acct.accountType ?? ''}
                       onChange={(e) => patchAcct({ ...acct, accountType: e.target.value })}
@@ -583,8 +601,8 @@ export default function HqPlatformPage() {
                     />
                   </label>
                 </div>
-                <label className="block text-xs">
-                  <span className="text-slate-600">{t('hq.platform.depositAccountNumber')}</span>
+                <label className="block">
+                  <span className="pg-label">{t('hq.platform.depositAccountNumber')}</span>
                   <input
                     value={acct.accountNumber}
                     onChange={(e) => patchAcct({ ...acct, accountNumber: e.target.value })}
@@ -592,28 +610,28 @@ export default function HqPlatformPage() {
                     placeholder="4685448"
                   />
                 </label>
-                <label className="block text-xs">
-                  <span className="text-slate-600">{t('hq.platform.depositAccountHolder')}</span>
+                <label className="block">
+                  <span className="pg-label">{t('hq.platform.depositAccountHolder')}</span>
                   <input
                     value={acct.accountHolder}
                     onChange={(e) => patchAcct({ ...acct, accountHolder: e.target.value })}
                     className="pg-input mt-1 font-mono"
                     placeholder="ﾍﾟｲｵﾆｱ ｼﾞﾔﾊﾟﾝ(ｶ"
                   />
-                  <span className="mt-1 block text-[11px] text-slate-500">
+                  <span className="mt-1 block pg-hint">
                     {t('usdt.deposit.holderNameStayJp')}
                   </span>
                 </label>
                 <div className="rounded border border-red-100 bg-red-50/60 p-2 space-y-2">
-                  <p className="text-[11px] font-semibold text-red-800">{t('hq.platform.depositNotice')}</p>
-                  <p className="text-[11px] text-slate-600">{t('hq.platform.depositNoticeI18nHint')}</p>
+                  <p className="pg-label text-red-800">{t('hq.platform.depositNotice')}</p>
+                  <p className="pg-hint">{t('hq.platform.depositNoticeI18nHint')}</p>
                   <div className="flex flex-wrap gap-1">
                     {LOCALES.map((loc) => (
                       <button
                         key={loc}
                         type="button"
                         onClick={() => setDepositNoticeLocale(loc)}
-                        className={`rounded px-2 py-0.5 text-[11px] font-semibold ${
+                        className={`rounded px-2 py-0.5 text-xs font-medium ${
                           depositNoticeLocale === loc
                             ? 'bg-red-700 text-white'
                             : 'bg-white text-slate-700 border border-slate-200'
@@ -733,6 +751,18 @@ export default function HqPlatformPage() {
           />
           <span className="pg-hint mt-1 block">{t('hq.platform.simRetentionDesc')}</span>
         </label>
+        <label className="flex items-start gap-2">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={config.simulatorInvoiceEnabled !== false}
+            onChange={(e) => setConfig({ ...config, simulatorInvoiceEnabled: e.target.checked })}
+          />
+          <span>
+            <span className="pg-label">{t('hq.platform.simInvoice')}</span>
+            <span className="pg-hint mt-1 block">{t('hq.platform.simInvoiceDesc')}</span>
+          </span>
+        </label>
         <label className="flex items-center gap-2">
           <input
             type="checkbox"
@@ -754,23 +784,89 @@ export default function HqPlatformPage() {
       </section>
 
       <section className="pg-section">
+        <div className="pg-section-head">{t('hq.platform.tradeReceiptTitle')}</div>
+        <div className="pg-section-pad space-y-3">
+          <p className="pg-hint">{t('hq.platform.tradeReceiptDesc')}</p>
+          <label className="block max-w-md">
+            <span className="pg-label">{t('hq.platform.tradeReceiptMode')}</span>
+            <select
+              className="pg-input mt-1"
+              value={
+                email.tradeReceiptEmailMode ??
+                (email.tradeReceiptEmailEnabled === false ? 'DISABLED' : 'HQ_ONLY')
+              }
+              onChange={(e) => {
+                const mode = e.target.value as 'ENABLED' | 'DISABLED' | 'HQ_ONLY';
+                setEmail({
+                  ...email,
+                  tradeReceiptEmailMode: mode,
+                  tradeReceiptEmailEnabled: mode === 'ENABLED',
+                });
+              }}
+            >
+              <option value="ENABLED">{t('receiptEmail.ENABLED')}</option>
+              <option value="DISABLED">{t('receiptEmail.DISABLED')}</option>
+              <option value="HQ_ONLY">{t('receiptEmail.HQ_ONLY')}</option>
+            </select>
+          </label>
+          <p className="pg-hint">{t('hq.platform.tradeReceiptLangNote')}</p>
+          {(email.tradeReceiptEmailMode ??
+            (email.tradeReceiptEmailEnabled === false ? 'DISABLED' : 'HQ_ONLY')) !== 'DISABLED' && (
+            <div className="grid max-w-2xl gap-3 sm:grid-cols-2">
+              <label className="block">
+                <span className="pg-label">{t('hq.platform.tradeReceiptAdminUi')}</span>
+                <select
+                  className="pg-input mt-1"
+                  value={email.tradeReceiptAdminUiEnabled === false ? 'DISABLED' : 'ENABLED'}
+                  onChange={(e) =>
+                    setEmail({
+                      ...email,
+                      tradeReceiptAdminUiEnabled: e.target.value === 'ENABLED',
+                    })
+                  }
+                >
+                  <option value="ENABLED">{t('receiptUi.ENABLED')}</option>
+                  <option value="DISABLED">{t('receiptUi.DISABLED')}</option>
+                </select>
+                <span className="mt-1 block pg-hint">{t('hq.platform.tradeReceiptAdminUiHint')}</span>
+              </label>
+              <label className="block">
+                <span className="pg-label">{t('hq.platform.tradeReceiptMerchantUi')}</span>
+                <select
+                  className="pg-input mt-1"
+                  value={email.tradeReceiptMerchantUiEnabled === true ? 'ENABLED' : 'DISABLED'}
+                  onChange={(e) =>
+                    setEmail({
+                      ...email,
+                      tradeReceiptMerchantUiEnabled: e.target.value === 'ENABLED',
+                    })
+                  }
+                >
+                  <option value="ENABLED">{t('receiptUi.ENABLED')}</option>
+                  <option value="DISABLED">{t('receiptUi.DISABLED')}</option>
+                </select>
+                <span className="mt-1 block pg-hint">{t('hq.platform.tradeReceiptMerchantUiHint')}</span>
+              </label>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => void saveTradeReceipt()}
+            disabled={savingReceipt}
+            className="pg-btn pg-btn-primary disabled:opacity-50"
+          >
+            {savingReceipt ? t('hq.saving') : t('hq.platform.saveTradeReceipt')}
+          </button>
+          {receiptMsg && <p className="pg-hint">{receiptMsg}</p>}
+        </div>
+      </section>
+
+      <section className="pg-section">
         <div className="pg-section-head">{t('hq.platform.emailTitle')}</div>
         <div className="pg-section-pad space-y-3">
         <p className="pg-hint">{t('hq.platform.emailDesc')}</p>
 
-        <div className="flex flex-wrap gap-4">
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={email.tradeReceiptEmailEnabled ?? true}
-              onChange={(e) => setEmail({ ...email, tradeReceiptEmailEnabled: e.target.checked })}
-            />
-            {t('hq.platform.tradeReceiptEnabled')}
-          </label>
-        </div>
-        <p className="text-xs text-gray-500">{t('hq.platform.tradeReceiptLangNote')}</p>
-
-        <div className="flex flex-wrap gap-4 text-sm">
+        <div className="flex flex-wrap gap-4 text-xs">
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -929,16 +1025,16 @@ export default function HqPlatformPage() {
               </table>
             </div>
           </div>
-          <label className="block text-sm sm:col-span-2">
-            <span className="text-gray-600">{t('hq.platform.otpSubject')}</span>
+          <label className="block sm:col-span-2">
+            <span className="pg-label">{t('hq.platform.otpSubject')}</span>
             <input
               value={email.otpEmailSubject}
               onChange={(e) => setEmail({ ...email, otpEmailSubject: e.target.value })}
               className="pg-input mt-1"
             />
           </label>
-          <label className="block text-sm sm:col-span-2">
-            <span className="text-gray-600">{t('hq.platform.otpBody')}</span>
+          <label className="block sm:col-span-2">
+            <span className="pg-label">{t('hq.platform.otpBody')}</span>
             <textarea
               rows={4}
               value={email.otpEmailBody}
@@ -946,15 +1042,15 @@ export default function HqPlatformPage() {
               className="pg-input mt-1 font-mono"
             />
           </label>
-          <label className="block text-sm">
-            <span className="text-gray-600">{t('hq.platform.smtpHost')}</span>
+          <label className="block">
+            <span className="pg-label">{t('hq.platform.smtpHost')}</span>
             <input
               value={email.smtpHost}
               onChange={(e) => setEmail({ ...email, smtpHost: e.target.value })}
               className="pg-input mt-1"
             />
           </label>
-          <label className="flex items-center gap-2 text-sm sm:col-span-2">
+          <label className="flex items-center gap-2 text-xs sm:col-span-2">
             <input
               type="checkbox"
               checked={email.smtpSecure}
@@ -962,16 +1058,16 @@ export default function HqPlatformPage() {
             />
             {t('hq.platform.smtpSecure')}
           </label>
-          <label className="block text-sm">
-            <span className="text-gray-600">{t('hq.platform.smtpUser')}</span>
+          <label className="block">
+            <span className="pg-label">{t('hq.platform.smtpUser')}</span>
             <input
               value={email.smtpUser}
               onChange={(e) => setEmail({ ...email, smtpUser: e.target.value })}
               className="pg-input mt-1"
             />
           </label>
-          <label className="block text-sm">
-            <span className="text-gray-600">{t('hq.platform.smtpPassword')}</span>
+          <label className="block">
+            <span className="pg-label">{t('hq.platform.smtpPassword')}</span>
             <input
               type="password"
               value={email.smtpPassword}
@@ -980,8 +1076,8 @@ export default function HqPlatformPage() {
               className="pg-input mt-1"
             />
           </label>
-          <label className="block text-sm">
-            <span className="text-gray-600">{t('hq.platform.fromAddress')}</span>
+          <label className="block">
+            <span className="pg-label">{t('hq.platform.fromAddress')}</span>
             <input
               type="email"
               value={email.fromAddress}
@@ -989,8 +1085,8 @@ export default function HqPlatformPage() {
               className="pg-input mt-1"
             />
           </label>
-          <label className="block text-sm">
-            <span className="text-gray-600">{t('hq.platform.fromName')}</span>
+          <label className="block">
+            <span className="pg-label">{t('hq.platform.fromName')}</span>
             <input
               value={email.fromName}
               onChange={(e) => setEmail({ ...email, fromName: e.target.value })}
@@ -1008,8 +1104,8 @@ export default function HqPlatformPage() {
           >
             {savingEmail ? t('hq.saving') : t('hq.platform.saveEmail')}
           </button>
-          <label className="block text-sm">
-            <span className="text-gray-600">{t('hq.platform.testEmail')}</span>
+          <label className="block">
+            <span className="pg-label">{t('hq.platform.testEmail')}</span>
             <input
               type="email"
               value={testTo}
