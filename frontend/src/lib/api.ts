@@ -919,6 +919,26 @@ export type WorkflowUiLocale = 'KR' | 'US' | 'JP' | 'CH' | 'TH';
 
 export type LocalizedStatusLabels = Record<WorkflowUiLocale, string>;
 
+export type ExpectedCompleteNamedTier = 'REGULAR' | 'PLUS' | 'PRIME' | 'ELITE' | 'SIGNATURE';
+export type ExpectedCompleteTier = ExpectedCompleteNamedTier | 'CUSTOM';
+
+export const EXPECTED_COMPLETE_NAMED_TIERS: ExpectedCompleteNamedTier[] = [
+  'REGULAR',
+  'PLUS',
+  'PRIME',
+  'ELITE',
+  'SIGNATURE',
+];
+
+export const EXPECTED_COMPLETE_TIERS: ExpectedCompleteTier[] = [
+  ...EXPECTED_COMPLETE_NAMED_TIERS,
+  'CUSTOM',
+];
+
+export const EXPECTED_COMPLETE_CUSTOM_DAY_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
+
+export type HqCompletionTierDays = Record<ExpectedCompleteNamedTier, number>;
+
 export type HqSlaConfig = {
   timezone: string;
   businessDays: number[];
@@ -926,6 +946,8 @@ export type HqSlaConfig = {
   businessEnd: string;
   hoursInBusiness: number;
   hoursAfterHours: number;
+  completionTiers: HqCompletionTierDays;
+  completionTiersCard: HqCompletionTierDays;
 };
 
 export type HqWorkflowDisplayConfig = {
@@ -983,6 +1005,10 @@ export interface ManagedUser {
     usdtRiskLimitCode?: UsdtRiskLimitCode;
     usdtLimitMinUsdt?: number | null;
     usdtLimitMaxUsdt?: number | null;
+    expectedCompleteTier?: ExpectedCompleteTier;
+    expectedCompleteCustomDays?: number | null;
+    expectedCompleteCardTier?: ExpectedCompleteTier;
+    expectedCompleteCardCustomDays?: number | null;
     usdtCollectionMode?: UsdtCollectionMode;
     usdtQuoteResponseMode?: UsdtQuoteResponseMode;
     tradeReceiptEmailMode?: TradeReceiptEmailMode;
@@ -1088,6 +1114,10 @@ export interface CreateUserInput {
   usdtRiskLimitCode?: UsdtRiskLimitCode;
   usdtLimitMinUsdt?: number | null;
   usdtLimitMaxUsdt?: number | null;
+  expectedCompleteTier?: ExpectedCompleteTier;
+  expectedCompleteCustomDays?: number | null;
+  expectedCompleteCardTier?: ExpectedCompleteTier;
+  expectedCompleteCardCustomDays?: number | null;
 }
 
 export interface UpdateUserInput {
@@ -1117,6 +1147,10 @@ export interface UpdateUserInput {
   usdtRiskLimitCode?: UsdtRiskLimitCode;
   usdtLimitMinUsdt?: number | null;
   usdtLimitMaxUsdt?: number | null;
+  expectedCompleteTier?: ExpectedCompleteTier;
+  expectedCompleteCustomDays?: number | null;
+  expectedCompleteCardTier?: ExpectedCompleteTier;
+  expectedCompleteCardCustomDays?: number | null;
 }
 
 export type WalletApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';

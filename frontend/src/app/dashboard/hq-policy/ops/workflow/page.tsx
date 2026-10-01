@@ -96,7 +96,27 @@ export default function HqWorkflowDisplayPage() {
   useEffect(() => {
     hqPolicyApi
       .getWorkflowDisplay()
-      .then(setConfig)
+      .then((cfg) => {
+        if (!cfg.sla.completionTiers) {
+          cfg.sla.completionTiers = {
+            REGULAR: 4,
+            PLUS: 3,
+            PRIME: 2,
+            ELITE: 1,
+            SIGNATURE: 0,
+          };
+        }
+        if (!cfg.sla.completionTiersCard) {
+          cfg.sla.completionTiersCard = {
+            REGULAR: 2,
+            PLUS: 1,
+            PRIME: 1,
+            ELITE: 0,
+            SIGNATURE: 0,
+          };
+        }
+        setConfig(cfg);
+      })
       .catch((e) => setError(e instanceof Error ? e.message : t('common.loadFailed')));
   }, [t]);
 
@@ -222,6 +242,100 @@ export default function HqWorkflowDisplayPage() {
                   />
                   {t(`hq.ops.workflow.dow.${d}` as 'hq.ops.workflow.dow.1')}
                 </label>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="pg-card">
+        <div className="pg-card-head">{t('hq.ops.workflow.completionTiers')}</div>
+        <div className="pg-card-body space-y-6">
+          <div>
+            <p className="mb-1 text-[13px] font-semibold text-gray-800">
+              {t('hq.ops.workflow.completionTiersBank')}
+            </p>
+            <p className="mb-3 text-[13px] text-gray-600">{t('hq.ops.workflow.completionTiersDesc')}</p>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+              {(['REGULAR', 'PLUS', 'PRIME', 'ELITE', 'SIGNATURE'] as const).map((tier) => (
+                <div key={`bank-${tier}`}>
+                  <label className="pg-label">
+                    {t(`hq.ops.workflow.tier.${tier}` as 'hq.ops.workflow.tier.REGULAR')}
+                  </label>
+                  <div className="mt-1 flex items-center gap-2">
+                    <span className="text-xs text-gray-500">T+</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={30}
+                      step={1}
+                      className="pg-input w-full"
+                      value={sla.completionTiers?.[tier] ?? 0}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          sla: {
+                            ...sla,
+                            completionTiers: {
+                              ...sla.completionTiers,
+                              [tier]: Number(e.target.value),
+                            },
+                          },
+                        })
+                      }
+                    />
+                  </div>
+                  <p className="mt-1 text-[11px] text-gray-500">
+                    {tier === 'SIGNATURE'
+                      ? t('hq.ops.workflow.tierSameDayHint')
+                      : t('hq.ops.workflow.tierDaysHint')}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="mb-1 text-[13px] font-semibold text-gray-800">
+              {t('hq.ops.workflow.completionTiersCard')}
+            </p>
+            <p className="mb-3 text-[13px] text-gray-600">
+              {t('hq.ops.workflow.completionTiersCardDesc')}
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+              {(['REGULAR', 'PLUS', 'PRIME', 'ELITE', 'SIGNATURE'] as const).map((tier) => (
+                <div key={`card-${tier}`}>
+                  <label className="pg-label">
+                    {t(`hq.ops.workflow.tier.${tier}` as 'hq.ops.workflow.tier.REGULAR')}
+                  </label>
+                  <div className="mt-1 flex items-center gap-2">
+                    <span className="text-xs text-gray-500">T+</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={30}
+                      step={1}
+                      className="pg-input w-full"
+                      value={sla.completionTiersCard?.[tier] ?? 0}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          sla: {
+                            ...sla,
+                            completionTiersCard: {
+                              ...sla.completionTiersCard,
+                              [tier]: Number(e.target.value),
+                            },
+                          },
+                        })
+                      }
+                    />
+                  </div>
+                  <p className="mt-1 text-[11px] text-gray-500">
+                    {tier === 'SIGNATURE' || (sla.completionTiersCard?.[tier] ?? 0) <= 0
+                      ? t('hq.ops.workflow.tierSameDayHint')
+                      : t('hq.ops.workflow.tierDaysHint')}
+                  </p>
+                </div>
               ))}
             </div>
           </div>

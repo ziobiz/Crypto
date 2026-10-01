@@ -4,6 +4,7 @@ import {
   computeExpectedCompleteAt,
   defaultWorkflowDisplay,
   normalizeWorkflowDisplay,
+  resolveExpectedCompletionDays,
   type HqWorkflowDisplayConfig,
 } from '../constants/hq-policy';
 
@@ -16,5 +17,6 @@ export async function getWorkflowDisplay(): Promise<HqWorkflowDisplayConfig> {
 
 export async function expectedCompleteIso(createdAt: Date): Promise<string> {
   const cfg = await getWorkflowDisplay();
-  return computeExpectedCompleteAt(createdAt, cfg.sla).toISOString();
+  const days = resolveExpectedCompletionDays(cfg.sla, { expectedCompleteTier: 'REGULAR' });
+  return computeExpectedCompleteAt(createdAt, cfg.sla, days).toISOString();
 }

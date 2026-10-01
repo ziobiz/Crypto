@@ -9,8 +9,10 @@ import type { AuthUser } from '../types/auth';
 import { logAdminChange, sanitizeUserSnapshot, type AuditContext } from './admin-change-log.service';
 import { isHqChiefAdmin, isHqRootAdminEmail, isStaffManagerRole } from '../constants/hq-admin';
 import {
+  normalizeExpectedCompleteTier,
   normalizeUsdtRiskLimitBand,
   normalizeUsdtRiskLimitCode,
+  type ExpectedCompleteTier,
   type UsdtRiskLimitCode,
 } from '../constants/hq-policy';
 import { nextUserPurgeAt } from './deletion.service';
@@ -43,6 +45,47 @@ function resolveUsdtRiskLimitFields(input: {
     usdtRiskLimitCode: code,
     usdtLimitMinUsdt: null,
     usdtLimitMaxUsdt: null,
+  };
+}
+
+function resolveExpectedCompleteFields(input: {
+  expectedCompleteTier?: string | null;
+  expectedCompleteCustomDays?: number | null;
+}): {
+  expectedCompleteTier: ExpectedCompleteTier;
+  expectedCompleteCustomDays: number | null;
+} {
+  const tier = normalizeExpectedCompleteTier(input.expectedCompleteTier);
+  if (tier === 'CUSTOM') {
+    const days = Number(input.expectedCompleteCustomDays);
+    if (!Number.isFinite(days) || days < 1 || days > 10) {
+      throw new AppError(400, '직접입력은 T+1~T+10만 가능합니다', 'VALIDATION');
+    }
+    return {
+      expectedCompleteTier: 'CUSTOM',
+      expectedCompleteCustomDays: Math.floor(days),
+    };
+  }
+  return {
+    expectedCompleteTier: tier,
+    expectedCompleteCustomDays: null,
+  };
+}
+
+function resolveExpectedCompleteCardFields(input: {
+  expectedCompleteCardTier?: string | null;
+  expectedCompleteCardCustomDays?: number | null;
+}): {
+  expectedCompleteCardTier: ExpectedCompleteTier;
+  expectedCompleteCardCustomDays: number | null;
+} {
+  const resolved = resolveExpectedCompleteFields({
+    expectedCompleteTier: input.expectedCompleteCardTier,
+    expectedCompleteCustomDays: input.expectedCompleteCardCustomDays,
+  });
+  return {
+    expectedCompleteCardTier: resolved.expectedCompleteTier,
+    expectedCompleteCardCustomDays: resolved.expectedCompleteCustomDays,
   };
 }
 
@@ -79,6 +122,10 @@ const userSelect = {
       usdtRiskLimitCode: true,
       usdtLimitMinUsdt: true,
       usdtLimitMaxUsdt: true,
+      expectedCompleteTier: true,
+      expectedCompleteCustomDays: true,
+      expectedCompleteCardTier: true,
+      expectedCompleteCardCustomDays: true,
       usdtCollectionMode: true,
       usdtQuoteResponseMode: true,
       tradeReceiptEmailMode: true,
@@ -443,6 +490,10 @@ export const userService = {
       usdtRiskLimitCode?: string;
       usdtLimitMinUsdt?: number | null;
       usdtLimitMaxUsdt?: number | null;
+      expectedCompleteTier?: string;
+      expectedCompleteCustomDays?: number | null;
+      expectedCompleteCardTier?: string;
+      expectedCompleteCardCustomDays?: number | null;
     },
     audit?: AuditContext,
   ) {
@@ -494,6 +545,14 @@ export const userService = {
         usdtLimitMinUsdt: data.usdtLimitMinUsdt,
         usdtLimitMaxUsdt: data.usdtLimitMaxUsdt,
       });
+      const expectedComplete = resolveExpectedCompleteFields({
+        expectedCompleteTier: data.expectedCompleteTier ?? 'REGULAR',
+        expectedCompleteCustomDays: data.expectedCompleteCustomDays,
+      });
+      const expectedCompleteCard = resolveExpectedCompleteCardFields({
+        expectedCompleteCardTier: data.expectedCompleteCardTier ?? 'REGULAR',
+        expectedCompleteCardCustomDays: data.expectedCompleteCardCustomDays,
+      });
       created = await prisma.user.create({
         data: {
           email,
@@ -519,6 +578,10 @@ export const userService = {
               usdtRiskLimitCode: riskLimit.usdtRiskLimitCode,
               usdtLimitMinUsdt: riskLimit.usdtLimitMinUsdt,
               usdtLimitMaxUsdt: riskLimit.usdtLimitMaxUsdt,
+              expectedCompleteTier: expectedComplete.expectedCompleteTier,
+              expectedCompleteCustomDays: expectedComplete.expectedCompleteCustomDays,
+              expectedCompleteCardTier: expectedCompleteCard.expectedCompleteCardTier,
+              expectedCompleteCardCustomDays: expectedCompleteCard.expectedCompleteCardCustomDays,
               usdtCollectionMode: data.usdtCollectionMode ?? 'FOLLOW_HQ',
               usdtQuoteResponseMode: data.usdtQuoteResponseMode ?? 'FOLLOW_HQ',
               tradeReceiptEmailMode: data.tradeReceiptEmailMode ?? 'FOLLOW_HQ',
@@ -658,6 +721,10 @@ export const userService = {
       usdtRiskLimitCode?: string;
       usdtLimitMinUsdt?: number | null;
       usdtLimitMaxUsdt?: number | null;
+      expectedCompleteTier?: string;
+      expectedCompleteCustomDays?: number | null;
+      expectedCompleteCardTier?: string;
+      expectedCompleteCardCustomDays?: number | null;
     },
     audit?: AuditContext,
   ) {
@@ -736,6 +803,10 @@ export const userService = {
       usdtRiskLimitCode?: UsdtRiskLimitCode;
       usdtLimitMinUsdt?: number | null;
       usdtLimitMaxUsdt?: number | null;
+      expectedCompleteTier?: ExpectedCompleteTier;
+      expectedCompleteCustomDays?: number | null;
+      expectedCompleteCardTier?: ExpectedCompleteTier;
+      expectedCompleteCardCustomDays?: number | null;
     } = {};
     if (data.recruitingOrgId && existing.customerProfile) {
       customerProfileUpdate.recruitingOrgId = data.recruitingOrgId;
@@ -801,6 +872,38 @@ export const userService = {
       customerProfileUpdate.usdtRiskLimitCode = riskLimit.usdtRiskLimitCode;
       customerProfileUpdate.usdtLimitMinUsdt = riskLimit.usdtLimitMinUsdt;
       customerProfileUpdate.usdtLimitMaxUsdt = riskLimit.usdtLimitMaxUsdt;
+    }
+    if (
+      existing.customerProfile &&
+      (data.expectedCompleteTier !== undefined || data.expectedCompleteCustomDays !== undefined)
+    ) {
+      const expectedComplete = resolveExpectedCompleteFields({
+        expectedCompleteTier:
+          data.expectedCompleteTier ?? existing.customerProfile.expectedCompleteTier,
+        expectedCompleteCustomDays:
+          data.expectedCompleteCustomDays !== undefined
+            ? data.expectedCompleteCustomDays
+            : existing.customerProfile.expectedCompleteCustomDays,
+      });
+      customerProfileUpdate.expectedCompleteTier = expectedComplete.expectedCompleteTier;
+      customerProfileUpdate.expectedCompleteCustomDays = expectedComplete.expectedCompleteCustomDays;
+    }
+    if (
+      existing.customerProfile &&
+      (data.expectedCompleteCardTier !== undefined ||
+        data.expectedCompleteCardCustomDays !== undefined)
+    ) {
+      const expectedCompleteCard = resolveExpectedCompleteCardFields({
+        expectedCompleteCardTier:
+          data.expectedCompleteCardTier ?? existing.customerProfile.expectedCompleteCardTier,
+        expectedCompleteCardCustomDays:
+          data.expectedCompleteCardCustomDays !== undefined
+            ? data.expectedCompleteCardCustomDays
+            : existing.customerProfile.expectedCompleteCardCustomDays,
+      });
+      customerProfileUpdate.expectedCompleteCardTier = expectedCompleteCard.expectedCompleteCardTier;
+      customerProfileUpdate.expectedCompleteCardCustomDays =
+        expectedCompleteCard.expectedCompleteCardCustomDays;
     }
 
     const user = await prisma.user.update({

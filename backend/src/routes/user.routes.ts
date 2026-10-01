@@ -71,6 +71,14 @@ const createSchema = z.object({
   usdtRiskLimitCode: z.enum(['LR', 'MR', 'HR', 'XR', 'SR', 'ML']).optional(),
   usdtLimitMinUsdt: z.number().nonnegative().nullable().optional(),
   usdtLimitMaxUsdt: z.number().nonnegative().nullable().optional(),
+  expectedCompleteTier: z
+    .enum(['REGULAR', 'PLUS', 'PRIME', 'ELITE', 'SIGNATURE', 'CUSTOM'])
+    .optional(),
+  expectedCompleteCustomDays: z.number().int().min(1).max(10).nullable().optional(),
+  expectedCompleteCardTier: z
+    .enum(['REGULAR', 'PLUS', 'PRIME', 'ELITE', 'SIGNATURE', 'CUSTOM'])
+    .optional(),
+  expectedCompleteCardCustomDays: z.number().int().min(1).max(10).nullable().optional(),
 });
 
 const updateSchema = z.object({
@@ -100,6 +108,14 @@ const updateSchema = z.object({
   usdtRiskLimitCode: z.enum(['LR', 'MR', 'HR', 'XR', 'SR', 'ML']).optional(),
   usdtLimitMinUsdt: z.number().nonnegative().nullable().optional(),
   usdtLimitMaxUsdt: z.number().nonnegative().nullable().optional(),
+  expectedCompleteTier: z
+    .enum(['REGULAR', 'PLUS', 'PRIME', 'ELITE', 'SIGNATURE', 'CUSTOM'])
+    .optional(),
+  expectedCompleteCustomDays: z.number().int().min(1).max(10).nullable().optional(),
+  expectedCompleteCardTier: z
+    .enum(['REGULAR', 'PLUS', 'PRIME', 'ELITE', 'SIGNATURE', 'CUSTOM'])
+    .optional(),
+  expectedCompleteCardCustomDays: z.number().int().min(1).max(10).nullable().optional(),
 });
 
 const walletApprovalSchema = z.object({

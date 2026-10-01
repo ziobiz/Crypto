@@ -24,7 +24,7 @@ import {
   getCurfexConfig,
   resolveUsdtCollectionProvider,
 } from './curfex.service';
-import { computeExpectedCompleteAt, type HqSlaConfig } from '../constants/hq-policy';
+import { computeExpectedCompleteAt, resolveExpectedCompletionDays, type HqSlaConfig } from '../constants/hq-policy';
 import {
   completedAtFromHistory,
   computeExpectedCompleteWithDelays,
@@ -1406,6 +1406,21 @@ function serializeTicket(
 ) {
   const detail = ticket.usdtPurchase!;
   const registeredBank = ticket.customer?.user.bankAccounts?.[0] ?? null;
+  const channel =
+    detail.paymentMethod === UsdtPaymentMethod.CARD ? 'CARD' : 'BANK_TRANSFER';
+  const completionProfile = ticket.customer
+    ? {
+        expectedCompleteTier: ticket.customer.expectedCompleteTier,
+        expectedCompleteCustomDays: ticket.customer.expectedCompleteCustomDays,
+        expectedCompleteCardTier: ticket.customer.expectedCompleteCardTier,
+        expectedCompleteCardCustomDays: ticket.customer.expectedCompleteCardCustomDays,
+      }
+    : null;
+  const completionDays = resolveExpectedCompletionDays(sla, completionProfile, channel);
+  const activeTier =
+    channel === 'CARD'
+      ? (completionProfile?.expectedCompleteCardTier ?? 'REGULAR')
+      : (completionProfile?.expectedCompleteTier ?? 'REGULAR');
   return {
     id: ticket.id,
     ticketNo: ticket.ticketNo,
@@ -1418,8 +1433,13 @@ function serializeTicket(
       ticket.createdAt,
       sla,
       ticket.scheduleDelays,
+      completionProfile,
+      channel,
     ).toISOString(),
-    expectedCompleteBaseAt: computeExpectedCompleteAt(ticket.createdAt, sla).toISOString(),
+    expectedCompleteBaseAt: computeExpectedCompleteAt(ticket.createdAt, sla, completionDays).toISOString(),
+    expectedCompleteTier: activeTier,
+    expectedCompleteDays: completionDays,
+    expectedCompleteChannel: channel,
     scheduleDelayHoursTotal: totalDelayHours(ticket.scheduleDelays),
     scheduleDelays: serializeScheduleDelays(ticket.scheduleDelays),
     completedAt: completedAtFromHistory(ticket.statusHistory, ['COMPLETED']),

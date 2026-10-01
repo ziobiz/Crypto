@@ -360,6 +360,14 @@ model CustomerProfile {
   usdtLimitMinUsdt Float?
   /// ML일 때 1회 최대 USDT
   usdtLimitMaxUsdt Float?
+  /// 예상완료 등급(계좌이체): REGULAR|PLUS|PRIME|ELITE|SIGNATURE|CUSTOM
+  expectedCompleteTier String @default("REGULAR")
+  /// 계좌이체 CUSTOM일 때 T+N 일수 (1~10)
+  expectedCompleteCustomDays Int?
+  /// 예상완료 등급(카드결제): REGULAR|PLUS|PRIME|ELITE|SIGNATURE|CUSTOM
+  expectedCompleteCardTier String @default("REGULAR")
+  /// 카드결제 CUSTOM일 때 T+N 일수 (1~10)
+  expectedCompleteCardCustomDays Int?
   /// 입금 계좌 방식 — FOLLOW_HQ면 본사 기본(FIXED/VIRTUAL). VIRTUAL= TINPASS 가상계좌
   usdtCollectionMode UsdtCollectionMode @default(FOLLOW_HQ)
   /// USDT 견적 응답 — FOLLOW_HQ면 본사 수수료 정책. AUTO/MANUAL/OFF는 고객 개별

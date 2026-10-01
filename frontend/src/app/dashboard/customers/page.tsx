@@ -11,7 +11,9 @@ import {
   hqPolicyApi,
   USDT_RISK_LIMIT_CODES,
   type CreateUserInput,
+  type ExpectedCompleteTier,
   type FeeTypeTemplate,
+  type HqCompletionTierDays,
   type ManagedUser,
   type Organization,
   type UpdateUserInput,
@@ -21,6 +23,7 @@ import type { MessageKey } from '@/i18n/messages';
 import { WALLET_NETWORKS } from '@/constants/wallet-networks';
 import { ReferenceClocks } from '@/components/ReferenceClocks';
 import { SRateBadge } from '@/components/SRateBadge';
+import { ExpectedCompleteTierCard } from '@/components/ExpectedCompleteTierCard';
 import { detailRowProps } from '@/lib/table-row-detail';
 import { localizeFeeTypeLabel } from '@/lib/fee-type-label';
 import { formatDateDot } from '@/lib/format';
@@ -66,6 +69,10 @@ const emptyCreate: CreateUserInput = {
   usdtRiskLimitCode: 'MR',
   usdtLimitMinUsdt: null,
   usdtLimitMaxUsdt: null,
+  expectedCompleteTier: 'REGULAR',
+  expectedCompleteCustomDays: null,
+  expectedCompleteCardTier: 'REGULAR',
+  expectedCompleteCardCustomDays: null,
 };
 
 function riskLimitLabelKey(code: string | undefined | null): MessageKey {
@@ -161,6 +168,8 @@ export default function CustomersPage() {
   const [initialIsActive, setInitialIsActive] = useState(true);
   const [form, setForm] = useState<CreateUserInput>(emptyCreate);
   const [feeTypes, setFeeTypes] = useState<FeeTypeTemplate[]>([]);
+  const [completionTiers, setCompletionTiers] = useState<HqCompletionTierDays | null>(null);
+  const [completionTiersCard, setCompletionTiersCard] = useState<HqCompletionTierDays | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -187,6 +196,13 @@ export default function CustomersPage() {
     hqPolicyApi
       .getPlatform()
       .then((p) => setInactivePresets(mergeInactiveNoticePresets(p.config.inactiveLoginNoticePresets)))
+      .catch(console.error);
+    hqPolicyApi
+      .getWorkflowDisplay()
+      .then((cfg) => {
+        setCompletionTiers(cfg.sla.completionTiers ?? null);
+        setCompletionTiersCard(cfg.sla.completionTiersCard ?? null);
+      })
       .catch(console.error);
   }, []);
 
@@ -227,6 +243,13 @@ export default function CustomersPage() {
         usdtRiskLimitCode: (detail.customerProfile?.usdtRiskLimitCode as UsdtRiskLimitCode) ?? 'MR',
         usdtLimitMinUsdt: detail.customerProfile?.usdtLimitMinUsdt ?? null,
         usdtLimitMaxUsdt: detail.customerProfile?.usdtLimitMaxUsdt ?? null,
+        expectedCompleteTier:
+          (detail.customerProfile?.expectedCompleteTier as ExpectedCompleteTier) ?? 'REGULAR',
+        expectedCompleteCustomDays: detail.customerProfile?.expectedCompleteCustomDays ?? null,
+        expectedCompleteCardTier:
+          (detail.customerProfile?.expectedCompleteCardTier as ExpectedCompleteTier) ?? 'REGULAR',
+        expectedCompleteCardCustomDays:
+          detail.customerProfile?.expectedCompleteCardCustomDays ?? null,
       });
       setInitialIsActive(detail.isActive);
       setNewPassword('');
@@ -798,6 +821,29 @@ export default function CustomersPage() {
                   </div>
                 )}
               </div>
+              <ExpectedCompleteTierCard
+                required
+                bankTier={(form.expectedCompleteTier as ExpectedCompleteTier) ?? 'REGULAR'}
+                bankCustomDays={form.expectedCompleteCustomDays ?? null}
+                cardTier={(form.expectedCompleteCardTier as ExpectedCompleteTier) ?? 'REGULAR'}
+                cardCustomDays={form.expectedCompleteCardCustomDays ?? null}
+                bankDaysMap={completionTiers}
+                cardDaysMap={completionTiersCard}
+                onChangeBank={({ tier, customDays }) =>
+                  setForm({
+                    ...form,
+                    expectedCompleteTier: tier,
+                    expectedCompleteCustomDays: customDays,
+                  })
+                }
+                onChangeCard={({ tier, customDays }) =>
+                  setForm({
+                    ...form,
+                    expectedCompleteCardTier: tier,
+                    expectedCompleteCardCustomDays: customDays,
+                  })
+                }
+              />
               <div className="pg-inset-panel">
                 <p className="pg-inset-title">{t('users.bankSection')}</p>
                 <label className="pg-field">
@@ -1258,6 +1304,29 @@ export default function CustomersPage() {
                   </div>
                 )}
               </div>
+              <ExpectedCompleteTierCard
+                required
+                bankTier={(editForm.expectedCompleteTier as ExpectedCompleteTier) ?? 'REGULAR'}
+                bankCustomDays={editForm.expectedCompleteCustomDays ?? null}
+                cardTier={(editForm.expectedCompleteCardTier as ExpectedCompleteTier) ?? 'REGULAR'}
+                cardCustomDays={editForm.expectedCompleteCardCustomDays ?? null}
+                bankDaysMap={completionTiers}
+                cardDaysMap={completionTiersCard}
+                onChangeBank={({ tier, customDays }) =>
+                  setEditForm({
+                    ...editForm,
+                    expectedCompleteTier: tier,
+                    expectedCompleteCustomDays: customDays,
+                  })
+                }
+                onChangeCard={({ tier, customDays }) =>
+                  setEditForm({
+                    ...editForm,
+                    expectedCompleteCardTier: tier,
+                    expectedCompleteCardCustomDays: customDays,
+                  })
+                }
+              />
               <div className="pg-inset-panel">
                 <p className="pg-inset-title">{t('customers.col.collectionMode')}</p>
                 <p className="mt-1 pg-hint">{t('customers.collectionMode.hint')}</p>

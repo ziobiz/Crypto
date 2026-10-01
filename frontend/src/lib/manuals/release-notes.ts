@@ -3,6 +3,50 @@ import type { PlatformReleaseNote } from './version';
 /** 본사정책 → 검증관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
 export const PLATFORM_RELEASE_NOTES: PlatformReleaseNote[] = [
   {
+    version: '2.6.133',
+    kind: 'minor',
+    date: '2026-10-01',
+    items: {
+      KR: [
+        '예상완료 등급을 계좌이체·카드결제로 분리. 본사 T+N 표 2종, 가맹점 등록 시 각각 필수 설정. 티켓은 결제수단에 맞는 등급으로 예상완료일 계산.',
+      ],
+      US: [
+        'Split expected-completion tiers for bank transfer vs card. Two HQ T+N tables; both required on merchant registration. Tickets use the matching channel.',
+      ],
+      JP: [
+        '完了予定等級を口座振替とカード決済で分離。本社T+N表を2種、加盟店登録でそれぞれ必須。チケットは決済手段に応じて計算。',
+      ],
+      CH: [
+        '预计完成等级按银行转账与卡支付分离。总部两套 T+N 表，商户注册均必填。工单按支付方式计算。',
+      ],
+      TH: [
+        'แยกระดับกำหนดเสร็จโอนบัญชีกับชำระบัตร มีตาราง T+N สองชุดใน HQ บังคับทั้งคู่ตอนลงทะเบียน และคำนวณตามช่องทางชำระเงิน',
+      ],
+    },
+  },
+  {
+    version: '2.6.132',
+    kind: 'minor',
+    date: '2026-10-01',
+    items: {
+      KR: [
+        '가맹점 예상완료 등급(REGULAR/PLUS/PRIME/ELITE/SIGNATURE·직접입력 T+1~10) 추가. 본사 진행상태·처리시한에서 등급별 T+N 설정, 고객 등록 시 필수 「예상완료설정」 반영.',
+      ],
+      US: [
+        'Added merchant expected-completion tiers (REGULAR/PLUS/PRIME/ELITE/SIGNATURE and custom T+1–10). HQ Status & SLA sets T+N per tier; required on customer registration.',
+      ],
+      JP: [
+        '加盟店の完了予定等級（REGULAR/PLUS/PRIME/ELITE/SIGNATURE・直接入力T+1〜10）を追加。本社の進行状態・処理期限で等級別T+Nを設定し、顧客登録時に必須化。',
+      ],
+      CH: [
+        '新增商户预计完成等级（REGULAR/PLUS/PRIME/ELITE/SIGNATURE 与自定义 T+1～10）。总部进度与处理时限可设各等级 T+N，客户注册时必填。',
+      ],
+      TH: [
+        'เพิ่มระดับกำหนดเสร็จของร้าน (REGULAR/PLUS/PRIME/ELITE/SIGNATURE และกำหนดเอง T+1–10) ตั้ง T+N ต่อระดับในสถานะและ SLA ของ HQ และบังคับตอนลงทะเบียนลูกค้า',
+      ],
+    },
+  },
+  {
     version: '2.6.131',
     kind: 'minor',
     date: '2026-10-01',

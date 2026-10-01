@@ -1040,6 +1040,21 @@ export const ESCROW_WORKFLOW_STATUSES = [
 
 export type LocalizedStatusLabels = Record<WorkflowLocale, string>;
 
+/** 예상완료 등급(이름) — T+N 일수 매핑용 */
+export const EXPECTED_COMPLETE_NAMED_TIERS = [
+  'REGULAR',
+  'PLUS',
+  'PRIME',
+  'ELITE',
+  'SIGNATURE',
+] as const;
+export type ExpectedCompleteNamedTier = (typeof EXPECTED_COMPLETE_NAMED_TIERS)[number];
+export type ExpectedCompleteTier = ExpectedCompleteNamedTier | 'CUSTOM';
+
+export type HqCompletionTierDays = Record<ExpectedCompleteNamedTier, number>;
+
+export type ExpectedCompleteChannel = 'BANK_TRANSFER' | 'CARD';
+
 export type HqSlaConfig = {
   timezone: string;
   /** ISO weekday 1=Mon … 7=Sun */
@@ -1048,6 +1063,10 @@ export type HqSlaConfig = {
   businessEnd: string;
   hoursInBusiness: number;
   hoursAfterHours: number;
+  /** 계좌이체 등급별 예상완료 T+N (일). SIGNATURE=0(당일) */
+  completionTiers: HqCompletionTierDays;
+  /** 카드결제 등급별 예상완료 T+N (일) */
+  completionTiersCard: HqCompletionTierDays;
 };
 
 export type HqWorkflowDisplayConfig = {
@@ -1055,6 +1074,67 @@ export type HqWorkflowDisplayConfig = {
   escrowStatusLabels: Record<string, LocalizedStatusLabels>;
   sla: HqSlaConfig;
 };
+
+export type ExpectedCompleteProfile = {
+  expectedCompleteTier?: string | null;
+  expectedCompleteCustomDays?: number | null;
+  expectedCompleteCardTier?: string | null;
+  expectedCompleteCardCustomDays?: number | null;
+};
+
+export function defaultCompletionTiers(): HqCompletionTierDays {
+  return {
+    REGULAR: 4,
+    PLUS: 3,
+    PRIME: 2,
+    ELITE: 1,
+    SIGNATURE: 0,
+  };
+}
+
+/** 카드는 통상 이체보다 짧아 기본값을 한 단계 빠르게 둠 (본사에서 수정 가능) */
+export function defaultCompletionTiersCard(): HqCompletionTierDays {
+  return {
+    REGULAR: 2,
+    PLUS: 1,
+    PRIME: 1,
+    ELITE: 0,
+    SIGNATURE: 0,
+  };
+}
+
+export function normalizeExpectedCompleteTier(raw?: string | null): ExpectedCompleteTier {
+  const v = String(raw ?? 'REGULAR').toUpperCase();
+  if (v === 'CUSTOM') return 'CUSTOM';
+  if ((EXPECTED_COMPLETE_NAMED_TIERS as readonly string[]).includes(v)) {
+    return v as ExpectedCompleteNamedTier;
+  }
+  return 'REGULAR';
+}
+
+export function resolveExpectedCompletionDays(
+  sla: HqSlaConfig,
+  profile?: ExpectedCompleteProfile | null,
+  channel: ExpectedCompleteChannel = 'BANK_TRANSFER',
+): number {
+  const isCard = channel === 'CARD';
+  const tiers = isCard
+    ? (sla.completionTiersCard ?? defaultCompletionTiersCard())
+    : (sla.completionTiers ?? defaultCompletionTiers());
+  const tier = normalizeExpectedCompleteTier(
+    isCard ? profile?.expectedCompleteCardTier : profile?.expectedCompleteTier,
+  );
+  const customDays = isCard
+    ? profile?.expectedCompleteCardCustomDays
+    : profile?.expectedCompleteCustomDays;
+  if (tier === 'CUSTOM') {
+    const d = Number(customDays);
+    if (Number.isFinite(d) && d >= 1 && d <= 10) return Math.floor(d);
+    return Number(tiers.REGULAR) >= 0 ? Number(tiers.REGULAR) : isCard ? 2 : 4;
+  }
+  const days = Number(tiers[tier]);
+  return Number.isFinite(days) && days >= 0 ? days : Number(tiers.REGULAR) || (isCard ? 2 : 4);
+}
 
 function L(kr: string, us: string, jp: string, ch: string, th: string): LocalizedStatusLabels {
   return { KR: kr, US: us, JP: jp, CH: ch, TH: th };
@@ -1069,6 +1149,8 @@ export function defaultWorkflowDisplay(): HqWorkflowDisplayConfig {
       businessEnd: '18:00',
       hoursInBusiness: 3,
       hoursAfterHours: 12,
+      completionTiers: defaultCompletionTiers(),
+      completionTiersCard: defaultCompletionTiersCard(),
     },
     usdtStatusLabels: {
       QUOTE_PENDING: L('견적대기', 'Quote pending', '見積待ち', '待报价', 'รอใบเสนอราคา'),
@@ -1117,11 +1199,38 @@ export function normalizeWorkflowDisplay(
   sla.businessDays = (sla.businessDays?.length ? sla.businessDays : base.sla.businessDays).map(Number);
   sla.hoursInBusiness = Number(sla.hoursInBusiness) > 0 ? Number(sla.hoursInBusiness) : 3;
   sla.hoursAfterHours = Number(sla.hoursAfterHours) > 0 ? Number(sla.hoursAfterHours) : 12;
+  const incomingTiers = (raw.sla as { completionTiers?: Partial<HqCompletionTierDays> } | undefined)
+    ?.completionTiers;
+  const incomingCardTiers = (
+    raw.sla as { completionTiersCard?: Partial<HqCompletionTierDays> } | undefined
+  )?.completionTiersCard;
+  const baseTiers = defaultCompletionTiers();
+  const baseCardTiers = defaultCompletionTiersCard();
+  sla.completionTiers = {
+    REGULAR: clampTierDays(incomingTiers?.REGULAR ?? baseTiers.REGULAR, 4),
+    PLUS: clampTierDays(incomingTiers?.PLUS ?? baseTiers.PLUS, 3),
+    PRIME: clampTierDays(incomingTiers?.PRIME ?? baseTiers.PRIME, 2),
+    ELITE: clampTierDays(incomingTiers?.ELITE ?? baseTiers.ELITE, 1),
+    SIGNATURE: clampTierDays(incomingTiers?.SIGNATURE ?? baseTiers.SIGNATURE, 0),
+  };
+  sla.completionTiersCard = {
+    REGULAR: clampTierDays(incomingCardTiers?.REGULAR ?? baseCardTiers.REGULAR, 2),
+    PLUS: clampTierDays(incomingCardTiers?.PLUS ?? baseCardTiers.PLUS, 1),
+    PRIME: clampTierDays(incomingCardTiers?.PRIME ?? baseCardTiers.PRIME, 1),
+    ELITE: clampTierDays(incomingCardTiers?.ELITE ?? baseCardTiers.ELITE, 0),
+    SIGNATURE: clampTierDays(incomingCardTiers?.SIGNATURE ?? baseCardTiers.SIGNATURE, 0),
+  };
   return {
     sla,
     usdtStatusLabels: patchLegacyUsdtStatusLabels(mergeLabels(base.usdtStatusLabels, raw.usdtStatusLabels)),
     escrowStatusLabels: mergeLabels(base.escrowStatusLabels, raw.escrowStatusLabels),
   };
+}
+
+function clampTierDays(value: unknown, fallback: number): number {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) return fallback;
+  return Math.min(30, Math.floor(n));
 }
 
 /** DB에 저장된 구 라벨(심사중 등)을 입금확인중으로 정렬 */
@@ -1157,7 +1266,14 @@ export function isInBusinessHours(at: Date, sla: HqSlaConfig): boolean {
   return hm >= sla.businessStart && hm < sla.businessEnd;
 }
 
-export function computeExpectedCompleteAt(createdAt: Date, sla: HqSlaConfig): Date {
+export function computeExpectedCompleteAt(
+  createdAt: Date,
+  sla: HqSlaConfig,
+  completionDays?: number,
+): Date {
+  if (typeof completionDays === 'number' && Number.isFinite(completionDays) && completionDays >= 0) {
+    return new Date(createdAt.getTime() + completionDays * 24 * 60 * 60 * 1000);
+  }
   const hours = isInBusinessHours(createdAt, sla) ? sla.hoursInBusiness : sla.hoursAfterHours;
   return new Date(createdAt.getTime() + hours * 60 * 60 * 1000);
 }

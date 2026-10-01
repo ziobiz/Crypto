@@ -13,7 +13,7 @@ import { isMerchantSide, merchantScopeUserId } from '../lib/merchant-role';
 import { previewCommissionPool, settleCommission } from './commission.service';
 import { getWorkflowDisplay } from './workflow-display.service';
 import { assertCustomerKycApproved } from './kyc.service';
-import { computeExpectedCompleteAt, type HqSlaConfig } from '../constants/hq-policy';
+import { computeExpectedCompleteAt, resolveExpectedCompletionDays, type HqSlaConfig } from '../constants/hq-policy';
 import {
   completedAtFromHistory,
   computeExpectedCompleteWithDelays,
@@ -791,10 +791,21 @@ function serializeEscrowTicket(
   sla: HqSlaConfig,
 ) {
   const detail = ticket.tradeEscrow!;
+  const completionProfile = ticket.customer
+    ? {
+        expectedCompleteTier: ticket.customer.expectedCompleteTier,
+        expectedCompleteCustomDays: ticket.customer.expectedCompleteCustomDays,
+        expectedCompleteCardTier: ticket.customer.expectedCompleteCardTier,
+        expectedCompleteCardCustomDays: ticket.customer.expectedCompleteCardCustomDays,
+      }
+    : null;
+  const completionDays = resolveExpectedCompletionDays(sla, completionProfile, 'BANK_TRANSFER');
   const expectedCompleteAt = computeExpectedCompleteWithDelays(
     ticket.createdAt,
     sla,
     ticket.scheduleDelays,
+    completionProfile,
+    'BANK_TRANSFER',
   ).toISOString();
   const completed =
     detail.status === TradeEscrowStatus.ESCROW_COMPLETED
@@ -814,7 +825,10 @@ function serializeEscrowTicket(
     createdAt: ticket.createdAt,
     updatedAt: ticket.updatedAt,
     expectedCompleteAt,
-    expectedCompleteBaseAt: computeExpectedCompleteAt(ticket.createdAt, sla).toISOString(),
+    expectedCompleteBaseAt: computeExpectedCompleteAt(ticket.createdAt, sla, completionDays).toISOString(),
+    expectedCompleteTier: completionProfile?.expectedCompleteTier ?? 'REGULAR',
+    expectedCompleteDays: completionDays,
+    expectedCompleteChannel: 'BANK_TRANSFER' as const,
     scheduleDelayHoursTotal: totalDelayHours(ticket.scheduleDelays),
     scheduleDelays: serializeScheduleDelays(ticket.scheduleDelays),
     completedAt: completed ? completed.toISOString() : null,

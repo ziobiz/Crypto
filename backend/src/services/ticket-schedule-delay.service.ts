@@ -2,7 +2,13 @@ import { Prisma, TicketType, UserRole } from '@prisma/client';
 import { AuthUser } from '../types/auth';
 import { AppError } from '../lib/errors';
 import { prisma } from '../lib/prisma';
-import { computeExpectedCompleteAt, type HqSlaConfig } from '../constants/hq-policy';
+import {
+  computeExpectedCompleteAt,
+  resolveExpectedCompletionDays,
+  type ExpectedCompleteChannel,
+  type ExpectedCompleteProfile,
+  type HqSlaConfig,
+} from '../constants/hq-policy';
 
 /** 완료일 지연 선택 가능 시간(시간) */
 export const SCHEDULE_DELAY_HOUR_OPTIONS = [12, 24, 36, 48, 60, 72, 84, 96] as const;
@@ -26,8 +32,11 @@ export function computeExpectedCompleteWithDelays(
   createdAt: Date,
   sla: HqSlaConfig,
   delays: { delayHours: number }[] | undefined | null,
+  profile?: ExpectedCompleteProfile | null,
+  channel: ExpectedCompleteChannel = 'BANK_TRANSFER',
 ): Date {
-  const base = computeExpectedCompleteAt(createdAt, sla);
+  const days = resolveExpectedCompletionDays(sla, profile, channel);
+  const base = computeExpectedCompleteAt(createdAt, sla, days);
   const hours = totalDelayHours(delays);
   if (hours <= 0) return base;
   return new Date(base.getTime() + hours * 60 * 60 * 1000);
