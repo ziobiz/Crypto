@@ -4,7 +4,7 @@
 
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
-$Server = "root@114.207.245.160"
+$Server = "root@162.35.16.100"
 $RemoteDir = "/var/www/crypto-workflow"
 
 Set-Location $Root

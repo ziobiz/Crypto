@@ -37,6 +37,9 @@ uploads/
 # Deploy archives
 *.zip
 
+# Server migration staging (contains secrets)
+deploy/release/migrate-staging/
+
 # Docker volumes (if mounted locally)
 postgres_data/
 minio_data/
