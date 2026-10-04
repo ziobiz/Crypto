@@ -53,7 +53,12 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
 
   if (!user) return null;
 
-  const rawItems = NAV_ITEMS[user.role] ?? [];
+  /** 역할 키 누락·오타 시에도 메뉴가 비지 않도록 HQ 마스터 네비로 폴백 */
+  const rawItems =
+    NAV_ITEMS[user.role] ??
+    (user.role === 'CUSTOMER' || user.role === 'CUSTOMER_OPERATOR'
+      ? NAV_ITEMS.CUSTOMER
+      : NAV_ITEMS.SUPER_ADMIN);
   const items = filterNavByPageAccess(
     user.role === 'CUSTOMER' && user.operatorsEnabled !== true
       ? rawItems.filter((item) => item.href !== '/dashboard/merchant-users')
@@ -77,6 +82,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
           className={`pg-sidebar shrink-0 flex-col transition-all duration-200 ${
             tablet ? 'hidden' : `hidden md:flex ${collapsed ? 'w-[3.75rem]' : 'w-[13rem]'}`
           }`}
+          style={{ backgroundColor: 'var(--shell-sidebar-bg, #565e6d)' }}
         >
           <div className={`pg-sidebar-logo ${collapsed ? 'px-2' : 'px-3'}`}>
             {branding?.logoUrl ? (
@@ -190,6 +196,19 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
               isCustomer ? 'customer-main pb-[calc(4.25rem+env(safe-area-inset-bottom))] md:pb-4' : ''
             }`}
           >
+            {isCustomer && user.tradeAccess === 'VIEW_ONLY' && (
+              <div
+                className={`mb-3 rounded-lg border px-3 py-2 text-sm ${
+                  user.approvalStatus === 'REJECTED'
+                    ? 'border-red-200 bg-red-50 text-red-800'
+                    : 'border-amber-200 bg-amber-50 text-amber-900'
+                }`}
+              >
+                {user.approvalStatus === 'REJECTED'
+                  ? t('tradeAccess.rejectedBanner')
+                  : t('tradeAccess.viewOnlyBanner')}
+              </div>
+            )}
             {children}
           </main>
           {isCustomer && <MobileBottomNav />}

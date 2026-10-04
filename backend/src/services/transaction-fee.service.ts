@@ -1,9 +1,11 @@
 import type {
+  CustomerTypeLimitKey,
   FeeDiagramDisplayConfig,
   HqCommissionRiskConfig,
   SymbolFeeCurrency,
   SymbolFeeTierPolicy,
   SymbolFeeTierRow,
+  SymbolFeeTiersByCustomerType,
   TransactionFees,
 } from '../constants/hq-policy';
 import {
@@ -20,6 +22,7 @@ import { mergeLiveFeesWithSandboxBasic, sandboxBasicDeltas, applySandboxGasDelta
 import { computeFeeAmounts, normalizeTransactionFees } from '../lib/fee-component';
 import { prisma } from '../lib/prisma';
 import { normalizeTransactionLimits } from '../lib/transaction-limit-policy';
+import { CustomerType } from '@prisma/client';
 
 export function defaultTransactionFees(): TransactionFees {
   return normalizeTransactionFees();
@@ -31,6 +34,7 @@ const DEFAULT_THRESHOLDS: Record<SymbolFeeCurrency, number[]> = {
   THB: [50_000, 500_000, 99_999_999_999],
   CNY: [10_000, 100_000, 99_999_999_999],
   USD: [1_000, 10_000, 99_999_999_999],
+  EUR: [1_000, 10_000, 99_999_999_999],
 };
 
 export function defaultSymbolFeeTiers(): SymbolFeeTierPolicy {
@@ -84,6 +88,47 @@ export function normalizeSymbolFeeTiers(raw: unknown): SymbolFeeTierPolicy {
     if (a.currency !== b.currency) return a.currency.localeCompare(b.currency);
     return a.maxAmount - b.maxAmount;
   });
+}
+
+function cloneFeeTiersWithPrefix(tiers: SymbolFeeTierPolicy, prefix: string): SymbolFeeTierPolicy {
+  return tiers.map((row, index) => ({
+    ...row,
+    id: `${prefix}-${row.currency}-${row.maxAmount}-${index}`,
+  }));
+}
+
+/** 레거시 단일 배열 → 법인 유지 + 개인 복제. 객체면 개인/법인 각각 정규화 */
+export function normalizeSymbolFeeTiersByCustomerType(raw: unknown): SymbolFeeTiersByCustomerType {
+  if (Array.isArray(raw)) {
+    const corporate = normalizeSymbolFeeTiers(raw);
+    return {
+      CORPORATE: corporate,
+      INDIVIDUAL: cloneFeeTiersWithPrefix(corporate, 'indiv'),
+    };
+  }
+  if (raw && typeof raw === 'object') {
+    const obj = raw as Record<string, unknown>;
+    const corporate = normalizeSymbolFeeTiers(obj.CORPORATE ?? obj.corporate);
+    const individualRaw = obj.INDIVIDUAL ?? obj.individual;
+    const individual =
+      Array.isArray(individualRaw) && individualRaw.length > 0
+        ? normalizeSymbolFeeTiers(individualRaw)
+        : cloneFeeTiersWithPrefix(corporate, 'indiv');
+    return { CORPORATE: corporate, INDIVIDUAL: individual };
+  }
+  const defaults = defaultSymbolFeeTiers();
+  return {
+    CORPORATE: defaults,
+    INDIVIDUAL: cloneFeeTiersWithPrefix(defaults, 'indiv'),
+  };
+}
+
+export function feeTiersForCustomerType(
+  byType: SymbolFeeTiersByCustomerType,
+  customerType: CustomerTypeLimitKey = 'CORPORATE',
+): SymbolFeeTierPolicy {
+  const rows = byType[customerType];
+  return rows?.length ? rows : byType.CORPORATE;
 }
 
 export function pickFeeTier(
@@ -174,11 +219,32 @@ export async function getCommissionRiskConfig(): Promise<HqCommissionRiskConfig>
   return normalizeCommissionRisk((row?.value ?? {}) as Partial<HqCommissionRiskConfig>);
 }
 
-export async function getSymbolFeeTiers(): Promise<SymbolFeeTierPolicy> {
+export async function getSymbolFeeTiersByCustomerType(): Promise<SymbolFeeTiersByCustomerType> {
   const row = await prisma.systemConfig.findUnique({
     where: { key: HQ_CONFIG_KEYS.feeTiers },
   });
-  return normalizeSymbolFeeTiers(row?.value);
+  return normalizeSymbolFeeTiersByCustomerType(row?.value);
+}
+
+/** @deprecated 법인 구간. 신규 코드는 getSymbolFeeTiersByCustomerType / feeTiersForCustomerType 사용 */
+export async function getSymbolFeeTiers(
+  customerType: CustomerTypeLimitKey = 'CORPORATE',
+): Promise<SymbolFeeTierPolicy> {
+  const byType = await getSymbolFeeTiersByCustomerType();
+  return feeTiersForCustomerType(byType, customerType);
+}
+
+export async function resolveFeeCustomerTypeKey(
+  customerProfileId?: string | null,
+  fallback: CustomerTypeLimitKey = 'CORPORATE',
+): Promise<CustomerTypeLimitKey> {
+  if (!customerProfileId) return fallback;
+  const profile = await prisma.customerProfile.findUnique({
+    where: { id: customerProfileId },
+    select: { customerType: true },
+  });
+  if (!profile) return fallback;
+  return profile.customerType === CustomerType.CORPORATE ? 'CORPORATE' : 'INDIVIDUAL';
 }
 
 export async function getSimulatorCommissionRiskConfig(): Promise<HqCommissionRiskConfig> {
@@ -370,15 +436,27 @@ export function resolveTransactionFees(
   return fees;
 }
 
-/** 통화·금액 구간 수수료 → 지갑 오버라이드 적용 */
+export type ResolveFeesForAmountOptions = {
+  feePolicy?: FeePolicyScope;
+  customerType?: CustomerTypeLimitKey;
+  customerProfileId?: string | null;
+};
+
+/** 통화·금액 구간 수수료 → 지갑 오버라이드 적용 (고객유형별 구간) */
 export async function resolveFeesForAmount(
   wallet: WalletFeeSource,
   currency: string,
   fiatAmount: number,
-  options?: { feePolicy?: FeePolicyScope },
+  options?: ResolveFeesForAmountOptions,
 ): Promise<TransactionFees> {
   const sandbox = options?.feePolicy === 'sandbox';
-  const [liveTiers, gasPolicy] = await Promise.all([getSymbolFeeTiers(), getGasNetworkPolicy()]);
+  const customerType =
+    options?.customerType ??
+    (await resolveFeeCustomerTypeKey(options?.customerProfileId, 'CORPORATE'));
+  const [liveTiers, gasPolicy] = await Promise.all([
+    getSymbolFeeTiers(customerType),
+    getGasNetworkPolicy(),
+  ]);
   const tier = pickFeeTier(liveTiers, currency, fiatAmount);
 
   if (sandbox) {

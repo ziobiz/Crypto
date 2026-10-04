@@ -28,6 +28,7 @@ import {
   type IdleTimeoutMinutes,
   IDLE_TIMEOUT_MINUTES_OPTIONS,
   type SymbolFeeTierPolicy,
+  type SymbolFeeTiersByCustomerType,
   type HqOrgSharePolicy,
   defaultOrgSharePolicy,
   normalizeOrgSharePolicy,
@@ -40,9 +41,18 @@ import {
   defaultWorkflowDisplay,
   normalizeWorkflowDisplay,
   DEFAULT_JPY_DEPOSIT_RECEIVING_ACCOUNT,
+  DEFAULT_USD_ACH_DEPOSIT_RECEIVING_ACCOUNT,
+  DEFAULT_EUR_SEPA_DEPOSIT_RECEIVING_ACCOUNT,
   DEFAULT_USDT_RISK_LIMIT_TIERS,
+  USDT_FIAT_CURRENCIES,
+  defaultRemittanceEnabled,
+  remittanceCurrenciesFromAccounts,
   type HqUsdtQuoteResponsePolicy,
   normalizeUsdtQuoteResponsePolicy,
+  normalizeExpressPolicy,
+  normalizeMemberGradePolicy,
+  type HqExpressPolicy,
+  type HqMemberGradePolicy,
 } from '../constants/hq-policy';
 import {
   defaultEmailOtpConfig,
@@ -66,10 +76,13 @@ import {
   defaultTransactionFees,
   getSimulatorCommissionRiskConfig,
   getSimulatorSymbolFeeTiers,
-  getSymbolFeeTiers,
+  getSymbolFeeTiersByCustomerType,
   normalizeCommissionRisk,
   normalizeSymbolFeeTiers,
+  normalizeSymbolFeeTiersByCustomerType,
 } from '../services/transaction-fee.service';
+import { getHqExpressPolicy } from '../services/express-fee.service';
+import { getHqMemberGradePolicy } from '../services/member-grade.service';
 import {
   clearCurrencyAmountDisplayPolicyCache,
   getCurrencyAmountDisplayPolicy,
@@ -85,7 +98,12 @@ import {
 } from '../services/exchange-rate-policy.service';
 import { getAllLocalMarketPremiums } from '../services/local-market-premium.service';
 import { getKimchiPremiumAnalysis } from '../services/kimchi-premium.service';
-import { DEFAULT_LOGIN_NOTICE_I18N } from '../constants/login-notice-i18n';
+import {
+  DEFAULT_LOGIN_NOTICE_I18N,
+  LEGACY_LOGIN_NOTICE_BODIES,
+  LEGACY_LOGIN_NOTICE_TITLES,
+} from '../constants/login-notice-i18n';
+import { DEFAULT_INDIVIDUAL_REGISTER_NOTICE_I18N } from '../constants/individual-register-notice-i18n';
 import {
   DEFAULT_INACTIVE_LOGIN_NOTICE_I18N,
   DEFAULT_INACTIVE_NOTICE_PRESETS,
@@ -216,6 +234,30 @@ function mergeLoginNoticeI18n(
   if (!custom) return merged;
   for (const loc of Object.keys(DEFAULT_LOGIN_NOTICE_I18N) as Array<keyof typeof DEFAULT_LOGIN_NOTICE_I18N>) {
     const entry = custom[loc];
+    if (!entry?.title?.trim()) continue;
+    const body = entry.body ?? '';
+    const title = entry.title.trim();
+    const isLegacyBody = (LEGACY_LOGIN_NOTICE_BODIES[loc] ?? []).some((old) => old === body);
+    const isLegacyTitle = (LEGACY_LOGIN_NOTICE_TITLES[loc] ?? []).some((old) => old === title);
+    merged[loc] =
+      isLegacyBody || isLegacyTitle
+        ? { ...DEFAULT_LOGIN_NOTICE_I18N[loc] }
+        : { title: entry.title, body };
+  }
+  return merged;
+}
+
+function mergeIndividualRegisterNoticeI18n(
+  custom?: Partial<
+    Record<keyof typeof DEFAULT_INDIVIDUAL_REGISTER_NOTICE_I18N, { title: string; body: string }>
+  >,
+) {
+  const merged = { ...DEFAULT_INDIVIDUAL_REGISTER_NOTICE_I18N };
+  if (!custom) return merged;
+  for (const loc of Object.keys(DEFAULT_INDIVIDUAL_REGISTER_NOTICE_I18N) as Array<
+    keyof typeof DEFAULT_INDIVIDUAL_REGISTER_NOTICE_I18N
+  >) {
+    const entry = custom[loc];
     if (entry?.title?.trim()) {
       merged[loc] = { title: entry.title, body: entry.body ?? '' };
     }
@@ -251,6 +293,11 @@ function normalizeIanaTimezone(raw: string | undefined, fallback: string): strin
 function normalizePlatformConfig(raw: Partial<HqPlatformConfig>): HqPlatformConfig {
   const base = defaultPlatform();
   const merged = { ...base, ...raw };
+  /** 개인가입 정책 필드가 없던 구버전 설정 → 공개 개인가입을 켠다 */
+  const legacyWithoutIndividualPolicy = !Object.prototype.hasOwnProperty.call(
+    raw ?? {},
+    'individualRegisterNoticeI18n',
+  );
   return {
     ...merged,
     idleTimeoutMinutes: normalizeIdleTimeoutMinutes(merged.idleTimeoutMinutes),
@@ -258,6 +305,14 @@ function normalizePlatformConfig(raw: Partial<HqPlatformConfig>): HqPlatformConf
     simulatorRetentionMonths: clampSimulatorRetention(merged.simulatorRetentionMonths),
     simulatorInvoiceEnabled: merged.simulatorInvoiceEnabled !== false,
     loginNoticeI18n: mergeLoginNoticeI18n(merged.loginNoticeI18n),
+    individualRegisterNoticeEnabled: merged.individualRegisterNoticeEnabled !== false,
+    individualRegisterNoticeI18n: mergeIndividualRegisterNoticeI18n(
+      merged.individualRegisterNoticeI18n,
+    ),
+    customerRegistrationEnabled: legacyWithoutIndividualPolicy
+      ? true
+      : merged.customerRegistrationEnabled !== false,
+    accountRecoveryEnabled: merged.accountRecoveryEnabled !== false,
     inactiveLoginNoticeI18n: mergeInactiveLoginNoticeI18n(merged.inactiveLoginNoticeI18n),
     inactiveLoginNoticePresets: mergeInactiveNoticePresets(merged.inactiveLoginNoticePresets),
     authMainText: String(merged.authMainText ?? ''),
@@ -292,7 +347,7 @@ function normalizeDepositReceivingAccounts(
   raw?: HqPlatformConfig['depositReceivingAccounts'],
 ): HqPlatformConfig['depositReceivingAccounts'] {
   const out: NonNullable<HqPlatformConfig['depositReceivingAccounts']> = {};
-  for (const cur of ['KRW', 'JPY', 'THB', 'CNY'] as const) {
+  for (const cur of USDT_FIAT_CURRENCIES) {
     const a = raw?.[cur];
     if (!a) continue;
     out[cur] = {
@@ -304,10 +359,17 @@ function normalizeDepositReceivingAccounts(
       branchCode: a.branchCode ?? '',
       branchName: a.branchName ?? '',
       accountType: a.accountType ?? '',
+      bankCountry: a.bankCountry ?? '',
+      routingNumber: a.routingNumber ?? '',
+      bic: a.bic ?? '',
       notice: a.notice ?? '',
       noticeI18n: normalizeDepositNoticeI18n(a.noticeI18n, a.notice),
       transferEnabled: a.transferEnabled !== false,
       cardEnabled: a.cardEnabled !== false,
+      remittanceEnabled:
+        a.remittanceEnabled !== undefined
+          ? a.remittanceEnabled === true
+          : defaultRemittanceEnabled(cur),
     };
   }
   return out;
@@ -315,12 +377,14 @@ function normalizeDepositReceivingAccounts(
 
 export function resolveUsdtCurrencyTradePolicy(
   accounts?: HqPlatformConfig['depositReceivingAccounts'],
-): Record<'KRW' | 'JPY' | 'THB' | 'CNY', { transfer: boolean; card: boolean }> {
+): Record<(typeof USDT_FIAT_CURRENCIES)[number], { transfer: boolean; card: boolean }> {
   return {
     KRW: { transfer: accounts?.KRW?.transferEnabled !== false, card: accounts?.KRW?.cardEnabled !== false },
     JPY: { transfer: accounts?.JPY?.transferEnabled !== false, card: accounts?.JPY?.cardEnabled !== false },
     THB: { transfer: accounts?.THB?.transferEnabled !== false, card: accounts?.THB?.cardEnabled !== false },
     CNY: { transfer: accounts?.CNY?.transferEnabled !== false, card: accounts?.CNY?.cardEnabled !== false },
+    USD: { transfer: accounts?.USD?.transferEnabled !== false, card: accounts?.USD?.cardEnabled !== false },
+    EUR: { transfer: accounts?.EUR?.transferEnabled !== false, card: accounts?.EUR?.cardEnabled !== false },
   };
 }
 
@@ -344,32 +408,38 @@ function defaultPlatform(): HqPlatformConfig {
     linkPreviewRevision: 0,
     loginNoticeEnabled: true,
     loginNoticeI18n: { ...DEFAULT_LOGIN_NOTICE_I18N },
+    individualRegisterNoticeEnabled: true,
+    individualRegisterNoticeI18n: { ...DEFAULT_INDIVIDUAL_REGISTER_NOTICE_I18N },
     inactiveLoginNoticeI18n: { ...DEFAULT_INACTIVE_LOGIN_NOTICE_I18N },
     inactiveLoginNoticePresets: DEFAULT_INACTIVE_NOTICE_PRESETS.map((p) => ({
       id: p.id,
       title: p.title,
       bodyI18n: { ...p.bodyI18n },
     })),
-    customerRegistrationEnabled: false,
+    customerRegistrationEnabled: true,
+    accountRecoveryEnabled: true,
     idleTimeoutMinutes: 30,
     defaultUsdtFiatCurrency: 'JPY',
     simulatorRetentionMonths: 3,
     simulatorInvoiceEnabled: true,
     depositReceivingAccounts: {
       JPY: DEFAULT_JPY_DEPOSIT_RECEIVING_ACCOUNT(),
+      USD: DEFAULT_USD_ACH_DEPOSIT_RECEIVING_ACCOUNT(),
+      EUR: DEFAULT_EUR_SEPA_DEPOSIT_RECEIVING_ACCOUNT(),
     },
     baseTimezone: 'Asia/Seoul',
     serviceTimezone: 'Asia/Seoul',
   };
 }
 
-type BrandAsset = 'logo' | 'auth-logo' | 'favicon' | 'background' | 'og';
+type BrandAsset = 'logo' | 'auth-logo' | 'favicon' | 'background' | 'register-background' | 'og';
 
 const BRAND_ASSET_URL: Record<BrandAsset, string> = {
   logo: '/api/branding/logo',
   'auth-logo': '/api/branding/auth-logo',
   favicon: '/api/branding/favicon',
   background: '/api/branding/background',
+  'register-background': '/api/branding/register-background',
   og: '/api/branding/og',
 };
 
@@ -378,6 +448,7 @@ const BRAND_CONFIG_KEY: Record<BrandAsset, keyof HqPlatformConfig> = {
   'auth-logo': 'authLogoUrl',
   favicon: 'faviconUrl',
   background: 'authBackgroundUrl',
+  'register-background': 'registerBackgroundUrl',
   og: 'ogImageUrl',
 };
 
@@ -394,7 +465,14 @@ function getBrandingAssetPath(asset: BrandAsset): string | null {
   return path.resolve(BRANDING_DIR, files[0]!);
 }
 
-const BRAND_ASSETS: BrandAsset[] = ['logo', 'auth-logo', 'favicon', 'background', 'og'];
+const BRAND_ASSETS: BrandAsset[] = [
+  'logo',
+  'auth-logo',
+  'favicon',
+  'background',
+  'register-background',
+  'og',
+];
 
 /** DB에 URL이 없어도 uploads/branding 파일이 있으면 URL 복원 */
 function syncBrandingUrls(config: HqPlatformConfig): HqPlatformConfig {
@@ -439,6 +517,7 @@ async function saveBrandingAsset(
     'auth-logo': '.png',
     favicon: '.ico',
     background: '.jpg',
+    'register-background': '.jpg',
     og: '.png',
   };
   const ext = path.extname(file.originalname) || defaults[asset];
@@ -551,7 +630,8 @@ export const hqPolicyService = {
   async getCommissionPayload() {
     const raw = await getConfig(HQ_CONFIG_KEYS.commissionRisk, defaultCommissionRisk());
     const risk = normalizeCommissionRisk(raw);
-    const feeTiers = await getSymbolFeeTiers();
+    const feeTiersByCustomerType = await getSymbolFeeTiersByCustomerType();
+    const feeTiers = feeTiersByCustomerType.CORPORATE;
     const exchangeRateSources = await getExchangeRateSourcePolicy();
     const exchangeRatePreview = await getExchangeRatePolicyPreview();
     const localPremiums = await getAllLocalMarketPremiums();
@@ -587,6 +667,7 @@ export const hqPolicyService = {
     return {
       risk,
       feeTiers,
+      feeTiersByCustomerType,
       simulatorRisk: await getSimulatorCommissionRiskConfig(),
       simulatorFeeTiers: await getSimulatorSymbolFeeTiers(),
       exchangeRateSources,
@@ -609,7 +690,33 @@ export const hqPolicyService = {
       usdtQuoteResponse: await (
         await import('./usdt-quote-policy.service')
       ).getUsdtQuoteResponsePolicy(),
+      expressFee: await getHqExpressPolicy(),
+      memberGrade: await getHqMemberGradePolicy(),
     };
+  },
+
+  async saveExpressFee(audit: AuditContext, policy: HqExpressPolicy) {
+    const normalized = normalizeExpressPolicy(policy);
+    await putConfigWithAudit(audit, {
+      key: HQ_CONFIG_KEYS.expressFee,
+      value: normalized,
+      description: 'EXPRESS 추가 수수료 (개인/법인)',
+      entityType: 'HQ_EXPRESS_FEE',
+      summary: `EXPRESS 저장 (개인 ${normalized.INDIVIDUAL.enabled ? 'ON' : 'OFF'}·법인 ${normalized.CORPORATE.enabled ? 'ON' : 'OFF'})`,
+    });
+    return this.getCommissionPayload();
+  },
+
+  async saveMemberGrade(audit: AuditContext, policy: HqMemberGradePolicy) {
+    const normalized = normalizeMemberGradePolicy(policy);
+    await putConfigWithAudit(audit, {
+      key: HQ_CONFIG_KEYS.memberGrade,
+      value: normalized,
+      description: '회원등급 EXPRESS 혜택 (개인·법인 공통)',
+      entityType: 'HQ_MEMBER_GRADE',
+      summary: '회원등급 EXPRESS 혜택 저장',
+    });
+    return this.getCommissionPayload();
   },
 
   async saveUsdtQuoteResponse(audit: AuditContext, policy: HqUsdtQuoteResponsePolicy) {
@@ -661,17 +768,25 @@ export const hqPolicyService = {
     return this.getCommissionPayload();
   },
 
-  async saveSymbolFeeTiers(audit: AuditContext, tiers: SymbolFeeTierPolicy) {
-    const normalized = normalizeSymbolFeeTiers(tiers);
-    if (!normalized.length) {
+  async saveSymbolFeeTiers(
+    audit: AuditContext,
+    tiers: SymbolFeeTiersByCustomerType | SymbolFeeTierPolicy,
+  ) {
+    const normalized = Array.isArray(tiers)
+      ? normalizeSymbolFeeTiersByCustomerType({
+          CORPORATE: normalizeSymbolFeeTiers(tiers),
+          INDIVIDUAL: (await getSymbolFeeTiersByCustomerType()).INDIVIDUAL,
+        })
+      : normalizeSymbolFeeTiersByCustomerType(tiers);
+    if (!normalized.CORPORATE.length || !normalized.INDIVIDUAL.length) {
       throw new Error('수수료 구간이 비어 있습니다.');
     }
     await putConfigWithAudit(audit, {
       key: HQ_CONFIG_KEYS.feeTiers,
       value: normalized,
-      description: '시볼(티켓) 통화별 수수료 구간',
+      description: '시볼(티켓) 통화별 수수료 구간(개인/법인)',
       entityType: 'HQ_FEE_TIERS',
-      summary: '시볼 수수료 구간 저장',
+      summary: `시볼 수수료 구간 저장 (개인 ${normalized.INDIVIDUAL.length}·법인 ${normalized.CORPORATE.length})`,
     });
     return this.getCommissionPayload();
   },
@@ -841,12 +956,8 @@ export const hqPolicyService = {
   },
 
   async getPlatformPayload() {
-    const config = syncBrandingUrls(
-      normalizePlatformConfig({
-        ...defaultPlatform(),
-        ...(await getConfig(HQ_CONFIG_KEYS.platform, defaultPlatform())),
-      }),
-    );
+    const stored = await getConfig(HQ_CONFIG_KEYS.platform, {} as HqPlatformConfig);
+    const config = syncBrandingUrls(normalizePlatformConfig(stored));
     const emailRaw = await getEmailOtpConfig();
     const email = {
       ...emailRaw,
@@ -960,6 +1071,33 @@ export const hqPolicyService = {
     return this.getPlatformPayload();
   },
 
+  async savePlatformRegisterBackground(
+    audit: AuditContext,
+    file: { buffer: Buffer; originalname: string },
+  ) {
+    await saveBrandingAsset(audit, 'register-background', file);
+    return this.getPlatformPayload();
+  },
+
+  async clearPlatformRegisterBackground(audit: AuditContext) {
+    ensureBrandingDir();
+    for (const f of fs.readdirSync(BRANDING_DIR)) {
+      if (f.startsWith('register-background.')) {
+        fs.unlinkSync(path.resolve(BRANDING_DIR, f));
+      }
+    }
+    const existing = await getConfig(HQ_CONFIG_KEYS.platform, defaultPlatform());
+    const next = { ...existing, registerBackgroundUrl: '' };
+    await putConfigWithAudit(audit, {
+      key: HQ_CONFIG_KEYS.platform,
+      value: next,
+      description: '플랫폼 도메인·SSL',
+      entityType: 'HQ_PLATFORM',
+      summary: '회원가입 배경 이미지 제거',
+    });
+    return this.getPlatformPayload();
+  },
+
   async savePlatformOgImage(audit: AuditContext, file: { buffer: Buffer; originalname: string }) {
     await saveBrandingAsset(audit, 'og', file);
     const existing = await getConfig(HQ_CONFIG_KEYS.platform, defaultPlatform());
@@ -973,12 +1111,8 @@ export const hqPolicyService = {
   },
 
   async getPublicBranding() {
-    const config = syncBrandingUrls(
-      normalizePlatformConfig({
-        ...defaultPlatform(),
-        ...(await getConfig(HQ_CONFIG_KEYS.platform, defaultPlatform())),
-      }),
-    );
+    const stored = await getConfig(HQ_CONFIG_KEYS.platform, {} as HqPlatformConfig);
+    const config = syncBrandingUrls(normalizePlatformConfig(stored));
     return {
       siteName: config.siteName || 'Crypto Workflow',
       tabTitle: (config.tabTitle || config.siteName || '').trim() || config.siteName || 'Crypto Workflow',
@@ -986,11 +1120,18 @@ export const hqPolicyService = {
       authLogoUrl: withBrandingCacheBust(config.authLogoUrl, 'auth-logo'),
       faviconUrl: withBrandingCacheBust(config.faviconUrl, 'favicon'),
       authBackgroundUrl: withBrandingCacheBust(config.authBackgroundUrl, 'background'),
+      registerBackgroundUrl: withBrandingCacheBust(
+        config.registerBackgroundUrl,
+        'register-background',
+      ),
       authMainText: config.authMainText ?? '',
       footerText: config.footerText ?? '',
       loginNoticeEnabled: config.loginNoticeEnabled !== false,
       loginNoticeI18n: config.loginNoticeI18n ?? {},
-      customerRegistrationEnabled: config.customerRegistrationEnabled === true,
+      customerRegistrationEnabled: config.customerRegistrationEnabled !== false,
+      accountRecoveryEnabled: config.accountRecoveryEnabled !== false,
+      individualRegisterNoticeEnabled: config.individualRegisterNoticeEnabled !== false,
+      individualRegisterNoticeI18n: config.individualRegisterNoticeI18n ?? {},
       defaultUsdtFiatCurrency: config.defaultUsdtFiatCurrency ?? 'JPY',
       baseTimezone: config.baseTimezone ?? 'Asia/Seoul',
       serviceTimezone: config.serviceTimezone ?? 'Asia/Seoul',
@@ -999,8 +1140,13 @@ export const hqPolicyService = {
   },
 
   async isCustomerRegistrationEnabled(): Promise<boolean> {
-    const config = await getConfig(HQ_CONFIG_KEYS.platform, defaultPlatform());
-    return config.customerRegistrationEnabled === true;
+    const stored = await getConfig(HQ_CONFIG_KEYS.platform, {} as HqPlatformConfig);
+    return normalizePlatformConfig(stored).customerRegistrationEnabled !== false;
+  },
+
+  async isAccountRecoveryEnabled(): Promise<boolean> {
+    const stored = await getConfig(HQ_CONFIG_KEYS.platform, {} as HqPlatformConfig);
+    return normalizePlatformConfig(stored).accountRecoveryEnabled !== false;
   },
 
   async getDepositReceivingAccounts() {
@@ -1013,6 +1159,11 @@ export const hqPolicyService = {
 
   async getUsdtCurrencyTradePolicy() {
     return resolveUsdtCurrencyTradePolicy(await this.getDepositReceivingAccounts());
+  },
+
+  /** 송금계좌(DIRECT) 모드에서 사용 가능한 통화 (송금거래 on ∩ 계좌 등록) */
+  async getRemittanceTradeCurrencies() {
+    return remittanceCurrenciesFromAccounts(await this.getDepositReceivingAccounts());
   },
 
   async assertUsdtFiatMethodEnabled(currency: string, method: 'TRANSFER' | 'CARD') {
@@ -1101,6 +1252,10 @@ export const hqPolicyService = {
 
   getBackgroundFilePath(): string | null {
     return getBrandingAssetPath('background');
+  },
+
+  getRegisterBackgroundFilePath(): string | null {
+    return getBrandingAssetPath('register-background');
   },
 
   getOgImageFilePath(): string | null {

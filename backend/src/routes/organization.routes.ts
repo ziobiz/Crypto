@@ -33,6 +33,7 @@ const updateSchema = z.object({
   isActive: z.boolean().optional(),
   simulatorEnabled: z.boolean().optional(),
   simulatorRateMode: z.enum(['LIVE', 'SAND']).optional(),
+  referralUserId: z.string().min(1).nullable().optional(),
 });
 
 router.get(

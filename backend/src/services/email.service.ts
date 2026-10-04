@@ -1,22 +1,19 @@
 import nodemailer from 'nodemailer';
 import type { HqEmailOtpConfig } from '../constants/hq-policy';
+import { AppError } from '../lib/errors';
 
 function buildTransport(cfg: HqEmailOtpConfig) {
-  const host = cfg.smtpHost || process.env.SMTP_HOST;
+  const host = (cfg.smtpHost || process.env.SMTP_HOST || '').trim();
   const port = cfg.smtpPort || Number(process.env.SMTP_PORT ?? 587);
-  if (!host) return null;
+  const user = (cfg.smtpUser || process.env.SMTP_USER || '').trim();
+  const pass = (cfg.smtpPassword || process.env.SMTP_PASSWORD || '').trim();
+  if (!host || !user || !pass) return null;
 
   return nodemailer.createTransport({
     host,
     port,
     secure: cfg.smtpSecure ?? process.env.SMTP_SECURE === 'true',
-    auth:
-      (cfg.smtpUser || process.env.SMTP_USER)
-        ? {
-            user: cfg.smtpUser || process.env.SMTP_USER,
-            pass: cfg.smtpPassword || process.env.SMTP_PASSWORD,
-          }
-        : undefined,
+    auth: { user, pass },
   });
 }
 
@@ -26,44 +23,46 @@ export async function sendOtpEmail(
   code: string,
   userName: string,
 ): Promise<void> {
-  const subject = (cfg.otpEmailSubject || '로그인 인증번호').replace('{code}', code);
+  const minutes = String(cfg.otpExpireMinutes || 5);
+  const subject = (cfg.otpEmailSubject || '[TINPASS] 인증번호 {code}').replace('{code}', code);
   const bodyTemplate =
     cfg.otpEmailBody ||
-    '안녕하세요 {name}님,\n\n로그인 인증번호: {code}\n유효시간: {minutes}분\n\n본인이 요청하지 않았다면 무시하세요.';
+    '안녕하세요 {name}님,\n\n인증번호: {code}\n유효시간: {minutes}분\n\n본인이 요청하지 않았다면 무시하세요.';
 
   const text = bodyTemplate
     .replace(/\{name\}/g, userName)
     .replace(/\{code\}/g, code)
-    .replace(/\{minutes\}/g, String(cfg.otpExpireMinutes || 5));
+    .replace(/\{minutes\}/g, minutes);
 
   const html = `<div style="font-family:sans-serif;line-height:1.6">
 <p>${userName}님,</p>
-<p>로그인 인증번호:</p>
+<p>인증번호:</p>
 <p style="font-size:28px;font-weight:bold;letter-spacing:4px">${code}</p>
-<p>유효시간 ${cfg.otpExpireMinutes || 5}분</p>
+<p>유효시간 ${minutes}분</p>
 <p style="color:#666;font-size:12px">본인이 요청하지 않았다면 이 메일을 무시하세요.</p>
 </div>`;
 
   const from = cfg.fromAddress || process.env.SMTP_FROM || 'noreply@tinpass.com';
-  const fromName = cfg.fromName || 'Crypto Workflow';
+  const fromName = cfg.fromName || 'TINPASS';
 
   const transport = buildTransport(cfg);
   if (!transport) {
-    console.warn(`[OTP/email] SMTP not configured — login code for ${to}: ${code}`);
-    return;
+    console.error(`[OTP/email] SMTP not configured — cannot send to ${to}`);
+    throw new AppError(503, 'Email service is not configured', 'EMAIL_NOT_CONFIGURED');
   }
 
   try {
-    await transport.sendMail({
+    const info = await transport.sendMail({
       from: `"${fromName}" <${from}>`,
       to,
       subject,
       text,
       html,
     });
+    console.log(`[OTP/email] sent to ${to} messageId=${info.messageId || '-'}`);
   } catch (err) {
     console.error('[OTP/email] send failed:', err);
-    console.warn(`[OTP/email] fallback — login code for ${to}: ${code}`);
+    throw new AppError(502, 'Failed to send verification email', 'EMAIL_SEND_FAILED');
   }
 }
 

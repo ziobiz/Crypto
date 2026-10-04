@@ -21,6 +21,10 @@ Write-Host "==> 서버 배포 (비밀번호 재입력)"
 $remoteCmd = "cd $RemoteDir && bash deploy/cafe24-business/apply-release.sh"
 
 ssh $Server $remoteCmd
+if ($LASTEXITCODE -ne 0) {
+  Write-Host "ERROR: remote apply-release failed (exit $LASTEXITCODE)"
+  exit $LASTEXITCODE
+}
 
 Write-Host ""
 Write-Host "완료: https://api.tinpass.com/login"

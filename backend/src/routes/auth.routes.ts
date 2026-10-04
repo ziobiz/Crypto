@@ -2,14 +2,24 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import {
+  CustomerApprovalStatus,
   CustomerType,
   UserRole,
   TradeEscrowStatus,
   UsdtPurchaseStatus,
 } from '@prisma/client';
+import { getCustomerTradeAccess } from '../services/customer-access.service';
+import {
+  getHeadOfficeOrgId,
+  getInvitePreview,
+  resolveRecruitingFromOrgCode,
+  resolveRecruitingFromReferrer,
+  searchReferrers,
+} from '../services/referrer-search.service';
 import { prisma } from '../lib/prisma';
 import {
   activateTotp,
+  clearUserTotp,
   getEmailOtpConfig,
   isSmtpConfigured,
   issuePendingTotpSecret,
@@ -33,7 +43,16 @@ import { AppError } from '../lib/errors';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { authenticate } from '../middleware/auth';
 import { hqPolicyService } from '../services/hq-policy.service';
-import { findUserByLoginEmail } from '../services/user-lookup.service';
+import {
+  findUserByLoginEmail,
+  findUserByLoginEmailAndPassword,
+} from '../services/user-lookup.service';
+import { assertCustomerContactAvailable } from '../services/register-contact.service';
+import {
+  clientCountryFromRequest,
+  clientIpFromRequest,
+  resolveLimitCountryForRegister,
+} from '../services/individual-limit.service';
 import { canIssueSensitiveOtp } from '../constants/hq-admin';
 import { assertTurnstile, clientIp } from '../lib/turnstile';
 
@@ -92,14 +111,9 @@ router.post(
     const { email, password, turnstileToken } = loginSchema.parse(req.body);
     await assertTurnstile(turnstileToken, clientIp(req));
 
-    const user = await findUserByLoginEmail(email);
+    const user = await findUserByLoginEmailAndPassword(email, password);
 
     if (!user) {
-      throw new AppError(401, 'Invalid email or password', 'INVALID_CREDENTIALS');
-    }
-
-    const valid = await bcrypt.compare(password, user.passwordHash);
-    if (!valid) {
       throw new AppError(401, 'Invalid email or password', 'INVALID_CREDENTIALS');
     }
 
@@ -319,25 +333,191 @@ router.post(
   }),
 );
 
+/** 공개가입 OFF → 조직/추천 가입링크(?org·?ref)만 허용 */
+async function assertIndividualRegisterAllowed(opts: {
+  inviteOrgCode?: string;
+  referrerUserId?: string;
+  noReferrer?: boolean;
+}) {
+  if (await hqPolicyService.isCustomerRegistrationEnabled()) return;
+  if (opts.noReferrer || (!opts.inviteOrgCode && !opts.referrerUserId)) {
+    throw new AppError(
+      403,
+      'Public registration is disabled. Sign up with an organization invite link.',
+      'REGISTRATION_INVITE_ONLY',
+    );
+  }
+}
+
 router.post(
   '/register/send-code',
   asyncHandler(async (req, res) => {
-    if (!(await hqPolicyService.isCustomerRegistrationEnabled())) {
-      throw new AppError(403, 'Registration is disabled', 'REGISTRATION_DISABLED');
-    }
-
-    const { email, name } = z
-      .object({ email: z.string().email(), name: z.string().min(1) })
+    const body = z
+      .object({
+        email: z.string().email().transform(normalizeEmail),
+        name: z.string().min(1),
+        inviteOrgCode: z.string().min(1).optional(),
+        referrerUserId: z.string().min(1).optional(),
+      })
       .parse(req.body);
+    await assertIndividualRegisterAllowed({
+      inviteOrgCode: body.inviteOrgCode,
+      referrerUserId: body.referrerUserId,
+    });
+    const { email, name } = body;
 
-    const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) {
-      throw new AppError(409, 'Email already registered', 'CONFLICT');
-    }
+    await assertCustomerContactAvailable({
+      email,
+      customerType: CustomerType.INDIVIDUAL,
+    });
 
     const cfg = await getEmailOtpConfig();
-    await createEmailVerificationChallenge(email, 'REGISTER', cfg, name);
-    res.json({ ok: true, smtpConfigured: isSmtpConfigured(cfg) });
+    if (!isSmtpConfigured(cfg)) {
+      throw new AppError(503, 'Email service is not configured', 'EMAIL_NOT_CONFIGURED');
+    }
+    await createEmailVerificationChallenge(email, 'REGISTER', cfg, name.trim());
+    res.json({
+      ok: true,
+      smtpConfigured: true,
+      maskedEmail: maskEmail(email),
+    });
+  }),
+);
+
+async function assertPublicAccountRecoveryAllowed() {
+  if (!(await hqPolicyService.isAccountRecoveryEnabled())) {
+    throw new AppError(403, 'Account recovery is disabled', 'RECOVERY_DISABLED');
+  }
+}
+
+/** 비밀번호 분실 — 이메일 코드 발송 (존재 여부 비공개) */
+router.post(
+  '/password/forgot/send-code',
+  asyncHandler(async (req, res) => {
+    const { email, turnstileToken } = z
+      .object({
+        email: z.string().email().transform(normalizeEmail),
+        turnstileToken: z.string().optional(),
+      })
+      .parse(req.body);
+    await assertPublicAccountRecoveryAllowed();
+    await assertTurnstile(turnstileToken, clientIp(req));
+
+    const user = await findUserByLoginEmail(email);
+    const cfg = await getEmailOtpConfig();
+    if (user?.isActive) {
+      await createEmailVerificationChallenge(user.email, 'PASSWORD_RESET', cfg, user.name);
+    }
+    res.json({
+      ok: true,
+      maskedEmail: maskEmail(email),
+      smtpConfigured: isSmtpConfigured(cfg),
+    });
+  }),
+);
+
+/** 비밀번호 분실 — 코드 확인 후 새 비밀번호 */
+router.post(
+  '/password/forgot/reset',
+  asyncHandler(async (req, res) => {
+    const body = z
+      .object({
+        email: z.string().email().transform(normalizeEmail),
+        code: z.string().min(6),
+        newPassword: z.string().min(8),
+        confirmPassword: z.string().min(8),
+        turnstileToken: z.string().optional(),
+      })
+      .parse(req.body);
+    await assertPublicAccountRecoveryAllowed();
+    await assertTurnstile(body.turnstileToken, clientIp(req));
+
+    if (body.newPassword !== body.confirmPassword) {
+      throw new AppError(400, 'Passwords do not match', 'VALIDATION');
+    }
+
+    const user = await findUserByLoginEmail(body.email);
+    if (!user || !user.isActive) {
+      throw new AppError(400, 'Invalid code or email', 'INVALID_RESET');
+    }
+    if (isInitialPassword(user.email, body.newPassword)) {
+      throw new AppError(400, 'Cannot use initial password', 'VALIDATION');
+    }
+
+    const ok = await verifyEmailVerificationCode(user.email, 'PASSWORD_RESET', body.code);
+    if (!ok) {
+      throw new AppError(400, 'Invalid or expired code', 'INVALID_CODE');
+    }
+
+    const passwordHash = await bcrypt.hash(body.newPassword, 10);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash, passwordMustChange: false },
+    });
+
+    res.json({ ok: true });
+  }),
+);
+
+/** OTP 분실 — 이메일 코드 발송 (존재 여부 비공개) */
+router.post(
+  '/otp/forgot/send-code',
+  asyncHandler(async (req, res) => {
+    const { email, turnstileToken } = z
+      .object({
+        email: z.string().email().transform(normalizeEmail),
+        turnstileToken: z.string().optional(),
+      })
+      .parse(req.body);
+    await assertPublicAccountRecoveryAllowed();
+    await assertTurnstile(turnstileToken, clientIp(req));
+
+    const user = await findUserByLoginEmail(email);
+    const cfg = await getEmailOtpConfig();
+    if (user?.isActive && user.totpEnabled) {
+      await createEmailVerificationChallenge(user.email, 'OTP_RESET', cfg, user.name);
+    }
+    res.json({
+      ok: true,
+      maskedEmail: maskEmail(email),
+      smtpConfigured: isSmtpConfigured(cfg),
+    });
+  }),
+);
+
+/** OTP 분실 — 코드 확인 후 Google OTP 해제 → 재등록 유도 */
+router.post(
+  '/otp/forgot/reset',
+  asyncHandler(async (req, res) => {
+    const body = z
+      .object({
+        email: z.string().email().transform(normalizeEmail),
+        code: z.string().min(6),
+        turnstileToken: z.string().optional(),
+      })
+      .parse(req.body);
+    await assertPublicAccountRecoveryAllowed();
+    await assertTurnstile(body.turnstileToken, clientIp(req));
+
+    const user = await findUserByLoginEmail(body.email);
+    if (!user || !user.isActive || !user.totpEnabled) {
+      throw new AppError(400, 'Invalid code or email', 'INVALID_RESET');
+    }
+
+    const ok = await verifyEmailVerificationCode(user.email, 'OTP_RESET', body.code);
+    if (!ok) {
+      throw new AppError(400, 'Invalid or expired code', 'INVALID_CODE');
+    }
+
+    await clearUserTotp(user.id);
+
+    res.json({
+      ok: true,
+      mustSetupOtp: true,
+      enrollToken: signFlowToken(user.id, 'otp_enroll'),
+      maskedEmail: maskEmail(user.email),
+      smtpConfigured: isSmtpConfigured(await getEmailOtpConfig()),
+    });
   }),
 );
 
@@ -448,6 +628,8 @@ router.get(
           platformFeeAmount: Number(w.platformFeeAmount),
         }));
 
+    const tradeAccessInfo = await getCustomerTradeAccess(auth);
+
     res.json({
       id: user.id,
       email: user.email,
@@ -468,6 +650,8 @@ router.get(
         pageAccessOverrides: (user.pageAccessOverrides ?? null) as Record<string, string> | null,
       }),
       kycStatus,
+      tradeAccess: tradeAccessInfo.tradeAccess,
+      approvalStatus: tradeAccessInfo.approvalStatus,
       wallets,
     });
   }),
@@ -481,47 +665,184 @@ const registerBankAccountSchema = z.object({
   branchName: z.string().optional(),
 });
 
-const registerSchema = z.object({
-  email: z.string().email(),
-  emailCode: z.string().min(6),
-  name: z.string().min(1),
-  phone: z.string().min(6),
-  phoneCountryCode: z.string().min(1),
-  customerType: z.nativeEnum(CustomerType),
-  recruitingOrgId: z.string().min(1),
-  businessName: z.string().optional(),
-  businessNumber: z.string().optional(),
-  representative: z.string().optional(),
-  businessAddress: z.string().optional(),
-  businessCategory: z.string().optional(),
-  bankAccounts: z.array(registerBankAccountSchema).min(1),
-  walletAddress: z.string().min(1),
-  walletNetwork: z.string().optional(),
-  walletLabel: z.string().optional(),
-});
+const registerSchema = z
+  .object({
+    email: z.string().email(),
+    emailCode: z.string().min(6),
+    name: z.string().min(1),
+    phone: z.string().min(6),
+    phoneCountryCode: z.string().min(1),
+    /** 개인 한도 산정 국가 (JP/KR/TH/US/CN). 미입력 시 전화·IP로 추정 */
+    limitCountry: z.enum(['JP', 'KR', 'TH', 'US', 'CN']).optional(),
+    /** 공개 가입은 개인만. 기업은 관리자 등록만 */
+    customerType: z.literal(CustomerType.INDIVIDUAL).default(CustomerType.INDIVIDUAL),
+    referrerUserId: z.string().min(1).optional(),
+    /** 조직 가입링크 코드 (?org=) */
+    inviteOrgCode: z.string().min(1).optional(),
+    noReferrer: z.boolean().optional(),
+    businessName: z.string().optional(),
+    businessNumber: z.string().optional(),
+    representative: z.string().optional(),
+    businessAddress: z.string().optional(),
+    businessCategory: z.string().optional(),
+    bankAccounts: z.array(registerBankAccountSchema).min(1),
+    walletAddress: z.string().min(1),
+    walletNetwork: z.string().optional(),
+    walletLabel: z.string().optional(),
+    wiseEnabled: z.boolean().optional(),
+    remittanceProvider: z
+      .enum([
+        'WISE',
+        'REMITLY',
+        'WORLDREMIT',
+        'REVOLUT',
+        'WESTERN_UNION',
+        'MONEYGRAM',
+        'XOOM',
+        'RIA',
+        'OFX',
+        'PAYONEER',
+        'OTHER',
+      ])
+      .optional(),
+    remittanceProviderOther: z.string().optional(),
+    wiseSenderName: z.string().optional(),
+    wiseSenderEmail: z.string().email().optional().or(z.literal('')),
+    wiseSenderCountry: z.string().optional(),
+  })
+  .superRefine((d, ctx) => {
+    if (d.noReferrer) {
+      if (d.referrerUserId || d.inviteOrgCode) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'noReferrer cannot be combined with referrer',
+        });
+      }
+    } else if (!d.referrerUserId && !d.inviteOrgCode) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'referrerUserId or inviteOrgCode is required',
+      });
+    }
+    const remittanceOn = d.wiseEnabled === true || Boolean(d.remittanceProvider);
+    if (remittanceOn) {
+      if (!d.remittanceProvider) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['remittanceProvider'],
+          message: 'Remittance provider is required',
+        });
+      }
+      if (d.remittanceProvider === 'OTHER' && !d.remittanceProviderOther?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['remittanceProviderOther'],
+          message: 'Remittance method name is required',
+        });
+      }
+      if (!d.wiseSenderName?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['wiseSenderName'],
+          message: 'Remittance sender name is required',
+        });
+      }
+      if (!d.wiseSenderEmail?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['wiseSenderEmail'],
+          message: 'Remittance sender email is required',
+        });
+      }
+    }
+  });
 
-router.post(
-  '/register',
+router.get(
+  '/register/referrer-search',
   asyncHandler(async (req, res) => {
     if (!(await hqPolicyService.isCustomerRegistrationEnabled())) {
       throw new AppError(403, 'Registration is disabled', 'REGISTRATION_DISABLED');
     }
+    const q = String(req.query.q ?? '');
+    res.json({ items: await searchReferrers(q) });
+  }),
+);
 
+router.get(
+  '/register/invite-info',
+  asyncHandler(async (req, res) => {
+    const orgCode = String(req.query.org ?? '').trim() || undefined;
+    const referrerUserId = String(req.query.ref ?? '').trim() || undefined;
+    if (!orgCode && !referrerUserId) {
+      throw new AppError(400, 'Invite org or ref is required', 'VALIDATION');
+    }
+    res.json(await getInvitePreview({ orgCode, referrerUserId }));
+  }),
+);
+
+router.post(
+  '/register',
+  asyncHandler(async (req, res) => {
     const parsed = registerSchema.parse(req.body);
     const data = { ...parsed, email: normalizeEmail(parsed.email) };
+    await assertIndividualRegisterAllowed({
+      inviteOrgCode: data.inviteOrgCode,
+      referrerUserId: data.referrerUserId,
+      noReferrer: data.noReferrer,
+    });
 
-    const existing = await prisma.user.findUnique({ where: { email: data.email } });
-    if (existing) {
-      throw new AppError(409, 'Email already registered', 'CONFLICT');
+    if (data.customerType !== CustomerType.INDIVIDUAL) {
+      throw new AppError(403, 'Corporate self-registration is disabled', 'CORPORATE_REGISTER_DISABLED');
     }
+
+    await assertCustomerContactAvailable({
+      email: data.email,
+      phone: data.phone,
+      phoneCountryCode: data.phoneCountryCode,
+      customerType: CustomerType.INDIVIDUAL,
+    });
 
     const emailOk = await verifyEmailVerificationCode(data.email, 'REGISTER', data.emailCode);
     if (!emailOk) {
       throw new AppError(401, 'Invalid email verification code', 'INVALID_OTP_CODE');
     }
 
+    let recruitingOrgId: string;
+    let referredByUserId: string | null = null;
+    if (data.noReferrer) {
+      recruitingOrgId = await getHeadOfficeOrgId();
+    } else if (data.inviteOrgCode) {
+      const resolved = await resolveRecruitingFromOrgCode(data.inviteOrgCode);
+      recruitingOrgId = resolved.recruitingOrgId;
+      referredByUserId = resolved.referredByUserId;
+      if (data.referrerUserId) {
+        const staff = await prisma.user.findFirst({
+          where: {
+            id: data.referrerUserId,
+            role: UserRole.ORG_STAFF,
+            organizationId: recruitingOrgId,
+            isActive: true,
+            deletedAt: null,
+          },
+          select: { id: true },
+        });
+        if (staff) referredByUserId = staff.id;
+      }
+    } else {
+      const resolved = await resolveRecruitingFromReferrer(data.referrerUserId!);
+      recruitingOrgId = resolved.recruitingOrgId;
+      referredByUserId = resolved.referredByUserId;
+      const referrerEmail = await prisma.user.findUnique({
+        where: { id: referredByUserId },
+        select: { email: true },
+      });
+      if (referrerEmail && normalizeEmail(referrerEmail.email) === data.email) {
+        throw new AppError(400, 'Cannot refer yourself', 'REFERRER_INVALID');
+      }
+    }
+
     const org = await prisma.organization.findFirst({
-      where: { id: data.recruitingOrgId, isActive: true },
+      where: { id: recruitingOrgId, isActive: true, deletedAt: null },
     });
     if (!org) {
       throw new AppError(404, 'Recruiting organization not found', 'NOT_FOUND');
@@ -532,6 +853,13 @@ router.post(
     const hqFees = await import('../services/transaction-fee.service').then((m) =>
       m.getHqTransactionFees(),
     );
+    const signupIp = clientIpFromRequest(req);
+    const signupCountry = clientCountryFromRequest(req);
+    const limitCountry = resolveLimitCountryForRegister({
+      limitCountry: data.limitCountry,
+      phoneCountryCode: data.phoneCountryCode,
+      signupCountry,
+    });
 
     const created = await prisma.user.create({
       data: {
@@ -547,12 +875,35 @@ router.post(
         customerProfile: {
           create: {
             customerType: data.customerType,
-            recruitingOrgId: data.recruitingOrgId,
+            approvalStatus:
+              data.customerType === CustomerType.INDIVIDUAL
+                ? CustomerApprovalStatus.PENDING
+                : CustomerApprovalStatus.APPROVED,
+            recruitingOrgId,
+            referredByUserId,
+            limitCountry,
+            signupIp,
+            signupCountry,
             businessName: data.businessName,
             businessNumber: data.businessNumber,
             representative: data.representative,
             businessAddress: data.businessAddress,
             businessCategory: data.businessCategory,
+            wiseEnabled: Boolean(data.remittanceProvider) || data.wiseEnabled === true,
+            remittanceProvider: data.remittanceProvider || null,
+            remittanceProviderOther:
+              data.remittanceProvider === 'OTHER'
+                ? data.remittanceProviderOther?.trim() || null
+                : null,
+            wiseSenderName: data.remittanceProvider
+              ? data.wiseSenderName?.trim() || null
+              : null,
+            wiseSenderEmail: data.remittanceProvider
+              ? data.wiseSenderEmail?.trim().toLowerCase() || null
+              : null,
+            wiseSenderCountry: data.remittanceProvider
+              ? data.wiseSenderCountry?.trim() || null
+              : null,
           },
         },
         bankAccounts: {

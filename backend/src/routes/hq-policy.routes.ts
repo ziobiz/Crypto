@@ -170,13 +170,43 @@ router.put(
 router.put(
   '/commission/fee-tiers',
   asyncHandler(async (req, res) => {
-    const body = req.body as { feeTiers?: SymbolFeeTierPolicy };
-    if (!body.feeTiers?.length) {
-      res.status(400).json({ error: 'feeTiers required' });
+    const body = req.body as {
+      feeTiersByCustomerType?: import('../constants/hq-policy').SymbolFeeTiersByCustomerType;
+      feeTiers?: SymbolFeeTierPolicy;
+    };
+    const payload = body.feeTiersByCustomerType ?? body.feeTiers;
+    if (!payload || (Array.isArray(payload) && !payload.length)) {
+      res.status(400).json({ error: 'feeTiersByCustomerType or feeTiers required' });
       return;
     }
     const audit = auditFromRequest(req.user!, req);
-    res.json(await hqPolicyService.saveSymbolFeeTiers(audit, body.feeTiers));
+    res.json(await hqPolicyService.saveSymbolFeeTiers(audit, payload));
+  }),
+);
+
+router.put(
+  '/commission/express-fee',
+  asyncHandler(async (req, res) => {
+    const body = req.body as { expressFee?: import('../constants/hq-policy').HqExpressPolicy };
+    if (!body.expressFee) {
+      res.status(400).json({ error: 'expressFee required' });
+      return;
+    }
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await hqPolicyService.saveExpressFee(audit, body.expressFee));
+  }),
+);
+
+router.put(
+  '/commission/member-grade',
+  asyncHandler(async (req, res) => {
+    const body = req.body as { memberGrade?: import('../constants/hq-policy').HqMemberGradePolicy };
+    if (!body.memberGrade) {
+      res.status(400).json({ error: 'memberGrade required' });
+      return;
+    }
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await hqPolicyService.saveMemberGrade(audit, body.memberGrade));
   }),
 );
 
@@ -414,6 +444,27 @@ router.post(
     }
     const audit = auditFromRequest(req.user!, req);
     res.json(await hqPolicyService.savePlatformBackground(audit, req.file));
+  }),
+);
+
+router.post(
+  '/platform/register-background',
+  logoUpload.single('file'),
+  asyncHandler(async (req, res) => {
+    if (!req.file) {
+      res.status(400).json({ error: 'file required' });
+      return;
+    }
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await hqPolicyService.savePlatformRegisterBackground(audit, req.file));
+  }),
+);
+
+router.delete(
+  '/platform/register-background',
+  asyncHandler(async (req, res) => {
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await hqPolicyService.clearPlatformRegisterBackground(audit));
   }),
 );
 

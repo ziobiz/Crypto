@@ -3,6 +3,1020 @@ import type { PlatformReleaseNote } from './version';
 /** 본사정책 → 검증관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
 export const PLATFORM_RELEASE_NOTES: PlatformReleaseNote[] = [
   {
+    version: '2.6.180',
+    kind: 'minor',
+    date: '2026-10-05',
+    items: {
+      KR: [
+        '수수료·리스크에 「한도 설정」카드를 분리. 통화별 1회·일·월 한도가 USDT 매입 신청 금액에 직접 연동.',
+      ],
+      US: [
+        'Fee & Risk: dedicated Limit settings card. Per-currency min/max links directly to USDT purchase apply amounts.',
+      ],
+      JP: [
+        '手数料・リスクに「限度設定」カードを分離。通貨別1回・日・月限度がUSDT買付申請金額に直接連動。',
+      ],
+      CH: [
+        '手续费·风险新增独立「限额设置」卡片；各币种单笔/日/月限额直接联动 USDT 申购金额。',
+      ],
+      TH: [
+        'แยกการ์ด「ตั้งค่าวงเงิน」ในค่าธรรมเนียม·ความเสี่ยง วงเงินต่อสกุลผูกกับจำนวนสมัครซื้อ USDT โดยตรง',
+      ],
+    },
+  },
+  {
+    version: '2.6.179',
+    kind: 'minor',
+    date: '2026-10-05',
+    items: {
+      KR: [
+        '개인 LIVE 매입: 법인용 USDT 최소(예: 1만) 대신 한도 국가·통화 기준(약 1만 USD 이하) 적용. 가입 시 국가 선택·전화·IP로 국가 추적.',
+      ],
+      US: [
+        'Individual LIVE purchase: use country/currency caps (~≤USD 10k) instead of corporate USDT minimums. Track country via signup select, phone, IP.',
+      ],
+      JP: [
+        '個人LIVE申込: 法人向けUSDT下限の代わりに限度国・通貨基準（約1万USD以下）を適用。登録時の国選択・電話・IPで国を追跡。',
+      ],
+      CH: [
+        '个人 LIVE 申购：不以企业 USDT 下限为准，而按限额国家/货币（约 ≤1 万 USD）执行；注册国家选择、电话、IP 追踪。',
+      ],
+      TH: [
+        'ซื้อ LIVE บุคคล: ใช้วงเงินตามประเทศ/สกุล (ราว ≤10,000 USD) แทนขั้นต่ำนิติบุคคล ติดตามประเทศจากเลือกตอนสมัคร โทรศัพท์ IP',
+      ],
+    },
+  },
+  {
+    version: '2.6.178',
+    kind: 'minor',
+    date: '2026-10-05',
+    items: {
+      KR: [
+        '고객 목록: 가입승인→가입. 고객 열은 기업/개인만 표시하고, 회원등급(ST 등)은 「등록」열로 분리.',
+      ],
+      US: [
+        'Customer list: Join column short label; Customer shows Corporate/Individual only; member grade (ST…) in separate Tier column.',
+      ],
+      JP: [
+        '顧客一覧: 加入列を短縮。顧客列は企業/個人のみ、会員等級(ST等)は「会員」列に分離。',
+      ],
+      CH: [
+        '客户列表：注册列缩短；客户列仅显示企业/个人；会员等级(ST等)单独「会员」列。',
+      ],
+      TH: [
+        'รายการลูกค้า: คอลัมน์สมัครสั้นลง ลูกค้าแสดงนิติ/บุคคลเท่านั้น ระดับสมาชิก (ST…) แยกคอลัมน์ทะเบียน',
+      ],
+    },
+  },
+  {
+    version: '2.6.177',
+    kind: 'minor',
+    date: '2026-10-05',
+    items: {
+      KR: [
+        '개인 DIRECT: 송금거래(USD/EUR)와 계좌이체(JPY 등)가 동시에 노출되도록 결제수단 로직 수정.',
+        '고객 시뮬레이터는 LIVE 매입 한도가 아닌 시뮬레이터 한도표를 적용. 화면에서 1회 min/max 안내.',
+      ],
+      US: [
+        'Individual DIRECT: remittance (USD/EUR) and bank transfer (e.g. JPY) can both appear as payment methods.',
+        'Customer simulator uses simulator risk tiers (not live purchase limits) and shows per-trade min/max.',
+      ],
+      JP: [
+        '個人DIRECT: 送金取引(USD/EUR)と銀行振込(JPY等)が同時に選べるよう決済手段ロジックを修正。',
+        '顧客シミュレーターはLIVE申込限度ではなくシミュレーター限度表を適用。1回min/maxを表示。',
+      ],
+      CH: [
+        '个人 DIRECT：汇款交易（USD/EUR）与银行转账（如 JPY）可同时显示为支付方式。',
+        '客户模拟器使用模拟限额表（非实际申购限额），并显示单笔上下限。',
+      ],
+      TH: [
+        'บุคคล DIRECT: แสดงทั้งโอนเงินต่างประเทศ (USD/EUR) และโอนธนาคาร (เช่น JPY) ได้พร้อมกัน',
+        'ตัวจำลองลูกค้าใช้ตารางวงเงินจำลอง (ไม่ใช่วงเงินซื้อจริง) และแสดง min/max ต่อครั้ง',
+      ],
+    },
+  },
+  {
+    version: '2.6.176',
+    kind: 'minor',
+    date: '2026-10-05',
+    items: {
+      KR: [
+        '고객 목록: 고객·등급을 한 열에 표시(예: 기업/ST). 청구방식→방식, 본사설정→본사로 축약.',
+      ],
+      US: [
+        'Customer list: merge type+grade in one column (e.g. Corporate/ST). Billing header→Method; HQ setting→HQ.',
+      ],
+      JP: [
+        '顧客一覧: 顧客種別と等級を1列表示（例: 企業/ST）。請求方式→方式、本社設定→本社に短縮。',
+      ],
+      CH: [
+        '客户列表：客户类型与等级合并一列（如 企业/ST）。计费方式→方式，总部设置→总部。',
+      ],
+      TH: [
+        'รายการลูกค้า: รวมประเภท+ระดับในคอลัมน์เดียว (เช่น นิติ/ST) หัวข้อวิธีเรียกเก็บ→วิธี และ HQ setting→HQ',
+      ],
+    },
+  },
+  {
+    version: '2.6.175',
+    kind: 'minor',
+    date: '2026-10-05',
+    items: {
+      KR: [
+        '고객 목록 테이블에 회원등급 열 추가. ST/PR/VI/VV/PR/BL 2글자·등급별 색상으로 표시.',
+      ],
+      US: [
+        'Customer list shows member grade column as 2-letter codes ST/PR/VI/VV/PR/BL with grade colors.',
+      ],
+      JP: [
+        '顧客一覧に会員等級列を追加。ST/PR/VI/VV/PR/BLの2文字・等級色で表示。',
+      ],
+      CH: [
+        '客户列表新增会员等级列，以 ST/PR/VI/VV/PR/BL 两字及等级配色显示。',
+      ],
+      TH: [
+        'เพิ่มคอลัมน์ระดับสมาชิกในรายการลูกค้า แสดงรหัส 2 ตัวอักษร ST/PR/VI/VV/PR/BL พร้อมสีตามระดับ',
+      ],
+    },
+  },
+  {
+    version: '2.6.174',
+    kind: 'minor',
+    date: '2026-10-05',
+    items: {
+      KR: [
+        '고객 상세(고객정보)에 회원등급 카드 추가·저장. Standard~Black 등급별 색상 배지/카드로 표시.',
+      ],
+      US: [
+        'Add member-grade card on customer detail with save. Color-coded badges/cards for Standard–Black.',
+      ],
+      JP: [
+        '顧客詳細に会員等級カードを追加・保存。Standard〜Blackを等級別カラーで表示。',
+      ],
+      CH: [
+        '客户详情新增会员等级卡片并可保存。Standard–Black 按等级配色显示。',
+      ],
+      TH: [
+        'เพิ่มการ์ดระดับสมาชิกในรายละเอียดลูกค้า พร้อมบันทึก และแสดงสีตามระดับ Standard–Black',
+      ],
+    },
+  },
+  {
+    version: '2.6.173',
+    kind: 'minor',
+    date: '2026-10-05',
+    items: {
+      KR: [
+        'EXPRESS 등급별 「관리」드롭다운(사용/미사용) 추가. EXPRESS 전체 활성과 별도로 특정 등급만 숨길 수 있으며, 미사용 시에도 수수료 숫자는 유지.',
+      ],
+      US: [
+        'Per-tier EXPRESS Manage dropdown (Use/Unused). Hide specific tiers even when EXPRESS is enabled; unused tiers keep their fee values.',
+      ],
+      JP: [
+        'EXPRESS等級ごとに「管理」ドロップダウン（使用/未使用）を追加。全体有効でも特定等級を非表示でき、未使用でも料金数値は保持。',
+      ],
+      CH: [
+        'EXPRESS 各等级新增「管理」下拉（使用/未使用）。整体启用时也可隐藏特定等级；未使用仍保留费用数值。',
+      ],
+      TH: [
+        'เพิ่ม「จัดการ」รายระดับ EXPRESS (ใช้/ไม่ใช้) ซ่อนบางระดับได้แม้เปิด EXPRESS ทั้งชุด และคงตัวเลขค่าธรรมเนียมไว้',
+      ],
+    },
+  },
+  {
+    version: '2.6.172',
+    kind: 'minor',
+    date: '2026-10-05',
+    items: {
+      KR: [
+        'EXPRESS 수수료 UI를 기존 좌우(법인·개인) 표로 복원. 회원등급 EXPRESS 추가 수수료는 기존 매트릭스 표를 유지하되 법인 표 위·개인 표 아래로 배치.',
+      ],
+      US: [
+        'Restore EXPRESS fee UI to side-by-side Corporate/Individual tables. Member-grade EXPRESS keeps the matrix table, stacked Corporate above Individual.',
+      ],
+      JP: [
+        'EXPRESS手数料UIを従来の左右（法人・個人）表に復元。会員等級EXPRESSは従来のマトリクス表のまま法人上・個人下に配置。',
+      ],
+      CH: [
+        'EXPRESS 手续费 UI 恢复为左右（法人·个人）表。会员等级 EXPRESS 保持原矩阵表，法人在上、个人在下。',
+      ],
+      TH: [
+        'คืน UI ค่า EXPRESS เป็นตารางซ้าย-ขวา (นิติ/บุคคล) ค่าธรรมเนียมเพิ่มตามระดับสมาชิกใช้ตารางเดิม นิติบน บุคคลล่าง',
+      ],
+    },
+  },
+  {
+    version: '2.6.171',
+    kind: 'minor',
+    date: '2026-10-05',
+    items: {
+      KR: [
+        '회원등급 EXPRESS 추가 수수료 1차 보수안 적용: Standard 0%·Premium 3%·VIP 5%·VVIP 8%·Prestige 12%·Black 15%+1USDT(ULTRA 0). 법인·개인 동일.',
+      ],
+      US: [
+        'Applied conservative member-grade EXPRESS add-on fees: Standard 0%, Premium 3%, VIP 5%, VVIP 8%, Prestige 12%, Black 15%+1 USDT (ULTRA 0). Same for Corporate/Individual.',
+      ],
+      JP: [
+        '会員等級EXPRESS追加手数料の1次保守案を適用: Standard 0%・Premium 3%・VIP 5%・VVIP 8%・Prestige 12%・Black 15%+1USDT(ULTRA 0)。法人・個人同一。',
+      ],
+      CH: [
+        '已套用会员等级 EXPRESS 附加手续费保守方案：Standard 0%·Premium 3%·VIP 5%·VVIP 8%·Prestige 12%·Black 15%+1USDT(ULTRA 0)。法人/个人相同。',
+      ],
+      TH: [
+        'ใช้ค่าธรรมเนียมเพิ่ม EXPRESS ตามระดับสมาชิกแบบอนุรักษ์: Standard 0% Premium 3% VIP 5% VVIP 8% Prestige 12% Black 15%+1USDT (ULTRA 0) นิติ/บุคคลเหมือนกัน',
+      ],
+    },
+  },
+  {
+    version: '2.6.170',
+    kind: 'minor',
+    date: '2026-10-05',
+    items: {
+      KR: [
+        'EXPRESS·회원등급 EXPRESS UI를 법인/개인 위·아래 나열로 변경하고, 가로 스크롤 없이 편집되도록 표 구성을 정리.',
+      ],
+      US: [
+        'Stack Corporate/Individual EXPRESS and member-grade EXPRESS editors vertically; layout avoids horizontal scrolling.',
+      ],
+      JP: [
+        'EXPRESS・会員等級EXPRESSの法人/個人を上下配置に変更し、横スクロールなしで編集できる表構成に整理。',
+      ],
+      CH: [
+        'EXPRESS 与会员等级 EXPRESS 的法人/个人改为上下排列，并调整表格布局以避免横向滚动。',
+      ],
+      TH: [
+        'จัด EXPRESS และค่าธรรมเนียมเพิ่มตามระดับสมาชิก นิติ/บุคคล ซ้อนแนวตั้ง ไม่มีแถบเลื่อนแนวนอน',
+      ],
+    },
+  },
+  {
+    version: '2.6.169',
+    kind: 'minor',
+    date: '2026-10-05',
+    items: {
+      KR: [
+        '명칭 정리: EXPRESS 수수료 / 회원등급 EXPRESS 추가 수수료. 회원등급 EXPRESS 추가 수수료를 법인·개인으로 분리 설정·적용.',
+      ],
+      US: [
+        'Rename: EXPRESS fee / member-grade EXPRESS add-on fee. Member-grade EXPRESS add-on fees now configure separately for Corporate and Individual.',
+      ],
+      JP: [
+        '名称整理: EXPRESS手数料 / 会員等級 EXPRESS追加手数料。会員等級 EXPRESS追加手数料を法人・個人で分離設定・適用。',
+      ],
+      CH: [
+        '名称整理：EXPRESS 手续费 / 会员等级 EXPRESS 附加手续费。会员等级 EXPRESS 附加手续费按法人·个人分别设置与适用。',
+      ],
+      TH: [
+        'ปรับชื่อ: ค่าธรรมเนียม EXPRESS / ค่าธรรมเนียมเพิ่ม EXPRESS ตามระดับสมาชิก และแยกตั้งค่า นิติ/บุคคล',
+      ],
+    },
+  },
+  {
+    version: '2.6.168',
+    kind: 'minor',
+    date: '2026-10-05',
+    items: {
+      KR: [
+        'EXPRESS 추가 수수료에 고정(USDT)과 함께 %(gross) 지원. HQ·고객 CUSTOM·회원등급 지정/%, 견적·신청·SLA 정산에 반영.',
+      ],
+      US: [
+        'EXPRESS add-on fees support fixed USDT and % of gross. HQ, customer CUSTOM, member-grade overrides; quotes/apply/SLA settlement included.',
+      ],
+      JP: [
+        'EXPRESS追加手数料に固定(USDT)と%(gross)を追加。HQ・顧客CUSTOM・会員等級指定/%、見積・申請・SLA精算に反映。',
+      ],
+      CH: [
+        'EXPRESS 附加手续费支持固定(USDT)与%(gross)。总部/客户 CUSTOM/会员等级指定/%，报价·申请·SLA 结算一并生效。',
+      ],
+      TH: [
+        'ค่า EXPRESS รองรับทั้งคงที่(USDT) และ %(gross) ที่ HQ/CUSTOM/ระดับสมาชิก รวมใบเสนอราคา สมัคร และ SLA',
+      ],
+    },
+  },
+  {
+    version: '2.6.167',
+    kind: 'minor',
+    date: '2026-10-05',
+    items: {
+      KR: [
+        '운영 안정화: 수수료 도식에 EXPRESS 표시, 고객 CUSTOM EXPRESS 표 편집, SLA 정산 환급 과다 방지, 회원등급 기본값 정리(BLACK 자동 ULTRA 무료 제거), 신청 티어 자동 보정.',
+      ],
+      US: [
+        'Ops hardening: show EXPRESS in fee diagram; CUSTOM EXPRESS table on customers; safer SLA refund; clean member-grade defaults; clamp apply tier to available options.',
+      ],
+      JP: [
+        '運用安定化: 手数料図にEXPRESS表示、顧客CUSTOM EXPRESS表編集、SLA精算の過剰返還防止、会員等級既定整理、申請等級の自動補正。',
+      ],
+      CH: [
+        '运营加固：费用图显示 EXPRESS；客户 CUSTOM EXPRESS 表可编辑；SLA 结算防超额退费；会员等级默认清理；申请档位自动校正。',
+      ],
+      TH: [
+        'เสถียรภาพ: แสดง EXPRESS ในแผนภาพค่าธรรมเนียม แก้ CUSTOM EXPRESS ที่ลูกค้า ป้องกันคืนเงินเกิน SLA ล้างค่าเริ่มระดับสมาชิก ปรับระดับสมัครอัตโนมัติ',
+      ],
+    },
+  },
+  {
+    version: '2.6.166',
+    kind: 'minor',
+    date: '2026-10-05',
+    items: {
+      KR: [
+        '회원등급 EXPRESS 혜택: Standard~Black을 한 표에서 지정가·할인%·할인 USDT를 일괄 조회·수정·저장.',
+        'EXPRESS 추가 수수료: 법인·개인 각각 활성/비활성 드롭다운으로 분리 설정, 수수료 표도 나란히 표시.',
+      ],
+      US: [
+        'Member-grade EXPRESS benefits: one table for Standard–Black override fees, discount %, and discount USDT.',
+        'EXPRESS fees: separate Enabled/Disabled dropdowns for Corporate and Individual, with side-by-side fee tables.',
+      ],
+      JP: [
+        '会員等級EXPRESS特典: Standard〜Blackを1表で指定料金・割引%・割引USDTを一括確認・編集・保存。',
+        'EXPRESS追加手数料: 法人・個人をそれぞれ有効/無効ドロップダウンで設定。手数料表も並べて表示。',
+      ],
+      CH: [
+        '会员等级 EXPRESS 优惠：一张表统一查看/编辑/保存 Standard–Black 指定价、折扣%与折扣 USDT。',
+        'EXPRESS 附加手续费：法人/个人分别用启用/停用下拉设置，费用表并排显示。',
+      ],
+      TH: [
+        'สิทธิ์ EXPRESS ตามระดับสมาชิก: ตารางเดียวดู/แก้/บันทึก Standard–Black ค่าพิเศษ ส่วนลด% และ USDT',
+        'ค่าธรรมเนียม EXPRESS: แยกดรอปดาวน์เปิด/ปิดนิติและบุคคล พร้อมตารางค่าด้านข้าง',
+      ],
+    },
+  },
+  {
+    version: '2.6.165',
+    kind: 'minor',
+    date: '2026-10-04',
+    items: {
+      KR: [
+        'EXPRESS 추가 수수료: 비활성 상태에서도 등급별 수수료 표를 항상 표시. 활성 체크 안내 문구 추가(본사 수수료·리스크).',
+      ],
+      US: [
+        'EXPRESS fees: tier fee table always visible even when disabled; clearer enable hint on HQ Commission.',
+      ],
+      JP: [
+        'EXPRESS手数料: 無効時も等級別手数料表を常時表示。有効化の案内を追加（本社手数料・リスク）。',
+      ],
+      CH: [
+        'EXPRESS 手续费：停用时仍始终显示各等级费用表；总部手续费·风险页增加启用说明。',
+      ],
+      TH: [
+        'ค่าธรรมเนียม EXPRESS: แสดงตารางค่าระดับแม้ปิดใช้ พร้อมคำอธิบายเปิดใช้ที่ HQ ค่าธรรมเนียม',
+      ],
+    },
+  },
+  {
+    version: '2.6.164',
+    kind: 'minor',
+    date: '2026-10-04',
+    items: {
+      KR: [
+        '회원등급(Standard~Black): 본사에서 개인·법인 공통 지정. 등급별 EXPRESS 지정가·%/USDT 할인(보너스). 고객관리에서 등급 지정, 신청·정산에 스냅샷 반영. BLACK 기본 ULTRA 0 USDT 예시.',
+      ],
+      US: [
+        'Member grades (Standard–Black): HQ assigns same for Individual/Corporate. Per-grade EXPRESS override fees and %/USDT discounts. Set on customer; snapshotted on apply/settle. BLACK default example: ULTRA 0 USDT.',
+      ],
+      JP: [
+        '会員等級(Standard〜Black): 本社で個人・法人共通指定。等級別EXPRESS指定料金・%/USDT割引。顧客管理で等級指定、申請・精算にスナップショット。BLACK既定例: ULTRA 0 USDT。',
+      ],
+      CH: [
+        '会员等级(Standard–Black)：总部对个人/法人统一指定。按等级设置 EXPRESS 指定价与%/USDT 折扣。客户管理指定等级，申请/结算快照。BLACK 默认示例：ULTRA 0 USDT。',
+      ],
+      TH: [
+        'ระดับสมาชิก (Standard–Black): HQ กำหนดร่วมบุคคล/นิติ ค่า EXPRESS ตามระดับ + ส่วนลด %/USDT ตั้งที่ลูกค้า เก็บ snapshot ตอนสมัคร/ชำระ BLACK ค่าเริ่ม ULTRA 0 USDT',
+      ],
+    },
+  },
+  {
+    version: '2.6.163',
+    kind: 'minor',
+    date: '2026-10-04',
+    items: {
+      KR: [
+        'EXPRESS 추가 수수료: 본사 개인/법인 활성·7등급(ULTRA~BASIC) 설정, 고객 FOLLOW_HQ/개별/비활성. 신청 시 선택(기본 BASIC), 완료 시 SLA 미이행이면 실제 시간으로 수수료 재계산·복원 표시.',
+      ],
+      US: [
+        'EXPRESS add-on fee: HQ Individual/Corporate ON + 7 tiers (ULTRA–BASIC); customer Follow HQ / custom / off. Apply defaults to BASIC; on complete, missed SLA recalculates and restores fee.',
+      ],
+      JP: [
+        'EXPRESS追加手数料: 本社で個人/法人の有効と7等級設定、顧客は本社従属/個別/無効。申請はBASIC既定、完了時SLA未達なら実時間で再計算・復元表示。',
+      ],
+      CH: [
+        'EXPRESS 附加手续费：总部按个人/法人启用并设 7 级；客户跟随总部/单独/停用。申请默认 BASIC；完成时未达 SLA 则按实际时间重算并恢复费用。',
+      ],
+      TH: [
+        'ค่าธรรมเนียม EXPRESS: HQ เปิดใช้บุคคล/นิติ + 7 ระดับ ลูกค้าตาม HQ/ตั้งเอง/ปิด สมัครค่าเริ่ม BASIC เสร็จแล้วไม่ทัน SLA จะคำนวณคืนตามเวลาจริง',
+      ],
+    },
+  },
+  {
+    version: '2.6.162',
+    kind: 'minor',
+    date: '2026-10-04',
+    items: {
+      KR: [
+        '수수료 구간을 개인·법인으로 분리. HQ에서 유형별 편집·저장, 견적·신청 시 고객 유형에 맞는 구간 적용. 개인 USD/EUR 송금은 FX 없이 송금·기타 수수료 중심으로 설정 안내.',
+      ],
+      US: [
+        'Split fee tiers for Individual vs Corporate. HQ edits/saves per type; quotes and applications use the matching tiers. Individual USD/EUR remittance guidance: FX usually 0.',
+      ],
+      JP: [
+        '手数料区間を個人・法人で分離。HQでタイプ別編集・保存、見積・申請は顧客タイプの区間を適用。個人USD/EUR送金はFXなしで送金・その他中心の案内。',
+      ],
+      CH: [
+        '手续费区间按个人/法人分离。总部可按类型编辑保存；报价与申请按客户类型适用。个人 USD/EUR 汇款指引：FX 通常为 0。',
+      ],
+      TH: [
+        'แยกช่วงค่าธรรมเนียมบุคคล/นิติ HQ แก้ไขตามประเภท ใบเสนอราคา/สมัครใช้ช่วงตามประเภทลูกค้า แนะนำโอนบุคคล USD/EUR ให้ FX=0',
+      ],
+    },
+  },
+  {
+    version: '2.6.161',
+    kind: 'minor',
+    date: '2026-10-04',
+    items: {
+      KR: [
+        'USDT 결제수단에 송금거래 추가(개인 기본). USD/EUR 금액 그대로 입력·한도 적용(환율 환산 없음). 개인 최대 송금액은 수수료·리스크 거래한도 USD/EUR.',
+      ],
+      US: [
+        'Add Remittance trade payment method (default for individuals). Enter USD/EUR as-is with limits in that currency (no FX). Caps under Commission → Transaction limits.',
+      ],
+      JP: [
+        'USDT決済に送金取引を追加（個人既定）。USD/EURをそのまま入力・限度適用（FXなし）。個人上限は手数料・リスク取引限度のUSD/EUR。',
+      ],
+      CH: [
+        'USDT 新增汇款交易支付方式（个人默认）。按 USD/EUR 原值输入与限额（无汇率换算）。个人上限在手续费·风险交易限额 USD/EUR。',
+      ],
+      TH: [
+        'เพิ่มช่องทางธุรกรรมโอนใน USDT (ค่าเริ่มต้นบุคคล) ใส่ USD/EUR ตามจริงพร้อมวงเงินสกุลนั้น (ไม่แปลง FX) ตั้งที่วงเงินธุรกรรม',
+      ],
+    },
+  },
+  {
+    version: '2.6.160',
+    kind: 'minor',
+    date: '2026-10-04',
+    items: {
+      KR: [
+        '상단 세션: 접속시간은 시계 아이콘, 사용자 아이콘은 개인(하늘색)·법인(빨강) 및 총본사·조직권한별 모양·파스텔톤으로 구분.',
+      ],
+      US: [
+        'Session bar: clock icon for access time; user icon varies by individual (sky) / corporate (rose) and HQ/org role with pastel tones.',
+      ],
+      JP: [
+        'セッションバー: 接続時間は時計アイコン、ユーザーは個人(水色)・法人(赤)および本社・組織権限別に形とパステル色で区別。',
+      ],
+      CH: [
+        '会话栏：访问时间为时钟图标；用户图标按个人(天蓝)/法人(红)及总部·组织权限区分形状与粉彩色。',
+      ],
+      TH: [
+        'แถบเซสชัน: เวลาเข้าใช้เป็นไอคอนนาฬิกา ไอคอนผู้ใช้แยกบุคคล(ฟ้า)/นิติ(แดง) และตามสิทธิ์ HQ/องค์กรโทนพาสเทล',
+      ],
+    },
+  },
+  {
+    version: '2.6.159',
+    kind: 'minor',
+    date: '2026-10-04',
+    items: {
+      KR: [
+        '본사정책「계좌관리」신설: 기업/개인 입금계좌 기본값 분리, 송금계좌(舊 직접송금) 명칭, 통화별 송금거래 on/off. 고객 본사따름은 유형별 HQ 기본값을 따름.',
+      ],
+      US: [
+        'New HQ Account management: separate corporate/individual collection defaults, rename to Remittance account, per-currency Remittance trade toggle. Follow HQ uses type-specific defaults.',
+      ],
+      JP: [
+        '本社ポリシー「口座管理」新設。企業/個人の入金口座既定を分離、送金口座へ改称、通貨別送金取引ON/OFF。本社従いは類型別HQ既定を適用。',
+      ],
+      CH: [
+        '新增总部「账户管理」：企业/个人入金默认分离，更名为汇款账户，币种级汇款交易开关；跟随总部按类型使用 HQ 默认。',
+      ],
+      TH: [
+        'เพิ่มเมนูจัดการบัญชี HQ: แยกค่าเริ่มต้นนิติ/บุคคล เปลี่ยนชื่อเป็นบัญชีโอน สวิตช์ธุรกรรมโอนรายสกุล ตาม HQ ใช้ค่าตามประเภทลูกค้า',
+      ],
+    },
+  },
+  {
+    version: '2.6.158',
+    kind: 'minor',
+    date: '2026-10-04',
+    items: {
+      KR: [
+        '입금계좌 방식에 직접송금(DIRECT) 추가: HQ가 적용 통화(USD/EUR, 추후 THB 등)를 지정하고, 고객·개인도 직접송금으로 거래 가능. CURFEX와 별도로 플랫폼 수취계좌 사용.',
+      ],
+      US: [
+        'Add Direct remittance (DIRECT) collection mode: HQ picks currencies (USD/EUR, later THB+); customers can trade via platform deposit accounts, separate from CURFEX.',
+      ],
+      JP: [
+        '入金口座方式に直接送金(DIRECT)を追加。HQが適用通貨(USD/EUR、将来THB等)を指定し、顧客も直接送金で取引可能。CURFEXとは別のプラットフォーム受取口座を使用。',
+      ],
+      CH: [
+        '新增直接汇款(DIRECT)入金方式：HQ 指定适用币种（USD/EUR，后续 THB 等），客户可经平台收款账户交易，与 CURFEX 分开。',
+      ],
+      TH: [
+        'เพิ่มโหมดโอนตรง (DIRECT): HQ เลือกสกุล (USD/EUR และ THB ในภายหลัง) ลูกค้าเทรดผ่านบัญชีรับเงินแพลตฟอร์ม แยกจาก CURFEX',
+      ],
+    },
+  },
+  {
+    version: '2.6.157',
+    kind: 'minor',
+    date: '2026-10-04',
+    items: {
+      KR: [
+        '개인고객 USDT 이체는 USD ACH·EUR SEPA 직접송금만 허용(CURFEX·로컬 고정계좌 제외).',
+      ],
+      US: [
+        'Individual bank-transfer USDT limited to USD ACH / EUR SEPA direct remittance (no CURFEX/local fixed).',
+      ],
+      JP: [
+        '個人のUSDT振込はUSD ACH・EUR SEPA直接送金のみ（CURFEX・現地固定口座なし）。',
+      ],
+      CH: [
+        '个人客户银行转账 USDT 仅限 USD ACH / EUR SEPA 直接汇款（不含 CURFEX/本地固定账户）。',
+      ],
+      TH: [
+        'ลูกค้าบุคคลโอน USDT ได้เฉพาะ USD ACH / EUR SEPA (ไม่ใช้ CURFEX/บัญชีคงที่ท้องถิ่น)',
+      ],
+    },
+  },
+  {
+    version: '2.6.156',
+    kind: 'minor',
+    date: '2026-10-04',
+    items: {
+      KR: [
+        'USD ACH에 Routing number(101019644), EUR SEPA에 BIC(CFTEMTM1) 필드·기본값 추가.',
+      ],
+      US: [
+        'Add USD ACH Routing number (101019644) and EUR SEPA BIC (CFTEMTM1) fields and defaults.',
+      ],
+      JP: [
+        'USD ACHにRouting number(101019644)、EUR SEPAにBIC(CFTEMTM1)フィールド・既定値を追加。',
+      ],
+      CH: [
+        'USD ACH 增加 Routing number(101019644)，EUR SEPA 增加 BIC(CFTEMTM1) 字段与默认值。',
+      ],
+      TH: [
+        'เพิ่ม Routing number (101019644) สำหรับ USD ACH และ BIC (CFTEMTM1) สำหรับ EUR SEPA',
+      ],
+    },
+  },
+  {
+    version: '2.6.155',
+    kind: 'minor',
+    date: '2026-10-04',
+    items: {
+      KR: [
+        '수취 계좌: USD=ACH·EUR=SEPA 입력 필드로 분리. 표시명 EURO→EUR. ONTHELINE ACH/SEPA 기본값.',
+      ],
+      US: [
+        'Receiving accounts: USD=ACH and EUR=SEPA field sets. Label EURO→EUR. Seed ONTHELINE ACH/SEPA defaults.',
+      ],
+      JP: [
+        '受取口座: USD=ACH・EUR=SEPA入力に分離。表示EURO→EUR。ONTHELINE ACH/SEPA既定値。',
+      ],
+      CH: [
+        '收款账户：USD=ACH、EUR=SEPA 字段分离；EURO→EUR；写入 ONTHELINE ACH/SEPA 默认值。',
+      ],
+      TH: [
+        'บัญชีรับ: USD=ACH / EUR=SEPA แยกฟิลด์ เปลี่ยน EURO→EUR ใส่ค่าเริ่มต้น ONTHELINE',
+      ],
+    },
+  },
+  {
+    version: '2.6.154',
+    kind: 'minor',
+    date: '2026-10-04',
+    items: {
+      KR: [
+        '로그인 사칭 피해 주의 안내(폐사…)를 KR 기준으로 US·JP·CH·TH 동일 내용 번역 반영.',
+      ],
+      US: [
+        'Login impersonation advisory aligned to Korean source text for US/JP/CH/TH.',
+      ],
+      JP: [
+        'ログインなりすまし注意案内を韓国語原文基準で US・JP・CH・TH に同内容翻訳。',
+      ],
+      CH: [
+        '登录冒充诈骗注意告知按韩语原文同步翻译至 US/JP/CH/TH。',
+      ],
+      TH: [
+        'ปรับข้อความเตือนแอบอ้างหน้าล็อกอินให้ตรงต้นฉบับเกาหลีครบ US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.153',
+    kind: 'minor',
+    date: '2026-10-04',
+    items: {
+      KR: [
+        '로그인 사칭 안내 문구 간소화(폐사…). 비밀번호/OTP 초기화 로그인 노출 ON/OFF. OTP 찾기→OTP 초기화.',
+      ],
+      US: [
+        'Shorten login fraud notice. Separate ON/OFF for Password/OTP reset on login. Rename OTP find → OTP reset.',
+      ],
+      JP: [
+        'ログインなりすまし案内を短縮。パスワード/OTP初期化の表示ON/OFF。OTP探す→OTP初期化。',
+      ],
+      CH: [
+        '精简登录防冒充提示。登录页密码/OTP重置独立开关。OTP找回→OTP重置。',
+      ],
+      TH: [
+        'ย่อข้อความเตือนแอบอ้างที่ล็อกอิน เปิด/ปิดแสดงรีเซ็ตรหัสผ่าน/OTP แยก เปลี่ยนชื่อเป็นรีเซ็ต OTP',
+      ],
+    },
+  },
+  {
+    version: '2.6.152',
+    kind: 'minor',
+    date: '2026-10-04',
+    items: {
+      KR: ['수취 계좌·통화 표시명을 USD / EURO로 통일.'],
+      US: ['Receiving-account currency labels shown as USD / EURO.'],
+      JP: ['受取口座の通貨表示を USD / EURO に統一。'],
+      CH: ['收款账户币种显示统一为 USD / EURO。'],
+      TH: ['ป้ายสกุลบัญชีรับแสดงเป็น USD / EURO'],
+    },
+  },
+  {
+    version: '2.6.151',
+    kind: 'minor',
+    date: '2026-10-04',
+    items: {
+      KR: [
+        '플랫폼: 고객 입금 수취 계좌(USD·EURO 포함)를 도메인·SSL 바로 위 독립 섹션으로 분리. 가입 시 동일 유형 이메일·전화 중복 차단, 기업→개인(및 반대) 동일 연락처 가입 허용.',
+      ],
+      US: [
+        'Platform: deposit accounts (incl. USD/EURO) as a section above Domain · SSL. Block same-type email/phone duplicates; allow corporate↔individual signup with the same contact.',
+      ],
+      JP: [
+        'プラットフォーム: 入金受取口座(USD·EURO含む)をドメイン·SSL直上の独立セクションへ。同一種別のメール·電話重複を禁止し、企業↔個人の同一連絡先登録を許可。',
+      ],
+      CH: [
+        '平台：收款账户（含 USD/EURO）独立分区置于域名·SSL 上方。同类型邮箱/手机不可重复；允许企业↔个人使用同一联系方式注册。',
+      ],
+      TH: [
+        'แพลตฟอร์ม: แยกบัญชีรับเงิน(รวม USD/EURO)ไว้เหนือโดเมน·SSL บล็อกอีเมล/โทรซ้ำประเภทเดียวกัน อนุญาตองค์กร↔บุคคลใช้ติดต่อเดียวกัน',
+      ],
+    },
+  },
+  {
+    version: '2.6.150',
+    kind: 'minor',
+    date: '2026-10-04',
+    items: {
+      KR: [
+        '로그인 가입 안내 마침표 제거. 고객관리 청구방식 「본사설정수정합니다」→「본사설정」.',
+      ],
+      US: [
+        'Remove trailing period from login signup notice. Customer billing method label: “Modify HQ setting” → “HQ setting”.',
+      ],
+      JP: [
+        'ログイン登録案内の句点を削除。顧客の請求方式ラベル「本社設定を修正」→「本社設定」。',
+      ],
+      CH: [
+        '登录注册说明去掉句号。客户计费方式标签「修改总部设置」→「总部设置」。',
+      ],
+      TH: [
+        'ลบจุดท้ายข้อความสมัครที่ล็อกอิน เปลี่ยนป้ายวิธีเรียกเก็บในลูกค้าเป็น「การตั้งค่า HQ」',
+      ],
+    },
+  },
+  {
+    version: '2.6.149',
+    kind: 'minor',
+    date: '2026-10-04',
+    items: {
+      KR: [
+        '본사정책→플랫폼: 고객 입금 수취 계좌에 USD(USDT)·EURO(EURC) 추가. 개인고객 직접송금·USDT 매입 통화로 선택·안내 가능.',
+      ],
+      US: [
+        'HQ Policy → Platform: add USD (USDT) and EURO (EURC) receiving accounts for individual direct remittance and USDT purchase.',
+      ],
+      JP: [
+        '本社ポリシー→プラットフォーム: 顧客入金受取口座にUSD（USDT）・EURO（EURC）を追加。個人の直接送金・USDT購入で選択・案内可能。',
+      ],
+      CH: [
+        '总部策略→平台：客户入金收款账户新增 USD（USDT）与 EURO（EURC），供个人直接汇款与 USDT 采购选择展示。',
+      ],
+      TH: [
+        'นโยบาย HQ→แพลตฟอร์ม: เพิ่มบัญชีรับ USD (USDT) และ EURO (EURC) สำหรับลูกค้าบุคคลโอนตรงและซื้อ USDT',
+      ],
+    },
+  },
+  {
+    version: '2.6.148',
+    kind: 'minor',
+    date: '2026-10-04',
+    items: {
+      KR: ['로그인 가입 안내를 「개인회원전용 / 기업고객 가입불가.」만 남기고 나머지 문구 제거.'],
+      US: ['Login signup notice shortened to “Individuals only / No corporate signup.”'],
+      JP: ['ログインの登録案内を「個人会員専用 / 企業顧客は登録不可。」のみに簡素化。'],
+      CH: ['登录注册说明精简为「仅限个人会员 / 企业客户不可注册。」'],
+      TH: ['ข้อความสมัครที่ล็อกอินเหลือแค่「สำหรับบุคคลเท่านั้น / องค์กรสมัครไม่ได้」'],
+    },
+  },
+  {
+    version: '2.6.147',
+    kind: 'minor',
+    date: '2026-10-04',
+    items: {
+      KR: [
+        '빠른송금 기본=사용, 플레이스홀더「서비스 선택」. 관리자 빈 화면: 구빌드 청크 정리·HTML no-cache·청크오류 자동복구·대시보드 오류경계 보강.',
+      ],
+      US: [
+        'Fast remittance defaults to Use; placeholder “Select a service”. Admin blank screen: clean stale chunks, HTML no-cache, chunk-error auto-recovery, dashboard error boundary.',
+      ],
+      JP: [
+        'クイック送金の既定=使用、プレースホルダ「サービスを選択」。管理画面空白: 旧チャンク削除・HTML no-cache・チャンクエラー自動復旧・エラー境界強化。',
+      ],
+      CH: [
+        '快速汇款默认「使用」，占位改为「选择服务」。管理端空白页：清理旧构建、HTML 禁止缓存、块加载失败自动恢复、仪表盘错误边界。',
+      ],
+      TH: [
+        'โอนด่วนเริ่มต้น=ใช้ ข้อความเลือก「เลือกบริการ」 แก้หน้าผู้ดูแลว่าง: ล้างชิ้นส่วนเก่า, no-cache HTML, กู้คืนเมื่อโหลดชิ้นส่วนพลาด, error boundary',
+      ],
+    },
+  },
+  {
+    version: '2.6.146',
+    kind: 'minor',
+    date: '2026-10-04',
+    items: {
+      KR: ['로그인: 「비밀번호 / OTP 찾기」 안내문 제거, 로그인 버튼과 동일 크기의 파스텔 그레이 메뉴로 표시.'],
+      US: ['Login: remove recover hint text; show Password / OTP recovery as a pastel-gray control matching login button size.'],
+      JP: ['ログイン: 「パスワード / OTP を探す」説明文を削除し、ログインボタンと同サイズのパステルグレーメニューに。'],
+      CH: ['登录：移除「密码 / OTP 找回」说明文字，改为与登录按钮同尺寸的灰粉菜单。'],
+      TH: ['ล็อกอิน: ลบข้อความอธิบายค้นหารหัสผ่าน/OTP แสดงเมนูเทาพาสเทลขนาดเดียวกับปุ่มเข้าสู่ระบบ'],
+    },
+  },
+  {
+    version: '2.6.145',
+    kind: 'minor',
+    date: '2026-10-04',
+    items: {
+      KR: [
+        '인증번호 발송: 확인 창 후 실제 SMTP 발송. 발송 실패 시 오류 표시. 가입/복구 이메일 정규화.',
+      ],
+      US: [
+        'Verification email: confirm dialog then real SMTP send; surface send failures; normalize signup/recovery emails.',
+      ],
+      JP: [
+        '認証番号送信: 確認ダイアログ後に実SMTP送信。失敗時はエラー表示。登録/復旧メール正規化。',
+      ],
+      CH: [
+        '验证码发送：确认后通过 SMTP 实际发送；失败时显示错误；注册/恢复邮箱规范化。',
+      ],
+      TH: [
+        'ส่งรหัสยืนยัน: ยืนยันก่อนแล้วส่ง SMTP จริง แสดงข้อผิดพลาดเมื่อส่งไม่ได้ ปรับอีเมลสมัคร/กู้คืน',
+      ],
+    },
+  },
+  {
+    version: '2.6.144',
+    kind: 'minor',
+    date: '2026-10-04',
+    items: {
+      KR: [
+        '가입: 빠른송금 회사 드롭다운(Wise·Remitly 등·Other). 언어별 기본 국가번호. 한도에 미국·중국 추가(태국 33만 바트). 공개모집 OFF 시 비밀번호/OTP 찾기 비활성·로그인 회색 메뉴화.',
+      ],
+      US: [
+        'Signup: fast-remittance company dropdown (Wise, Remitly, …, Other); locale default dial code; US/CN limits (THB 330k); recover gated when public signup OFF and gray menu on login.',
+      ],
+      JP: [
+        '登録: クイック送金会社ドロップダウン（Wise・Remitly等・Other）。言語別既定国番号。米・中限度追加（タイ33万バーツ）。公開募集OFF時はパスワード/OTP復旧を無効・ログインに灰色メニュー。',
+      ],
+      CH: [
+        '注册：快速汇款公司下拉（Wise、Remitly 等、Other）；按语言默认国家区号；增加美/中限额（泰国33万铢）；公开招募关闭时禁用密码/OTP找回并在登录页灰色菜单展示。',
+      ],
+      TH: [
+        'สมัคร: ดรอปดาวน์บริษัทโอนด่วน (Wise·Remitly ฯลฯ·Other) รหัสประเทศตามภาษา เพิ่มวงเงินสหรัฐ/จีน (ไทย 3.3 แสนบาท) ปิดรับสมัครสาธารณะแล้วปิดค้นหารหัสผ่าน/OTP และเมนูเทาที่ล็อกอิน',
+      ],
+    },
+  },
+  {
+    version: '2.6.143',
+    kind: 'minor',
+    date: '2026-10-04',
+    items: {
+      KR: [
+        '가입 제목 「개인 회원가입」·안내 문구 수정. 로고 여백 확대. 추천자 기본=없음(본사). 조직관리에서 추천·가입 담당 이메일 지정.',
+      ],
+      US: [
+        'Signup title “Individual sign up” and copy update; more logo spacing; referrer default=No (HQ). Org settings: choose referral/invite staff email.',
+      ],
+      JP: [
+        '登録タイトル「個人会員登録」・案内文修正。ロゴ余白拡大。紹介者既定=なし（本社）。組織管理で紹介・登録担当メール指定。',
+      ],
+      CH: [
+        '注册标题改为「个人注册」并更新说明；加大 Logo 间距；推荐人默认「无」（总部）。组织管理可指定推荐/注册负责邮箱。',
+      ],
+      TH: [
+        'หัวข้อสมัคร「สมัครบุคคล」แก้ข้อความ เพิ่มระยะโลโก้ ผู้แนะนำเริ่มต้น=ไม่มี (HQ) ตั้งอีเมลผู้ดูแลแนะนำได้ที่จัดการองค์กร',
+      ],
+    },
+  },
+  {
+    version: '2.6.142',
+    kind: 'minor',
+    date: '2026-10-04',
+    items: {
+      KR: [
+        '가입: 입금통장 위 WISE 송금 유무·송금자 정보. 통장 안내 아래 반송 계좌 빨간 경고. 통화 배치 KRW·THB / JPY·CNY.',
+      ],
+      US: [
+        'Signup: WISE yes/no and sender details above bank accounts; red refund-same-account warning; currency grid KRW·THB / JPY·CNY.',
+      ],
+      JP: [
+        '登録: 入金口座の上にWISE有無・送金者情報。口座案内下に返送口座の赤警告。通貨配置 KRW·THB / JPY·CNY。',
+      ],
+      CH: [
+        '注册：入金账户上方增加 WISE 有无与汇款人信息；账户说明下红色退款同账户警告；币种排列 KRW·THB / JPY·CNY。',
+      ],
+      TH: [
+        'สมัคร: ด้านบนบัญชีฝากมี WISE มี/ไม่มีและข้อมูลผู้ส่ง คำเตือนแดงคืนเงินบัญชีเดิม จัดสกุล KRW·THB / JPY·CNY',
+      ],
+    },
+  },
+  {
+    version: '2.6.141',
+    kind: 'minor',
+    date: '2026-10-04',
+    items: {
+      KR: [
+        '본사정책 「개인고객 공개 회원가입」ON=일반 공개가입, OFF=조직 개인가입 링크(?org/?ref)만 허용. 로그인 공개 버튼도 동일 정책에 연동.',
+      ],
+      US: [
+        'HQ “Allow individual public signup”: ON = open self-signup; OFF = organization invite links (?org/?ref) only. Login signup CTA follows the same policy.',
+      ],
+      JP: [
+        '本社「個人公開登録」ON=一般公開登録、OFF=組織の個人登録リンク(?org/?ref)のみ。ログインの登録ボタンも同ポリシー連動。',
+      ],
+      CH: [
+        '总部「允许个人公开注册」ON=公开自助注册，OFF=仅组织个人注册链接(?org/?ref)。登录页注册按钮同步该策略。',
+      ],
+      TH: [
+        'นโยบาย HQ 「อนุญาตสมัครสาธารณะบุคคล」ON=สมัครเปิด, OFF=เฉพาะลิงก์องค์กร (?org/?ref) ปุ่มสมัครหน้าเข้าสู่ระบบตามนโยบายเดียวกัน',
+      ],
+    },
+  },
+  {
+    version: '2.6.140',
+    kind: 'minor',
+    date: '2026-10-04',
+    items: {
+      KR: [
+        '회원가입 왼쪽 이미지를 로그인 배경과 분리. 미등록 시 미표시, 본사정책→플랫폼 브랜드에서 전용 이미지 업로드(권장 720×1280). 「추천자 없음」괄호 문구 제거.',
+      ],
+      US: [
+        'Signup left image is separate from login background; hidden when unset. Upload under HQ policy → Platform brand (recommended 720×1280). Removed parenthetical from “No referrer”.',
+      ],
+      JP: [
+        '会員登録の左画像をログイン背景と分離。未設定時は非表示。本社ポリシー→プラットフォームで専用画像アップロード（推奨720×1280）。「紹介者なし」の括弧表記を削除。',
+      ],
+      CH: [
+        '注册页左侧图与登录背景分离；未上传则不显示。可在总部政策→平台品牌上传专用图（建议720×1280）。去掉「无推荐人」括号说明。',
+      ],
+      TH: [
+        'แยกรูปซ้ายหน้าสมัครจากพื้นหลังเข้าสู่ระบบ ไม่แสดงถ้าไม่อัปโหลด อัปโหลดได้ที่นโยบาย HQ→แพลตฟอร์ม (แนะนำ 720×1280) ลบข้อความในวงเล็บของ「ไม่มีผู้แนะนำ」',
+      ],
+    },
+  },
+  {
+    version: '2.6.139',
+    kind: 'minor',
+    date: '2026-10-04',
+    items: {
+      KR: [
+        '개인 회원가입을 넓은 가입창(다단 배치)으로 전환. 계정·추천·입금통장·지갑을 구역별로 배치해 우측 한 줄 스크롤을 해소.',
+      ],
+      US: [
+        'Individual signup uses a wide multi-column form. Account, referrer, bank, and wallet are sectioned to avoid the narrow right-panel scroll.',
+      ],
+      JP: [
+        '個人会員登録を広い複数カラムの登録画面に変更。口座・紹介・入金口座・ウォレットを区画配置し、右狭パネルの縦長スクロールを解消。',
+      ],
+      CH: [
+        '个人注册改为宽版多列表单。账户、推荐人、入金账户、钱包分区排列，避免右侧窄栏单列滚动。',
+      ],
+      TH: [
+        'หน้าสมัครบุคคลเป็นฟอร์มกว้างหลายคอลัมน์ จัดกลุ่มบัญชี ผู้แนะนำ บัญชีฝาก กระเป๋า ลดการเลื่อนแนวตั้งในแผงขวาแคบ',
+      ],
+    },
+  },
+  {
+    version: '2.6.138',
+    kind: 'minor',
+    date: '2026-10-04',
+    items: {
+      KR: [
+        '로그인 첫화면에 개인고객 가입 버튼·경고 노출. 가입 안내(기업가입 불가·국가별 1회 한도)는 본사정책→플랫폼 「개인고객 정책」에서 다국어 수정. 비밀번호·OTP 찾기는 기업·개인 동일.',
+      ],
+      US: [
+        'Login shows individual signup CTA and warning. Signup notice (no corporate signup; country per-tx caps) is editable under HQ policy → Platform → Individual customer policy. Password/OTP recovery works for corporate and individual alike.',
+      ],
+      JP: [
+        'ログイン画面に個人登録ボタン・警告を表示。登録案内（法人不可・国別1回限度）は本社ポリシー→プラットフォーム「個人顧客ポリシー」で多言語編集。パスワード・OTP復旧は法人・個人共通。',
+      ],
+      CH: [
+        '登录页显示个人注册按钮与警告。注册须知（企业不可注册、各国单笔限额）可在总部政策→平台「个人客户政策」多语言编辑。密码/OTP找回对企业与个人相同。',
+      ],
+      TH: [
+        'หน้าเข้าสู่ระบบแสดงปุ่มสมัครบุคคลและคำเตือน ประกาศสมัคร (องค์กรสมัครไม่ได้ วงเงินตามประเทศ) แก้ได้ที่นโยบาย HQ → แพลตฟอร์ม นโยบายลูกค้าบุคคล กู้รหัสผ่าน/OTP ใช้ได้ทั้งองค์กรและบุคคล',
+      ],
+    },
+  },
+  {
+    version: '2.6.137',
+    kind: 'minor',
+    date: '2026-10-04',
+    items: {
+      KR: [
+        '공개 가입은 개인만 가능(기업은 관리자 등록). 조직별 개인가입 링크로 추천·유치 자동 지정. 청구방식 「본사설정수정합니다」. 데모명 「데모/샌드박스」.',
+      ],
+      US: [
+        'Public signup is individual-only (corporate via admin). Org invite links auto-set referral/recruiting. Billing label “Modify HQ setting”. Demo name “Demo/Sandbox”.',
+      ],
+      JP: [
+        '公開登録は個人のみ（企業は管理者）。組織別個人登録リンクで紹介・獲得を自動指定。請求「本社設定を修正」。デモ名「デモ/サンドボックス」。',
+      ],
+      CH: [
+        '公开注册仅限个人（企业由管理员）。各组织个人注册链接自动指定推荐归属。账单方式「修改总部设置」。演示名「演示/沙箱」。',
+      ],
+      TH: [
+        'สมัครสาธารณะเฉพาะบุคคล (องค์กรผ่านแอดมิน) ลิงก์สมัครองค์กรกำหนดผู้แนะนำอัตโนมัติ ป้ายเรียกเก็บ「แก้ไขการตั้งค่า HQ」 ชื่อเดโม「เดโม/แซนด์บ็อกซ์」',
+      ],
+    },
+  },
+  {
+    version: '2.6.136',
+    kind: 'minor',
+    date: '2026-10-04',
+    items: {
+      KR: [
+        '공개 가입: 추천자를 이메일·업체명(개인=성명)으로 검색·확인 후 가입. 조직 유형 비표시. 추천 없으면 본사 직속. 관리자 수동 등록은 유지.',
+      ],
+      US: [
+        'Public signup: search and confirm referrer by email or business/personal name (no org type shown). No referrer → HQ direct. Admin manual registration unchanged.',
+      ],
+      JP: [
+        '公開登録: 紹介者をメール・事業者名（個人は氏名）で検索確認後に登録。組織種別は非表示。紹介なしは本社直属。管理者手動登録は維持。',
+      ],
+      CH: [
+        '公开注册：按邮箱或公司名/姓名搜索确认推荐人后注册，不显示组织类型；无推荐人则总部直属。管理员手动注册保持不变。',
+      ],
+      TH: [
+        'สมัครสาธารณะ: ค้นหา/ยืนยันผู้แนะนำด้วยอีเมลหรือชื่อกิจการ/ชื่อบุคคล (ไม่แสดงประเภทองค์กร) ไม่มีผู้แนะนำ=สำนักงานใหญ่ แอดมินเพิ่มลูกค้าเองยังใช้ได้',
+      ],
+    },
+  },
+  {
+    version: '2.6.135',
+    kind: 'minor',
+    date: '2026-10-04',
+    items: {
+      KR: [
+        '로그인에 비밀번호·OTP 찾기 추가. 이메일 인증번호로 비밀번호 재설정 또는 Google OTP 초기화 후 재등록.',
+      ],
+      US: [
+        'Added Forgot password/OTP on login. Email code resets password or clears Google OTP for re-enrollment.',
+      ],
+      JP: [
+        'ログインにパスワード・OTP復旧を追加。メール認証でパスワード再設定、または Google OTP 初期化後の再登録。',
+      ],
+      CH: [
+        '登录页增加忘记密码/OTP。邮箱验证码可重置密码或清除 Google OTP 以便重新注册。',
+      ],
+      TH: [
+        'เพิ่มลืมรหัสผ่าน/OTP ที่หน้าเข้าสู่ระบบ รีเซ็ตรหัสผ่านหรือล้าง Google OTP ด้วยรหัสอีเมลแล้วลงทะเบียนใหม่',
+      ],
+    },
+  },
+  {
+    version: '2.6.134',
+    kind: 'minor',
+    date: '2026-10-04',
+    items: {
+      KR: [
+        '메뉴 「크립토 매입」으로 명칭 변경. 개인 자기가입은 관리자 승인 전까지 조회만 가능. 고객 상세에서 가입 승인·거절, 목록 필터 추가.',
+      ],
+      US: [
+        'Renamed menu to Crypto purchase. Self-registered individuals are view-only until admin approval. Approve/reject on customer detail; list filter added.',
+      ],
+      JP: [
+        'メニュー名を「クリプト購入」に変更。自己登録の個人は管理者承認まで閲覧のみ。顧客詳細で承認・拒否、一覧フィルタ追加。',
+      ],
+      CH: [
+        '菜单更名为「加密货币采购」。自行注册个人在管理员批准前仅可查看。客户详情可批准/拒绝，并增加列表筛选。',
+      ],
+      TH: [
+        'เปลี่ยนเมนูเป็นซื้อคริปโต ลูกค้าบุคคลสมัครเองดูได้อย่างเดียวจนกว่าแอดมินอนุมัติ มีปุ่มอนุมัติ/ปฏิเสธและตัวกรองในรายการ',
+      ],
+    },
+  },
+  {
     version: '2.6.133',
     kind: 'minor',
     date: '2026-10-01',

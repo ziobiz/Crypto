@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useT } from '@/context/LocaleProvider';
 import { hqPolicyApi, type HqCurfexConfig } from '@/lib/api';
@@ -19,6 +20,9 @@ const EMPTY: HqCurfexConfig = {
   webhookSecret: '',
   autoApproveOnDeposit: true,
   defaultCollectionMode: 'FIXED',
+  defaultCollectionModeCorporate: 'FIXED',
+  defaultCollectionModeIndividual: 'DIRECT',
+  directRemitCurrencies: ['USD', 'EUR'],
 };
 
 export function CurfexConfigPanel() {
@@ -95,9 +99,16 @@ export function CurfexConfigPanel() {
       <div className="pg-card-head">{t('hq.curfex.title')}</div>
       <div className="pg-card-body space-y-3">
         <p className="pg-hint">{t('hq.curfex.desc')}</p>
-        <div className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
-          {t('hq.curfex.modeHint')}
+        <div className="rounded border border-sky-200 bg-sky-50/60 px-3 py-2 text-xs text-sky-900">
+          <p>{t('hq.curfex.accountsMovedHint')}</p>
+          <Link
+            href="/dashboard/hq-policy/accounts"
+            className="mt-1 inline-block font-semibold text-sky-800 underline"
+          >
+            {t('hq.hub.accounts')}
+          </Link>
         </div>
+
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
@@ -128,26 +139,6 @@ export function CurfexConfigPanel() {
           </div>
           <p className="text-[11px] text-amber-800">{t('hq.curfex.currenciesException')}</p>
         </div>
-
-        <label className="block max-w-md">
-          <span className="pg-label">{t('hq.curfex.defaultCollectionMode')}</span>
-          <select
-            className="pg-input mt-1 w-full"
-            value={config.defaultCollectionMode === 'VIRTUAL' ? 'VIRTUAL' : 'FIXED'}
-            onChange={(e) =>
-              setConfig({
-                ...config,
-                defaultCollectionMode: e.target.value === 'VIRTUAL' ? 'VIRTUAL' : 'FIXED',
-              })
-            }
-          >
-            <option value="FIXED">{t('collectionMode.FIXED')}</option>
-            <option value="VIRTUAL">{t('collectionMode.VIRTUAL')}</option>
-          </select>
-          <span className="mt-1 block text-[11px] text-gray-500">
-            {t('hq.curfex.defaultCollectionModeHint')}
-          </span>
-        </label>
 
         <label className="block max-w-md">
           <span className="pg-label">{t('hq.curfex.clientId')}</span>

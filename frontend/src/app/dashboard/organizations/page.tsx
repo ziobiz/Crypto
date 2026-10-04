@@ -30,7 +30,36 @@ export default function OrganizationsPage() {
   const [isActive, setIsActive] = useState(true);
   const [simulatorEnabled, setSimulatorEnabled] = useState(true);
   const [simulatorRateMode, setSimulatorRateMode] = useState<'LIVE' | 'SAND'>('LIVE');
+  const [referralUserId, setReferralUserId] = useState('');
+  const [orgStaff, setOrgStaff] = useState<Array<{ id: string; email: string; name: string }>>([]);
   const [deleting, setDeleting] = useState<Organization | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  function inviteUrlFor(org: Organization): string {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://tinpass.com';
+    const params = new URLSearchParams({ org: org.code });
+    if (org.referralUserId) {
+      params.set('ref', org.referralUserId);
+    } else if (
+      me?.role === 'ORG_STAFF' &&
+      me.organization?.id &&
+      me.organization.id === org.id
+    ) {
+      params.set('ref', me.id);
+    }
+    return `${origin}/register?${params.toString()}`;
+  }
+
+  async function copyInviteLink(org: Organization) {
+    try {
+      await navigator.clipboard.writeText(inviteUrlFor(org));
+      setCopiedId(org.id);
+      setMsg(t('orgs.inviteCopied'));
+      setTimeout(() => setCopiedId((id) => (id === org.id ? null : id)), 2000);
+    } catch {
+      setError(t('orgs.inviteCopyFailed'));
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -62,8 +91,22 @@ export default function OrganizationsPage() {
     setIsActive(org.isActive !== false);
     setSimulatorEnabled(org.simulatorEnabled !== false);
     setSimulatorRateMode(org.simulatorRateMode === 'SAND' ? 'SAND' : 'LIVE');
+    setReferralUserId(org.referralUserId || '');
+    setOrgStaff([]);
     setModal('edit');
     setMsg('');
+    void api.users
+      .list({ organizationId: org.id, staffOnly: true, isActive: true })
+      .then((res) => {
+        setOrgStaff(
+          (res.items ?? []).map((u) => ({
+            id: u.id,
+            email: u.email,
+            name: u.name,
+          })),
+        );
+      })
+      .catch(() => setOrgStaff([]));
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -93,6 +136,7 @@ export default function OrganizationsPage() {
         isActive,
         simulatorEnabled,
         simulatorRateMode,
+        referralUserId: referralUserId || null,
       });
       setModal(null);
       setMsg(t('orgs.saved'));
@@ -141,6 +185,7 @@ export default function OrganizationsPage() {
               <th>{t('users.col.status')}</th>
               <th>{t('orgs.col.sRate')}</th>
               <th>{t('orgs.col.simulator')}</th>
+              <th>{t('orgs.col.invite')}</th>
               <th>{t('users.col.actions')}</th>
               <th>{t('users.col.note')}</th>
             </tr>
@@ -148,13 +193,13 @@ export default function OrganizationsPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={11} className="pg-hint">
+                <td colSpan={12} className="pg-hint">
                   {t('common.loading')}
                 </td>
               </tr>
             ) : orgs.length === 0 ? (
               <tr>
-                <td colSpan={11} className="pg-hint">
+                <td colSpan={12} className="pg-hint">
                   {t('orgs.empty')}
                 </td>
               </tr>
@@ -191,6 +236,17 @@ export default function OrganizationsPage() {
                     >
                       {o.simulatorEnabled !== false ? t('orgs.simulator.on') : t('orgs.simulator.off')}
                     </span>
+                  </td>
+                  <td className="text-center">
+                    <button
+                      type="button"
+                      className="pg-action-chip pg-action-chip-edit"
+                      title={inviteUrlFor(o)}
+                      onClick={() => void copyInviteLink(o)}
+                      disabled={o.isActive === false}
+                    >
+                      {copiedId === o.id ? t('orgs.inviteCopiedShort') : t('orgs.copyInvite')}
+                    </button>
                   </td>
                   <td className="text-center">
                     <button type="button" className="pg-action-chip pg-action-chip-edit" onClick={() => openEdit(o)}>
@@ -293,6 +349,29 @@ export default function OrganizationsPage() {
                   </div>
                 </label>
               </div>
+              <label className="pg-field mt-3 block">
+                <span className="pg-field-label">{t('orgs.referralEmail')}</span>
+                <p className="pg-hint mt-1">{t('orgs.referralEmailHint')}</p>
+                <select
+                  className="pg-select mt-2 w-full"
+                  value={referralUserId}
+                  onChange={(e) => setReferralUserId(e.target.value)}
+                >
+                  <option value="">{t('orgs.referralEmailNone')}</option>
+                  {orgStaff.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.email} ({s.name})
+                    </option>
+                  ))}
+                  {referralUserId &&
+                    !orgStaff.some((s) => s.id === referralUserId) &&
+                    editing.referralUser && (
+                      <option value={editing.referralUser.id}>
+                        {editing.referralUser.email} ({editing.referralUser.name})
+                      </option>
+                    )}
+                </select>
+              </label>
             </div>
             {msg && <p className="pg-callout pg-callout-error mx-6 mb-0">{msg}</p>}
             <div className="pg-modal-foot">

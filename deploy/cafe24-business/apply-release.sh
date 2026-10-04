@@ -48,6 +48,8 @@ fi
 
 echo "==> Extract zip"
 mkdir -p "$ROOT/incoming"
+# 구 빌드 청크·CSS 잔존으로 HTML/에셋 버전 불일치(빈 화면·Server Action 오류) 방지
+rm -rf "$ROOT/frontend/.next" "$ROOT/backend/dist" "$ROOT/server/dist"
 bash deploy/cafe24-business/unpack-zip.sh "$ZIP" "$ROOT"
 
 echo "==> Fix deploy scripts"

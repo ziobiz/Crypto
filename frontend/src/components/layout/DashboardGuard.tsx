@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthProvider';
 import { useT } from '@/context/LocaleProvider';
 import { AppShell } from '@/components/layout/AppShell';
 import { PageFrame } from '@/components/layout/PageFrame';
+import { DashboardErrorBoundary } from '@/components/DashboardErrorBoundary';
 import { WorkflowDisplayProvider } from '@/context/WorkflowDisplayProvider';
 
 export function DashboardGuard({ children }: { children: React.ReactNode }) {
@@ -40,9 +41,13 @@ export function DashboardGuard({ children }: { children: React.ReactNode }) {
 
   return (
     <WorkflowDisplayProvider>
-      <AppShell>
-        <PageFrame>{children}</PageFrame>
-      </AppShell>
+      <DashboardErrorBoundary label="shell">
+        <AppShell>
+          <DashboardErrorBoundary label="page">
+            <PageFrame>{children}</PageFrame>
+          </DashboardErrorBoundary>
+        </AppShell>
+      </DashboardErrorBoundary>
     </WorkflowDisplayProvider>
   );
 }

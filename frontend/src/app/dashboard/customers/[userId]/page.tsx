@@ -13,6 +13,7 @@ import {
   USDT_RISK_LIMIT_CODES,
   type KycCase,
   type ManagedUser,
+  type MemberGrade,
   type TradeReceiptEmailMode,
   type TradeReceiptUiMode,
   type UsdtQuoteResponseMode,
@@ -31,6 +32,12 @@ import {
 } from '@/lib/inactive-notice-presets';
 import type { MessageKey } from '@/i18n/messages';
 import { CustomerWalletQrCard } from '@/components/ScheduleDelayPanel';
+import {
+  MemberGradeCard,
+  MemberGradeChip,
+  normalizeMemberGradeUi,
+} from '@/components/MemberGradeCard';
+import { LIMIT_COUNTRIES, type LimitCountryCode } from '@/constants/limit-countries';
 
 function statusKey(status: string): MessageKey {
   if (status === 'PENDING') return 'kyc.status.PENDING';
@@ -79,9 +86,9 @@ export default function CustomerKycDetailPage() {
   const [totalFeeVisibility, setTotalFeeVisibility] = useState<'FOLLOW_HQ' | 'SHOW' | 'HIDE'>(
     'FOLLOW_HQ',
   );
-  const [usdtCollectionMode, setUsdtCollectionMode] = useState<'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL'>(
-    'FOLLOW_HQ',
-  );
+  const [usdtCollectionMode, setUsdtCollectionMode] = useState<
+    'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL' | 'DIRECT'
+  >('FOLLOW_HQ');
   const [usdtQuoteResponseMode, setUsdtQuoteResponseMode] =
     useState<UsdtQuoteResponseMode>('FOLLOW_HQ');
   const [tradeReceiptEmailMode, setTradeReceiptEmailMode] =
@@ -95,6 +102,8 @@ export default function CustomerKycDetailPage() {
   const [usdtRiskLimitCode, setUsdtRiskLimitCode] = useState<UsdtRiskLimitCode>('MR');
   const [usdtLimitMinUsdt, setUsdtLimitMinUsdt] = useState<number | null>(null);
   const [usdtLimitMaxUsdt, setUsdtLimitMaxUsdt] = useState<number | null>(null);
+  const [limitCountry, setLimitCountry] = useState<LimitCountryCode | ''>('');
+  const [memberGrade, setMemberGrade] = useState<MemberGrade>('STANDARD');
 
   const load = () => {
     api.kyc.getByUser(userId).then(setKyc).catch(console.error);
@@ -126,7 +135,8 @@ export default function CustomerKycDetailPage() {
     );
     setUsdtCollectionMode(
       profile.customerProfile.usdtCollectionMode === 'FIXED' ||
-        profile.customerProfile.usdtCollectionMode === 'VIRTUAL'
+        profile.customerProfile.usdtCollectionMode === 'VIRTUAL' ||
+        profile.customerProfile.usdtCollectionMode === 'DIRECT'
         ? profile.customerProfile.usdtCollectionMode
         : 'FOLLOW_HQ',
     );
@@ -173,6 +183,11 @@ export default function CustomerKycDetailPage() {
     );
     setUsdtLimitMinUsdt(profile.customerProfile.usdtLimitMinUsdt ?? null);
     setUsdtLimitMaxUsdt(profile.customerProfile.usdtLimitMaxUsdt ?? null);
+    const lc = String(profile.customerProfile.limitCountry ?? '').toUpperCase();
+    setLimitCountry(
+      LIMIT_COUNTRIES.some((c) => c.code === lc) ? (lc as LimitCountryCode) : '',
+    );
+    setMemberGrade(normalizeMemberGradeUi(profile.customerProfile.memberGrade));
   }, [profile]);
 
   const simDirty =
@@ -218,7 +233,27 @@ export default function CustomerKycDetailPage() {
     (usdtRiskLimitCode !== (profile.customerProfile.usdtRiskLimitCode ?? 'MR') ||
       (usdtRiskLimitCode === 'ML' &&
         (usdtLimitMinUsdt !== (profile.customerProfile.usdtLimitMinUsdt ?? null) ||
-          usdtLimitMaxUsdt !== (profile.customerProfile.usdtLimitMaxUsdt ?? null))));
+          usdtLimitMaxUsdt !== (profile.customerProfile.usdtLimitMaxUsdt ?? null))) ||
+      (limitCountry || null) !== (profile.customerProfile.limitCountry ?? null));
+
+  const memberGradeDirty =
+    !!profile?.customerProfile &&
+    memberGrade !== normalizeMemberGradeUi(profile.customerProfile.memberGrade);
+
+  async function saveMemberGradeSettings() {
+    if (!profile) return;
+    setLoading(true);
+    setMsg('');
+    try {
+      const next = await api.users.update(profile.id, { memberGrade });
+      setProfile(next);
+      setMsg(t('memberGrade.customer.saved'));
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : t('users.saveFailed'));
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function saveRiskLimitSettings() {
     if (!profile) return;
@@ -229,6 +264,7 @@ export default function CustomerKycDetailPage() {
         usdtRiskLimitCode,
         usdtLimitMinUsdt: usdtRiskLimitCode === 'ML' ? usdtLimitMinUsdt : null,
         usdtLimitMaxUsdt: usdtRiskLimitCode === 'ML' ? usdtLimitMaxUsdt : null,
+        limitCountry: limitCountry || null,
       });
       setProfile(next);
       setMsg(t('customers.riskLimit.saved'));
@@ -364,6 +400,25 @@ export default function CustomerKycDetailPage() {
 
   const isHq = user?.role === 'SUPER_ADMIN';
   const canEditCustomer = user?.role === 'SUPER_ADMIN' || user?.role === 'ORG_STAFF';
+  const canReviewRegistration =
+    user?.role === 'SUPER_ADMIN' ||
+    user?.role === 'ORG_STAFF' ||
+    user?.role === 'ORGANIZER' ||
+    user?.role === 'SETTLEMENT_ADMIN';
+
+  const reviewRegistration = async (status: 'APPROVED' | 'REJECTED') => {
+    setLoading(true);
+    setMsg('');
+    try {
+      const updated = await api.users.reviewCustomerApproval(userId, status);
+      setProfile(updated);
+      setMsg(t('customers.approval.saved'));
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : t('users.loadError'));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   async function saveReview() {
     if (!draftAction) {
@@ -450,10 +505,18 @@ export default function CustomerKycDetailPage() {
         msg !== t('customers.collectionMode.saved') &&
         msg !== t('customers.quoteResponse.saved') &&
         msg !== t('customers.riskLimit.saved') &&
+        msg !== t('memberGrade.customer.saved') &&
+        msg !== t('customers.approval.saved') &&
         msg !== t('kyc.reviewSaved') &&
         msg !== t('users.saved') && (
           <p className="text-xs text-red-600">{msg}</p>
         )}
+      {msg === t('memberGrade.customer.saved') && (
+        <p className="text-xs text-emerald-700">{msg}</p>
+      )}
+      {msg === t('customers.approval.saved') && (
+        <p className="text-xs text-emerald-700">{msg}</p>
+      )}
       <div className="pg-card">
         <div className="pg-card-body space-y-1.5 text-xs">
           <p>
@@ -473,6 +536,58 @@ export default function CustomerKycDetailPage() {
             {t('customers.col.kyc')}:{' '}
             <span className={`pg-badge ${kycBadgeClass(kyc.status)}`}>{t(statusKey(kyc.status))}</span>
           </p>
+          <p>
+            {t('customers.col.approval')}:{' '}
+            <span
+              className={`pg-badge ${
+                profile?.customerProfile?.approvalStatus === 'REJECTED'
+                  ? 'pg-badge-muted'
+                  : profile?.customerProfile?.approvalStatus === 'PENDING'
+                    ? 'pg-badge-warn'
+                    : 'pg-badge-success'
+              }`}
+            >
+              {t(
+                `customers.approval.${
+                  profile?.customerProfile?.approvalStatus === 'PENDING' ||
+                  profile?.customerProfile?.approvalStatus === 'REJECTED'
+                    ? profile.customerProfile.approvalStatus
+                    : 'APPROVED'
+                }` as MessageKey,
+              )}
+            </span>
+          </p>
+          {profile?.customerProfile && (
+            <p className="flex flex-wrap items-center gap-2">
+              <span>{t('memberGrade.customer.title')}:</span>
+              <MemberGradeChip grade={profile.customerProfile.memberGrade} />
+            </p>
+          )}
+          <p className="text-[11px] text-slate-500">{t('customers.approval.hint')}</p>
+          {canReviewRegistration && profile?.customerProfile && (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {profile.customerProfile.approvalStatus !== 'APPROVED' && (
+                <button
+                  type="button"
+                  className="pg-btn pg-btn-primary"
+                  disabled={loading}
+                  onClick={() => void reviewRegistration('APPROVED')}
+                >
+                  {t('customers.approval.approve')}
+                </button>
+              )}
+              {profile.customerProfile.approvalStatus !== 'REJECTED' && (
+                <button
+                  type="button"
+                  className="pg-btn pg-btn-secondary"
+                  disabled={loading}
+                  onClick={() => void reviewRegistration('REJECTED')}
+                >
+                  {t('customers.approval.reject')}
+                </button>
+              )}
+            </div>
+          )}
           {kyc.submittedAt && (
             <p>
               {t('kyc.col.submitted')}: {formatDate(kyc.submittedAt)}
@@ -485,6 +600,31 @@ export default function CustomerKycDetailPage() {
           )}
         </div>
       </div>
+      {profile?.customerProfile && (
+        <div className="pg-card">
+          <div className="pg-card-head text-xs">{t('memberGrade.customer.title')}</div>
+          <div className="pg-card-body space-y-2 text-xs">
+            <MemberGradeCard
+              value={memberGrade}
+              onChange={setMemberGrade}
+              disabled={loading || !canEditCustomer}
+            />
+            {canEditCustomer && (
+              <button
+                type="button"
+                className="pg-btn pg-btn-primary"
+                disabled={loading || !memberGradeDirty}
+                onClick={() => void saveMemberGradeSettings()}
+              >
+                {t('memberGrade.customer.save')}
+              </button>
+            )}
+            {msg === t('memberGrade.customer.saved') && (
+              <p className="text-emerald-700">{msg}</p>
+            )}
+          </div>
+        </div>
+      )}
       {profile?.customerProfile && (
         <div className="pg-card">
           <div className="pg-card-head text-xs">{t('customers.simulator.title')}</div>
@@ -566,6 +706,26 @@ export default function CustomerKycDetailPage() {
                 ))}
               </select>
             </div>
+            {profile.customerProfile.customerType !== 'CORPORATE' && (
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="font-medium text-slate-800">{t('auth.limitCountry')}</span>
+                <select
+                  className="pg-select h-8 min-w-[12rem] shrink-0 px-2 py-1 text-xs"
+                  disabled={loading || !canEditCustomer}
+                  value={limitCountry}
+                  onChange={(e) => setLimitCountry(e.target.value as LimitCountryCode | '')}
+                  aria-label={t('auth.limitCountry')}
+                >
+                  <option value="">{t('auth.limitCountryAuto')}</option>
+                  {LIMIT_COUNTRIES.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {t(`auth.limitCountry.${c.code}` as MessageKey)}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-[11px] text-slate-500">{t('auth.limitCountryHint')}</span>
+              </div>
+            )}
             {usdtRiskLimitCode === 'ML' && (
               <div className="grid gap-2 sm:grid-cols-2">
                 <label className="block">
@@ -628,12 +788,15 @@ export default function CustomerKycDetailPage() {
                 disabled={loading || !canEditCustomer}
                 value={usdtCollectionMode}
                 onChange={(e) =>
-                  setUsdtCollectionMode(e.target.value as 'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL')
+                  setUsdtCollectionMode(
+                    e.target.value as 'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL' | 'DIRECT',
+                  )
                 }
                 aria-label={t('customers.col.collectionMode')}
               >
                 <option value="FOLLOW_HQ">{t('collectionMode.FOLLOW_HQ')}</option>
                 <option value="FIXED">{t('collectionMode.FIXED')}</option>
+                <option value="DIRECT">{t('collectionMode.DIRECT')}</option>
                 <option value="VIRTUAL">{t('collectionMode.VIRTUAL')}</option>
               </select>
             </div>

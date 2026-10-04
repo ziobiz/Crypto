@@ -19,10 +19,20 @@ export function defaultCurrencyLimits(
   };
 }
 
+/** 개인고객 기본 1회 한도 — 가입 안내·국가 한도와 정합 (대부분 ≤ 약 10,000 USD) */
+const INDIVIDUAL_PER_TX_MAX: Record<SymbolFeeCurrency, number> = {
+  KRW: 10_000_000,
+  JPY: 1_000_000,
+  THB: 330_000,
+  CNY: 65_000,
+  USD: 10_000,
+  EUR: 9_000,
+};
+
 export function defaultTransactionLimitsPolicy(
   maxTicketKrw = 100_000_000,
 ): CustomerTransactionLimitsPolicy {
-  const buildForType = (multiplier: number): Record<SymbolFeeCurrency, CurrencyTransactionLimits> => {
+  const buildCorporate = (): Record<SymbolFeeCurrency, CurrencyTransactionLimits> => {
     const row: Partial<Record<SymbolFeeCurrency, CurrencyTransactionLimits>> = {};
     for (const currency of SYMBOL_FEE_CURRENCIES) {
       const scale =
@@ -35,19 +45,29 @@ export function defaultTransactionLimitsPolicy(
               : currency === 'CNY'
                 ? 0.005
                 : 0.00075;
-      const base = Math.round(maxTicketKrw * scale);
+      const base = Math.round(maxTicketKrw * scale) * 5;
       row[currency] = defaultCurrencyLimits({
-        perTransactionMax: base * multiplier,
-        dailyMax: base * multiplier * 5,
-        monthlyMax: base * multiplier * 20,
+        perTransactionMax: base,
+        dailyMax: base * 5,
+        monthlyMax: base * 20,
       });
     }
     return row as Record<SymbolFeeCurrency, CurrencyTransactionLimits>;
   };
 
+  const individual = {} as Record<SymbolFeeCurrency, CurrencyTransactionLimits>;
+  for (const currency of SYMBOL_FEE_CURRENCIES) {
+    const max = INDIVIDUAL_PER_TX_MAX[currency] ?? 0;
+    individual[currency] = defaultCurrencyLimits({
+      perTransactionMax: max,
+      dailyMax: max * 5,
+      monthlyMax: max * 20,
+    });
+  }
+
   return {
-    INDIVIDUAL: buildForType(1),
-    CORPORATE: buildForType(5),
+    INDIVIDUAL: individual,
+    CORPORATE: buildCorporate(),
   };
 }
 

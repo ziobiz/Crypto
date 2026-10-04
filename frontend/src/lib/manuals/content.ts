@@ -436,7 +436,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
       title: L('통화별 이체·카드·고정 수취계좌', 'Per-currency transfer, card & fixed accounts', '通貨別 振込・カード・固定受取口座', '按币种转账·卡·固定收款账户', 'โอน/บัตร/บัญชีคงที่ตามสกุล'),
       bodyHtml: L(
         `<span class="menu-path">본사정책 → 플랫폼 → 고객 입금 수취 계좌 (통화별)</span>
-        <p>KRW·JPY·THB·CNY마다 <strong>고정 수취 계좌</strong>를 등록하고, <strong>이체거래</strong>·<strong>카드결제</strong>를 따로 켭니다. CURFEX가 꺼진 통화(또는 미적용 통화)에서 고객에게 이 계좌가 안내됩니다.</p>
+        <p>KRW·JPY·THB·CNY·<strong>USD</strong>·<strong>EUR</strong>마다 <strong>고정 수취 계좌</strong>를 등록하고, <strong>이체거래</strong>·<strong>카드결제</strong>를 따로 켭니다. 개인고객 직접송금은 USD(ACH)·EUR(SEPA) 계좌를 사용합니다. CURFEX가 꺼진 통화(또는 미적용 통화)에서 고객에게 이 계좌가 안내됩니다.</p>
         <table><thead><tr><th>항목</th><th>설명</th></tr></thead><tbody>
         <tr><td>은행명·은행 주소</td><td>예: MUFG Bank, Ltd. / Marunouchi…</td></tr>
         <tr><td>은행 코드 · 지점 코드</td><td>예: 0005 · 869</td></tr>
@@ -454,7 +454,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         UI 언어를 바꿔도 <strong>수취인명만은 일본어 원문</strong>으로 남습니다. 안내 문구만 해당 언어로 바뀝니다.</div>
         <div class="check-box">위치는 검증관리가 아니라 <strong>플랫폼</strong>입니다. CURFEX는 검증관리 → 결제관리에서 별도 설정.</div>`,
         `<span class="menu-path">HQ Policy → Platform → Customer deposit accounts</span>
-        <p>For KRW, JPY, THB, CNY register the <strong>fixed receiving account</strong> and toggle <strong>bank transfer</strong> / <strong>card</strong> separately. Shown when CURFEX is off (or not applied) for that currency.</p>
+        <p>For KRW, JPY, THB, CNY, <strong>USD</strong>, and <strong>EUR</strong> register the <strong>fixed receiving account</strong> and toggle <strong>bank transfer</strong> / <strong>card</strong> separately. Individual direct remittance uses USD (ACH) / EUR (SEPA) accounts. Shown when CURFEX is off (or not applied) for that currency.</p>
         <table><thead><tr><th>Field</th><th>Notes</th></tr></thead><tbody>
         <tr><td>Bank name · address</td><td>e.g. MUFG Bank, Ltd. / Marunouchi…</td></tr>
         <tr><td>Bank code · branch code</td><td>e.g. 0005 · 869</td></tr>
@@ -472,7 +472,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         Switching UI language translates the notice only — the <strong>beneficiary name stays Japanese</strong>.</div>
         <div class="check-box">Configured under <strong>Platform</strong>, not Verification Mgmt. CURFEX is separate under Verification Mgmt → Payment.</div>`,
         `<span class="menu-path">本社ポリシー → プラットフォーム → 顧客入金受取口座（通貨別）</span>
-        <p>KRW・JPY・THB・CNYごとに<strong>固定受取口座</strong>を登録し、<strong>振込</strong>・<strong>カード</strong>を個別にON/OFFします。CURFEXがOFF（または未適用）の通貨で顧客に案内されます。</p>
+        <p>KRW・JPY・THB・CNY・<strong>USD</strong>・<strong>EUR</strong>ごとに<strong>固定受取口座</strong>を登録し、<strong>振込</strong>・<strong>カード</strong>を個別にON/OFFします。個人顧客の直接送金はUSD（ACH）・EUR（SEPA）口座を使います。CURFEXがOFF（または未適用）の通貨で顧客に案内されます。</p>
         <table><thead><tr><th>項目</th><th>説明</th></tr></thead><tbody>
         <tr><td>銀行名・住所</td><td>例: MUFG Bank, Ltd. / Marunouchi…</td></tr>
         <tr><td>銀行コード・支店コード</td><td>例: 0005 · 869</td></tr>
@@ -490,7 +490,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         UI言語を変えても<strong>受取人名だけは日本語原文</strong>のままです。案内文だけが翻訳されます。</div>
         <div class="check-box">場所は検証管理ではなく<strong>プラットフォーム</strong>です。CURFEXは検証管理→決済管理で別設定。</div>`,
         `<span class="menu-path">总部策略 → 平台 → 客户入金收款账户（按币种）</span>
-        <p>为 KRW·JPY·THB·CNY 登记<strong>固定收款账户</strong>，并单独开关<strong>转账</strong>·<strong>卡支付</strong>。当 CURFEX 关闭（或未适用）时向客户展示。</p>
+        <p>为 KRW·JPY·THB·CNY·<strong>USD</strong>·<strong>EUR</strong> 登记<strong>固定收款账户</strong>，并单独开关<strong>转账</strong>·<strong>卡支付</strong>。个人客户直接汇款使用 USD（ACH）/ EUR（SEPA）账户。当 CURFEX 关闭（或未适用）时向客户展示。</p>
         <table><thead><tr><th>项目</th><th>说明</th></tr></thead><tbody>
         <tr><td>银行名·地址</td><td>如 MUFG Bank, Ltd. / Marunouchi…</td></tr>
         <tr><td>银行代码·分行代码</td><td>如 0005 · 869</td></tr>
@@ -508,7 +508,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         切换界面语言时，仅提示文翻译；<strong>收款人姓名始终保持日语原文</strong>。</div>
         <div class="check-box">位置在<strong>平台</strong>，不在验证管理。CURFEX 在验证管理→支付管理单独设置。</div>`,
         `<span class="menu-path">HQ Policy → แพลตฟอร์ม → บัญชีรับเงินลูกค้า (ตามสกุล)</span>
-        <p>ลงทะเบียน<strong>บัญชีรับคงที่</strong>สำหรับ KRW·JPY·THB·CNY และเปิด/ปิด <strong>โอน</strong>·<strong>บัตร</strong> แยกกัน แสดงเมื่อ CURFEX ปิด (หรือไม่ใช้) ในสกุลนั้น</p>
+        <p>ลงทะเบียน<strong>บัญชีรับคงที่</strong>สำหรับ KRW·JPY·THB·CNY·<strong>USD</strong>·<strong>EUR</strong> และเปิด/ปิด <strong>โอน</strong>·<strong>บัตร</strong> แยกกัน ลูกค้าบุคคลโอนตรงใช้บัญชี USD (ACH) / EUR (SEPA) แสดงเมื่อ CURFEX ปิด (หรือไม่ใช้) ในสกุลนั้น</p>
         <table><thead><tr><th>รายการ</th><th>คำอธิบาย</th></tr></thead><tbody>
         <tr><td>ชื่อธนาคาร·ที่อยู่</td><td>เช่น MUFG Bank, Ltd. / Marunouchi…</td></tr>
         <tr><td>รหัสธนาคาร·สาขา</td><td>เช่น 0005 · 869</td></tr>

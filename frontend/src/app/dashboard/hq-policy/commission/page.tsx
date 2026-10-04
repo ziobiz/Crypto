@@ -21,9 +21,16 @@ import {
   type HqCurrencyAmountDisplayPolicy,
   type SymbolFeeCurrency,
   type SymbolFeeTierRow,
+  type SymbolFeeTiersByCustomerType,
+  type HqExpressPolicy,
+  type HqMemberGradePolicy,
   type UsdtRiskLimitTier,
   type HqUsdtRiskLimitTiers,
+  defaultExpressPolicy,
+  defaultMemberGradePolicy,
 } from '@/lib/api';
+import { ExpressFeePolicyEditor } from '@/components/hq-policy/ExpressFeePolicyEditor';
+import { MemberGradePolicyEditor } from '@/components/hq-policy/MemberGradePolicyEditor';
 import type { MessageKey } from '@/i18n/messages';
 import { FormattedAmountInput } from '@/components/FormattedAmountInput';
 import { formatAmountInput } from '@/lib/format';
@@ -44,9 +51,20 @@ type OrgRateRow = {
   tradeEscrow: string;
 };
 
-const FEE_CURRENCIES: SymbolFeeCurrency[] = ['KRW', 'JPY', 'THB', 'CNY', 'USD'];
+const FEE_CURRENCIES: SymbolFeeCurrency[] = ['KRW', 'JPY', 'THB', 'CNY', 'USD', 'EUR'];
 const LIMIT_CUSTOMER_TYPES = ['INDIVIDUAL', 'CORPORATE'] as const;
 type LimitCustomerType = (typeof LIMIT_CUSTOMER_TYPES)[number];
+
+function normalizeFeeTiersByCustomerType(payload: HqCommissionPayload): SymbolFeeTiersByCustomerType {
+  if (payload.feeTiersByCustomerType) {
+    return {
+      INDIVIDUAL: [...(payload.feeTiersByCustomerType.INDIVIDUAL ?? [])],
+      CORPORATE: [...(payload.feeTiersByCustomerType.CORPORATE ?? payload.feeTiers ?? [])],
+    };
+  }
+  const legacy = [...(payload.feeTiers ?? [])];
+  return { INDIVIDUAL: legacy, CORPORATE: legacy.map((row) => ({ ...row })) };
+}
 
 type FeeDiagramToggleKey = Exclude<
   keyof FeeDiagramDisplayConfig,
@@ -61,6 +79,7 @@ const FEE_DIAGRAM_KEYS: Array<{ key: FeeDiagramToggleKey; labelKey: MessageKey }
   { key: 'otherFee', labelKey: 'hq.commission.feeDiagram.otherFee' },
   { key: 'localPremium', labelKey: 'hq.commission.feeDiagram.localPremium' },
   { key: 'operatingFee', labelKey: 'hq.commission.feeDiagram.operatingFee' },
+  { key: 'expressFee', labelKey: 'hq.commission.feeDiagram.expressFee' },
   { key: 'net', labelKey: 'hq.commission.feeDiagram.net' },
   { key: 'requiredFiat', labelKey: 'hq.commission.feeDiagram.requiredFiat' },
 ];
@@ -93,9 +112,10 @@ const DEFAULT_CURRENCY_AMOUNT: HqCurrencyAmountDisplayPolicy = {
   CNY: { decimals: 2, mode: 'ROUND' },
   HKD: { decimals: 2, mode: 'ROUND' },
   USD: { decimals: 2, mode: 'ROUND' },
+  EUR: { decimals: 2, mode: 'ROUND' },
 };
 
-const AMOUNT_CURRENCIES = ['KRW', 'JPY', 'THB', 'CNY', 'USD'] as const;
+const AMOUNT_CURRENCIES = ['KRW', 'JPY', 'THB', 'CNY', 'USD', 'EUR'] as const;
 
 const DEFAULT_FEE_DIAGRAM: FeeDiagramDisplayConfig = {
   gross: true,
@@ -105,6 +125,7 @@ const DEFAULT_FEE_DIAGRAM: FeeDiagramDisplayConfig = {
   otherFee: true,
   localPremium: true,
   operatingFee: true,
+  expressFee: true,
   net: true,
   requiredFiat: true,
   showRates: true,
@@ -358,7 +379,17 @@ export default function HqCommissionPage() {
   const [risk, setRisk] = useState<HqCommissionRiskConfig | null>(null);
   const [orgRows, setOrgRows] = useState<OrgRateRow[]>([]);
   const [feeTypes, setFeeTypes] = useState<FeeTypeTemplate[]>([]);
-  const [feeTiers, setFeeTiers] = useState<SymbolFeeTierRow[]>([]);
+  const [feeTiersByCustomerType, setFeeTiersByCustomerType] = useState<SymbolFeeTiersByCustomerType>({
+    INDIVIDUAL: [],
+    CORPORATE: [],
+  });
+  const [feeCustomerType, setFeeCustomerType] = useState<LimitCustomerType>('CORPORATE');
+  const [expressFee, setExpressFee] = useState<HqExpressPolicy>(defaultExpressPolicy());
+  const [savingExpress, setSavingExpress] = useState(false);
+  const [expressMsg, setExpressMsg] = useState('');
+  const [memberGrade, setMemberGrade] = useState<HqMemberGradePolicy>(defaultMemberGradePolicy());
+  const [savingMemberGrade, setSavingMemberGrade] = useState(false);
+  const [memberGradeMsg, setMemberGradeMsg] = useState('');
   const [exchangeRateSources, setExchangeRateSources] = useState<HqExchangeRateSourcePolicy | null>(null);
   const [exchangeRatePreview, setExchangeRatePreview] = useState<ExchangeRatePreviewRow[]>([]);
   const [savingRateSources, setSavingRateSources] = useState(false);
@@ -398,6 +429,15 @@ export default function HqCommissionPage() {
   const [ratesMsg, setRatesMsg] = useState('');
   const [error, setError] = useState('');
   const [limitCustomerType, setLimitCustomerType] = useState<LimitCustomerType>('INDIVIDUAL');
+
+  const feeTiers = feeTiersByCustomerType[feeCustomerType];
+
+  function updateActiveFeeTiers(updater: (prev: SymbolFeeTierRow[]) => SymbolFeeTierRow[]) {
+    setFeeTiersByCustomerType((prev) => ({
+      ...prev,
+      [feeCustomerType]: updater(prev[feeCustomerType]),
+    }));
+  }
 
   const orgTypeLabel = (type: string) => t(`org.${type}` as MessageKey);
   const rateSourceLabel = (source: ExchangeRateSourceId | string) =>
@@ -446,7 +486,9 @@ export default function HqCommissionPage() {
         const types = commission.feeTypes ?? [];
         setFeeTypes(types);
         setGasNetworks(commission.gasNetworks ?? DEFAULT_GAS_NETWORKS);
-        setFeeTiers(commission.feeTiers ?? []);
+        setFeeTiersByCustomerType(normalizeFeeTiersByCustomerType(commission));
+        setExpressFee(commission.expressFee ?? defaultExpressPolicy());
+        setMemberGrade(commission.memberGrade ?? defaultMemberGradePolicy());
         setExchangeRateSources(commission.exchangeRateSources);
         setExchangeRatePreview(commission.exchangeRatePreview ?? []);
         setCurrencyAmount({
@@ -669,18 +711,18 @@ export default function HqCommissionPage() {
       setTiersMsg(t('hq.commission.tierMaxAmountInvalid'));
       return;
     }
-    setFeeTiers((prev) => prev.map((row) => (row.id === tierDraft.id ? tierDraft : row)));
+    updateActiveFeeTiers((prev) => prev.map((row) => (row.id === tierDraft.id ? tierDraft : row)));
     cancelTierEdit();
   }
 
   function addTier() {
     if (!risk || editingTierId) return;
-    setFeeTiers((prev) => [...prev, defaultTierForCurrency(feeCurrency, risk)]);
+    updateActiveFeeTiers((prev) => [...prev, defaultTierForCurrency(feeCurrency, risk)]);
   }
 
   function removeTier(id: string) {
     if (editingTierId) return;
-    setFeeTiers((prev) => prev.filter((row) => row.id !== id));
+    updateActiveFeeTiers((prev) => prev.filter((row) => row.id !== id));
   }
 
   async function saveFeeTiers() {
@@ -691,9 +733,9 @@ export default function HqCommissionPage() {
     setSavingTiers(true);
     setTiersMsg('');
     try {
-      const next = await hqPolicyApi.saveSymbolFeeTiers(feeTiers);
+      const next = await hqPolicyApi.saveSymbolFeeTiers(feeTiersByCustomerType);
       setData(next);
-      setFeeTiers(next.feeTiers);
+      setFeeTiersByCustomerType(normalizeFeeTiersByCustomerType(next));
       setTiersMsg(t('hq.commission.tiersSaved'));
     } catch (e) {
       setTiersMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
@@ -1511,6 +1553,26 @@ export default function HqCommissionPage() {
           </div>
         </div>
 
+        <div className="flex flex-wrap gap-2">
+          {LIMIT_CUSTOMER_TYPES.map((type) => (
+            <button
+              key={type}
+              type="button"
+              onClick={() => {
+                if (feeCustomerType !== type) cancelTierEdit();
+                setFeeCustomerType(type);
+              }}
+              className={`pg-btn text-xs ${
+                feeCustomerType === type ? 'pg-btn-primary' : 'pg-btn-secondary'
+              }`}
+            >
+              {type === 'INDIVIDUAL'
+                ? t('hq.commission.limitsIndividual')
+                : t('hq.commission.limitsCorporate')}
+            </button>
+          ))}
+        </div>
+
         <div className="pg-segment-bar">
           {FEE_CURRENCIES.map((c) => (
             <button
@@ -1528,6 +1590,10 @@ export default function HqCommissionPage() {
         </div>
 
         <p className="pg-hint">{t('hq.commission.tierTableDesc')}</p>
+        <p className="pg-hint text-xs text-sky-800">{t('hq.commission.tierCustomerTypeHint')}</p>
+        {feeCustomerType === 'INDIVIDUAL' && (feeCurrency === 'USD' || feeCurrency === 'EUR') && (
+          <p className="pg-hint text-xs text-sky-800">{t('hq.commission.tierIndividualRemitHint')}</p>
+        )}
         <p className="pg-callout pg-callout-muted">{t('hq.commission.feeDualHint')}</p>
         <p className="pg-callout pg-callout-muted">{t('hq.commission.tierEditHint')}</p>
 
@@ -1666,6 +1732,182 @@ export default function HqCommissionPage() {
         </div>
 
         <div className="pg-card">
+          <div className="pg-card-body space-y-4">
+            <ExpressFeePolicyEditor value={expressFee} onChange={setExpressFee} />
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                disabled={savingExpress}
+                className="pg-btn pg-btn-primary disabled:opacity-50"
+                onClick={async () => {
+                  setSavingExpress(true);
+                  setExpressMsg('');
+                  try {
+                    const next = await hqPolicyApi.saveExpressFee(expressFee);
+                    setData(next);
+                    setExpressFee(next.expressFee ?? expressFee);
+                    setExpressMsg(t('express.hq.saved'));
+                  } catch (e) {
+                    setExpressMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
+                  } finally {
+                    setSavingExpress(false);
+                  }
+                }}
+              >
+                {savingExpress ? t('hq.saving') : t('express.hq.save')}
+              </button>
+              {expressMsg && <span className="pg-hint">{expressMsg}</span>}
+            </div>
+          </div>
+        </div>
+
+        <div className="pg-card">
+          <div className="pg-card-body space-y-4">
+            <MemberGradePolicyEditor value={memberGrade} onChange={setMemberGrade} />
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                disabled={savingMemberGrade}
+                className="pg-btn pg-btn-primary disabled:opacity-50"
+                onClick={async () => {
+                  setSavingMemberGrade(true);
+                  setMemberGradeMsg('');
+                  try {
+                    const next = await hqPolicyApi.saveMemberGrade(memberGrade);
+                    setData(next);
+                    setMemberGrade(next.memberGrade ?? memberGrade);
+                    setMemberGradeMsg(t('memberGrade.hq.saved'));
+                  } catch (e) {
+                    setMemberGradeMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
+                  } finally {
+                    setSavingMemberGrade(false);
+                  }
+                }}
+              >
+                {savingMemberGrade ? t('hq.saving') : t('memberGrade.hq.save')}
+              </button>
+              {memberGradeMsg && <span className="pg-hint">{memberGradeMsg}</span>}
+            </div>
+          </div>
+        </div>
+
+        <div className="pg-card">
+          <div className="pg-card-head">{t('hq.commission.limitsTitle')}</div>
+          <div className="pg-card-body space-y-4">
+            <p className="pg-hint text-xs">{t('hq.commission.limitsDesc')}</p>
+            <p className="pg-hint text-xs text-sky-800">{t('hq.commission.limitsApplyLink')}</p>
+            <p className="pg-hint text-xs text-sky-800">{t('hq.commission.limitsRemittanceNote')}</p>
+            <p className="pg-callout pg-callout-muted">{t('hq.commission.tierEditHint')}</p>
+            <div className="flex flex-wrap gap-2">
+              {LIMIT_CUSTOMER_TYPES.map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => {
+                    if (limitCustomerType !== type) cancelLimitEdit();
+                    setLimitCustomerType(type);
+                  }}
+                  className={`pg-btn text-xs ${
+                    limitCustomerType === type ? 'pg-btn-primary' : 'pg-btn-secondary'
+                  }`}
+                >
+                  {type === 'INDIVIDUAL'
+                    ? t('hq.commission.limitsIndividual')
+                    : t('hq.commission.limitsCorporate')}
+                </button>
+              ))}
+            </div>
+            <div className="pg-card pg-table-wrap">
+              <table className="pg-table">
+                <thead>
+                  <tr>
+                    <th>{t('hq.commission.tierCurrency')}</th>
+                    {LIMIT_FIELDS.map((field) => (
+                      <th key={field.key}>{t(field.labelKey)}</th>
+                    ))}
+                    <th>{t('hq.commission.tierActions')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {FEE_CURRENCIES.map((currency) => {
+                    const isEditing = editingLimitCurrency === currency;
+                    const rowLocked = editingLimitCurrency !== null && !isEditing;
+                    const limits = isEditing && limitDraft
+                      ? limitDraft
+                      : risk.transactionLimits[limitCustomerType][currency];
+                    return (
+                      <tr
+                        key={currency}
+                        className={isEditing ? 'pg-row-edit' : undefined}
+                      >
+                        <td className="font-mono font-medium">{currency}</td>
+                        {LIMIT_FIELDS.map((field) => (
+                          <td key={field.key}>
+                            {isEditing ? (
+                              <FormattedAmountInput
+                                min={0}
+                                commitOnBlur
+                                className="pg-input w-28 text-xs"
+                                value={limits[field.key]}
+                                onChange={(n) => updateLimitDraft(field.key, n)}
+                              />
+                            ) : (
+                              <PolicyCellValue>
+                                {formatAmountInput(limits[field.key])}
+                              </PolicyCellValue>
+                            )}
+                          </td>
+                        ))}
+                        <td>
+                          <PolicyTableActions>
+                            {isEditing ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={saveLimitEdit}
+                                  className="pg-btn pg-btn-primary text-xs"
+                                >
+                                  {t('hq.commission.tierSaveRow')}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={cancelLimitEdit}
+                                  className="pg-btn pg-btn-secondary text-xs"
+                                >
+                                  {t('hq.commission.tierCancelEdit')}
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => startLimitEdit(currency)}
+                                disabled={rowLocked || hasPolicyEditInProgress()}
+                                className="pg-btn pg-btn-secondary text-xs disabled:opacity-40"
+                              >
+                                {t('hq.commission.tierEdit')}
+                              </button>
+                            )}
+                          </PolicyTableActions>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className="pg-hint text-[10px]">{t('hq.commission.limitZeroHint')}</p>
+            <button
+              type="button"
+              onClick={saveRisk}
+              disabled={savingRisk || hasPolicyEditInProgress()}
+              className="pg-btn pg-btn-primary disabled:opacity-50"
+            >
+              {savingRisk ? t('hq.saving') : t('hq.commission.saveLimits')}
+            </button>
+          </div>
+        </div>
+
+        <div className="pg-card">
           <div className="pg-card-head">{t('hq.commission.riskTitle')}</div>
           <div className="pg-card-body space-y-4">
             <p className="pg-hint">{t('hq.commission.riskDesc')}</p>
@@ -1677,110 +1919,6 @@ export default function HqCommissionPage() {
               />
               <span className="pg-label">{t('hq.commission.riskEnabled')}</span>
             </label>
-
-            <div className="space-y-2">
-              <p className="pg-label">{t('hq.commission.limitsTitle')}</p>
-              <p className="pg-hint text-xs">{t('hq.commission.limitsDesc')}</p>
-              <p className="pg-callout pg-callout-muted">{t('hq.commission.tierEditHint')}</p>
-              <div className="flex flex-wrap gap-2">
-                {LIMIT_CUSTOMER_TYPES.map((type) => (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => {
-                      if (limitCustomerType !== type) cancelLimitEdit();
-                      setLimitCustomerType(type);
-                    }}
-                    className={`pg-btn text-xs ${
-                      limitCustomerType === type ? 'pg-btn-primary' : 'pg-btn-secondary'
-                    }`}
-                  >
-                    {type === 'INDIVIDUAL'
-                      ? t('hq.commission.limitsIndividual')
-                      : t('hq.commission.limitsCorporate')}
-                  </button>
-                ))}
-              </div>
-              <div className="pg-card pg-table-wrap">
-                <table className="pg-table">
-                  <thead>
-                    <tr>
-                      <th>{t('hq.commission.tierCurrency')}</th>
-                      {LIMIT_FIELDS.map((field) => (
-                        <th key={field.key}>{t(field.labelKey)}</th>
-                      ))}
-                      <th>{t('hq.commission.tierActions')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {FEE_CURRENCIES.map((currency) => {
-                      const isEditing = editingLimitCurrency === currency;
-                      const rowLocked = editingLimitCurrency !== null && !isEditing;
-                      const limits = isEditing && limitDraft
-                        ? limitDraft
-                        : risk.transactionLimits[limitCustomerType][currency];
-                      return (
-                        <tr
-                          key={currency}
-                          className={isEditing ? 'pg-row-edit' : undefined}
-                        >
-                          <td className="font-mono font-medium">{currency}</td>
-                          {LIMIT_FIELDS.map((field) => (
-                            <td key={field.key}>
-                              {isEditing ? (
-                                <FormattedAmountInput
-                                  min={0}
-                                  commitOnBlur
-                                  className="pg-input w-28 text-xs"
-                                  value={limits[field.key]}
-                                  onChange={(n) => updateLimitDraft(field.key, n)}
-                                />
-                              ) : (
-                                <PolicyCellValue>
-                                  {formatAmountInput(limits[field.key])}
-                                </PolicyCellValue>
-                              )}
-                            </td>
-                          ))}
-                          <td>
-                            <PolicyTableActions>
-                              {isEditing ? (
-                                <>
-                                  <button
-                                    type="button"
-                                    onClick={saveLimitEdit}
-                                    className="pg-btn pg-btn-primary text-xs"
-                                  >
-                                    {t('hq.commission.tierSaveRow')}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={cancelLimitEdit}
-                                    className="pg-btn pg-btn-secondary text-xs"
-                                  >
-                                    {t('hq.commission.tierCancelEdit')}
-                                  </button>
-                                </>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => startLimitEdit(currency)}
-                                  disabled={rowLocked || hasPolicyEditInProgress()}
-                                  className="pg-btn pg-btn-secondary text-xs disabled:opacity-40"
-                                >
-                                  {t('hq.commission.tierEdit')}
-                                </button>
-                              )}
-                            </PolicyTableActions>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              <p className="pg-hint text-[10px]">{t('hq.commission.limitZeroHint')}</p>
-            </div>
 
             <div className="space-y-2">
               <p className="pg-label">{t('hq.commission.usdtRiskTiersTitle')}</p>

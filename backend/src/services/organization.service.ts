@@ -23,11 +23,13 @@ const orgSelect = {
   isActive: true,
   simulatorEnabled: true,
   simulatorRateMode: true,
+  referralUserId: true,
   deletedAt: true,
   purgeAt: true,
   createdAt: true,
   updatedAt: true,
   parent: { select: { id: true, code: true, name: true, type: true } },
+  referralUser: { select: { id: true, email: true, name: true } },
 } satisfies Prisma.OrganizationSelect;
 
 export function allowedChildTypes(parentType: OrgType | null): OrgType[] {
@@ -180,6 +182,7 @@ export const organizationService = {
       isActive?: boolean;
       simulatorEnabled?: boolean;
       simulatorRateMode?: 'LIVE' | 'SAND';
+      referralUserId?: string | null;
     },
   ) {
     assertCanManageOrgs(actor);
@@ -196,6 +199,22 @@ export const organizationService = {
       }
     }
 
+    if (data.referralUserId !== undefined && data.referralUserId !== null) {
+      const staff = await prisma.user.findFirst({
+        where: {
+          id: data.referralUserId,
+          organizationId: id,
+          role: UserRole.ORG_STAFF,
+          deletedAt: null,
+          isActive: true,
+        },
+        select: { id: true },
+      });
+      if (!staff) {
+        throw new AppError(400, '추천 담당자는 해당 조직의 활성 직원만 가능합니다', 'VALIDATION');
+      }
+    }
+
     const name = data.name?.trim();
     return prisma.organization.update({
       where: { id },
@@ -204,6 +223,7 @@ export const organizationService = {
         ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
         ...(data.simulatorEnabled !== undefined ? { simulatorEnabled: data.simulatorEnabled } : {}),
         ...(data.simulatorRateMode !== undefined ? { simulatorRateMode: data.simulatorRateMode } : {}),
+        ...(data.referralUserId !== undefined ? { referralUserId: data.referralUserId } : {}),
       },
       select: orgSelect,
     });

@@ -4,8 +4,11 @@ import { AppError } from '../lib/errors';
 import {
   DEFAULT_CURFEX_CONFIG,
   HQ_CONFIG_KEYS,
+  normalizeDirectRemitCurrencies,
+  normalizeHqCollectionMode,
   type CurfexCollectionAccount,
   type HqCurfexConfig,
+  type HqDefaultCollectionMode,
 } from '../constants/hq-policy';
 
 const DEFAULT_API = 'https://fcol-dashboard-uat1.curfex.com';
@@ -26,8 +29,16 @@ export function normalizeCurfexConfig(raw: Partial<HqCurfexConfig>): HqCurfexCon
   const currencies = Array.isArray(raw.currencies) && raw.currencies.length
     ? (raw.currencies.filter((c) => allowed.has(String(c))) as NonNullable<HqCurfexConfig['currencies']>)
     : base.currencies;
-  const defaultCollectionMode =
-    raw.defaultCollectionMode === 'VIRTUAL' ? 'VIRTUAL' : 'FIXED';
+  const defaultCollectionModeCorporate = normalizeHqCollectionMode(
+    raw.defaultCollectionModeCorporate ?? raw.defaultCollectionMode,
+    'FIXED',
+  );
+  const defaultCollectionModeIndividual = normalizeHqCollectionMode(
+    raw.defaultCollectionModeIndividual,
+    'DIRECT',
+  );
+  /** 하위호환: legacy 단일 필드는 기업 기본과 동기화 */
+  const defaultCollectionMode = defaultCollectionModeCorporate;
   return {
     enabled: raw.enabled === true,
     clientId: String(raw.clientId ?? '').trim(),
@@ -39,7 +50,23 @@ export function normalizeCurfexConfig(raw: Partial<HqCurfexConfig>): HqCurfexCon
     webhookSecret: String(raw.webhookSecret ?? '').trim(),
     autoApproveOnDeposit: raw.autoApproveOnDeposit !== false,
     defaultCollectionMode,
+    defaultCollectionModeCorporate,
+    defaultCollectionModeIndividual,
+    directRemitCurrencies: normalizeDirectRemitCurrencies(raw.directRemitCurrencies),
   };
+}
+
+export function hqDefaultCollectionModeForCustomer(
+  config: HqCurfexConfig,
+  customerType?: string | null,
+): HqDefaultCollectionMode {
+  if (customerType === 'INDIVIDUAL') {
+    return normalizeHqCollectionMode(config.defaultCollectionModeIndividual, 'DIRECT');
+  }
+  return normalizeHqCollectionMode(
+    config.defaultCollectionModeCorporate ?? config.defaultCollectionMode,
+    'FIXED',
+  );
 }
 
 export function maskCurfexSecret(config: HqCurfexConfig): HqCurfexConfig {
@@ -110,29 +137,42 @@ export function isCurfexCurrencyEnabled(config: HqCurfexConfig, currency: string
   return list.includes(currency as NonNullable<HqCurfexConfig['currencies']>[number]);
 }
 
-export type UsdtCollectionModeSetting = 'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL';
+export type UsdtCollectionModeSetting = 'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL' | 'DIRECT';
 
 /**
- * 고객 설정 + 본사 기본 → 실효 모드(FIXED|VIRTUAL).
+ * 고객 설정 + 본사 기본 → 실효 모드(FIXED|VIRTUAL|DIRECT).
  * VIRTUAL이어도 해당 통화 CURFEX 미적용이면 FIXED.
+ * DIRECT(송금계좌)면 송금거래 on 통화의 플랫폼 수취계좌. CURFEX 미사용.
+ * FOLLOW_HQ → 기업/개인 각각 HQ 기본값(개인 초기값 DIRECT).
  */
 export function resolveUsdtCollectionProvider(input: {
   customerMode?: UsdtCollectionModeSetting | null;
   config: HqCurfexConfig;
   currency: string;
-}): 'FIXED' | 'CURFEX' {
-  const preferred: 'FIXED' | 'VIRTUAL' =
-    !input.customerMode || input.customerMode === 'FOLLOW_HQ'
-      ? input.config.defaultCollectionMode === 'VIRTUAL'
-        ? 'VIRTUAL'
-        : 'FIXED'
-      : input.customerMode === 'VIRTUAL'
-        ? 'VIRTUAL'
-        : 'FIXED';
+  customerType?: string | null;
+}): 'FIXED' | 'CURFEX' | 'DIRECT' {
+  let preferred: 'FIXED' | 'VIRTUAL' | 'DIRECT';
+  if (!input.customerMode || input.customerMode === 'FOLLOW_HQ') {
+    preferred = hqDefaultCollectionModeForCustomer(input.config, input.customerType);
+  } else if (input.customerMode === 'VIRTUAL') {
+    preferred = 'VIRTUAL';
+  } else if (input.customerMode === 'DIRECT') {
+    preferred = 'DIRECT';
+  } else {
+    preferred = 'FIXED';
+  }
+
+  if (preferred === 'DIRECT') {
+    return 'DIRECT';
+  }
   if (preferred === 'VIRTUAL' && isCurfexCurrencyEnabled(input.config, input.currency)) {
     return 'CURFEX';
   }
   return 'FIXED';
+}
+
+export function getDirectRemitCurrencies(config: HqCurfexConfig): string[] {
+  return normalizeDirectRemitCurrencies(config.directRemitCurrencies);
 }
 
 export type CurfexPaymentRequestInput = {

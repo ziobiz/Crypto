@@ -218,19 +218,71 @@ export default function EscrowDetailPage() {
               {depositCtx.depositDeadlineAt && <p>{t('escrow.detail.depositDeadline')}: {depositCountdown}</p>}
               {depositCtx.receivingAccount && (
                 <div className="mt-2 space-y-1.5 text-xs">
+                  {(depositCtx.currency === 'USD' || depositCtx.currency === 'EUR') && (
+                    <p className="font-semibold">
+                      {depositCtx.currency}
+                      <span className="ml-2 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                        {depositCtx.currency === 'USD' ? 'ACH' : 'SEPA'}
+                      </span>
+                    </p>
+                  )}
                   <p className="font-medium">
                     {depositCtx.receivingAccount.bankName || '—'}
                   </p>
+                  {depositCtx.receivingAccount.bankCountry ? (
+                    <p>
+                      {t('usdt.deposit.bankCountry')}:{' '}
+                      <span className="font-mono">{depositCtx.receivingAccount.bankCountry}</span>
+                    </p>
+                  ) : null}
+                  {depositCtx.receivingAccount.accountType ? (
+                    <p>
+                      {t('usdt.deposit.accountType')}: {depositCtx.receivingAccount.accountType}
+                    </p>
+                  ) : null}
+                  {depositCtx.currency === 'USD' && depositCtx.receivingAccount.routingNumber ? (
+                    <p className="flex flex-wrap items-center gap-2 font-mono">
+                      <span>
+                        {t('usdt.deposit.routingNumber')}: {depositCtx.receivingAccount.routingNumber}
+                      </span>
+                      <CopyButton
+                        text={depositCtx.receivingAccount.routingNumber}
+                        label={t('usdt.deposit.copyRoutingNumber')}
+                        copiedLabel={t('common.copied')}
+                      />
+                    </p>
+                  ) : null}
                   <p className="flex flex-wrap items-center gap-2 font-mono">
-                    <span>{depositCtx.receivingAccount.accountNumber || '—'}</span>
+                    <span>
+                      {depositCtx.currency === 'EUR'
+                        ? `${t('usdt.deposit.iban')}: `
+                        : ''}
+                      {depositCtx.receivingAccount.accountNumber || '—'}
+                    </span>
                     {depositCtx.receivingAccount.accountNumber ? (
                       <CopyButton
                         text={depositCtx.receivingAccount.accountNumber}
-                        label={t('usdt.deposit.copyAccountNumber')}
+                        label={
+                          depositCtx.currency === 'EUR'
+                            ? t('usdt.deposit.copyIban')
+                            : t('usdt.deposit.copyAccountNumber')
+                        }
                         copiedLabel={t('common.copied')}
                       />
                     ) : null}
                   </p>
+                  {depositCtx.currency === 'EUR' && depositCtx.receivingAccount.bic ? (
+                    <p className="flex flex-wrap items-center gap-2 font-mono">
+                      <span>
+                        {t('usdt.deposit.bic')}: {depositCtx.receivingAccount.bic}
+                      </span>
+                      <CopyButton
+                        text={depositCtx.receivingAccount.bic}
+                        label={t('usdt.deposit.copyBic')}
+                        copiedLabel={t('common.copied')}
+                      />
+                    </p>
+                  ) : null}
                   <p className="flex flex-wrap items-center gap-2 font-mono">
                     <span>{depositCtx.receivingAccount.accountHolder || '—'}</span>
                     {depositCtx.receivingAccount.accountHolder ? (

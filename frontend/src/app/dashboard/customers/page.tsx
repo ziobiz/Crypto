@@ -11,19 +11,24 @@ import {
   hqPolicyApi,
   USDT_RISK_LIMIT_CODES,
   type CreateUserInput,
+  type CustomerApprovalStatus,
   type ExpectedCompleteTier,
   type FeeTypeTemplate,
   type HqCompletionTierDays,
+  type HqExpressCustomerTypePolicy,
   type ManagedUser,
+  type MemberGrade,
   type Organization,
   type UpdateUserInput,
   type UsdtRiskLimitCode,
 } from '@/lib/api';
 import type { MessageKey } from '@/i18n/messages';
+import { CustomerExpressConfigEditor } from '@/components/hq-policy/CustomerExpressConfigEditor';
 import { WALLET_NETWORKS } from '@/constants/wallet-networks';
 import { ReferenceClocks } from '@/components/ReferenceClocks';
 import { SRateBadge } from '@/components/SRateBadge';
 import { ExpectedCompleteTierCard } from '@/components/ExpectedCompleteTierCard';
+import { MemberGradeCard, MemberGradeCodeChip } from '@/components/MemberGradeCard';
 import { detailRowProps } from '@/lib/table-row-detail';
 import { localizeFeeTypeLabel } from '@/lib/fee-type-label';
 import { formatDateDot } from '@/lib/format';
@@ -73,6 +78,9 @@ const emptyCreate: CreateUserInput = {
   expectedCompleteCustomDays: null,
   expectedCompleteCardTier: 'REGULAR',
   expectedCompleteCardCustomDays: null,
+  expressFeeMode: 'FOLLOW_HQ' as 'FOLLOW_HQ' | 'CUSTOM' | 'DISABLED',
+  expressFeeConfig: undefined as HqExpressCustomerTypePolicy | undefined,
+  memberGrade: 'STANDARD' as MemberGrade,
 };
 
 function riskLimitLabelKey(code: string | undefined | null): MessageKey {
@@ -150,6 +158,7 @@ export default function CustomersPage() {
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState<'' | 'true' | 'false'>('');
   const [kycFilter, setKycFilter] = useState('');
+  const [approvalFilter, setApprovalFilter] = useState<'' | CustomerApprovalStatus>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [msg, setMsg] = useState('');
@@ -181,6 +190,7 @@ export default function CustomersPage() {
         role: 'CUSTOMER',
         isActive: activeFilter === '' ? undefined : activeFilter === 'true',
         kycStatus: kycFilter || undefined,
+        approvalStatus: approvalFilter || undefined,
       });
       setUsers(res.items);
       setTotal(res.total);
@@ -189,7 +199,7 @@ export default function CustomersPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, activeFilter, kycFilter, t]);
+  }, [page, search, activeFilter, kycFilter, approvalFilter, t]);
 
   useEffect(() => {
     api.organizations().then(setOrgs).catch(console.error);
@@ -250,6 +260,13 @@ export default function CustomersPage() {
           (detail.customerProfile?.expectedCompleteCardTier as ExpectedCompleteTier) ?? 'REGULAR',
         expectedCompleteCardCustomDays:
           detail.customerProfile?.expectedCompleteCardCustomDays ?? null,
+        expressFeeMode:
+          (detail.customerProfile?.expressFeeMode as 'FOLLOW_HQ' | 'CUSTOM' | 'DISABLED') ??
+          'FOLLOW_HQ',
+        expressFeeConfig:
+          (detail.customerProfile?.expressFeeConfig as HqExpressCustomerTypePolicy | undefined) ??
+          undefined,
+        memberGrade: (detail.customerProfile?.memberGrade as MemberGrade) ?? 'STANDARD',
       });
       setInitialIsActive(detail.isActive);
       setNewPassword('');
@@ -470,6 +487,19 @@ export default function CustomersPage() {
           <option value="APPROVED">{t('kyc.status.APPROVED')}</option>
           <option value="REJECTED">{t('kyc.status.REJECTED')}</option>
         </select>
+        <select
+          value={approvalFilter}
+          onChange={(e) => {
+            setApprovalFilter(e.target.value as '' | CustomerApprovalStatus);
+            setPage(1);
+          }}
+          className="pg-select w-auto min-w-[8rem]"
+        >
+          <option value="">{t('customers.filter.approval')}</option>
+          <option value="PENDING">{t('customers.approval.PENDING')}</option>
+          <option value="APPROVED">{t('customers.approval.APPROVED')}</option>
+          <option value="REJECTED">{t('customers.approval.REJECTED')}</option>
+        </select>
       </div>
 
       {error && <p className="pg-callout pg-callout-error">{error}</p>}
@@ -482,9 +512,11 @@ export default function CustomersPage() {
               <th>{t('users.col.email')}</th>
               <th>{t('users.col.name')}</th>
               <th>{t('customers.col.customer')}</th>
+              <th>{t('customers.col.memberGrade')}</th>
               <th>{t('customers.col.branch')}</th>
               <th>{t('customers.col.createdAt')}</th>
               <th>{t('users.col.status')}</th>
+              <th>{t('customers.col.approval')}</th>
               <th>{t('customers.col.sRate')}</th>
               <th>{t('customers.col.simulator')}</th>
               <th>{t('customers.col.multi')}</th>
@@ -500,13 +532,13 @@ export default function CustomersPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={16} className="pg-empty">
+                <td colSpan={18} className="pg-empty">
                   {t('common.loading')}
                 </td>
               </tr>
             ) : users.length === 0 ? (
               <tr>
-                <td colSpan={16} className="pg-empty">
+                <td colSpan={18} className="pg-empty">
                   {t('customers.empty')}
                 </td>
               </tr>
@@ -536,11 +568,34 @@ export default function CustomersPage() {
                       ? t('auth.corporate')
                       : t('auth.individual')}
                   </td>
+                  <td>
+                    <MemberGradeCodeChip grade={u.customerProfile?.memberGrade} />
+                  </td>
                   <td>{u.customerProfile?.recruitingOrg?.name ?? '—'}</td>
                   <td className="whitespace-nowrap tabular-nums">{formatDateDot(u.createdAt)}</td>
                   <td>
                     <span className={`pg-badge ${u.isActive ? 'pg-badge-success' : 'pg-badge-muted'}`}>
                       {u.isActive ? t('users.active') : t('users.inactive')}
+                    </span>
+                  </td>
+                  <td>
+                    <span
+                      className={`pg-badge ${
+                        u.customerProfile?.approvalStatus === 'REJECTED'
+                          ? 'pg-badge-muted'
+                          : u.customerProfile?.approvalStatus === 'PENDING'
+                            ? 'pg-badge-warn'
+                            : 'pg-badge-success'
+                      }`}
+                    >
+                      {t(
+                        `customers.approval.${
+                          u.customerProfile?.approvalStatus === 'PENDING' ||
+                          u.customerProfile?.approvalStatus === 'REJECTED'
+                            ? u.customerProfile.approvalStatus
+                            : 'APPROVED'
+                        }` as MessageKey,
+                      )}
                     </span>
                   </td>
                   <td>
@@ -628,7 +683,9 @@ export default function CustomersPage() {
                   </td>
                   <td>
                     {t(
-                      `feeBilling.${u.customerProfile?.feeBillingMethod ?? 'FOLLOW_HQ'}` as MessageKey,
+                      (u.customerProfile?.feeBillingMethod ?? 'FOLLOW_HQ') === 'FOLLOW_HQ'
+                        ? 'feeBilling.list.FOLLOW_HQ'
+                        : (`feeBilling.${u.customerProfile?.feeBillingMethod}` as MessageKey),
                     )}
                   </td>
                   <td>
@@ -844,6 +901,34 @@ export default function CustomersPage() {
                   })
                 }
               />
+              <MemberGradeCard
+                value={(form.memberGrade as string) ?? 'STANDARD'}
+                onChange={(g) => setForm({ ...form, memberGrade: g })}
+              />
+              <div className="pg-inset-panel space-y-2">
+                <p className="pg-inset-title">{t('express.customer.title')}</p>
+                <p className="pg-hint text-xs">{t('express.customer.hint')}</p>
+                <select
+                  className="pg-input"
+                  value={(form.expressFeeMode as string) ?? 'FOLLOW_HQ'}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      expressFeeMode: e.target.value as 'FOLLOW_HQ' | 'CUSTOM' | 'DISABLED',
+                    })
+                  }
+                >
+                  <option value="FOLLOW_HQ">{t('express.mode.FOLLOW_HQ')}</option>
+                  <option value="DISABLED">{t('express.mode.DISABLED')}</option>
+                  <option value="CUSTOM">{t('express.mode.CUSTOM')}</option>
+                </select>
+                {form.expressFeeMode === 'CUSTOM' && (
+                  <CustomerExpressConfigEditor
+                    value={form.expressFeeConfig}
+                    onChange={(next) => setForm({ ...form, expressFeeConfig: next })}
+                  />
+                )}
+              </div>
               <div className="pg-inset-panel">
                 <p className="pg-inset-title">{t('users.bankSection')}</p>
                 <label className="pg-field">
@@ -994,6 +1079,7 @@ export default function CustomersPage() {
                   >
                     <option value="FOLLOW_HQ">{t('collectionMode.FOLLOW_HQ')}</option>
                     <option value="FIXED">{t('collectionMode.FIXED')}</option>
+                    <option value="DIRECT">{t('collectionMode.DIRECT')}</option>
                     <option value="VIRTUAL">{t('collectionMode.VIRTUAL')}</option>
                   </select>
                 </label>
@@ -1327,6 +1413,34 @@ export default function CustomersPage() {
                   })
                 }
               />
+              <MemberGradeCard
+                value={(editForm.memberGrade as string) ?? 'STANDARD'}
+                onChange={(g) => setEditForm({ ...editForm, memberGrade: g })}
+              />
+              <div className="pg-inset-panel space-y-2">
+                <p className="pg-inset-title">{t('express.customer.title')}</p>
+                <p className="pg-hint text-xs">{t('express.customer.hint')}</p>
+                <select
+                  className="pg-input"
+                  value={(editForm.expressFeeMode as string) ?? 'FOLLOW_HQ'}
+                  onChange={(e) =>
+                    setEditForm({
+                      ...editForm,
+                      expressFeeMode: e.target.value as 'FOLLOW_HQ' | 'CUSTOM' | 'DISABLED',
+                    })
+                  }
+                >
+                  <option value="FOLLOW_HQ">{t('express.mode.FOLLOW_HQ')}</option>
+                  <option value="DISABLED">{t('express.mode.DISABLED')}</option>
+                  <option value="CUSTOM">{t('express.mode.CUSTOM')}</option>
+                </select>
+                {editForm.expressFeeMode === 'CUSTOM' && (
+                  <CustomerExpressConfigEditor
+                    value={editForm.expressFeeConfig}
+                    onChange={(next) => setEditForm({ ...editForm, expressFeeConfig: next })}
+                  />
+                )}
+              </div>
               <div className="pg-inset-panel">
                 <p className="pg-inset-title">{t('customers.col.collectionMode')}</p>
                 <p className="mt-1 pg-hint">{t('customers.collectionMode.hint')}</p>
@@ -1344,6 +1458,7 @@ export default function CustomersPage() {
                   >
                     <option value="FOLLOW_HQ">{t('collectionMode.FOLLOW_HQ')}</option>
                     <option value="FIXED">{t('collectionMode.FIXED')}</option>
+                    <option value="DIRECT">{t('collectionMode.DIRECT')}</option>
                     <option value="VIRTUAL">{t('collectionMode.VIRTUAL')}</option>
                   </select>
                 </label>

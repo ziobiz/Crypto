@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useT } from '@/context/LocaleProvider';
 import {
   hqPolicyApi,
@@ -10,6 +11,7 @@ import {
 } from '@/lib/api';
 import { LOCALES } from '@/i18n/locales';
 import { DEFAULT_LOGIN_NOTICE_I18N } from '@/lib/login-notice';
+import { DEFAULT_INDIVIDUAL_REGISTER_NOTICE_I18N } from '@/lib/individual-register-notice';
 import { BrandAssetField, type BrandAssetKey } from '@/components/hq-policy/BrandAssetField';
 import { PolicyTableActions } from '@/components/policy/PolicyTableActions';
 import { PolicyCellValue } from '@/components/policy/PolicyCellValue';
@@ -43,9 +45,12 @@ export default function HqPlatformPage() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingAuthLogo, setUploadingAuthLogo] = useState(false);
   const [noticeLocale, setNoticeLocale] = useState<(typeof LOCALES)[number]>('KR');
-  const [depositNoticeLocale, setDepositNoticeLocale] = useState<(typeof LOCALES)[number]>('KR');
+  const [individualNoticeLocale, setIndividualNoticeLocale] =
+    useState<(typeof LOCALES)[number]>('KR');
   const [uploadingFavicon, setUploadingFavicon] = useState(false);
   const [uploadingBackground, setUploadingBackground] = useState(false);
+  const [uploadingRegisterBackground, setUploadingRegisterBackground] = useState(false);
+  const [clearingRegisterBackground, setClearingRegisterBackground] = useState(false);
   const [uploadingOg, setUploadingOg] = useState(false);
   const [savingBrand, setSavingBrand] = useState(false);
   const [assetBust, setAssetBust] = useState(() => Date.now());
@@ -154,6 +159,22 @@ export default function HqPlatformPage() {
     setConfig({ ...config, loginNoticeI18n: i18n });
   }
 
+  function updateIndividualNoticeField(field: 'title' | 'body', value: string) {
+    if (!config) return;
+    const i18n = { ...(config.individualRegisterNoticeI18n ?? {}) };
+    const cur = i18n[individualNoticeLocale] ?? { title: '', body: '' };
+    i18n[individualNoticeLocale] = { ...cur, [field]: value };
+    setConfig({ ...config, individualRegisterNoticeI18n: i18n });
+  }
+
+  function loadDefaultIndividualNotice() {
+    if (!config) return;
+    const def = DEFAULT_INDIVIDUAL_REGISTER_NOTICE_I18N[individualNoticeLocale];
+    const i18n = { ...(config.individualRegisterNoticeI18n ?? {}) };
+    i18n[individualNoticeLocale] = { ...def };
+    setConfig({ ...config, individualRegisterNoticeI18n: i18n });
+  }
+
   async function uploadLogo(file: File) {
     setUploadingLogo(true);
     setMsg('');
@@ -190,6 +211,36 @@ export default function HqPlatformPage() {
       setMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
     } finally {
       setUploadingBackground(false);
+    }
+  }
+
+  async function uploadRegisterBackground(file: File) {
+    setUploadingRegisterBackground(true);
+    setMsg('');
+    try {
+      const next = await hqPolicyApi.uploadPlatformRegisterBackground(file);
+      afterAssetUpload('registerBackground', next, setData, setConfig, setAssetBust, setUploadOk);
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
+    } finally {
+      setUploadingRegisterBackground(false);
+    }
+  }
+
+  async function clearRegisterBackground() {
+    setClearingRegisterBackground(true);
+    setMsg('');
+    try {
+      const next = await hqPolicyApi.clearPlatformRegisterBackground();
+      setData(next);
+      setConfig(next.config);
+      setAssetBust(Date.now());
+      setUploadOk((o) => ({ ...o, registerBackground: false }));
+      setMsg(t('hq.platform.registerBackgroundCleared'));
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
+    } finally {
+      setClearingRegisterBackground(false);
     }
   }
 
@@ -361,16 +412,84 @@ export default function HqPlatformPage() {
           )}
         />
 
-        <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50/80 p-4">
+        <div className="space-y-3 rounded-lg border border-sky-200 bg-sky-50/70 p-4">
+          <p className="text-sm font-semibold text-slate-800">{t('hq.platform.individualPolicyTitle')}</p>
+          <p className="pg-hint">{t('hq.platform.individualPolicyDesc')}</p>
           <label className="flex items-center gap-2 text-xs font-medium">
             <input
               type="checkbox"
-              checked={config.customerRegistrationEnabled === true}
+              checked={config.customerRegistrationEnabled !== false}
               onChange={(e) => setConfig({ ...config, customerRegistrationEnabled: e.target.checked })}
             />
             {t('hq.platform.customerRegistration')}
           </label>
           <p className="pg-hint">{t('hq.platform.customerRegistrationDesc')}</p>
+          <label className="flex items-center gap-2 text-xs font-medium">
+            <input
+              type="checkbox"
+              checked={config.accountRecoveryEnabled !== false}
+              onChange={(e) => setConfig({ ...config, accountRecoveryEnabled: e.target.checked })}
+            />
+            {t('hq.platform.accountRecovery')}
+          </label>
+          <p className="pg-hint">{t('hq.platform.accountRecoveryDesc')}</p>
+          <div className="rounded-md border border-sky-100 bg-white/80 px-3 py-2">
+            <p className="text-xs font-medium text-slate-700">{t('hq.platform.individualLimitsHintTitle')}</p>
+            <p className="mt-1 pg-hint whitespace-pre-line">{t('hq.platform.individualLimitsHint')}</p>
+            <a
+              href="/dashboard/hq-policy/commission"
+              className="mt-2 inline-block text-xs font-medium text-blue-600 hover:underline"
+            >
+              {t('hq.platform.individualLimitsLink')}
+            </a>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-sky-100 pt-3">
+            <label className="flex items-center gap-2 text-xs font-medium">
+              <input
+                type="checkbox"
+                checked={config.individualRegisterNoticeEnabled !== false}
+                onChange={(e) =>
+                  setConfig({ ...config, individualRegisterNoticeEnabled: e.target.checked })
+                }
+              />
+              {t('hq.platform.individualRegisterNotice')}
+            </label>
+            <div className="flex gap-1">
+              {LOCALES.map((loc) => (
+                <button
+                  key={loc}
+                  type="button"
+                  onClick={() => setIndividualNoticeLocale(loc)}
+                  className={`rounded px-2 py-0.5 text-xs font-medium ${
+                    individualNoticeLocale === loc ? 'bg-blue-600 text-white' : 'bg-white text-gray-600'
+                  }`}
+                >
+                  {loc}
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="pg-hint">{t('hq.platform.individualRegisterNoticeDesc')}</p>
+          <input
+            value={config.individualRegisterNoticeI18n?.[individualNoticeLocale]?.title ?? ''}
+            onChange={(e) => updateIndividualNoticeField('title', e.target.value)}
+            className="pg-input"
+            placeholder={t('hq.platform.individualRegisterNoticeTitle')}
+          />
+          <textarea
+            value={config.individualRegisterNoticeI18n?.[individualNoticeLocale]?.body ?? ''}
+            onChange={(e) => updateIndividualNoticeField('body', e.target.value)}
+            rows={7}
+            className="pg-input"
+            placeholder={t('hq.platform.individualRegisterNoticeBody')}
+          />
+          <button
+            type="button"
+            onClick={loadDefaultIndividualNotice}
+            className="text-xs text-blue-600 hover:underline"
+          >
+            {t('hq.platform.loadDefaultIndividualNotice', { locale: individualNoticeLocale })}
+          </button>
         </div>
 
         <div className="space-y-3 rounded-lg border border-amber-100 bg-amber-50/60 p-4">
@@ -435,6 +554,7 @@ export default function HqPlatformPage() {
           />
           <BrandAssetField
             label={t('hq.platform.authBackground')}
+            desc={t('hq.platform.authBackgroundDesc')}
             url={config.authBackgroundUrl}
             cacheBust={assetBust}
             accept="image/png,image/jpeg,image/webp"
@@ -450,6 +570,46 @@ export default function HqPlatformPage() {
           />
         </div>
 
+        <div className="space-y-2 rounded-lg border border-sky-200 bg-sky-50/50 p-4">
+          <BrandAssetField
+            label={t('hq.platform.registerBackground')}
+            desc={t('hq.platform.registerBackgroundDesc')}
+            url={config.registerBackgroundUrl}
+            cacheBust={assetBust}
+            accept="image/png,image/jpeg,image/webp"
+            uploading={uploadingRegisterBackground}
+            uploadLabel={t('hq.platform.uploadRegisterBackground')}
+            savingLabel={t('hq.saving')}
+            uploadedLabel={t('hq.platform.assetUploaded')}
+            showUploaded={!!uploadOk.registerBackground}
+            onUpload={uploadRegisterBackground}
+            preview={(src) => (
+              <img
+                src={src}
+                alt=""
+                className="mx-auto h-40 w-24 rounded object-cover sm:h-48 sm:w-28"
+              />
+            )}
+          />
+          <p className="pg-hint whitespace-pre-line font-medium text-slate-700">
+            {t('hq.platform.registerBackgroundSize')}
+          </p>
+          {config.registerBackgroundUrl ? (
+            <button
+              type="button"
+              onClick={() => void clearRegisterBackground()}
+              disabled={clearingRegisterBackground}
+              className="text-xs text-red-600 hover:underline disabled:opacity-50"
+            >
+              {clearingRegisterBackground
+                ? t('hq.saving')
+                : t('hq.platform.clearRegisterBackground')}
+            </button>
+          ) : (
+            <p className="pg-hint">{t('hq.platform.registerBackgroundEmptyHint')}</p>
+          )}
+        </div>
+
         <label className="block">
           <span className="pg-label">{t('hq.platform.footerText')}</span>
           <textarea
@@ -461,199 +621,6 @@ export default function HqPlatformPage() {
           />
         </label>
 
-        <div className="space-y-4 rounded-lg border border-slate-200 bg-slate-50/80 p-4">
-          <div>
-            <p className="pg-label">{t('hq.platform.depositAccounts')}</p>
-            <p className="mt-1 pg-hint">{t('hq.platform.depositAccountsDesc')}</p>
-            <p className="mt-2 pg-hint font-medium text-amber-800">{t('hq.platform.depositAccountsWhere')}</p>
-          </div>
-          {(['KRW', 'JPY', 'THB', 'CNY'] as const).map((cur) => {
-            const acct = config.depositReceivingAccounts?.[cur] ?? {
-              bankName: '',
-              accountNumber: '',
-              accountHolder: '',
-              bankAddress: '',
-              bankCode: '',
-              branchCode: '',
-              branchName: '',
-              accountType: '',
-              notice: '',
-              noticeI18n: {},
-              transferEnabled: true,
-              cardEnabled: true,
-            };
-            const patchAcct = (next: typeof acct) =>
-              setConfig({
-                ...config,
-                depositReceivingAccounts: {
-                  ...config.depositReceivingAccounts,
-                  [cur]: next,
-                },
-              });
-            const defaultNoticeI18n = {
-              KR: '금액을 정상적으로 수령하려면, 수취인 이름을 정확히 복사하여 입력해야 합니다. (半角カタカナ 그대로 사용)',
-              US: 'To receive the funds correctly, copy and enter the beneficiary name exactly as shown. (Use half-width katakana as-is.)',
-              JP: '正常に着金するには、受取人名を表示どおり正確にコピーして入力してください。（半角カタカナのまま使用）',
-              CH: '为确保正常入账，请精确复制并输入收款人姓名。（请原样使用半角片假名）',
-              TH: 'เพื่อให้รับเงินได้ถูกต้อง ต้องคัดลอกและใส่ชื่อผู้รับให้ตรงตามที่แสดง (ใช้คาตาคานะแบบครึ่งความกว้างตามเดิม)',
-            } as const;
-            const fillJpyPayoneer = () =>
-              patchAcct({
-                bankName: 'MUFG Bank, Ltd.',
-                bankAddress: '7-1 Marunouchi 2-Chome, Chiyoda-ku Tokyo, Japan',
-                bankCode: '0005',
-                branchCode: '869',
-                branchName: '',
-                accountType: 'Savings / Futsu',
-                accountNumber: '4685448',
-                accountHolder: 'ﾍﾟｲｵﾆｱ ｼﾞﾔﾊﾟﾝ(ｶ',
-                notice: '',
-                noticeI18n: { ...defaultNoticeI18n },
-                transferEnabled: acct.transferEnabled !== false,
-                cardEnabled: acct.cardEnabled !== false,
-              });
-            const noticeText =
-              acct.noticeI18n?.[depositNoticeLocale] ??
-              (depositNoticeLocale === 'KR' ? acct.notice ?? '' : '') ??
-              '';
-            const setNoticeText = (value: string) =>
-              patchAcct({
-                ...acct,
-                noticeI18n: { ...(acct.noticeI18n ?? {}), [depositNoticeLocale]: value },
-                notice: depositNoticeLocale === 'KR' ? value : acct.notice,
-              });
-            return (
-              <div key={cur} className="rounded border bg-white p-3 space-y-2">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-xs font-bold text-gray-700">{cur}</p>
-                  <div className="flex flex-wrap items-center gap-3 text-xs text-slate-700">
-                    {cur === 'JPY' && (
-                      <button
-                        type="button"
-                        onClick={fillJpyPayoneer}
-                        className="rounded border border-amber-300 bg-amber-50 px-2 py-1 font-semibold text-amber-900 hover:bg-amber-100"
-                      >
-                        {t('hq.platform.depositFillJpyPayoneer')}
-                      </button>
-                    )}
-                    <label className="inline-flex items-center gap-1.5">
-                      <input
-                        type="checkbox"
-                        checked={acct.transferEnabled !== false}
-                        onChange={(e) => patchAcct({ ...acct, transferEnabled: e.target.checked })}
-                      />
-                      {t('hq.platform.depositTransferEnabled')}
-                    </label>
-                    <label className="inline-flex items-center gap-1.5">
-                      <input
-                        type="checkbox"
-                        checked={acct.cardEnabled !== false}
-                        onChange={(e) => patchAcct({ ...acct, cardEnabled: e.target.checked })}
-                      />
-                      {t('hq.platform.depositCardEnabled')}
-                    </label>
-                  </div>
-                </div>
-                <label className="block">
-                  <span className="pg-label">{t('hq.platform.depositBankName')}</span>
-                  <input
-                    value={acct.bankName}
-                    onChange={(e) => patchAcct({ ...acct, bankName: e.target.value })}
-                    className="pg-input mt-1"
-                    placeholder="MUFG Bank, Ltd."
-                  />
-                </label>
-                <label className="block">
-                  <span className="pg-label">{t('hq.platform.depositBankAddress')}</span>
-                  <input
-                    value={acct.bankAddress ?? ''}
-                    onChange={(e) => patchAcct({ ...acct, bankAddress: e.target.value })}
-                    className="pg-input mt-1"
-                    placeholder="7-1 Marunouchi 2-Chome, Chiyoda-ku Tokyo, Japan"
-                  />
-                </label>
-                <div className="grid gap-2 sm:grid-cols-3">
-                  <label className="block">
-                    <span className="pg-label">{t('hq.platform.depositBankCode')}</span>
-                    <input
-                      value={acct.bankCode ?? ''}
-                      onChange={(e) => patchAcct({ ...acct, bankCode: e.target.value })}
-                      className="pg-input mt-1 font-mono"
-                      placeholder="0005"
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="pg-label">{t('hq.platform.depositBranchCode')}</span>
-                    <input
-                      value={acct.branchCode ?? ''}
-                      onChange={(e) => patchAcct({ ...acct, branchCode: e.target.value })}
-                      className="pg-input mt-1 font-mono"
-                      placeholder="869"
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="pg-label">{t('hq.platform.depositAccountType')}</span>
-                    <input
-                      value={acct.accountType ?? ''}
-                      onChange={(e) => patchAcct({ ...acct, accountType: e.target.value })}
-                      className="pg-input mt-1"
-                      placeholder="Savings / Futsu"
-                    />
-                  </label>
-                </div>
-                <label className="block">
-                  <span className="pg-label">{t('hq.platform.depositAccountNumber')}</span>
-                  <input
-                    value={acct.accountNumber}
-                    onChange={(e) => patchAcct({ ...acct, accountNumber: e.target.value })}
-                    className="pg-input mt-1 font-mono"
-                    placeholder="4685448"
-                  />
-                </label>
-                <label className="block">
-                  <span className="pg-label">{t('hq.platform.depositAccountHolder')}</span>
-                  <input
-                    value={acct.accountHolder}
-                    onChange={(e) => patchAcct({ ...acct, accountHolder: e.target.value })}
-                    className="pg-input mt-1 font-mono"
-                    placeholder="ﾍﾟｲｵﾆｱ ｼﾞﾔﾊﾟﾝ(ｶ"
-                  />
-                  <span className="mt-1 block pg-hint">
-                    {t('usdt.deposit.holderNameStayJp')}
-                  </span>
-                </label>
-                <div className="rounded border border-red-100 bg-red-50/60 p-2 space-y-2">
-                  <p className="pg-label text-red-800">{t('hq.platform.depositNotice')}</p>
-                  <p className="pg-hint">{t('hq.platform.depositNoticeI18nHint')}</p>
-                  <div className="flex flex-wrap gap-1">
-                    {LOCALES.map((loc) => (
-                      <button
-                        key={loc}
-                        type="button"
-                        onClick={() => setDepositNoticeLocale(loc)}
-                        className={`rounded px-2 py-0.5 text-xs font-medium ${
-                          depositNoticeLocale === loc
-                            ? 'bg-red-700 text-white'
-                            : 'bg-white text-slate-700 border border-slate-200'
-                        }`}
-                      >
-                        {loc}
-                      </button>
-                    ))}
-                  </div>
-                  <textarea
-                    value={noticeText}
-                    onChange={(e) => setNoticeText(e.target.value)}
-                    rows={3}
-                    className="pg-input border-red-200"
-                    placeholder={defaultNoticeI18n[depositNoticeLocale]}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
         <button
           type="button"
           onClick={saveBrand}
@@ -663,6 +630,19 @@ export default function HqPlatformPage() {
           {savingBrand ? t('hq.saving') : t('hq.platform.saveBrand')}
         </button>
         {msg && <p className="pg-hint">{msg}</p>}
+        </div>
+      </section>
+
+      <section className="pg-section">
+        <div className="pg-section-head">{t('hq.platform.depositAccounts')}</div>
+        <div className="pg-section-pad space-y-3">
+          <p className="pg-hint">{t('hq.accounts.movedFromPlatform')}</p>
+          <Link
+            href="/dashboard/hq-policy/accounts"
+            className="inline-flex pg-btn pg-btn-primary text-sm"
+          >
+            {t('hq.hub.accounts')}
+          </Link>
         </div>
       </section>
 

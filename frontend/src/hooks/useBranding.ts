@@ -13,11 +13,15 @@ export type ResolvedBranding = {
   authLogoUrl: string | null;
   faviconUrl: string | null;
   authBackgroundUrl: string | null;
+  registerBackgroundUrl: string | null;
   authMainText: string;
   footerText: string;
   loginNoticeEnabled: boolean;
   loginNoticeI18n: Partial<Record<Locale, { title: string; body: string }>>;
   customerRegistrationEnabled: boolean;
+  accountRecoveryEnabled: boolean;
+  individualRegisterNoticeEnabled: boolean;
+  individualRegisterNoticeI18n: Partial<Record<Locale, { title: string; body: string }>>;
   baseTimezone: string;
   serviceTimezone: string;
 };
@@ -31,11 +35,15 @@ function resolveUrls(b: BrandingResponse): ResolvedBranding {
     authLogoUrl: b.authLogoUrl ? `${base}${b.authLogoUrl}` : null,
     faviconUrl: b.faviconUrl ? `${base}${b.faviconUrl}` : null,
     authBackgroundUrl: b.authBackgroundUrl ? `${base}${b.authBackgroundUrl}` : null,
+    registerBackgroundUrl: b.registerBackgroundUrl ? `${base}${b.registerBackgroundUrl}` : null,
     authMainText: b.authMainText || '',
     footerText: b.footerText || '',
     loginNoticeEnabled: b.loginNoticeEnabled !== false,
     loginNoticeI18n: b.loginNoticeI18n ?? {},
-    customerRegistrationEnabled: b.customerRegistrationEnabled === true,
+    customerRegistrationEnabled: b.customerRegistrationEnabled !== false,
+    accountRecoveryEnabled: b.accountRecoveryEnabled !== false,
+    individualRegisterNoticeEnabled: b.individualRegisterNoticeEnabled !== false,
+    individualRegisterNoticeI18n: b.individualRegisterNoticeI18n ?? {},
     baseTimezone: b.baseTimezone || 'Asia/Seoul',
     serviceTimezone: b.serviceTimezone || 'Asia/Seoul',
   };
@@ -48,11 +56,15 @@ const FALLBACK: ResolvedBranding = {
   authLogoUrl: null,
   faviconUrl: null,
   authBackgroundUrl: null,
+  registerBackgroundUrl: null,
   authMainText: '',
   footerText: '',
   loginNoticeEnabled: true,
   loginNoticeI18n: {},
-  customerRegistrationEnabled: false,
+  customerRegistrationEnabled: true,
+  accountRecoveryEnabled: true,
+  individualRegisterNoticeEnabled: true,
+  individualRegisterNoticeI18n: {},
   baseTimezone: 'Asia/Seoul',
   serviceTimezone: 'Asia/Seoul',
 };

@@ -33,7 +33,7 @@ import {
 } from './ticket-access.service';
 import { hqPolicyService } from './hq-policy.service';
 
-export const ESCROW_CURRENCIES = ['KRW', 'USD', 'JPY', 'THB', 'CNY', 'USDT'] as const;
+export const ESCROW_CURRENCIES = ['KRW', 'USD', 'EUR', 'JPY', 'THB', 'CNY', 'USDT'] as const;
 export type EscrowCurrency = (typeof ESCROW_CURRENCIES)[number];
 export const ESCROW_DEPOSIT_WINDOW_HOURS = 72;
 
@@ -613,7 +613,7 @@ export async function getEscrowDepositContext(user: AuthUser, ticketId: string) 
   const receivingAccounts = await hqPolicyService.getDepositReceivingAccounts();
   const receivingAccount =
     ticket.currency !== 'USDT'
-      ? receivingAccounts?.[ticket.currency as 'KRW' | 'JPY' | 'THB' | 'CNY'] ?? null
+      ? receivingAccounts?.[ticket.currency as 'KRW' | 'JPY' | 'THB' | 'CNY' | 'USD' | 'EUR'] ?? null
       : null;
 
   let registeredBank = null;

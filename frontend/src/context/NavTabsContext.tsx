@@ -37,7 +37,14 @@ export function clearNavTabsStorage(userId?: string | null) {
 }
 
 function allowedHrefs(items: NavItem[]) {
-  return new Set(items.map((item) => item.href));
+  const set = new Set<string>();
+  for (const item of items) {
+    set.add(item.href);
+    if (item.children?.length) {
+      for (const child of item.children) set.add(child.href);
+    }
+  }
+  return set;
 }
 
 function filterTabs(tabs: NavTab[], items: NavItem[]): NavTab[] {

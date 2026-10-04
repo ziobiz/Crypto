@@ -19,6 +19,7 @@ export const HQ_PAGE_PATH_KEYS: Record<string, MessageKey> = {
   '/dashboard/hq-policy/access': 'hq.page.access',
   '/dashboard/hq-policy/org-columns': 'hq.page.orgColumns',
   '/dashboard/hq-policy/commission': 'hq.page.commission',
+  '/dashboard/hq-policy/accounts': 'hq.page.accounts',
   '/dashboard/hq-policy/platform': 'hq.page.platform',
   '/dashboard/hq-policy/ops': 'hq.page.ops',
   '/dashboard/hq-policy/ops/workflow': 'hq.page.workflow',

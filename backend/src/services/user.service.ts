@@ -1,5 +1,13 @@
 import bcrypt from 'bcryptjs';
-import { AdminChangeAction, CustomerType, OrgType, Prisma, UserManagementAction, UserRole } from '@prisma/client';
+import {
+  AdminChangeAction,
+  CustomerApprovalStatus,
+  CustomerType,
+  OrgType,
+  Prisma,
+  UserManagementAction,
+  UserRole,
+} from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
 import { initialPasswordFromEmail, normalizeEmail } from '../lib/password-policy';
@@ -101,6 +109,7 @@ const userSelect = {
   email: true,
   name: true,
   phone: true,
+  phoneCountryCode: true,
   role: true,
   isActive: true,
   lastLoginAt: true,
@@ -114,6 +123,7 @@ const userSelect = {
     select: {
       id: true,
       customerType: true,
+      approvalStatus: true,
       businessName: true,
       simulatorEnabled: true,
       simulatorRateMode: true,
@@ -122,6 +132,8 @@ const userSelect = {
       usdtRiskLimitCode: true,
       usdtLimitMinUsdt: true,
       usdtLimitMaxUsdt: true,
+      limitCountry: true,
+      signupCountry: true,
       expectedCompleteTier: true,
       expectedCompleteCustomDays: true,
       expectedCompleteCardTier: true,
@@ -133,6 +145,9 @@ const userSelect = {
       tradeReceiptMerchantUiMode: true,
       usdtQuoteAutoDelayMinutes: true,
       usdtQuoteManualSlaHours: true,
+      expressFeeMode: true,
+      expressFeeConfig: true,
+      memberGrade: true,
       operatorsEnabled: true,
       walletFeesVisible: true,
       recruitingOrg: { select: { id: true, code: true, name: true, path: true } },
@@ -208,6 +223,7 @@ export type UserListQuery = {
   limit?: number;
   staffOnly?: boolean;
   kycStatus?: string;
+  approvalStatus?: CustomerApprovalStatus;
 };
 
 function assertCanManageUsers(actor: AuthUser): void {
@@ -339,6 +355,9 @@ export const userService = {
         and.push({ kyc: { status: query.kycStatus as never } });
       }
     }
+    if (query.approvalStatus) {
+      and.push({ customerProfile: { approvalStatus: query.approvalStatus } });
+    }
     if (query.isActive !== undefined) and.push({ isActive: query.isActive });
     if (query.organizationId) {
       and.push({
@@ -458,6 +477,7 @@ export const userService = {
       password?: string;
       name: string;
       phone?: string;
+      phoneCountryCode?: string;
       role: UserRole;
       organizationId?: string;
       customerType?: CustomerType;
@@ -478,18 +498,22 @@ export const userService = {
       simulatorRateMode?: 'LIVE' | 'SAND';
       feeBillingMethod?: 'FOLLOW_HQ' | 'INTEGRATED' | 'ITEMIZED' | 'HYBRID';
       totalFeeVisibility?: 'FOLLOW_HQ' | 'SHOW' | 'HIDE';
-      usdtCollectionMode?: 'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL';
+      usdtCollectionMode?: 'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL' | 'DIRECT';
       usdtQuoteResponseMode?: 'FOLLOW_HQ' | 'AUTO' | 'MANUAL' | 'OFF';
       tradeReceiptEmailMode?: 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED' | 'HQ_ONLY';
       tradeReceiptAdminUiMode?: 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED';
       tradeReceiptMerchantUiMode?: 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED';
       usdtQuoteAutoDelayMinutes?: number | null;
       usdtQuoteManualSlaHours?: number | null;
+      expressFeeMode?: 'FOLLOW_HQ' | 'CUSTOM' | 'DISABLED';
+      expressFeeConfig?: unknown;
+      memberGrade?: 'STANDARD' | 'PREMIUM' | 'VIP' | 'VVIP' | 'PRESTIGE' | 'BLACK';
       operatorsEnabled?: boolean;
       walletFeesVisible?: boolean;
       usdtRiskLimitCode?: string;
       usdtLimitMinUsdt?: number | null;
       usdtLimitMaxUsdt?: number | null;
+      limitCountry?: string | null;
       expectedCompleteTier?: string;
       expectedCompleteCustomDays?: number | null;
       expectedCompleteCardTier?: string;
@@ -502,8 +526,20 @@ export const userService = {
     const registerReason = assertReason(data.reason, '사용자 등록 사유가 필요합니다');
 
     const email = normalizeEmail(data.email);
-    const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) throw new AppError(409, '이미 등록된 이메일입니다', 'CONFLICT');
+    if (data.role === UserRole.CUSTOMER) {
+      const { assertCustomerContactAvailable } = await import('./register-contact.service');
+      await assertCustomerContactAvailable({
+        email,
+        phone: data.phone,
+        phoneCountryCode: data.phoneCountryCode,
+        customerType: data.customerType ?? CustomerType.INDIVIDUAL,
+      });
+    } else {
+      const existing = await prisma.user.findFirst({
+        where: { email: { equals: email, mode: 'insensitive' }, deletedAt: null },
+      });
+      if (existing) throw new AppError(409, '이미 등록된 이메일입니다', 'CONFLICT');
+    }
 
     if (data.role === UserRole.SUPER_ADMIN) {
       throw new AppError(403, '총괄관리자는 추가로 생성할 수 없습니다', 'FORBIDDEN');
@@ -545,6 +581,14 @@ export const userService = {
         usdtLimitMinUsdt: data.usdtLimitMinUsdt,
         usdtLimitMaxUsdt: data.usdtLimitMaxUsdt,
       });
+      const { resolveLimitCountryForRegister } = await import('./individual-limit.service');
+      const limitCountry =
+        data.customerType === CustomerType.CORPORATE
+          ? null
+          : resolveLimitCountryForRegister({
+              limitCountry: data.limitCountry,
+              phoneCountryCode: data.phoneCountryCode,
+            });
       const expectedComplete = resolveExpectedCompleteFields({
         expectedCompleteTier: data.expectedCompleteTier ?? 'REGULAR',
         expectedCompleteCustomDays: data.expectedCompleteCustomDays,
@@ -559,6 +603,7 @@ export const userService = {
           passwordHash,
           name: data.name,
           phone: data.phone,
+          phoneCountryCode: data.phoneCountryCode,
           role: UserRole.CUSTOMER,
           passwordMustChange: mustChangePassword,
           emailVerified: true,
@@ -578,6 +623,7 @@ export const userService = {
               usdtRiskLimitCode: riskLimit.usdtRiskLimitCode,
               usdtLimitMinUsdt: riskLimit.usdtLimitMinUsdt,
               usdtLimitMaxUsdt: riskLimit.usdtLimitMaxUsdt,
+              limitCountry,
               expectedCompleteTier: expectedComplete.expectedCompleteTier,
               expectedCompleteCustomDays: expectedComplete.expectedCompleteCustomDays,
               expectedCompleteCardTier: expectedCompleteCard.expectedCompleteCardTier,
@@ -595,6 +641,10 @@ export const userService = {
                 data.usdtQuoteResponseMode === 'MANUAL'
                   ? data.usdtQuoteManualSlaHours ?? 3
                   : null,
+              expressFeeMode: data.expressFeeMode ?? 'FOLLOW_HQ',
+              expressFeeConfig:
+                data.expressFeeMode === 'CUSTOM' ? (data.expressFeeConfig as object) ?? undefined : undefined,
+              memberGrade: data.memberGrade ?? 'STANDARD',
               operatorsEnabled: data.operatorsEnabled === true,
               walletFeesVisible: data.walletFeesVisible === true,
             },
@@ -709,18 +759,22 @@ export const userService = {
       simulatorRateMode?: 'LIVE' | 'SAND';
       feeBillingMethod?: 'FOLLOW_HQ' | 'INTEGRATED' | 'ITEMIZED' | 'HYBRID';
       totalFeeVisibility?: 'FOLLOW_HQ' | 'SHOW' | 'HIDE';
-      usdtCollectionMode?: 'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL';
+      usdtCollectionMode?: 'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL' | 'DIRECT';
       usdtQuoteResponseMode?: 'FOLLOW_HQ' | 'AUTO' | 'MANUAL' | 'OFF';
       tradeReceiptEmailMode?: 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED' | 'HQ_ONLY';
       tradeReceiptAdminUiMode?: 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED';
       tradeReceiptMerchantUiMode?: 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED';
       usdtQuoteAutoDelayMinutes?: number | null;
       usdtQuoteManualSlaHours?: number | null;
+      expressFeeMode?: 'FOLLOW_HQ' | 'CUSTOM' | 'DISABLED';
+      expressFeeConfig?: unknown;
+      memberGrade?: 'STANDARD' | 'PREMIUM' | 'VIP' | 'VVIP' | 'PRESTIGE' | 'BLACK';
       operatorsEnabled?: boolean;
       walletFeesVisible?: boolean;
       usdtRiskLimitCode?: string;
       usdtLimitMinUsdt?: number | null;
       usdtLimitMaxUsdt?: number | null;
+      limitCountry?: string | null;
       expectedCompleteTier?: string;
       expectedCompleteCustomDays?: number | null;
       expectedCompleteCardTier?: string;
@@ -791,18 +845,22 @@ export const userService = {
       simulatorRateMode?: 'LIVE' | 'SAND';
       feeBillingMethod?: 'FOLLOW_HQ' | 'INTEGRATED' | 'ITEMIZED' | 'HYBRID';
       totalFeeVisibility?: 'FOLLOW_HQ' | 'SHOW' | 'HIDE';
-      usdtCollectionMode?: 'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL';
+      usdtCollectionMode?: 'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL' | 'DIRECT';
       usdtQuoteResponseMode?: 'FOLLOW_HQ' | 'AUTO' | 'MANUAL' | 'OFF';
       tradeReceiptEmailMode?: 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED' | 'HQ_ONLY';
       tradeReceiptAdminUiMode?: 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED';
       tradeReceiptMerchantUiMode?: 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED';
       usdtQuoteAutoDelayMinutes?: number | null;
       usdtQuoteManualSlaHours?: number | null;
+      expressFeeMode?: 'FOLLOW_HQ' | 'CUSTOM' | 'DISABLED';
+      expressFeeConfig?: object;
+      memberGrade?: 'STANDARD' | 'PREMIUM' | 'VIP' | 'VVIP' | 'PRESTIGE' | 'BLACK';
       operatorsEnabled?: boolean;
       walletFeesVisible?: boolean;
       usdtRiskLimitCode?: UsdtRiskLimitCode;
       usdtLimitMinUsdt?: number | null;
       usdtLimitMaxUsdt?: number | null;
+      limitCountry?: string | null;
       expectedCompleteTier?: ExpectedCompleteTier;
       expectedCompleteCustomDays?: number | null;
       expectedCompleteCardTier?: ExpectedCompleteTier;
@@ -845,6 +903,29 @@ export const userService = {
     if (data.usdtQuoteManualSlaHours !== undefined && existing.customerProfile) {
       customerProfileUpdate.usdtQuoteManualSlaHours = data.usdtQuoteManualSlaHours;
     }
+    if (data.expressFeeMode !== undefined && existing.customerProfile) {
+      customerProfileUpdate.expressFeeMode = data.expressFeeMode;
+      if (
+        data.expressFeeMode === 'CUSTOM' &&
+        data.expressFeeConfig === undefined &&
+        !existing.customerProfile.expressFeeConfig
+      ) {
+        const { getHqExpressPolicy } = await import('./express-fee.service');
+        const hq = await getHqExpressPolicy();
+        const typeKey =
+          existing.customerProfile.customerType === 'CORPORATE' ? 'CORPORATE' : 'INDIVIDUAL';
+        customerProfileUpdate.expressFeeConfig = {
+          ...hq[typeKey],
+          enabled: true,
+        };
+      }
+    }
+    if (data.expressFeeConfig !== undefined && existing.customerProfile) {
+      customerProfileUpdate.expressFeeConfig = data.expressFeeConfig as object;
+    }
+    if (data.memberGrade !== undefined && existing.customerProfile) {
+      customerProfileUpdate.memberGrade = data.memberGrade;
+    }
     if (data.operatorsEnabled !== undefined && existing.customerProfile) {
       customerProfileUpdate.operatorsEnabled = data.operatorsEnabled;
     }
@@ -872,6 +953,9 @@ export const userService = {
       customerProfileUpdate.usdtRiskLimitCode = riskLimit.usdtRiskLimitCode;
       customerProfileUpdate.usdtLimitMinUsdt = riskLimit.usdtLimitMinUsdt;
       customerProfileUpdate.usdtLimitMaxUsdt = riskLimit.usdtLimitMaxUsdt;
+    }
+    if (data.limitCountry !== undefined && existing.customerProfile) {
+      customerProfileUpdate.limitCountry = data.limitCountry;
     }
     if (
       existing.customerProfile &&
@@ -1099,6 +1183,66 @@ export const userService = {
     }
 
     return updated;
+  },
+
+  async reviewCustomerApproval(
+    actor: AuthUser,
+    customerUserId: string,
+    status: 'APPROVED' | 'REJECTED',
+    audit?: AuditContext,
+  ) {
+    assertCanManageUsers(actor);
+    const customer = await prisma.user.findUnique({
+      where: { id: customerUserId },
+      select: {
+        id: true,
+        role: true,
+        email: true,
+        deletedAt: true,
+        customerProfile: {
+          select: {
+            id: true,
+            approvalStatus: true,
+            recruitingOrg: { select: { path: true } },
+          },
+        },
+        organization: { select: { path: true } },
+      },
+    });
+    if (!customer || customer.deletedAt || customer.role !== UserRole.CUSTOMER) {
+      throw new AppError(404, '가맹점을 찾을 수 없습니다', 'NOT_FOUND');
+    }
+    if (!customer.customerProfile) {
+      throw new AppError(404, '고객 프로필을 찾을 수 없습니다', 'NOT_FOUND');
+    }
+    assertTargetInScope(actor, customer);
+
+    const nextStatus =
+      status === 'APPROVED' ? CustomerApprovalStatus.APPROVED : CustomerApprovalStatus.REJECTED;
+    await prisma.customerProfile.update({
+      where: { id: customer.customerProfile.id },
+      data: { approvalStatus: nextStatus },
+    });
+
+    if (audit) {
+      await logAdminChange({
+        actor: audit.actor,
+        action: AdminChangeAction.UPDATE,
+        entityType: 'CustomerProfile',
+        entityId: customer.customerProfile.id,
+        entityLabel: customer.email,
+        summary:
+          nextStatus === CustomerApprovalStatus.APPROVED
+            ? `고객 가입 승인: ${customer.email} (관리자: ${audit.actor.email})`
+            : `고객 가입 거절: ${customer.email} (관리자: ${audit.actor.email})`,
+        before: { approvalStatus: customer.customerProfile.approvalStatus },
+        after: { approvalStatus: nextStatus },
+        ipAddress: audit.ipAddress,
+        userAgent: audit.userAgent,
+      });
+    }
+
+    return this.getById(actor, customerUserId);
   },
 
   async reviewWallet(

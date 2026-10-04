@@ -132,16 +132,78 @@ export const api = {
       body: JSON.stringify({ code }),
     }),
 
-  registerSendCode: (email: string, name: string) =>
-    request<{ ok: boolean }>('/api/auth/register/send-code', {
-      method: 'POST',
-      body: JSON.stringify({ email, name }),
-    }),
+  registerSendCode: (
+    email: string,
+    name: string,
+    opts?: { inviteOrgCode?: string; referrerUserId?: string },
+  ) =>
+    request<{ ok: boolean; smtpConfigured?: boolean; maskedEmail?: string }>(
+      '/api/auth/register/send-code',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          email,
+          name,
+          inviteOrgCode: opts?.inviteOrgCode,
+          referrerUserId: opts?.referrerUserId,
+        }),
+      },
+    ),
+
+  registerReferrerSearch: (q: string) =>
+    request<{ items: ReferrerSearchHit[] }>(
+      `/api/auth/register/referrer-search?q=${encodeURIComponent(q)}`,
+    ),
+
+  registerInviteInfo: (params: { org?: string; ref?: string }) => {
+    const q = new URLSearchParams();
+    if (params.org) q.set('org', params.org);
+    if (params.ref) q.set('ref', params.ref);
+    return request<{ displayName: string; email?: string; mode: 'ORG' | 'REFERRER' }>(
+      `/api/auth/register/invite-info?${q.toString()}`,
+    );
+  },
 
   register: (data: RegisterInput) =>
     request<{ ok: boolean; message: string }>('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify(data),
+    }),
+
+  passwordForgotSendCode: (email: string, turnstileToken?: string) =>
+    request<{ ok: boolean; maskedEmail: string; smtpConfigured?: boolean }>(
+      '/api/auth/password/forgot/send-code',
+      { method: 'POST', body: JSON.stringify({ email, turnstileToken }) },
+    ),
+
+  passwordForgotReset: (data: {
+    email: string;
+    code: string;
+    newPassword: string;
+    confirmPassword: string;
+    turnstileToken?: string;
+  }) =>
+    request<{ ok: boolean }>('/api/auth/password/forgot/reset', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  otpForgotSendCode: (email: string, turnstileToken?: string) =>
+    request<{ ok: boolean; maskedEmail: string; smtpConfigured?: boolean }>(
+      '/api/auth/otp/forgot/send-code',
+      { method: 'POST', body: JSON.stringify({ email, turnstileToken }) },
+    ),
+
+  otpForgotReset: (email: string, code: string, turnstileToken?: string) =>
+    request<{
+      ok: boolean;
+      mustSetupOtp?: boolean;
+      enrollToken?: string;
+      maskedEmail?: string;
+      smtpConfigured?: boolean;
+    }>('/api/auth/otp/forgot/reset', {
+      method: 'POST',
+      body: JSON.stringify({ email, code, turnstileToken }),
     }),
 
   me: () => request<MeResponse>('/api/auth/me'),
@@ -186,6 +248,7 @@ export const api = {
       if (params?.isActive !== undefined) q.set('isActive', String(params.isActive));
       if (params?.staffOnly) q.set('staffOnly', 'true');
       if (params?.kycStatus) q.set('kycStatus', params.kycStatus);
+      if (params?.approvalStatus) q.set('approvalStatus', params.approvalStatus);
       if (params?.page) q.set('page', String(params.page));
       const qs = q.toString();
       return request<UserListResponse>(`/api/users${qs ? `?${qs}` : ''}`);
@@ -206,6 +269,11 @@ export const api = {
       }),
     reviewWallet: (userId: string, walletId: string, status: 'APPROVED' | 'REJECTED') =>
       request<Wallet>(`/api/users/${userId}/wallets/${walletId}/approval`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      }),
+    reviewCustomerApproval: (userId: string, status: 'APPROVED' | 'REJECTED') =>
+      request<ManagedUser>(`/api/users/${userId}/customer-approval`, {
         method: 'PATCH',
         body: JSON.stringify({ status }),
       }),
@@ -326,16 +394,19 @@ export const api = {
       fiatAmount?: number;
       targetUsdtAmount?: number;
       cardChargeFiat?: number;
-      paymentMethod?: 'BANK' | 'CARD';
+      paymentMethod?: 'BANK' | 'CARD' | 'REMITTANCE' | 'BANK_TRANSFER';
+      expressTier?: ExpressTier | string | null;
     }) => {
       const q = new URLSearchParams({
         walletId: params.walletId,
         currency: params.fiatCurrency,
       });
       if (params.paymentMethod === 'CARD') q.set('paymentMethod', 'CARD');
+      if (params.paymentMethod === 'REMITTANCE') q.set('paymentMethod', 'REMITTANCE');
       if (params.fiatAmount != null) q.set('fiatAmount', String(params.fiatAmount));
       if (params.targetUsdtAmount != null) q.set('targetUsdtAmount', String(params.targetUsdtAmount));
       if (params.cardChargeFiat != null) q.set('cardChargeFiat', String(params.cardChargeFiat));
+      if (params.expressTier) q.set('expressTier', String(params.expressTier));
       return request<UsdtFeePreview>(`/api/tickets/usdt-purchase/fees?${q}`);
     },
     simulate: (params: {
@@ -358,7 +429,8 @@ export const api = {
       cardChargeFiat?: number;
       walletId: string;
       fiatCurrency?: string;
-      paymentMethod?: 'BANK_TRANSFER' | 'CARD';
+      paymentMethod?: 'BANK_TRANSFER' | 'CARD' | 'REMITTANCE';
+      expressTier?: ExpressTier | string | null;
       cardWaiverAccepted?: true;
       card?: CardPaymentInput;
     }) =>
@@ -675,18 +747,25 @@ export interface User {
   operatorsEnabled?: boolean;
 }
 
+export type CustomerApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+export type TradeAccess = 'FULL' | 'VIEW_ONLY';
+
 export interface MeResponse extends User {
   totpEnabled?: boolean;
   passwordMustChange?: boolean;
   sessionPolicy?: SessionPolicy;
   pageAccess?: Record<string, string>;
   kycStatus?: 'NOT_SUBMITTED' | 'PENDING' | 'APPROVED' | 'REJECTED';
+  /** 가맹점 거래 실행 권한 — 미승인 시 VIEW_ONLY */
+  tradeAccess?: TradeAccess;
+  approvalStatus?: CustomerApprovalStatus | null;
   wallets: Wallet[];
   operatorsEnabled?: boolean;
   merchantAdminUserId?: string | null;
   customerProfile?: {
     id: string;
     customerType: string;
+    approvalStatus?: CustomerApprovalStatus;
     recruitingOrg?: { id: string; name: string; code: string };
     simulatorEnabled?: boolean;
     simulatorRateMode?: 'LIVE' | 'SAND';
@@ -696,7 +775,7 @@ export interface MeResponse extends User {
 
 export interface SessionPolicy {
   idleTimeoutMinutes: number;
-  defaultUsdtFiatCurrency: 'KRW' | 'JPY' | 'THB' | 'CNY';
+  defaultUsdtFiatCurrency: 'KRW' | 'JPY' | 'THB' | 'CNY' | 'USD' | 'EUR';
 }
 
 export type SimulatorRunRow = {
@@ -781,11 +860,22 @@ export type ProfitAnalysisRow = {
 export type FeeBillingPresentation = 'INTEGRATED' | 'ITEMIZED' | 'HYBRID';
 export type FeeBillingMethod = 'FOLLOW_HQ' | FeeBillingPresentation;
 export type TotalFeeVisibility = 'FOLLOW_HQ' | 'SHOW' | 'HIDE';
-export type UsdtCollectionMode = 'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL';
+export type UsdtCollectionMode = 'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL' | 'DIRECT';
 export type TradeReceiptEmailMode = 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED' | 'HQ_ONLY';
 export type TradeReceiptUiMode = 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED';
 export type TradeReceiptSendStatus = 'SENT' | 'FAILED' | 'SKIPPED';
 export type UsdtQuoteResponseMode = 'FOLLOW_HQ' | 'AUTO' | 'MANUAL' | 'OFF';
+export type ExpressFeeMode = 'FOLLOW_HQ' | 'CUSTOM' | 'DISABLED';
+
+export const MEMBER_GRADES = [
+  'STANDARD',
+  'PREMIUM',
+  'VIP',
+  'VVIP',
+  'PRESTIGE',
+  'BLACK',
+] as const;
+export type MemberGrade = (typeof MEMBER_GRADES)[number];
 export const USDT_QUOTE_AUTO_DELAY_MINUTES = [
   0, 1, 3, 5, 10, 30, 60, 180, 360, 720, 1440, 2880, 4320,
 ] as const;
@@ -802,6 +892,8 @@ export interface FeeDiagramDisplayConfig {
   localPremium: boolean;
   /** 운영수수료 — 표시만 제어. 정산은 항상 적용 */
   operatingFee: boolean;
+  /** EXPRESS 수수료 */
+  expressFee?: boolean;
   net: boolean;
   requiredFiat: boolean;
   showRates: boolean;
@@ -821,14 +913,23 @@ export interface RegisterBankAccountInput {
   branchName?: string;
 }
 
+export interface ReferrerSearchHit {
+  userId: string;
+  email: string;
+  displayName: string;
+}
+
 export interface RegisterInput {
+  limitCountry?: 'JP' | 'KR' | 'TH' | 'US' | 'CN';
   email: string;
   emailCode: string;
   name: string;
   phone: string;
   phoneCountryCode: string;
-  customerType: 'INDIVIDUAL' | 'CORPORATE';
-  recruitingOrgId: string;
+  customerType: 'INDIVIDUAL';
+  referrerUserId?: string;
+  inviteOrgCode?: string;
+  noReferrer?: boolean;
   businessName?: string;
   businessNumber?: string;
   representative?: string;
@@ -838,6 +939,12 @@ export interface RegisterInput {
   walletAddress: string;
   walletNetwork?: string;
   walletLabel?: string;
+  wiseEnabled?: boolean;
+  remittanceProvider?: string;
+  remittanceProviderOther?: string;
+  wiseSenderName?: string;
+  wiseSenderEmail?: string;
+  wiseSenderCountry?: string;
 }
 
 export interface SalesOffice {
@@ -856,6 +963,8 @@ export interface Organization {
   isActive?: boolean;
   simulatorEnabled?: boolean;
   simulatorRateMode?: 'LIVE' | 'SAND';
+  referralUserId?: string | null;
+  referralUser?: { id: string; email: string; name: string } | null;
   deletedAt?: string | null;
   purgeAt?: string | null;
   createdAt?: string;
@@ -875,6 +984,7 @@ export interface UpdateOrganizationInput {
   isActive?: boolean;
   simulatorEnabled?: boolean;
   simulatorRateMode?: 'LIVE' | 'SAND';
+  referralUserId?: string | null;
 }
 
 export interface HqDeletionPolicy {
@@ -997,6 +1107,7 @@ export interface ManagedUser {
   customerProfile?: {
     id: string;
     customerType: string;
+    approvalStatus?: CustomerApprovalStatus;
     businessName?: string | null;
     simulatorEnabled?: boolean;
     simulatorRateMode?: 'LIVE' | 'SAND';
@@ -1005,6 +1116,8 @@ export interface ManagedUser {
     usdtRiskLimitCode?: UsdtRiskLimitCode;
     usdtLimitMinUsdt?: number | null;
     usdtLimitMaxUsdt?: number | null;
+    limitCountry?: string | null;
+    signupCountry?: string | null;
     expectedCompleteTier?: ExpectedCompleteTier;
     expectedCompleteCustomDays?: number | null;
     expectedCompleteCardTier?: ExpectedCompleteTier;
@@ -1016,6 +1129,9 @@ export interface ManagedUser {
     tradeReceiptMerchantUiMode?: TradeReceiptUiMode;
     usdtQuoteAutoDelayMinutes?: number | null;
     usdtQuoteManualSlaHours?: number | null;
+    expressFeeMode?: ExpressFeeMode;
+    expressFeeConfig?: unknown;
+    memberGrade?: MemberGrade;
     operatorsEnabled?: boolean;
     walletFeesVisible?: boolean;
     recruitingOrg?: { id: string; code: string; name: string };
@@ -1054,6 +1170,7 @@ export interface UserListParams {
   page?: number;
   staffOnly?: boolean;
   kycStatus?: string;
+  approvalStatus?: CustomerApprovalStatus;
 }
 
 export interface UserListResponse {
@@ -1114,10 +1231,14 @@ export interface CreateUserInput {
   usdtRiskLimitCode?: UsdtRiskLimitCode;
   usdtLimitMinUsdt?: number | null;
   usdtLimitMaxUsdt?: number | null;
+  limitCountry?: 'JP' | 'KR' | 'TH' | 'US' | 'CN' | null;
   expectedCompleteTier?: ExpectedCompleteTier;
   expectedCompleteCustomDays?: number | null;
   expectedCompleteCardTier?: ExpectedCompleteTier;
   expectedCompleteCardCustomDays?: number | null;
+  expressFeeMode?: ExpressFeeMode;
+  expressFeeConfig?: unknown;
+  memberGrade?: MemberGrade;
 }
 
 export interface UpdateUserInput {
@@ -1147,10 +1268,14 @@ export interface UpdateUserInput {
   usdtRiskLimitCode?: UsdtRiskLimitCode;
   usdtLimitMinUsdt?: number | null;
   usdtLimitMaxUsdt?: number | null;
+  limitCountry?: 'JP' | 'KR' | 'TH' | 'US' | 'CN' | null;
   expectedCompleteTier?: ExpectedCompleteTier;
   expectedCompleteCustomDays?: number | null;
   expectedCompleteCardTier?: ExpectedCompleteTier;
   expectedCompleteCardCustomDays?: number | null;
+  expressFeeMode?: ExpressFeeMode;
+  expressFeeConfig?: unknown;
+  memberGrade?: MemberGrade;
 }
 
 export type WalletApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
@@ -1263,10 +1388,18 @@ export interface DepositReceivingAccountInfo {
   branchCode?: string;
   branchName?: string;
   accountType?: string;
+  /** ACH/SEPA bank country (e.g. US, MT) */
+  bankCountry?: string;
+  /** USD ACH routing number */
+  routingNumber?: string;
+  /** EUR SEPA BIC/SWIFT */
+  bic?: string;
   notice?: string;
   noticeI18n?: Partial<Record<'KR' | 'US' | 'JP' | 'CH' | 'TH', string>>;
   transferEnabled?: boolean;
   cardEnabled?: boolean;
+  /** 송금계좌(DIRECT) 모드에서 이 통화 사용 가능 */
+  remittanceEnabled?: boolean;
 }
 
 export interface UsdtCurrencyTradeFlags {
@@ -1274,12 +1407,57 @@ export interface UsdtCurrencyTradeFlags {
   card: boolean;
 }
 
+export interface UsdtExpressOption {
+  tier: string;
+  feeUsdt: number;
+  feePercent?: number;
+  maxHours: number;
+}
+
 export interface UsdtDepositContext {
-  receivingAccounts: Partial<Record<'KRW' | 'JPY' | 'THB' | 'CNY', DepositReceivingAccountInfo>>;
-  currencyTrade?: Record<'KRW' | 'JPY' | 'THB' | 'CNY', UsdtCurrencyTradeFlags>;
+  receivingAccounts: Partial<Record<'KRW' | 'JPY' | 'THB' | 'CNY' | 'USD' | 'EUR', DepositReceivingAccountInfo>>;
+  currencyTrade?: Record<'KRW' | 'JPY' | 'THB' | 'CNY' | 'USD' | 'EUR', UsdtCurrencyTradeFlags>;
   curfexEnabledCurrencies?: Array<'JPY' | 'KRW' | 'THB' | 'CNY'>;
   usdtCollectionMode?: UsdtCollectionMode;
-  hqDefaultCollectionMode?: 'FIXED' | 'VIRTUAL';
+  hqDefaultCollectionMode?: 'FIXED' | 'VIRTUAL' | 'DIRECT';
+  /** 직접송금(DIRECT) 적용 시 true — HQ 지정 통화만 이체 */
+  individualDirectRemit?: boolean;
+  individualDirectRemitCurrencies?: Array<'KRW' | 'JPY' | 'THB' | 'CNY' | 'USD' | 'EUR'>;
+  directRemitCurrencies?: Array<'KRW' | 'JPY' | 'THB' | 'CNY' | 'USD' | 'EUR'>;
+  /** 송금거래 결제수단 통화 (USD/EUR…) — 입력·한도 모두 해당 통화 */
+  remittancePaymentCurrencies?: Array<'KRW' | 'JPY' | 'THB' | 'CNY' | 'USD' | 'EUR'>;
+  remittancePaymentAvailable?: boolean;
+  preferRemittancePayment?: boolean;
+  /** 실제 매입 1회 USDT 한도 */
+  usdtRiskLimit?: { code: string; minUsdt: number; maxUsdt: number } | null;
+  /** 시뮬레이터 전용 1회 USDT 한도 */
+  simulatorUsdtRiskLimit?: { code: string; minUsdt: number; maxUsdt: number } | null;
+  /** 개인 국가 기준 한도 */
+  individualCountryLimit?: {
+    country: string;
+    source: string;
+    homeCurrency: string;
+    maxFiat: number;
+    maxUsd: number;
+    minUsdt: number;
+    maxUsdt: number;
+  } | null;
+  /** HQ 한도 설정 — 고객유형별 통화 한도 */
+  applicationLimits?: {
+    enabled: boolean;
+    customerType: 'INDIVIDUAL' | 'CORPORATE';
+    byCurrency: Record<
+      'KRW' | 'JPY' | 'THB' | 'CNY' | 'USD' | 'EUR',
+      {
+        perTransactionMin: number;
+        perTransactionMax: number;
+        dailyMin: number;
+        dailyMax: number;
+        monthlyMin: number;
+        monthlyMax: number;
+      }
+    >;
+  } | null;
   registeredBank: { bankName: string; accountNumber: string; accountHolder: string } | null;
   depositWindowHours: number;
   /** 신청 페이지 무동작(분) */
@@ -1301,6 +1479,15 @@ export interface UsdtDepositContext {
     quoteValidMinutes?: number;
   };
   usdtQuoteResponseMode?: UsdtQuoteResponseMode;
+  express?: {
+    enabled: boolean;
+    tier: string | null;
+    feeUsdt: number;
+    feePercent?: number;
+    maxHours?: number;
+    options: UsdtExpressOption[];
+    source?: string;
+  };
 }
 
 export interface BankAccountInfo {
@@ -1355,6 +1542,9 @@ export interface UsdtFeePreview {
     fairExchangeRate?: number;
     operatingFeePercent?: number;
     operatingFeeFixedUsdt?: number;
+    expressFeeUsdt?: number;
+    expressFeePercent?: number;
+    expressTier?: string;
   };
   fiatAmount: number;
   exchangeRate: number;
@@ -1371,6 +1561,9 @@ export interface UsdtFeePreview {
     kimchiPremiumFeeUsdt?: number;
     kimchiPremiumPercent?: number;
     operatingFeeUsdt?: number;
+    expressFeeUsdt?: number;
+    expressFeePercent?: number;
+    expressTier?: string;
     netUsdt: number;
     requiredFiat: number;
     fairExchangeRate?: number;
@@ -1382,11 +1575,22 @@ export interface UsdtFeePreview {
   currencyAmountDisplay?: HqCurrencyAmountDisplayPolicy;
   /** 금액 범위 표시 비율 — 거래신청 8, 시뮬 5 */
   amountRangePct?: number;
+  /** 시뮬/매입 시 적용된 USDT 1회 한도 */
+  riskLimit?: { code: string; minUsdt: number; maxUsdt: number } | null;
   paymentMethod?: 'CARD';
   cardFeePercent?: number;
   cardFeeFiat?: number;
   cardChargeFiat?: number;
   fiatForConversion?: number;
+  express?: {
+    enabled: boolean;
+    tier: ExpressTier | string | null;
+    feeUsdt: number;
+    feePercent?: number;
+    maxHours?: number;
+    options: UsdtExpressOption[];
+    source?: string;
+  };
 }
 
 export interface UsdtCardPaymentContext {
@@ -1394,7 +1598,7 @@ export interface UsdtCardPaymentContext {
   enabled: boolean;
   cardFeePercent: number;
   limits: Record<SymbolFeeCurrency, { min: number; max: number }>;
-  currencyTrade?: Record<'KRW' | 'JPY' | 'THB' | 'CNY', UsdtCurrencyTradeFlags>;
+  currencyTrade?: Record<'KRW' | 'JPY' | 'THB' | 'CNY' | 'USD' | 'EUR', UsdtCurrencyTradeFlags>;
   icopayConfigured: boolean;
   userPhone: string | null;
   userPhoneCountryCode: string | null;
@@ -1440,7 +1644,16 @@ export interface UsdtTicket {
   ticketNo: string;
   type: string;
   status: string;
-  paymentMethod?: 'BANK_TRANSFER' | 'CARD';
+  paymentMethod?: 'BANK_TRANSFER' | 'CARD' | 'REMITTANCE';
+  expressTier?: string | null;
+  expressFeeUsdt?: number | null;
+  expressDueAt?: string | null;
+  memberGrade?: string | null;
+  expressActualTier?: string | null;
+  expressFeeSettledUsdt?: number | null;
+  expressSlaMet?: boolean | null;
+  expressElapsedHours?: number | null;
+  expressRefundUsdt?: number | null;
   fiatAmount: number;
   fiatCurrency: string;
   exchangeRate: number;
@@ -1623,6 +1836,10 @@ export interface EscrowDepositContext {
     bankName: string;
     accountNumber: string;
     accountHolder: string;
+    accountType?: string;
+    bankCountry?: string;
+    routingNumber?: string;
+    bic?: string;
   } | null;
   registeredBank?: {
     bankName: string;
@@ -1804,10 +2021,20 @@ export const hqPolicyApi = {
       method: 'PUT',
       body: JSON.stringify({ risk }),
     }),
-  saveSymbolFeeTiers: (feeTiers: SymbolFeeTierRow[]) =>
+  saveSymbolFeeTiers: (feeTiersByCustomerType: SymbolFeeTiersByCustomerType) =>
     request<HqCommissionPayload>('/api/hq-policy/commission/fee-tiers', {
       method: 'PUT',
-      body: JSON.stringify({ feeTiers }),
+      body: JSON.stringify({ feeTiersByCustomerType }),
+    }),
+  saveExpressFee: (expressFee: HqExpressPolicy) =>
+    request<HqCommissionPayload>('/api/hq-policy/commission/express-fee', {
+      method: 'PUT',
+      body: JSON.stringify({ expressFee }),
+    }),
+  saveMemberGrade: (memberGrade: HqMemberGradePolicy) =>
+    request<HqCommissionPayload>('/api/hq-policy/commission/member-grade', {
+      method: 'PUT',
+      body: JSON.stringify({ memberGrade }),
     }),
   saveExchangeRateSources: (exchangeRateSources: HqExchangeRateSourcePolicy) =>
     request<HqCommissionPayload>('/api/hq-policy/commission/exchange-rate-sources', {
@@ -1939,6 +2166,18 @@ export const hqPolicyApi = {
       body: form,
     });
   },
+  uploadPlatformRegisterBackground: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return request<HqPlatformPayload>('/api/hq-policy/platform/register-background', {
+      method: 'POST',
+      body: form,
+    });
+  },
+  clearPlatformRegisterBackground: () =>
+    request<HqPlatformPayload>('/api/hq-policy/platform/register-background', {
+      method: 'DELETE',
+    }),
   uploadPlatformOgImage: (file: File) => {
     const form = new FormData();
     form.append('file', file);
@@ -2201,12 +2440,132 @@ export interface HqCommissionRiskConfig {
   defaultPlatformFeeUsdt?: number;
 }
 
-export type SymbolFeeCurrency = 'KRW' | 'JPY' | 'THB' | 'CNY' | 'USD';
+export type SymbolFeeCurrency = 'KRW' | 'JPY' | 'THB' | 'CNY' | 'USD' | 'EUR';
 
 export interface SymbolFeeTierRow extends TransactionFees {
   id: string;
   currency: SymbolFeeCurrency;
   maxAmount: number;
+}
+
+export type SymbolFeeTiersByCustomerType = {
+  INDIVIDUAL: SymbolFeeTierRow[];
+  CORPORATE: SymbolFeeTierRow[];
+};
+
+export const EXPRESS_TIERS = [
+  'ULTRA',
+  'PRIORITY',
+  'HALF',
+  'DAY',
+  'T1',
+  'T2',
+  'BASIC',
+] as const;
+export type ExpressTier = (typeof EXPRESS_TIERS)[number];
+
+export type ExpressTierFeeConfig = {
+  feeUsdt: number | null;
+  feePercent: number | null;
+  /** 등급별 사용(관리). 미사용이어도 수수료 값은 유지 */
+  enabled: boolean;
+};
+export type HqExpressCustomerTypePolicy = {
+  enabled: boolean;
+  tiers: Record<ExpressTier, ExpressTierFeeConfig>;
+};
+export type HqExpressPolicy = {
+  INDIVIDUAL: HqExpressCustomerTypePolicy;
+  CORPORATE: HqExpressCustomerTypePolicy;
+};
+
+export function defaultExpressCustomerTypePolicy(): HqExpressCustomerTypePolicy {
+  return {
+    enabled: false,
+    tiers: {
+      ULTRA: { feeUsdt: null, feePercent: null, enabled: false },
+      PRIORITY: { feeUsdt: null, feePercent: null, enabled: false },
+      HALF: { feeUsdt: null, feePercent: null, enabled: false },
+      DAY: { feeUsdt: null, feePercent: null, enabled: false },
+      T1: { feeUsdt: null, feePercent: null, enabled: false },
+      T2: { feeUsdt: null, feePercent: null, enabled: false },
+      BASIC: { feeUsdt: 0, feePercent: null, enabled: true },
+    },
+  };
+}
+
+export function defaultExpressPolicy(): HqExpressPolicy {
+  return {
+    INDIVIDUAL: defaultExpressCustomerTypePolicy(),
+    CORPORATE: defaultExpressCustomerTypePolicy(),
+  };
+}
+
+export type MemberGradeExpressBenefit = {
+  tierFees: Record<ExpressTier, number | null>;
+  tierFeePercents: Record<ExpressTier, number | null>;
+  discountPercent: number;
+  discountUsdt: number;
+};
+
+export type HqMemberGradeCustomerTypePolicy = {
+  grades: Record<MemberGrade, MemberGradeExpressBenefit>;
+};
+
+/** 법인·개인 각각 회원등급 EXPRESS 추가 수수료 */
+export type HqMemberGradePolicy = {
+  INDIVIDUAL: HqMemberGradeCustomerTypePolicy;
+  CORPORATE: HqMemberGradeCustomerTypePolicy;
+};
+
+function defaultMemberGradeBenefit(
+  discountPercent = 0,
+  discountUsdt = 0,
+  ultraFeeUsdt: number | null = null,
+): MemberGradeExpressBenefit {
+  return {
+    tierFees: {
+      ULTRA: ultraFeeUsdt,
+      PRIORITY: null,
+      HALF: null,
+      DAY: null,
+      T1: null,
+      T2: null,
+      BASIC: null,
+    },
+    tierFeePercents: {
+      ULTRA: null,
+      PRIORITY: null,
+      HALF: null,
+      DAY: null,
+      T1: null,
+      T2: null,
+      BASIC: null,
+    },
+    discountPercent,
+    discountUsdt,
+  };
+}
+
+function defaultMemberGradeCustomerTypePolicy(): HqMemberGradeCustomerTypePolicy {
+  // 1차 보수안: % 할인 위주, Black만 ULTRA 0 + 소액 USDT
+  return {
+    grades: {
+      STANDARD: defaultMemberGradeBenefit(0, 0),
+      PREMIUM: defaultMemberGradeBenefit(3, 0),
+      VIP: defaultMemberGradeBenefit(5, 0),
+      VVIP: defaultMemberGradeBenefit(8, 0),
+      PRESTIGE: defaultMemberGradeBenefit(12, 0),
+      BLACK: defaultMemberGradeBenefit(15, 1, 0),
+    },
+  };
+}
+
+export function defaultMemberGradePolicy(): HqMemberGradePolicy {
+  return {
+    INDIVIDUAL: defaultMemberGradeCustomerTypePolicy(),
+    CORPORATE: defaultMemberGradeCustomerTypePolicy(),
+  };
 }
 
 export type ExchangeRateSourceId =
@@ -2338,6 +2697,9 @@ export const customerFeesApi = {
 export interface HqCommissionPayload {
   risk: HqCommissionRiskConfig;
   feeTiers: SymbolFeeTierRow[];
+  feeTiersByCustomerType?: SymbolFeeTiersByCustomerType;
+  expressFee?: HqExpressPolicy;
+  memberGrade?: HqMemberGradePolicy;
   simulatorRisk?: HqCommissionRiskConfig;
   simulatorFeeTiers?: SymbolFeeTierRow[];
   exchangeRateSources: HqExchangeRateSourcePolicy;
@@ -2381,6 +2743,7 @@ export type HqCurrencyAmountDisplayPolicy = {
   CNY?: HqCurrencyAmountRule;
   HKD?: HqCurrencyAmountRule;
   USD?: HqCurrencyAmountRule;
+  EUR?: HqCurrencyAmountRule;
 };
 
 export interface BrandingResponse {
@@ -2391,6 +2754,7 @@ export interface BrandingResponse {
   authLogoUrl: string | null;
   faviconUrl: string | null;
   authBackgroundUrl: string | null;
+  registerBackgroundUrl: string | null;
   authMainText: string;
   footerText: string;
   loginNoticeEnabled: boolean;
@@ -2398,7 +2762,12 @@ export interface BrandingResponse {
     Record<'KR' | 'JP' | 'US' | 'CH' | 'TH', { title: string; body: string }>
   >;
   customerRegistrationEnabled: boolean;
-  defaultUsdtFiatCurrency?: 'KRW' | 'JPY' | 'THB' | 'CNY';
+  accountRecoveryEnabled?: boolean;
+  individualRegisterNoticeEnabled?: boolean;
+  individualRegisterNoticeI18n?: Partial<
+    Record<'KR' | 'JP' | 'US' | 'CH' | 'TH', { title: string; body: string }>
+  >;
+  defaultUsdtFiatCurrency?: 'KRW' | 'JPY' | 'THB' | 'CNY' | 'USD' | 'EUR';
   /** 기준시간 IANA TZ */
   baseTimezone?: string;
   /** 서비스기준시간 IANA TZ */
@@ -2424,6 +2793,7 @@ export interface HqPlatformConfig {
   authLogoUrl?: string;
   faviconUrl?: string;
   authBackgroundUrl?: string;
+  registerBackgroundUrl?: string;
   authMainText?: string;
   footerText?: string;
   loginNoticeEnabled?: boolean;
@@ -2431,6 +2801,11 @@ export interface HqPlatformConfig {
     Record<'KR' | 'JP' | 'US' | 'CH' | 'TH', { title: string; body: string }>
   >;
   customerRegistrationEnabled?: boolean;
+  accountRecoveryEnabled?: boolean;
+  individualRegisterNoticeEnabled?: boolean;
+  individualRegisterNoticeI18n?: Partial<
+    Record<'KR' | 'JP' | 'US' | 'CH' | 'TH', { title: string; body: string }>
+  >;
   idleTimeoutMinutes?: number;
   /** 비활성 계정 로그인 기본 안내 (다국어) */
   inactiveLoginNoticeI18n?: Partial<Record<'KR' | 'JP' | 'US' | 'CH' | 'TH', string>>;
@@ -2440,11 +2815,11 @@ export interface HqPlatformConfig {
     title?: string;
     bodyI18n?: Partial<Record<'KR' | 'JP' | 'US' | 'CH' | 'TH', string>>;
   }>;
-  defaultUsdtFiatCurrency?: 'KRW' | 'JPY' | 'THB' | 'CNY';
+  defaultUsdtFiatCurrency?: 'KRW' | 'JPY' | 'THB' | 'CNY' | 'USD' | 'EUR';
   simulatorRetentionMonths?: number;
   /** Issue Invoice on simulator runs (tinpass-sim). Default true when configured. */
   simulatorInvoiceEnabled?: boolean;
-  depositReceivingAccounts?: Partial<Record<'KRW' | 'JPY' | 'THB' | 'CNY', DepositReceivingAccountInfo>>;
+  depositReceivingAccounts?: Partial<Record<'KRW' | 'JPY' | 'THB' | 'CNY' | 'USD' | 'EUR', DepositReceivingAccountInfo>>;
   baseTimezone?: string;
   serviceTimezone?: string;
 }
@@ -2504,8 +2879,14 @@ export interface HqCurfexConfig {
   sandbox?: boolean;
   webhookSecret?: string;
   autoApproveOnDeposit?: boolean;
-  /** HQ default when customer follows HQ: FIXED or VIRTUAL (TINPASS VA) */
-  defaultCollectionMode?: 'FIXED' | 'VIRTUAL';
+  /** @deprecated use defaultCollectionModeCorporate */
+  defaultCollectionMode?: 'FIXED' | 'VIRTUAL' | 'DIRECT';
+  /** Corporate FOLLOW_HQ default */
+  defaultCollectionModeCorporate?: 'FIXED' | 'VIRTUAL' | 'DIRECT';
+  /** Individual FOLLOW_HQ default (seed DIRECT = remittance account) */
+  defaultCollectionModeIndividual?: 'FIXED' | 'VIRTUAL' | 'DIRECT';
+  /** @deprecated source of truth is deposit account remittanceEnabled */
+  directRemitCurrencies?: Array<'KRW' | 'JPY' | 'THB' | 'CNY' | 'USD' | 'EUR'>;
 }
 
 export type CardCurrencyLimits = { min: number; max: number };

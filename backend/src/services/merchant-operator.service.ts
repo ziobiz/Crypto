@@ -194,8 +194,10 @@ export async function createMerchantOperator(
   }
 
   const email = normalizeEmail(input.email);
-  const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing && !existing.deletedAt) {
+  const existing = await prisma.user.findFirst({
+    where: { email: { equals: email, mode: 'insensitive' }, deletedAt: null },
+  });
+  if (existing) {
     throw new AppError(409, 'Email already registered', 'CONFLICT');
   }
 

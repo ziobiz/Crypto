@@ -12,7 +12,7 @@ import { fetchUsdtFiatRateWithPolicy } from './exchange-rate-policy.service';
 /** 고객 매입 통화 (fiat per 1 USDT) */
 export type FiatCurrency = SymbolFeeCurrency;
 
-export const SUPPORTED_FIAT_CURRENCIES: FiatCurrency[] = ['KRW', 'JPY', 'THB', 'CNY', 'USD'];
+export const SUPPORTED_FIAT_CURRENCIES: FiatCurrency[] = ['KRW', 'JPY', 'THB', 'CNY', 'USD', 'EUR'];
 
 /** fiat per 1 USDT — 본사정책 통화별 기준가 소스 적용 */
 export async function fetchUsdtFiatRate(currency: FiatCurrency) {
@@ -141,6 +141,7 @@ export function toPrismaCurrency(currency: string): CurrencyCode {
   if (
     upper === 'KRW' ||
     upper === 'USD' ||
+    upper === 'EUR' ||
     upper === 'JPY' ||
     upper === 'THB' ||
     upper === 'CNY' ||

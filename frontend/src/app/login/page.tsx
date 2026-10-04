@@ -43,11 +43,29 @@ export default function LoginPage() {
   const otpSubmitLock = useRef(false);
 
   useEffect(() => {
+    if (window.location.search.includes('register=invite')) {
+      setInfo(t('auth.registerInviteOnlyHint'));
+    }
     const idle =
       window.location.search.includes('idle=1') || Boolean(sessionStorage.getItem('crypto_idle_minutes'));
     if (idle) {
       const min = Number(sessionStorage.getItem('crypto_idle_minutes')) || 30;
       setInfo(t('auth.idleLogout', { min }));
+    }
+    if (window.location.search.includes('otpReset=1')) {
+      const token = sessionStorage.getItem('crypto_otp_enroll_token');
+      const masked = sessionStorage.getItem('crypto_otp_enroll_email') || '';
+      sessionStorage.removeItem('crypto_otp_enroll_token');
+      sessionStorage.removeItem('crypto_otp_enroll_email');
+      if (token) {
+        setEnrollToken(token);
+        setMaskedEmail(masked);
+        setStep('enrollEmail');
+        setInfo(t('auth.recoverOtpEnrollHint'));
+        void api.otpEnrollSendEmail(token).then(() => setInfo(t('auth.otpEnrollEmailSent'))).catch(() => undefined);
+      } else {
+        setInfo(t('auth.recoverOtpLoginHint'));
+      }
     }
   }, [t]);
 
@@ -245,6 +263,11 @@ export default function LoginPage() {
         {step === 'credentials' && (
           <>
             <h2 className="text-xl font-bold sm:text-2xl">{t('auth.loginTitle')}</h2>
+            {info && step === 'credentials' && (
+              <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                {info}
+              </p>
+            )}
             <form onSubmit={handleCredentials} className="mt-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">{t('auth.email')}</label>
@@ -260,14 +283,27 @@ export default function LoginPage() {
                 {loading ? t('auth.loggingIn') : t('auth.login')}
               </button>
             </form>
-            <p className="mt-6 text-center text-sm text-gray-500">
-              {branding?.customerRegistrationEnabled && (
-                <>
-                  {t('auth.noAccount')}{' '}
-                  <Link href="/register" className="text-blue-600 hover:underline">{t('auth.register')}</Link>
-                </>
-              )}
-            </p>
+            {branding?.accountRecoveryEnabled !== false && (
+              <Link
+                href="/recover"
+                className="mt-4 flex w-full items-center justify-center rounded-lg border border-slate-200 bg-slate-100 py-3 text-base font-medium text-slate-700 hover:bg-slate-200/80"
+              >
+                {t('auth.recoverLink')}
+              </Link>
+            )}
+            {branding?.customerRegistrationEnabled !== false && (
+              <div className="mt-3 space-y-2 rounded-lg border border-sky-200 bg-sky-50/80 p-3">
+                <p className="text-center text-sm font-medium text-slate-800">
+                  {t('auth.individualSignupWarnShort')}
+                </p>
+                <Link
+                  href="/register"
+                  className="flex w-full items-center justify-center rounded-lg bg-slate-800 py-3 text-sm font-semibold text-white hover:bg-slate-900"
+                >
+                  {t('auth.registerIndividual')}
+                </Link>
+              </div>
+            )}
           </>
         )}
 

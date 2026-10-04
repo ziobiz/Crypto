@@ -30,6 +30,7 @@ import {
   openTradeReceiptWindow,
 } from '@/lib/trade-receipt-document';
 import type { MessageKey } from '@/i18n/messages';
+import { depositPaymentRail } from '@/lib/fiat-currency';
 
 const LOCAL_PREMIUM_CURRENCIES = ['KRW', 'THB', 'JPY'] as const;
 
@@ -180,13 +181,17 @@ export default function UsdtDetailPage() {
   const isOperator = user?.role === 'SUPER_ADMIN' || user?.role === 'ORG_STAFF';
   const isCustomer = user?.role === 'CUSTOMER' || user?.role === 'CUSTOMER_OPERATOR';
   const receivingFixed =
-    depositCtx?.receivingAccounts?.[ticket.fiatCurrency as 'KRW' | 'JPY' | 'THB' | 'CNY'];
+    depositCtx?.receivingAccounts?.[
+      ticket.fiatCurrency as 'KRW' | 'JPY' | 'THB' | 'CNY' | 'USD' | 'EUR'
+    ];
   // CURFEX: 견적 확정 후에만 가상계좌 발급 → 확정 전에는 계좌 미표시(고정계좌로 폴백하지 않음)
   const receivingRaw =
     ticket.collectionProvider === 'CURFEX'
       ? ticket.collectionAccount ?? null
       : receivingFixed;
   const isCurfexAccount = ticket.collectionProvider === 'CURFEX' && !!ticket.collectionAccount;
+  const depositRail = depositPaymentRail(ticket.fiatCurrency);
+  const isWesternRail = depositRail === 'ACH' || depositRail === 'SEPA';
   const receiving = receivingRaw
     ? {
         bankName: String(receivingRaw.bankName ?? ''),
@@ -206,6 +211,15 @@ export default function UsdtDetailPage() {
           'accountType' in receivingRaw && receivingRaw.accountType
             ? String(receivingRaw.accountType)
             : '',
+        bankCountry:
+          'bankCountry' in receivingRaw && receivingRaw.bankCountry
+            ? String(receivingRaw.bankCountry)
+            : '',
+        routingNumber:
+          'routingNumber' in receivingRaw && receivingRaw.routingNumber
+            ? String(receivingRaw.routingNumber)
+            : '',
+        bic: 'bic' in receivingRaw && receivingRaw.bic ? String(receivingRaw.bic) : '',
         notice: 'notice' in receivingRaw && receivingRaw.notice ? String(receivingRaw.notice) : '',
         noticeI18n:
           'noticeI18n' in receivingRaw && receivingRaw.noticeI18n && typeof receivingRaw.noticeI18n === 'object'
@@ -387,7 +401,9 @@ export default function UsdtDetailPage() {
       ? t('usdt.collection.na')
       : ticket.collectionProvider === 'CURFEX'
         ? t('usdt.collection.curfex')
-        : t('usdt.collection.fixed');
+        : ticket.collectionProvider === 'DIRECT'
+          ? t('usdt.collection.direct')
+          : t('usdt.collection.fixed');
   const heroToUsdt =
     ticket.actualUsdtAmount != null
       ? `${Number(ticket.actualUsdtAmount).toFixed(4)} USDT`
@@ -612,74 +628,161 @@ export default function UsdtDetailPage() {
           <div className="pg-card-body pg-callout pg-callout-info space-y-2">
             <p className="font-semibold">
               {isCurfexAccount ? t('usdt.curfexAccount') : t('usdt.companyAccount')}
+              {isWesternRail ? (
+                <span className="ml-2 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                  {depositRail}
+                </span>
+              ) : null}
             </p>
             <dl className="grid gap-1.5 text-xs sm:grid-cols-[7.5rem_1fr]">
-              <dt className="text-slate-500">{t('usdt.deposit.bankName')}</dt>
-              <CopyableMono
-                value={receiving.bankName}
-                copyLabel={t('common.copy')}
-                copiedLabel={t('common.copied')}
-              />
-              {receiving.bankAddress ? (
+              {isWesternRail ? (
                 <>
-                  <dt className="text-slate-500">{t('usdt.deposit.bankAddress')}</dt>
+                  <dt className="text-slate-500">{t('usdt.deposit.bankAccountCurrency')}</dt>
+                  <dd className="font-mono font-semibold">{ticket.fiatCurrency}</dd>
+                  {depositRail === 'ACH' && receiving.routingNumber ? (
+                    <>
+                      <dt className="text-slate-500">{t('usdt.deposit.routingNumber')}</dt>
+                      <CopyableMono
+                        value={receiving.routingNumber}
+                        copyLabel={t('usdt.deposit.copyRoutingNumber')}
+                        copiedLabel={t('common.copied')}
+                        strong
+                      />
+                    </>
+                  ) : null}
+                  <dt className="text-slate-500">
+                    {depositRail === 'SEPA'
+                      ? t('usdt.deposit.iban')
+                      : t('usdt.deposit.accountNumber')}
+                  </dt>
                   <CopyableMono
-                    value={receiving.bankAddress}
+                    value={receiving.accountNumber}
+                    copyLabel={
+                      depositRail === 'SEPA'
+                        ? t('usdt.deposit.copyIban')
+                        : t('usdt.deposit.copyAccountNumber')
+                    }
+                    copiedLabel={t('common.copied')}
+                    strong
+                  />
+                  {depositRail === 'SEPA' && receiving.bic ? (
+                    <>
+                      <dt className="text-slate-500">{t('usdt.deposit.bic')}</dt>
+                      <CopyableMono
+                        value={receiving.bic}
+                        copyLabel={t('usdt.deposit.copyBic')}
+                        copiedLabel={t('common.copied')}
+                        strong
+                      />
+                    </>
+                  ) : null}
+                  <dt className="text-slate-500">{t('usdt.deposit.accountHolder')}</dt>
+                  <CopyableMono
+                    value={receiving.accountHolder}
+                    copyLabel={t('usdt.deposit.copyHolder')}
+                    copiedLabel={t('common.copied')}
+                    strong
+                  />
+                  {receiving.accountType ? (
+                    <>
+                      <dt className="text-slate-500">{t('usdt.deposit.accountType')}</dt>
+                      <dd>{receiving.accountType}</dd>
+                    </>
+                  ) : null}
+                  {receiving.bankCountry ? (
+                    <>
+                      <dt className="text-slate-500">{t('usdt.deposit.bankCountry')}</dt>
+                      <CopyableMono
+                        value={receiving.bankCountry}
+                        copyLabel={t('common.copy')}
+                        copiedLabel={t('common.copied')}
+                      />
+                    </>
+                  ) : null}
+                  <dt className="text-slate-500">{t('usdt.deposit.bankName')}</dt>
+                  <CopyableMono
+                    value={receiving.bankName}
                     copyLabel={t('common.copy')}
                     copiedLabel={t('common.copied')}
                   />
                 </>
-              ) : null}
-              {receiving.bankCode ? (
+              ) : (
                 <>
-                  <dt className="text-slate-500">{t('usdt.deposit.bankCode')}</dt>
+                  <dt className="text-slate-500">{t('usdt.deposit.bankName')}</dt>
                   <CopyableMono
-                    value={receiving.bankCode}
+                    value={receiving.bankName}
                     copyLabel={t('common.copy')}
                     copiedLabel={t('common.copied')}
                   />
-                </>
-              ) : null}
-              {receiving.branchCode ? (
-                <>
-                  <dt className="text-slate-500">{t('usdt.deposit.branchCode')}</dt>
+                  {receiving.bankAddress ? (
+                    <>
+                      <dt className="text-slate-500">{t('usdt.deposit.bankAddress')}</dt>
+                      <CopyableMono
+                        value={receiving.bankAddress}
+                        copyLabel={t('common.copy')}
+                        copiedLabel={t('common.copied')}
+                      />
+                    </>
+                  ) : null}
+                  {receiving.bankCode ? (
+                    <>
+                      <dt className="text-slate-500">{t('usdt.deposit.bankCode')}</dt>
+                      <CopyableMono
+                        value={receiving.bankCode}
+                        copyLabel={t('common.copy')}
+                        copiedLabel={t('common.copied')}
+                      />
+                    </>
+                  ) : null}
+                  {receiving.branchCode ? (
+                    <>
+                      <dt className="text-slate-500">{t('usdt.deposit.branchCode')}</dt>
+                      <CopyableMono
+                        value={receiving.branchCode}
+                        copyLabel={t('common.copy')}
+                        copiedLabel={t('common.copied')}
+                      />
+                    </>
+                  ) : null}
+                  {receiving.accountType ? (
+                    <>
+                      <dt className="text-slate-500">{t('usdt.deposit.accountType')}</dt>
+                      <dd>{receiving.accountType}</dd>
+                    </>
+                  ) : null}
+                  <dt className="text-slate-500">{t('usdt.deposit.accountNumber')}</dt>
                   <CopyableMono
-                    value={receiving.branchCode}
-                    copyLabel={t('common.copy')}
+                    value={receiving.accountNumber}
+                    copyLabel={t('usdt.deposit.copyAccountNumber')}
                     copiedLabel={t('common.copied')}
+                    strong
+                  />
+                  <dt className="text-slate-500">{t('usdt.deposit.accountHolder')}</dt>
+                  <CopyableMono
+                    value={receiving.accountHolder}
+                    copyLabel={t('usdt.deposit.copyHolder')}
+                    copiedLabel={t('common.copied')}
+                    strong
                   />
                 </>
-              ) : null}
-              {receiving.accountType ? (
-                <>
-                  <dt className="text-slate-500">{t('usdt.deposit.accountType')}</dt>
-                  <dd>{receiving.accountType}</dd>
-                </>
-              ) : null}
-              <dt className="text-slate-500">{t('usdt.deposit.accountNumber')}</dt>
-              <CopyableMono
-                value={receiving.accountNumber}
-                copyLabel={t('usdt.deposit.copyAccountNumber')}
-                copiedLabel={t('common.copied')}
-                strong
-              />
-              <dt className="text-slate-500">{t('usdt.deposit.accountHolder')}</dt>
-              <CopyableMono
-                value={receiving.accountHolder}
-                copyLabel={t('usdt.deposit.copyHolder')}
-                copiedLabel={t('common.copied')}
-                strong
-              />
+              )}
             </dl>
-            <div className="rounded border border-red-300 bg-red-50 px-3 py-2 text-xs font-semibold text-red-800 space-y-1">
-              <p>
-                {(receiving.noticeI18n?.[locale] ||
-                  receiving.noticeI18n?.KR ||
-                  receiving.notice ||
-                  t('usdt.deposit.holderCopyWarning')) as string}
-              </p>
-              <p className="font-medium text-red-700/90">{t('usdt.deposit.holderNameStayJp')}</p>
-            </div>
+            {(receiving.noticeI18n?.[locale] ||
+              receiving.noticeI18n?.KR ||
+              receiving.notice ||
+              !isWesternRail) && (
+              <div className="rounded border border-red-300 bg-red-50 px-3 py-2 text-xs font-semibold text-red-800 space-y-1">
+                <p>
+                  {(receiving.noticeI18n?.[locale] ||
+                    receiving.noticeI18n?.KR ||
+                    receiving.notice ||
+                    t('usdt.deposit.holderCopyWarning')) as string}
+                </p>
+                {!isWesternRail ? (
+                  <p className="font-medium text-red-700/90">{t('usdt.deposit.holderNameStayJp')}</p>
+                ) : null}
+              </div>
+            )}
             {isCurfexAccount && ticket.curfexRefNo && (
               <p className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-slate-600">
                 <span>
@@ -732,7 +835,13 @@ export default function UsdtDetailPage() {
         <DetailRow label={t('usdt.col.ticketNo')} value={ticket.ticketNo} mono />
         <DetailRow
           label={t('usdt.paymentMethod')}
-          value={ticket.paymentMethod === 'CARD' ? t('usdt.paymentCard') : t('usdt.paymentBank')}
+          value={
+            ticket.paymentMethod === 'CARD'
+              ? t('usdt.paymentCard')
+              : ticket.paymentMethod === 'REMITTANCE'
+                ? t('usdt.paymentRemittance')
+                : t('usdt.paymentBank')
+          }
         />
         <DetailRow label={t('usdt.col.inputMode')} value={inputModeLabel} />
         <DetailRow label={t('usdt.col.collection')} value={collectionLabel} />
@@ -838,6 +947,12 @@ export default function UsdtDetailPage() {
                     label={t('usdt.detail.otherFee')}
                     value={`${ticket.otherFeeSnapshot} USDT`}
                   />
+                  {ticket.expressFeeUsdt != null && (
+                    <DetailRow
+                      label={t('hq.commission.feeDiagram.expressFee')}
+                      value={`${ticket.expressFeeUsdt} USDT (${ticket.expressTier ?? '—'})`}
+                    />
+                  )}
                 </>
               )}
               {(user?.role === 'SUPER_ADMIN' || user?.role === 'ORGANIZER') && (
@@ -850,6 +965,59 @@ export default function UsdtDetailPage() {
           );
         })()}
       </DetailSection>
+
+      {ticket.expressTier && (
+        <DetailSection title={t('express.detail.title')}>
+          <DetailRow label={t('express.detail.promised')} value={ticket.expressTier} />
+          {ticket.memberGrade && (
+            <DetailRow
+              label={t('memberGrade.customer.title')}
+              value={
+                ['STANDARD', 'PREMIUM', 'VIP', 'VVIP', 'PRESTIGE', 'BLACK'].includes(
+                  ticket.memberGrade,
+                )
+                  ? t(`memberGrade.${ticket.memberGrade}` as MessageKey)
+                  : ticket.memberGrade
+              }
+            />
+          )}
+          <DetailRow
+            label={t('express.detail.promisedFee')}
+            value={ticket.expressFeeUsdt != null ? `${ticket.expressFeeUsdt} USDT` : '—'}
+          />
+          {ticket.expressDueAt && (
+            <DetailRow
+              label={t('express.detail.due')}
+              value={new Date(ticket.expressDueAt).toLocaleString()}
+            />
+          )}
+          {ticket.expressActualTier && (
+            <DetailRow label={t('express.detail.actual')} value={ticket.expressActualTier} />
+          )}
+          {ticket.expressFeeSettledUsdt != null && (
+            <DetailRow
+              label={t('express.detail.settledFee')}
+              value={`${ticket.expressFeeSettledUsdt} USDT`}
+            />
+          )}
+          {ticket.expressRefundUsdt != null && ticket.expressRefundUsdt > 0 && (
+            <DetailRow
+              label={t('express.detail.refund')}
+              value={`${ticket.expressRefundUsdt} USDT`}
+            />
+          )}
+          {ticket.expressSlaMet != null && (
+            <DetailRow
+              label={ticket.expressSlaMet ? t('express.detail.slaMet') : t('express.detail.slaMissed')}
+              value={
+                ticket.expressElapsedHours != null
+                  ? `${ticket.expressElapsedHours}h`
+                  : '—'
+              }
+            />
+          )}
+        </DetailSection>
+      )}
 
       {(ticket.depositAmount != null ||
         ticket.depositorName ||

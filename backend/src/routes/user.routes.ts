@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { CustomerType, UserRole } from '@prisma/client';
+import { CustomerApprovalStatus, CustomerType, UserRole } from '@prisma/client';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { authenticate, requireRoles } from '../middleware/auth';
 import { auditFromRequest } from '../services/admin-change-log.service';
@@ -23,6 +23,7 @@ const listQuerySchema = z.object({
     .optional()
     .transform((v) => v === 'true'),
   kycStatus: z.string().optional(),
+  approvalStatus: z.nativeEnum(CustomerApprovalStatus).optional(),
   page: z.coerce.number().int().positive().optional(),
   limit: z.coerce.number().int().positive().optional(),
 });
@@ -59,18 +60,24 @@ const createSchema = z.object({
   simulatorRateMode: z.enum(['LIVE', 'SAND']).optional(),
   feeBillingMethod: z.enum(['FOLLOW_HQ', 'INTEGRATED', 'ITEMIZED', 'HYBRID']).optional(),
   totalFeeVisibility: z.enum(['FOLLOW_HQ', 'SHOW', 'HIDE']).optional(),
-  usdtCollectionMode: z.enum(['FOLLOW_HQ', 'FIXED', 'VIRTUAL']).optional(),
+  usdtCollectionMode: z.enum(['FOLLOW_HQ', 'FIXED', 'VIRTUAL', 'DIRECT']).optional(),
   usdtQuoteResponseMode: z.enum(['FOLLOW_HQ', 'AUTO', 'MANUAL', 'OFF']).optional(),
   tradeReceiptEmailMode: z.enum(['FOLLOW_HQ', 'ENABLED', 'DISABLED', 'HQ_ONLY']).optional(),
   tradeReceiptAdminUiMode: z.enum(['FOLLOW_HQ', 'ENABLED', 'DISABLED']).optional(),
   tradeReceiptMerchantUiMode: z.enum(['FOLLOW_HQ', 'ENABLED', 'DISABLED']).optional(),
   usdtQuoteAutoDelayMinutes: z.number().int().min(0).max(60).nullable().optional(),
   usdtQuoteManualSlaHours: z.number().int().min(1).max(168).nullable().optional(),
+  expressFeeMode: z.enum(['FOLLOW_HQ', 'CUSTOM', 'DISABLED']).optional(),
+  expressFeeConfig: z.unknown().optional(),
+  memberGrade: z
+    .enum(['STANDARD', 'PREMIUM', 'VIP', 'VVIP', 'PRESTIGE', 'BLACK'])
+    .optional(),
   operatorsEnabled: z.boolean().optional(),
   walletFeesVisible: z.boolean().optional(),
   usdtRiskLimitCode: z.enum(['LR', 'MR', 'HR', 'XR', 'SR', 'ML']).optional(),
   usdtLimitMinUsdt: z.number().nonnegative().nullable().optional(),
   usdtLimitMaxUsdt: z.number().nonnegative().nullable().optional(),
+  limitCountry: z.enum(['JP', 'KR', 'TH', 'US', 'CN']).nullable().optional(),
   expectedCompleteTier: z
     .enum(['REGULAR', 'PLUS', 'PRIME', 'ELITE', 'SIGNATURE', 'CUSTOM'])
     .optional(),
@@ -96,18 +103,24 @@ const updateSchema = z.object({
   simulatorRateMode: z.enum(['LIVE', 'SAND']).optional(),
   feeBillingMethod: z.enum(['FOLLOW_HQ', 'INTEGRATED', 'ITEMIZED', 'HYBRID']).optional(),
   totalFeeVisibility: z.enum(['FOLLOW_HQ', 'SHOW', 'HIDE']).optional(),
-  usdtCollectionMode: z.enum(['FOLLOW_HQ', 'FIXED', 'VIRTUAL']).optional(),
+  usdtCollectionMode: z.enum(['FOLLOW_HQ', 'FIXED', 'VIRTUAL', 'DIRECT']).optional(),
   usdtQuoteResponseMode: z.enum(['FOLLOW_HQ', 'AUTO', 'MANUAL', 'OFF']).optional(),
   tradeReceiptEmailMode: z.enum(['FOLLOW_HQ', 'ENABLED', 'DISABLED', 'HQ_ONLY']).optional(),
   tradeReceiptAdminUiMode: z.enum(['FOLLOW_HQ', 'ENABLED', 'DISABLED']).optional(),
   tradeReceiptMerchantUiMode: z.enum(['FOLLOW_HQ', 'ENABLED', 'DISABLED']).optional(),
   usdtQuoteAutoDelayMinutes: z.number().int().nullable().optional(),
   usdtQuoteManualSlaHours: z.number().int().nullable().optional(),
+  expressFeeMode: z.enum(['FOLLOW_HQ', 'CUSTOM', 'DISABLED']).optional(),
+  expressFeeConfig: z.unknown().optional(),
+  memberGrade: z
+    .enum(['STANDARD', 'PREMIUM', 'VIP', 'VVIP', 'PRESTIGE', 'BLACK'])
+    .optional(),
   operatorsEnabled: z.boolean().optional(),
   walletFeesVisible: z.boolean().optional(),
   usdtRiskLimitCode: z.enum(['LR', 'MR', 'HR', 'XR', 'SR', 'ML']).optional(),
   usdtLimitMinUsdt: z.number().nonnegative().nullable().optional(),
   usdtLimitMaxUsdt: z.number().nonnegative().nullable().optional(),
+  limitCountry: z.enum(['JP', 'KR', 'TH', 'US', 'CN']).nullable().optional(),
   expectedCompleteTier: z
     .enum(['REGULAR', 'PLUS', 'PRIME', 'ELITE', 'SIGNATURE', 'CUSTOM'])
     .optional(),
@@ -119,6 +132,10 @@ const updateSchema = z.object({
 });
 
 const walletApprovalSchema = z.object({
+  status: z.enum(['APPROVED', 'REJECTED']),
+});
+
+const customerApprovalSchema = z.object({
   status: z.enum(['APPROVED', 'REJECTED']),
 });
 
@@ -174,6 +191,15 @@ router.patch(
         audit,
       ),
     );
+  }),
+);
+
+router.patch(
+  '/:id/customer-approval',
+  asyncHandler(async (req, res) => {
+    const body = customerApprovalSchema.parse(req.body);
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await userService.reviewCustomerApproval(req.user!, req.params.id, body.status, audit));
   }),
 );
 

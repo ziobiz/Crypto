@@ -9,6 +9,7 @@ import { api } from '@/lib/api';
 import { UserMenu } from './UserMenu';
 import { LocaleDropdown } from './LocaleDropdown';
 import { ThemeSelector } from './ThemeSelector';
+import { SessionClockIcon } from './SessionIdentityIcon';
 
 function intlLocale(locale: Locale): string {
   if (locale === 'US') return 'en-US';
@@ -110,7 +111,14 @@ export function SessionMetaBar({ compact = false }: { compact?: boolean }) {
               <Pipe />
               <MetaField label={t('session.accessIp')} value={ip} />
               <Pipe />
-              <MetaField label={t('session.accessTime')} value={timeStr} />
+              <span className="pg-session-meta inline-flex items-center gap-1.5">
+                <SessionClockIcon />
+                <span className="pg-session-meta-label">{t('session.accessTime')}</span>
+                <span className="text-gray-400" style={{ color: 'var(--shell-session-text-muted)' }}>
+                  :
+                </span>
+                <span className="pg-session-meta-value">{timeStr}</span>
+              </span>
             </>
           )}
         </div>

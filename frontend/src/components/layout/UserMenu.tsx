@@ -10,19 +10,14 @@ import {
   resolveUserDisplayName,
   sessionRoleKey,
 } from '@/lib/session-display';
+import {
+  SessionIdentityIcon,
+  resolveSessionIdentityKind,
+  sessionIdentityAriaKey,
+} from './SessionIdentityIcon';
 
 function roleKey(role: string): MessageKey {
   return `role.${role}` as MessageKey;
-}
-
-function UserGlyph() {
-  return (
-    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-300 text-gray-600">
-      <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden>
-        <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-      </svg>
-    </span>
-  );
 }
 
 /** PG/ICOPAY — 조직 | 역할 한 줄 + 드롭다운 */
@@ -59,6 +54,8 @@ export function UserMenu({ compact = false }: { compact?: boolean }) {
 
   const displayName = resolveUserDisplayName(user, t);
   const identityLine = `${orgLine} | ${t(sessionRoleKey(user.role))}`;
+  const identityKind = resolveSessionIdentityKind(user);
+  const identityTitle = t(sessionIdentityAriaKey(identityKind));
 
   function handleLogout() {
     setOpen(false);
@@ -78,7 +75,7 @@ export function UserMenu({ compact = false }: { compact?: boolean }) {
         aria-expanded={open}
         aria-haspopup="menu"
       >
-        <UserGlyph />
+        <SessionIdentityIcon user={user} title={identityTitle} />
         {!compact && (
           <span className="truncate text-xs font-medium" style={{ color: 'var(--shell-session-text)' }}>
             {identityLine}

@@ -90,6 +90,7 @@ export default function UsdtListPage() {
   const t = useT();
   const router = useRouter();
   const kycOk = isKycApproved(user);
+  const tradeAllowed = user?.tradeAccess !== 'VIEW_ONLY';
   const admin = isOperator(user?.role);
   const { country, setServiceCountry, baseTimezone, serviceTimezone } = useReferenceTimeState();
   const [tickets, setTickets] = useState<UsdtTicket[]>([]);
@@ -180,11 +181,17 @@ export default function UsdtListPage() {
       : sorted.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize);
 
   function paymentLabel(row: UsdtTicket) {
-    return row.paymentMethod === 'CARD' ? t('usdt.paymentCard') : t('usdt.paymentBank');
+    if (row.paymentMethod === 'CARD') return t('usdt.paymentCard');
+    if (row.paymentMethod === 'REMITTANCE') return t('usdt.paymentRemittance');
+    return t('usdt.paymentBank');
   }
   function collectionLabel(row: UsdtTicket) {
     if (row.paymentMethod === 'CARD') return t('usdt.collection.na');
-    return row.collectionProvider === 'CURFEX' ? t('usdt.collection.curfex') : t('usdt.collection.fixed');
+    if (row.collectionProvider === 'CURFEX') return t('usdt.collection.curfex');
+    if (row.collectionProvider === 'DIRECT' || row.paymentMethod === 'REMITTANCE') {
+      return t('usdt.collection.direct');
+    }
+    return t('usdt.collection.fixed');
   }
   function inputModeLabel(row: UsdtTicket) {
     if (row.paymentMethod === 'CARD' && row.cardChargeFiat != null) return t('usdt.inputModeCardCharge');
@@ -249,7 +256,7 @@ export default function UsdtListPage() {
 
   const newBtn =
     user?.role === 'CUSTOMER' || user?.role === 'CUSTOMER_OPERATOR' ? (
-      kycOk && !dailyBlocked ? (
+      kycOk && tradeAllowed && !dailyBlocked ? (
         <Link href="/dashboard/usdt/new" className="pg-btn pg-btn-primary w-full sm:w-auto">
           {t('usdt.new')}
         </Link>
@@ -259,7 +266,9 @@ export default function UsdtListPage() {
           title={
             dailyBlocked
               ? t('usdt.dailyLimitReachedShort')
-              : t('kyc.requiredToTrade')
+              : !tradeAllowed
+                ? t('tradeAccess.requiredToTrade')
+                : t('kyc.requiredToTrade')
           }
         >
           {t('usdt.new')}
@@ -408,7 +417,15 @@ export default function UsdtListPage() {
                 <td>{formatCurrency(ticket.fiatAmount, ticket.fiatCurrency)}</td>
                 <td>{ticket.expectedUsdtAmount.toFixed(4)}</td>
                 <td>
-                  <span className={`pg-field-chip ${ticket.paymentMethod === 'CARD' ? 'pg-field-chip-violet' : 'pg-field-chip-sky'}`}>
+                  <span
+                    className={`pg-field-chip ${
+                      ticket.paymentMethod === 'CARD'
+                        ? 'pg-field-chip-violet'
+                        : ticket.paymentMethod === 'REMITTANCE'
+                          ? 'pg-field-chip-emerald'
+                          : 'pg-field-chip-sky'
+                    }`}
+                  >
                     {paymentLabel(ticket)}
                   </span>
                 </td>

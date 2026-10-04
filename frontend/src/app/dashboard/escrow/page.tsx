@@ -197,14 +197,18 @@ export default function EscrowListPage() {
     );
   }
 
+  const tradeAllowed = user?.tradeAccess !== 'VIEW_ONLY';
   const newBtn =
     user?.role === 'CUSTOMER' || user?.role === 'CUSTOMER_OPERATOR' ? (
-      kycOk ? (
+      kycOk && tradeAllowed ? (
         <Link href="/dashboard/escrow/new" className="pg-btn pg-btn-primary w-full sm:w-auto">
           {t('escrow.new')}
         </Link>
       ) : (
-        <span className="pg-btn pg-btn-primary w-full cursor-not-allowed opacity-50 sm:w-auto" title={t('kyc.requiredToTrade')}>
+        <span
+          className="pg-btn pg-btn-primary w-full cursor-not-allowed opacity-50 sm:w-auto"
+          title={!tradeAllowed ? t('tradeAccess.requiredToTrade') : t('kyc.requiredToTrade')}
+        >
           {t('escrow.new')}
         </span>
       )

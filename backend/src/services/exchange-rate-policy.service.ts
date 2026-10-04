@@ -12,6 +12,7 @@ import { fetchBySource, fetchFromCoinGecko } from './exchange-rate-sources';
 const FALLBACK_RATES: Record<SymbolFeeCurrency, number> = {
   KRW: 1380,
   USD: 1,
+  EUR: 0.92,
   JPY: 150,
   THB: 35,
   CNY: 7.2,
@@ -24,6 +25,7 @@ export function defaultExchangeRateSourcePolicy(): HqExchangeRateSourcePolicy {
     THB: 'binance_th',
     CNY: 'exchangerate_api',
     USD: 'exchangerate_api',
+    EUR: 'exchangerate_api',
   };
 }
 

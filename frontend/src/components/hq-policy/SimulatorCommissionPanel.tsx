@@ -103,7 +103,7 @@ export function SimulatorCommissionPanel() {
       .then(([c, types]) => {
         setLiveRisk(c.risk ?? null);
         setRisk(withSandboxDefaults(c.simulatorRisk));
-        setLiveTiers([...(c.feeTiers ?? [])]);
+        setLiveTiers([...(c.feeTiersByCustomerType?.CORPORATE ?? c.feeTiers ?? [])]);
         setGasNetworks(c.gasNetworks ?? null);
         setFeeTypes(types.feeTypes ?? c.feeTypes ?? []);
       })
@@ -113,7 +113,7 @@ export function SimulatorCommissionPanel() {
   async function refreshLiveFromHq() {
     const c = await hqPolicyApi.getCommission();
     setLiveRisk(c.risk ?? null);
-    setLiveTiers([...(c.feeTiers ?? [])]);
+    setLiveTiers([...(c.feeTiersByCustomerType?.CORPORATE ?? c.feeTiers ?? [])]);
     setGasNetworks(c.gasNetworks ?? null);
     if (c.feeTypes?.length) setFeeTypes(c.feeTypes);
     return c;
@@ -128,7 +128,7 @@ export function SimulatorCommissionPanel() {
       const next = await hqPolicyApi.saveSimulatorCommissionRisk(payload);
       setRisk(withSandboxDefaults(next.simulatorRisk));
       setLiveRisk(next.risk ?? liveRisk);
-      setLiveTiers([...(next.feeTiers ?? liveTiers)]);
+      setLiveTiers([...(next.feeTiersByCustomerType?.CORPORATE ?? next.feeTiers ?? liveTiers)]);
       setGasNetworks(next.gasNetworks ?? gasNetworks);
       if (next.feeTypes?.length) setFeeTypes(next.feeTypes);
       setRiskMsg(t('hq.saved'));

@@ -3,7 +3,7 @@ import { prisma } from '../lib/prisma';
 import type { HqEmailOtpConfig } from '../constants/hq-policy';
 import { sendOtpEmail } from './email.service';
 
-export type EmailVerifyPurpose = 'REGISTER' | 'OTP_ENROLL';
+export type EmailVerifyPurpose = 'REGISTER' | 'OTP_ENROLL' | 'PASSWORD_RESET' | 'OTP_RESET';
 
 function generateSixDigitCode(): string {
   return String(Math.floor(100000 + Math.random() * 900000));

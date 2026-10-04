@@ -24,15 +24,24 @@ import { CopyableMono } from '@/components/CopyButton';
 import { displayWalletLabel } from '@/lib/wallet-label';
 import { isKycApproved } from '@/lib/kyc';
 import { useDoubleConfirm } from '@/hooks/useDoubleConfirm';
-import { useApplySessionTimers } from '@/hooks/useApplySessionTimers';const FIAT_CURRENCIES = ['KRW', 'JPY', 'THB', 'CNY'] as const;
-type FiatCurrency = (typeof FIAT_CURRENCIES)[number];
+import { useApplySessionTimers } from '@/hooks/useApplySessionTimers';
+import {
+  FIAT_CURRENCIES,
+  FIAT_CURRENCY_LABELS,
+  depositPaymentRail,
+  type FiatCurrency,
+} from '@/lib/fiat-currency';
+
+const FIAT_LABELS = FIAT_CURRENCY_LABELS;
 const ALL_CURRENCY_TRADE: Record<FiatCurrency, { transfer: boolean; card: boolean }> = {
   KRW: { transfer: true, card: true },
   JPY: { transfer: true, card: true },
   THB: { transfer: true, card: true },
   CNY: { transfer: true, card: true },
+  USD: { transfer: true, card: true },
+  EUR: { transfer: true, card: true },
 };
-type PaymentMethod = 'BANK_TRANSFER' | 'CARD';
+type PaymentMethod = 'BANK_TRANSFER' | 'CARD' | 'REMITTANCE';
 type InputMode = 'target' | 'fiat' | 'cardCharge';
 
 export default function UsdtNewPage() {
@@ -41,10 +50,12 @@ export default function UsdtNewPage() {
   const t = useT();
   const { requestConfirm, dialog: doubleConfirmDialog } = useDoubleConfirm();
   const kycOk = isKycApproved(user);
+  const tradeAllowed = user?.tradeAccess !== 'VIEW_ONLY';
+  const canApply = kycOk && tradeAllowed;
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [rate, setRate] = useState<ExchangeRateResponse | null>(null);
   const [cardContext, setCardContext] = useState<UsdtCardPaymentContext | null>(null);
-  const [fiatCurrency, setFiatCurrency] = useState<FiatCurrency>('JPY');
+  const [fiatCurrency, setFiatCurrency] = useState<FiatCurrency>('USD');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('BANK_TRANSFER');
   const [inputMode, setInputMode] = useState<InputMode>('target');
   const [targetUsdt, setTargetUsdt] = useState('');
@@ -54,6 +65,7 @@ export default function UsdtNewPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [feePreview, setFeePreview] = useState<UsdtFeePreview | null>(null);
+  const [expressTier, setExpressTier] = useState<string>('BASIC');
   const [cardForm, setCardForm] = useState<CardFormState>(emptyCardForm());
   const [sourceFiles, setSourceFiles] = useState<File[]>([]);
   const [depositReceiptFiles, setDepositReceiptFiles] = useState<File[]>([]);
@@ -78,11 +90,27 @@ export default function UsdtNewPage() {
   });
 
   useEffect(() => {
+    if (!depositCtx) return;
+    if (depositCtx.preferRemittancePayment && depositCtx.remittancePaymentAvailable !== false) {
+      setPaymentMethod('REMITTANCE');
+      const allowed = (depositCtx.remittancePaymentCurrencies ??
+        depositCtx.directRemitCurrencies ?? ['USD', 'EUR']) as FiatCurrency[];
+      if (!allowed.includes(fiatCurrency)) {
+        setFiatCurrency(allowed[0] ?? 'USD');
+      }
+      return;
+    }
     const def = user?.sessionPolicy?.defaultUsdtFiatCurrency;
     if (def && FIAT_CURRENCIES.includes(def)) {
       setFiatCurrency(def);
     }
-  }, [user?.sessionPolicy?.defaultUsdtFiatCurrency]);
+  }, [
+    user?.sessionPolicy?.defaultUsdtFiatCurrency,
+    depositCtx?.preferRemittancePayment,
+    depositCtx?.remittancePaymentAvailable,
+    depositCtx?.remittancePaymentCurrencies?.join('|'),
+    depositCtx?.directRemitCurrencies?.join('|'),
+  ]);
 
   useEffect(() => {
     const apply = (rows: Wallet[]) => {
@@ -124,16 +152,34 @@ export default function UsdtNewPage() {
   }, [user?.id, user?.role]);
 
   const isCard = paymentMethod === 'CARD';
-  const trade = { ...ALL_CURRENCY_TRADE, ...(cardContext?.currencyTrade ?? {}) };
-  const transferFiats = FIAT_CURRENCIES.filter((c) => trade[c].transfer);
+  const isRemittance = paymentMethod === 'REMITTANCE';
+  const trade = {
+    ...ALL_CURRENCY_TRADE,
+    ...(depositCtx?.currencyTrade ?? cardContext?.currencyTrade ?? {}),
+  };
+  const remitFiats = (
+    depositCtx?.remittancePaymentCurrencies ??
+    depositCtx?.directRemitCurrencies ??
+    []
+  ).filter((c): c is FiatCurrency => FIAT_CURRENCIES.includes(c as FiatCurrency));
+  /** 계좌이체 = 로컬 고정/가상(송금통화 제외). 송금거래 = USD/EUR 등 */
+  const transferFiats = FIAT_CURRENCIES.filter(
+    (c) => trade[c].transfer && !remitFiats.includes(c),
+  );
   const cardFiats = FIAT_CURRENCIES.filter((c) => trade[c].card);
   const cardPaymentEnabled = cardContext?.cardPaymentEnabled === true;
   const cardOperational = cardContext?.enabled === true;
   const cardMethodAvailable = cardPaymentEnabled && cardFiats.length > 0;
   const bankMethodAvailable = transferFiats.length > 0;
-  const methodFiats = isCard ? cardFiats : transferFiats;
+  const remittanceMethodAvailable =
+    depositCtx?.remittancePaymentAvailable !== false && remitFiats.length > 0;
+  const methodFiats = isCard ? cardFiats : isRemittance ? remitFiats : transferFiats;
   const isCurfexCurrency =
-    !isCard && (depositCtx?.curfexEnabledCurrencies ?? []).includes(fiatCurrency);
+    !isCard &&
+    !isRemittance &&
+    (depositCtx?.curfexEnabledCurrencies ?? []).includes(
+      fiatCurrency as 'KRW' | 'JPY' | 'THB' | 'CNY',
+    );
   const fixedReceiving =
     !isCard && !isCurfexCurrency
       ? depositCtx?.receivingAccounts?.[fiatCurrency] ?? null
@@ -141,24 +187,39 @@ export default function UsdtNewPage() {
 
   useEffect(() => {
     if (cardContext && !cardMethodAvailable && paymentMethod === 'CARD') {
-      setPaymentMethod('BANK_TRANSFER');
+      setPaymentMethod(remittanceMethodAvailable ? 'REMITTANCE' : 'BANK_TRANSFER');
       setInputMode('target');
     }
-  }, [cardContext, cardMethodAvailable, paymentMethod]);
+  }, [cardContext, cardMethodAvailable, paymentMethod, remittanceMethodAvailable]);
 
   useEffect(() => {
-    if (!bankMethodAvailable && cardMethodAvailable && paymentMethod === 'BANK_TRANSFER') {
-      setPaymentMethod('CARD');
+    if (paymentMethod === 'BANK_TRANSFER' && !bankMethodAvailable) {
+      if (remittanceMethodAvailable) setPaymentMethod('REMITTANCE');
+      else if (cardMethodAvailable) setPaymentMethod('CARD');
       setInputMode('target');
     }
-  }, [bankMethodAvailable, cardMethodAvailable, paymentMethod]);
+  }, [bankMethodAvailable, cardMethodAvailable, remittanceMethodAvailable, paymentMethod]);
 
   useEffect(() => {
-    const list = isCard ? cardFiats : transferFiats;
+    if (paymentMethod === 'REMITTANCE' && !remittanceMethodAvailable) {
+      setPaymentMethod(bankMethodAvailable ? 'BANK_TRANSFER' : 'CARD');
+      setInputMode('target');
+    }
+  }, [remittanceMethodAvailable, bankMethodAvailable, paymentMethod]);
+
+  useEffect(() => {
+    const list = isCard ? cardFiats : isRemittance ? remitFiats : transferFiats;
     if (list.length > 0 && !list.includes(fiatCurrency)) {
       setFiatCurrency(list[0]);
     }
-  }, [isCard, fiatCurrency, transferFiats.join('|'), cardFiats.join('|')]);
+  }, [
+    isCard,
+    isRemittance,
+    fiatCurrency,
+    transferFiats.join('|'),
+    cardFiats.join('|'),
+    remitFiats.join('|'),
+  ]);
 
   useEffect(() => {
     api.exchangeRateFor(fiatCurrency).then(setRate).catch(console.error);
@@ -176,19 +237,43 @@ export default function UsdtNewPage() {
   // 금액·수단 변경 시 잠정 견적 초기화
   useEffect(() => {
     setFeePreview(null);
-  }, [walletId, fiatCurrency, inputMode, usdtAmount, fiatAmount, cardChargeFiat, isCard]);
+  }, [walletId, fiatCurrency, inputMode, usdtAmount, fiatAmount, cardChargeFiat, isCard, isRemittance]);
 
   const fiatRate = rate?.usdtFiatRate ?? rate?.usdtKrwRate ?? 0;
   const breakdown = feePreview?.breakdown ?? null;
-  /** 은행이체 + 견적정책 ON → 신청 후 상세에서 확정·거래 (고객별 OFF면 즉시) */
+  /** 이체·송금 + 견적정책 ON → 신청 후 상세에서 확정·거래 */
   const useQuoteFlow = !isCard && depositCtx?.quoteResponse?.enabled !== false;
 
   const buildFeeParams = () => {
-    const base = { walletId, fiatCurrency, paymentMethod: isCard ? ('CARD' as const) : undefined };
+    const base = {
+      walletId,
+      fiatCurrency,
+      paymentMethod: isCard
+        ? ('CARD' as const)
+        : isRemittance
+          ? ('REMITTANCE' as const)
+          : undefined,
+      expressTier: isCard ? undefined : expressTier,
+    };
     if (inputMode === 'target') return { ...base, targetUsdtAmount: usdtAmount };
     if (inputMode === 'cardCharge') return { ...base, cardChargeFiat };
     return { ...base, fiatAmount };
   };
+
+  const expressOptions =
+    feePreview?.express?.options ?? depositCtx?.express?.options ?? [];
+  const expressEnabled =
+    !isCard &&
+    !!(feePreview?.express?.enabled ?? depositCtx?.express?.enabled) &&
+    expressOptions.length > 0;
+
+  useEffect(() => {
+    if (!expressOptions.length) return;
+    if (!expressOptions.some((o) => o.tier === expressTier)) {
+      const basic = expressOptions.find((o) => o.tier === 'BASIC');
+      setExpressTier(basic?.tier ?? expressOptions[expressOptions.length - 1]!.tier);
+    }
+  }, [expressOptions, expressTier]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -202,16 +287,20 @@ export default function UsdtNewPage() {
       return;
     }
     if (useQuoteFlow) {
-      if (!kycOk) {
-        setError(t('kyc.requiredToTrade'));
+      if (!canApply) {
+        setError(!tradeAllowed ? t('tradeAccess.requiredToTrade') : t('kyc.requiredToTrade'));
         return;
       }
       if (!canPreview) {
         setError(t('usdt.amountRequired'));
         return;
       }
-      if (!bankMethodAvailable) {
-        setError(t('usdt.fiatTransferDisabled', { currency: fiatCurrency }));
+      if (isRemittance ? !remittanceMethodAvailable : !bankMethodAvailable) {
+        setError(
+          isRemittance
+            ? t('usdt.paymentRemittanceDisabledHint')
+            : t('usdt.fiatTransferDisabled', { currency: fiatCurrency }),
+        );
         return;
       }
 
@@ -259,8 +348,20 @@ export default function UsdtNewPage() {
           try {
             const ticket = await api.usdt.create(
               inputMode === 'target'
-                ? { targetUsdtAmount: usdtAmount, walletId, fiatCurrency }
-                : { fiatAmount, walletId, fiatCurrency },
+                ? {
+                    targetUsdtAmount: usdtAmount,
+                    walletId,
+                    fiatCurrency,
+                    paymentMethod: isRemittance ? 'REMITTANCE' : 'BANK_TRANSFER',
+                    expressTier,
+                  }
+                : {
+                    fiatAmount,
+                    walletId,
+                    fiatCurrency,
+                    paymentMethod: isRemittance ? 'REMITTANCE' : 'BANK_TRANSFER',
+                    expressTier,
+                  },
             );
             router.push(`/dashboard/usdt/${ticket.id}`);
           } catch (err) {
@@ -312,8 +413,8 @@ export default function UsdtNewPage() {
         return;
       }
     }
-    if (!kycOk) {
-      setError(t('kyc.requiredToTrade'));
+    if (!canApply) {
+      setError(!tradeAllowed ? t('tradeAccess.requiredToTrade') : t('kyc.requiredToTrade'));
       return;
     }
     if (!canPreview) {
@@ -324,10 +425,7 @@ export default function UsdtNewPage() {
     setLoading(true);
     try {
       if (!feePreview?.breakdown) {
-        const preview = await api.usdt.fees({
-          ...buildFeeParams(),
-          paymentMethod: isCard ? 'CARD' : undefined,
-        });
+        const preview = await api.usdt.fees(buildFeeParams());
         setFeePreview(preview);
         setLoading(false);
         return;
@@ -356,8 +454,20 @@ export default function UsdtNewPage() {
       }
       const ticket = await api.usdt.create(
         inputMode === 'target'
-          ? { targetUsdtAmount: usdtAmount, walletId, fiatCurrency }
-          : { fiatAmount, walletId, fiatCurrency },
+          ? {
+              targetUsdtAmount: usdtAmount,
+              walletId,
+              fiatCurrency,
+              paymentMethod: isRemittance ? 'REMITTANCE' : 'BANK_TRANSFER',
+              expressTier,
+            }
+          : {
+              fiatAmount,
+              walletId,
+              fiatCurrency,
+              paymentMethod: isRemittance ? 'REMITTANCE' : 'BANK_TRANSFER',
+              expressTier,
+            },
       );
       await api.usdt.uploadApplicationDocs(ticket.id, {
         sourceOfFunds: sourceFiles,
@@ -392,6 +502,35 @@ export default function UsdtNewPage() {
       <p className="pg-hint">
         {isCard ? t('usdt.cardFlowHint') : t('usdt.manualFlowHint')}
       </p>
+      {depositCtx?.individualCountryLimit && (
+        <div className="pg-callout pg-callout-muted text-sm">
+          {t('usdt.individualLimitHint', {
+            country: depositCtx.individualCountryLimit.country,
+            min: depositCtx.individualCountryLimit.minUsdt.toLocaleString(),
+            max: depositCtx.individualCountryLimit.maxUsdt.toLocaleString(),
+            homeMax: depositCtx.individualCountryLimit.maxFiat.toLocaleString(),
+            homeCurrency: depositCtx.individualCountryLimit.homeCurrency,
+          })}
+        </div>
+      )}
+      {(() => {
+        const band = depositCtx?.applicationLimits?.enabled
+          ? depositCtx.applicationLimits.byCurrency[fiatCurrency]
+          : null;
+        if (!band) return null;
+        const min = band.perTransactionMin;
+        const max = band.perTransactionMax;
+        if (min <= 0 && max <= 0) return null;
+        return (
+          <div className="pg-callout pg-callout-muted text-sm">
+            {t('usdt.hqLimitHint', {
+              currency: fiatCurrency,
+              min: min > 0 ? min.toLocaleString() : '—',
+              max: max > 0 ? max.toLocaleString() : '—',
+            })}
+          </div>
+        );
+      })()}
       {dailyBlocked && (
         <div className="pg-callout pg-callout-error text-sm">
           {t('usdt.dailyLimitReached', {
@@ -399,7 +538,10 @@ export default function UsdtNewPage() {
           })}
         </div>
       )}
-      {!kycOk && (
+      {!tradeAllowed && (
+        <div className="pg-callout pg-callout-warn text-sm">{t('tradeAccess.requiredToTrade')}</div>
+      )}
+      {tradeAllowed && !kycOk && (
         <div className="pg-callout pg-callout-warn text-sm">
           {t('kyc.requiredToTrade')}{' '}
           <a href="/dashboard/kyc" className="pg-link">{t('nav.kyc')}</a>
@@ -415,7 +557,7 @@ export default function UsdtNewPage() {
           <ContentCard>
             <div className="mb-5">
               <p className="pg-label">{t('usdt.paymentMethod')}</p>
-              <div className="mt-2 grid grid-cols-2 gap-2">
+              <div className="mt-2 grid grid-cols-3 gap-2">
                 <button
                   type="button"
                   disabled={!bankMethodAvailable}
@@ -433,6 +575,27 @@ export default function UsdtNewPage() {
                   }`}
                 >
                   {t('usdt.paymentBank')}
+                </button>
+                <button
+                  type="button"
+                  disabled={!remittanceMethodAvailable}
+                  onClick={() => {
+                    if (!remittanceMethodAvailable) return;
+                    setPaymentMethod('REMITTANCE');
+                    setInputMode('target');
+                  }}
+                  className={`pg-choice ${
+                    !remittanceMethodAvailable
+                      ? 'pg-choice-idle'
+                      : paymentMethod === 'REMITTANCE'
+                        ? 'pg-choice-active'
+                        : ''
+                  }`}
+                  title={
+                    !remittanceMethodAvailable ? t('usdt.paymentRemittanceDisabledHint') : undefined
+                  }
+                >
+                  {t('usdt.paymentRemittance')}
                 </button>
                 <button
                   type="button"
@@ -454,13 +617,54 @@ export default function UsdtNewPage() {
                   {t('usdt.paymentCard')}
                 </button>
               </div>
+              {!bankMethodAvailable && !remittanceMethodAvailable && !cardMethodAvailable && (
+                <p className="mt-1.5 text-[11px] text-amber-800">{t('usdt.paymentNoneAvailable')}</p>
+              )}
+              {isRemittance && (
+                <p className="mt-1.5 text-[11px] text-sky-800">{t('usdt.paymentRemittanceHint')}</p>
+              )}
+              {expressEnabled && (
+                <div className="mt-4 space-y-2">
+                  <p className="pg-label">{t('express.apply.title')}</p>
+                  <p className="pg-hint text-[11px]">{t('express.apply.hint')}</p>
+                  <select
+                    className="pg-input w-full text-sm"
+                    value={expressTier}
+                    onChange={(e) => {
+                      setExpressTier(e.target.value);
+                      setFeePreview(null);
+                    }}
+                  >
+                    {expressOptions.map((opt) => {
+                      const pct = opt.feePercent ?? 0;
+                      const parts = [
+                        opt.tier,
+                        t(`express.sla.${opt.tier}` as 'express.sla.BASIC'),
+                      ];
+                      if (opt.feeUsdt > 0) parts.push(`${opt.feeUsdt} USDT`);
+                      if (pct > 0) parts.push(`${pct}%`);
+                      if (opt.feeUsdt <= 0 && pct <= 0) parts.push('0 USDT');
+                      return (
+                        <option key={opt.tier} value={opt.tier}>
+                          {parts.join(' · ')}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              )}
               {!cardMethodAvailable && (
                 <p className="mt-1.5 text-[11px] text-gray-500">
                   {cardPaymentEnabled ? t('usdt.noEnabledFiatCard') : t('usdt.paymentCardDisabledHint')}
                 </p>
               )}
-              {!bankMethodAvailable && (
+              {!bankMethodAvailable && !isRemittance && (
                 <p className="mt-1.5 text-[11px] text-gray-500">{t('usdt.noEnabledFiatTransfer')}</p>
+              )}
+              {!remittanceMethodAvailable && (
+                <p className="mt-1.5 text-[11px] text-gray-500">
+                  {t('usdt.paymentRemittanceDisabledHint')}
+                </p>
               )}
             </div>
 
@@ -473,15 +677,28 @@ export default function UsdtNewPage() {
                 disabled={methodFiats.length === 0}
               >
                 {methodFiats.map((c) => (
-                  <option key={c} value={c}>{c}</option>
+                  <option key={c} value={c}>{FIAT_LABELS[c]}</option>
                 ))}
               </select>
+              {isRemittance && (
+                <p className="mt-1 pg-hint text-sky-800">{t('usdt.remittanceAmountHint')}</p>
+              )}
               {rate && fiatRate > 0 && (
                 <p className="mt-1 pg-hint">
                   {t('usdt.rateRefCurrency', { rate: fiatRate.toLocaleString(), currency: fiatCurrency })}
                   {rate.source ? ` (${rate.source})` : ''}
                 </p>
               )}
+              {isRemittance &&
+                feePreview?.transactionLimits?.enabled &&
+                feePreview.transactionLimits.effectiveMax != null && (
+                  <p className="mt-1 pg-hint text-amber-800">
+                    {t('usdt.remittanceMaxHint', {
+                      max: feePreview.transactionLimits.effectiveMax.toLocaleString(),
+                      currency: fiatCurrency,
+                    })}
+                  </p>
+                )}
             </div>
 
             <div className="mt-5">
@@ -591,29 +808,110 @@ export default function UsdtNewPage() {
                 </p>
                 {fixedReceiving && (
                   <div className="rounded-lg border border-rose-100 bg-rose-50/50 p-3 space-y-2 text-xs">
-                    <p className="font-semibold text-rose-950">{t('usdt.companyAccount')}</p>
+                    <p className="font-semibold text-rose-950">
+                      {t('usdt.companyAccount')}
+                      {(depositPaymentRail(fiatCurrency) === 'ACH' ||
+                        depositPaymentRail(fiatCurrency) === 'SEPA') && (
+                        <span className="ml-2 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                          {depositPaymentRail(fiatCurrency)}
+                        </span>
+                      )}
+                    </p>
                     <p className="text-rose-900/80">{t('usdt.funding.fixedAccountPreviewHint')}</p>
                     <dl className="grid gap-1 sm:grid-cols-[6.5rem_1fr]">
-                      <dt className="text-rose-700/70">{t('usdt.deposit.bankName')}</dt>
-                      <CopyableMono
-                        value={fixedReceiving.bankName}
-                        copyLabel={t('common.copy')}
-                        copiedLabel={t('common.copied')}
-                      />
-                      <dt className="text-rose-700/70">{t('usdt.deposit.accountNumber')}</dt>
-                      <CopyableMono
-                        value={fixedReceiving.accountNumber}
-                        copyLabel={t('usdt.deposit.copyAccountNumber')}
-                        copiedLabel={t('common.copied')}
-                        strong
-                      />
-                      <dt className="text-rose-700/70">{t('usdt.deposit.accountHolder')}</dt>
-                      <CopyableMono
-                        value={fixedReceiving.accountHolder}
-                        copyLabel={t('usdt.deposit.copyHolder')}
-                        copiedLabel={t('common.copied')}
-                        strong
-                      />
+                      {depositPaymentRail(fiatCurrency) === 'ACH' ||
+                      depositPaymentRail(fiatCurrency) === 'SEPA' ? (
+                        <>
+                          <dt className="text-rose-700/70">{t('usdt.deposit.bankAccountCurrency')}</dt>
+                          <dd className="font-mono font-semibold">{fiatCurrency}</dd>
+                          {depositPaymentRail(fiatCurrency) === 'ACH' &&
+                          fixedReceiving.routingNumber ? (
+                            <>
+                              <dt className="text-rose-700/70">{t('usdt.deposit.routingNumber')}</dt>
+                              <CopyableMono
+                                value={fixedReceiving.routingNumber}
+                                copyLabel={t('usdt.deposit.copyRoutingNumber')}
+                                copiedLabel={t('common.copied')}
+                                strong
+                              />
+                            </>
+                          ) : null}
+                          <dt className="text-rose-700/70">
+                            {depositPaymentRail(fiatCurrency) === 'SEPA'
+                              ? t('usdt.deposit.iban')
+                              : t('usdt.deposit.accountNumber')}
+                          </dt>
+                          <CopyableMono
+                            value={fixedReceiving.accountNumber}
+                            copyLabel={
+                              depositPaymentRail(fiatCurrency) === 'SEPA'
+                                ? t('usdt.deposit.copyIban')
+                                : t('usdt.deposit.copyAccountNumber')
+                            }
+                            copiedLabel={t('common.copied')}
+                            strong
+                          />
+                          {depositPaymentRail(fiatCurrency) === 'SEPA' && fixedReceiving.bic ? (
+                            <>
+                              <dt className="text-rose-700/70">{t('usdt.deposit.bic')}</dt>
+                              <CopyableMono
+                                value={fixedReceiving.bic}
+                                copyLabel={t('usdt.deposit.copyBic')}
+                                copiedLabel={t('common.copied')}
+                                strong
+                              />
+                            </>
+                          ) : null}
+                          <dt className="text-rose-700/70">{t('usdt.deposit.accountHolder')}</dt>
+                          <CopyableMono
+                            value={fixedReceiving.accountHolder}
+                            copyLabel={t('usdt.deposit.copyHolder')}
+                            copiedLabel={t('common.copied')}
+                            strong
+                          />
+                          {fixedReceiving.accountType ? (
+                            <>
+                              <dt className="text-rose-700/70">{t('usdt.deposit.accountType')}</dt>
+                              <dd>{fixedReceiving.accountType}</dd>
+                            </>
+                          ) : null}
+                          {fixedReceiving.bankCountry ? (
+                            <>
+                              <dt className="text-rose-700/70">{t('usdt.deposit.bankCountry')}</dt>
+                              <dd className="font-mono">{fixedReceiving.bankCountry}</dd>
+                            </>
+                          ) : null}
+                          <dt className="text-rose-700/70">{t('usdt.deposit.bankName')}</dt>
+                          <CopyableMono
+                            value={fixedReceiving.bankName}
+                            copyLabel={t('common.copy')}
+                            copiedLabel={t('common.copied')}
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <dt className="text-rose-700/70">{t('usdt.deposit.bankName')}</dt>
+                          <CopyableMono
+                            value={fixedReceiving.bankName}
+                            copyLabel={t('common.copy')}
+                            copiedLabel={t('common.copied')}
+                          />
+                          <dt className="text-rose-700/70">{t('usdt.deposit.accountNumber')}</dt>
+                          <CopyableMono
+                            value={fixedReceiving.accountNumber}
+                            copyLabel={t('usdt.deposit.copyAccountNumber')}
+                            copiedLabel={t('common.copied')}
+                            strong
+                          />
+                          <dt className="text-rose-700/70">{t('usdt.deposit.accountHolder')}</dt>
+                          <CopyableMono
+                            value={fixedReceiving.accountHolder}
+                            copyLabel={t('usdt.deposit.copyHolder')}
+                            copiedLabel={t('common.copied')}
+                            strong
+                          />
+                        </>
+                      )}
                     </dl>
                   </div>
                 )}
@@ -656,7 +954,7 @@ export default function UsdtNewPage() {
             <button
               type="submit"
               disabled={
-                dailyBlocked || loading || wallets.length === 0 || !canPreview || !kycOk
+                dailyBlocked || loading || wallets.length === 0 || !canPreview || !canApply
               }
               className={`pg-btn mt-5 w-full disabled:opacity-50 ${
                 useQuoteFlow && !breakdown ? 'pg-btn-info' : 'pg-btn-primary'

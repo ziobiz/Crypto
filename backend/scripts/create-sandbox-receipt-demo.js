@@ -8,7 +8,7 @@ const { PrismaClient, UsdtPurchaseStatus, TicketType, CustomerType } = require('
 
 const EMAIL = 'sandbox.receipt.demo@tinpass.local';
 const PASSWORD = 'sandboxdemo1!';
-const NAME = '샌드박스 명세서 데모';
+const NAME = '데모/샌드박스';
 
 async function main() {
   const prisma = new PrismaClient();
@@ -47,7 +47,7 @@ async function main() {
           customerProfile: {
             create: {
               customerType: CustomerType.CORPORATE,
-              businessName: 'Sandbox Receipt Demo Co.',
+              businessName: NAME,
               recruitingOrgId: hq.id,
               simulatorEnabled: true,
               simulatorRateMode: 'SAND',
@@ -56,7 +56,7 @@ async function main() {
           },
           wallets: {
             create: {
-              label: 'Sandbox TRC20',
+              label: '데모/샌드박스 TRC20',
               address: 'TSandboxReceiptDemo111111111111111',
               network: 'TRC20',
               isDefault: true,
@@ -84,6 +84,7 @@ async function main() {
         await prisma.customerProfile.update({
           where: { id: user.customerProfile.id },
           data: {
+            businessName: NAME,
             simulatorEnabled: true,
             simulatorRateMode: 'SAND',
             tradeReceiptEmailMode: 'FOLLOW_HQ',
@@ -181,7 +182,7 @@ async function main() {
     });
 
     const statuses = [
-      [null, UsdtPurchaseStatus.APPLICATION_COMPLETED, '샌드박스 데모 신청'],
+      [null, UsdtPurchaseStatus.APPLICATION_COMPLETED, '데모/샌드박스 신청'],
       [
         UsdtPurchaseStatus.APPLICATION_COMPLETED,
         UsdtPurchaseStatus.DEPOSIT_PROOF_PENDING,

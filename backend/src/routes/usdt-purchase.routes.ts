@@ -38,6 +38,7 @@ import {
   previewUsdtCardFees,
 } from '../services/usdt-card-purchase.service';
 import { assertTicketAccess, canOperateUsdtTicket } from '../services/ticket-access.service';
+import { assertCustomerTradeAllowed } from '../services/customer-access.service';
 import { addTicketScheduleDelay } from '../services/ticket-schedule-delay.service';
 import { saveAttachment } from '../services/attachment.service';
 import { hqPolicyService } from '../services/hq-policy.service';
@@ -163,13 +164,27 @@ router.get(
       );
       return;
     }
-    await hqPolicyService.assertUsdtFiatMethodEnabled(currency, 'TRANSFER');
+    if (paymentMethod === 'REMITTANCE') {
+      const remit = await hqPolicyService.getRemittanceTradeCurrencies();
+      if (!remit.includes(currency as (typeof remit)[number])) {
+        throw new AppError(
+          400,
+          `Remittance trade allows only: ${remit.join(', ')}`,
+          'DIRECT_REMIT_CURRENCY_ONLY',
+        );
+      }
+    } else {
+      await hqPolicyService.assertUsdtFiatMethodEnabled(currency, 'TRANSFER');
+    }
+    const expressTier =
+      req.query.expressTier != null ? String(req.query.expressTier) : undefined;
     res.json(
       await previewUsdtTransactionFees(req.user!, {
         walletId,
         fiatCurrency: currency,
         fiatAmount,
         targetUsdtAmount,
+        expressTier,
       }),
     );
   }),
@@ -215,7 +230,11 @@ const createSchema = z
     cardChargeFiat: z.number().positive().optional(),
     fiatCurrency: z.enum(SUPPORTED_FIAT_CURRENCIES as unknown as [string, ...string[]]).optional(),
     walletId: z.string().min(1),
-    paymentMethod: z.enum(['BANK_TRANSFER', 'CARD']).optional(),
+    paymentMethod: z.enum(['BANK_TRANSFER', 'CARD', 'REMITTANCE']).optional(),
+    expressTier: z
+      .enum(['ULTRA', 'PRIORITY', 'HALF', 'DAY', 'T1', 'T2', 'BASIC'])
+      .optional()
+      .nullable(),
     cardWaiverAccepted: z.literal(true).optional(),
     card: cardSchema.optional(),
   })
@@ -227,6 +246,7 @@ router.post(
   '/',
   requireRoles(...MERCHANT_TRADE_ROLES),
   asyncHandler(async (req, res) => {
+    await assertCustomerTradeAllowed(req.user!);
     const body = createSchema.parse(req.body);
     if (body.paymentMethod === 'CARD') {
       if (!body.card || !body.cardWaiverAccepted) {
@@ -248,6 +268,13 @@ router.post(
       targetUsdtAmount: body.targetUsdtAmount,
       fiatCurrency: body.fiatCurrency as FiatCurrency | undefined,
       walletId: body.walletId,
+      paymentMethod:
+        body.paymentMethod === 'REMITTANCE'
+          ? 'REMITTANCE'
+          : body.paymentMethod === 'BANK_TRANSFER'
+            ? 'BANK_TRANSFER'
+            : undefined,
+      expressTier: body.expressTier,
     });
     res.status(201).json(ticket);
   }),

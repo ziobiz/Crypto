@@ -22,9 +22,16 @@ import {
   collectionAccountToDisplay,
   createCurfexCollection,
   getCurfexConfig,
+  hqDefaultCollectionModeForCustomer,
   resolveUsdtCollectionProvider,
 } from './curfex.service';
-import { computeExpectedCompleteAt, resolveExpectedCompletionDays, type HqSlaConfig } from '../constants/hq-policy';
+import {
+  computeExpectedCompleteAt,
+  isDirectRemitCurrency,
+  remittanceCurrenciesFromAccounts,
+  resolveExpectedCompletionDays,
+  type HqSlaConfig,
+} from '../constants/hq-policy';
 import {
   completedAtFromHistory,
   computeExpectedCompleteWithDelays,
@@ -62,12 +69,66 @@ import {
   QUOTE_VALIDITY_EXPIRED_REASON,
   validateCustomerTransactionAmount,
 } from './transaction-limit.service';
-import { validateUsdtRiskLimitAmount } from './usdt-risk-limit.service';
+import {
+  resolveUsdtRiskLimitForCustomer,
+  validateUsdtRiskLimitAmount,
+} from './usdt-risk-limit.service';
 import {
   computeQuoteDueAt,
   getEffectiveQuotePolicyForCustomer,
   getUsdtQuoteResponsePolicy,
 } from './usdt-quote-policy.service';
+import {
+  expressDeadlineAt,
+  resolveExpressSelectionForCustomer,
+  settleExpressFee,
+  type ExpressCustomerProfile,
+} from './express-fee.service';
+import type { ResolvedExpressSelection } from '../constants/hq-policy';
+
+function withExpressFeeRates(
+  fees: ResolvedTransactionFees,
+  express: (ResolvedExpressSelection & {
+    memberGradeBenefit?: { discountPercent?: number; discountUsdt?: number };
+  }) | null,
+): ResolvedTransactionFees {
+  if (!express) {
+    return {
+      ...fees,
+      expressFeeUsdt: 0,
+      expressFeePercent: 0,
+      expressTier: undefined,
+    };
+  }
+  const discPct = Math.min(100, Math.max(0, Number(express.memberGradeBenefit?.discountPercent) || 0));
+  const discUsdt = Math.max(0, Number(express.memberGradeBenefit?.discountUsdt) || 0);
+  const feePercent = Math.max(0, Number(express.feePercent) || 0) * (1 - discPct / 100);
+  const feeUsdt = Math.max(
+    0,
+    Math.max(0, Number(express.feeUsdt) || 0) * (1 - discPct / 100) - discUsdt,
+  );
+  return {
+    ...fees,
+    expressFeeUsdt: Number(feeUsdt.toFixed(8)),
+    expressFeePercent: Number(feePercent.toFixed(8)),
+    expressTier: express.tier,
+  };
+}
+
+async function loadExpressProfile(
+  customerProfileId?: string | null,
+): Promise<ExpressCustomerProfile | null> {
+  if (!customerProfileId) return null;
+  return prisma.customerProfile.findUnique({
+    where: { id: customerProfileId },
+    select: {
+      customerType: true,
+      expressFeeMode: true,
+      expressFeeConfig: true,
+      memberGrade: true,
+    },
+  });
+}
 
 const DEPOSIT_WINDOW_MS = 2 * 60 * 60 * 1000;
 
@@ -267,11 +328,13 @@ async function quoteFromTarget(
   rate: number,
   feePolicy?: Parameters<typeof resolveFeesForAmount>[3],
   customerProfileId?: string | null,
+  expressTier?: string | null,
 ): Promise<{
   fees: ResolvedTransactionFees;
   fiatAmount: number;
   breakdown: ReturnType<typeof breakdownFromTarget>;
   localPremium?: ReturnType<typeof toLocalPremiumInfo>;
+  express: ResolvedExpressSelection | null;
 }> {
   const hasLocalPremium = isLocalPremiumCurrency(currency);
   let localPremium: LocalMarketPremiumAnalysis | null = null;
@@ -282,18 +345,28 @@ async function quoteFromTarget(
       localPremium = null;
     }
   }
+  const feeOpts: Parameters<typeof resolveFeesForAmount>[3] = {
+    ...(feePolicy ?? {}),
+    customerProfileId: customerProfileId ?? feePolicy?.customerProfileId ?? null,
+  };
+  const expressProfile = await loadExpressProfile(customerProfileId);
+  const express = await resolveExpressSelectionForCustomer(expressProfile, expressTier);
   const opRates = await loadOperatingFeeRatesForQuote({ customerProfileId });
-  let baseFees = withOperatingFeeRates(
-    await resolveFeesForAmount(wallet, currency, 0, feePolicy),
-    opRates,
+  let baseFees = withExpressFeeRates(
+    withOperatingFeeRates(await resolveFeesForAmount(wallet, currency, 0, feeOpts), opRates),
+    express,
   );
   let fees: ResolvedTransactionFees =
     localPremium != null ? applyLocalPremiumToBaseFees(baseFees, localPremium, 0) : baseFees;
+  fees = withExpressFeeRates(fees, express);
   let breakdown = breakdownFromTarget(targetUsdt, rate, fees);
 
-  baseFees = withOperatingFeeRates(
-    await resolveFeesForAmount(wallet, currency, breakdown.requiredFiat, feePolicy),
-    opRates,
+  baseFees = withExpressFeeRates(
+    withOperatingFeeRates(
+      await resolveFeesForAmount(wallet, currency, breakdown.requiredFiat, feeOpts),
+      opRates,
+    ),
+    express,
   );
   if (hasLocalPremium && localPremium) {
     try {
@@ -301,7 +374,10 @@ async function quoteFromTarget(
     } catch {
       /* keep previous premium */
     }
-    fees = applyLocalPremiumToBaseFees(baseFees, localPremium, breakdown.grossUsdt);
+    fees = withExpressFeeRates(
+      applyLocalPremiumToBaseFees(baseFees, localPremium, breakdown.grossUsdt),
+      express,
+    );
   } else {
     fees = baseFees;
   }
@@ -316,6 +392,7 @@ async function quoteFromTarget(
     fiatAmount: breakdown.requiredFiat,
     breakdown,
     localPremium: localPremium ? toLocalPremiumInfo(localPremium) : undefined,
+    express,
   };
 }
 
@@ -326,6 +403,7 @@ export async function previewUsdtTransactionFees(
     fiatCurrency?: FiatCurrency;
     fiatAmount?: number;
     targetUsdtAmount?: number;
+    expressTier?: string | null;
   },
 ) {
   const wallet = await prisma.wallet.findFirst({
@@ -356,9 +434,23 @@ export async function previewUsdtTransactionFees(
     });
   };
 
+  const expressProfile = await loadExpressProfile(user.customerProfileId);
+  const expressSelection = await resolveExpressSelectionForCustomer(
+    expressProfile,
+    input.expressTier,
+  );
+
   if (input.targetUsdtAmount != null && input.targetUsdtAmount > 0) {
     await assertUsdtRisk(input.targetUsdtAmount);
-    const quoted = await quoteFromTarget(wallet, currency, input.targetUsdtAmount, rate, undefined, user.customerProfileId);
+    const quoted = await quoteFromTarget(
+      wallet,
+      currency,
+      input.targetUsdtAmount,
+      rate,
+      undefined,
+      user.customerProfileId,
+      input.expressTier,
+    );
     let transactionLimits;
     if (user.customerProfileId && quoted.fiatAmount > 0) {
       const profile = await prisma.customerProfile.findUnique({
@@ -389,6 +481,24 @@ export async function previewUsdtTransactionFees(
       transactionLimits,
       feeDiagramDisplay,
       currencyAmountDisplay: await getCurrencyAmountDisplayPolicy(),
+      express: quoted.express
+        ? {
+            enabled: true,
+            tier: quoted.express.tier,
+            feeUsdt: quoted.express.feeUsdt,
+            feePercent: quoted.express.feePercent,
+            maxHours: quoted.express.maxHours,
+            options: quoted.express.options,
+            source: quoted.express.source,
+          }
+        : {
+            enabled: false,
+            tier: null,
+            feeUsdt: 0,
+            feePercent: 0,
+            options: [],
+            source: 'DISABLED' as const,
+          },
     };
   }
 
@@ -396,7 +506,10 @@ export async function previewUsdtTransactionFees(
   if (fiatAmount > 0 && rate > 0) {
     await assertUsdtRisk(fiatAmount / rate);
   }
-  const fees = await resolveFeesForPurchase(wallet, currency, fiatAmount, rate, { customerProfileId: user.customerProfileId });
+  let fees = await resolveFeesForPurchase(wallet, currency, fiatAmount, rate, {
+    customerProfileId: user.customerProfileId,
+  });
+  fees = withExpressFeeRates(fees, expressSelection);
   const amountPolicy = await getCurrencyAmountDisplayPolicy();
   const breakdown =
     fiatAmount > 0
@@ -445,6 +558,24 @@ export async function previewUsdtTransactionFees(
     transactionLimits,
     feeDiagramDisplay,
     currencyAmountDisplay: amountPolicy,
+    express: expressSelection
+      ? {
+          enabled: true,
+          tier: expressSelection.tier,
+          feeUsdt: expressSelection.feeUsdt,
+          feePercent: expressSelection.feePercent,
+          maxHours: expressSelection.maxHours,
+          options: expressSelection.options,
+          source: expressSelection.source,
+        }
+      : {
+          enabled: false,
+          tier: null,
+          feeUsdt: 0,
+          feePercent: 0,
+          options: [],
+          source: 'DISABLED' as const,
+        },
   };
 }
 
@@ -476,7 +607,10 @@ export async function simulateHqUsdtQuote(input: {
     throw new AppError(400, 'Withdrawal network is required', 'NETWORK_REQUIRED');
   }
   const wallet = { ...HQ_SIM_WALLET, network };
-  const feeOpts = input.feePolicy === 'sandbox' ? { feePolicy: 'sandbox' as const } : undefined;
+  const feeOpts = {
+    ...(input.feePolicy === 'sandbox' ? { feePolicy: 'sandbox' as const } : {}),
+    customerProfileId: input.customerProfileId ?? null,
+  };
   const policyBasis = input.feePolicy === 'sandbox' ? ('SANDBOX' as const) : ('HQ' as const);
   const diagramScope = input.feePolicy === 'sandbox' ? ('sandbox' as const) : ('live' as const);
   const enforceCustomerLimits = Boolean(input.enforceCustomerLimits && input.customerProfileId);
@@ -486,6 +620,12 @@ export async function simulateHqUsdtQuote(input: {
     enforceCustomerLimits ? 'customer' : 'hq',
   );
   const amountRangePct = enforceCustomerLimits ? 5 : undefined;
+  /** 고객 시뮬은 LIVE 매입 한도가 아닌 시뮬레이터 한도표 사용 (개인 MR 등 min/max 정합) */
+  const simRiskLimit = enforceCustomerLimits
+    ? await resolveUsdtRiskLimitForCustomer(input.customerProfileId, {
+        riskSource: 'simulator',
+      })
+    : null;
 
   try {
     if (input.targetUsdtAmount != null && Number(input.targetUsdtAmount) > 0) {
@@ -493,6 +633,7 @@ export async function simulateHqUsdtQuote(input: {
         customerProfileId: input.customerProfileId ?? null,
         usdtAmount: Number(input.targetUsdtAmount),
         enforce: enforceCustomerLimits,
+        riskSource: 'simulator',
         fiatCurrency: currency,
         exchangeRate: rate,
       });
@@ -502,6 +643,7 @@ export async function simulateHqUsdtQuote(input: {
         Number(input.targetUsdtAmount),
         rate,
         feeOpts,
+        input.customerProfileId,
       );
       return {
         fees: quoted.fees,
@@ -516,6 +658,7 @@ export async function simulateHqUsdtQuote(input: {
         policyBasis,
         currencyAmountDisplay: await getCurrencyAmountDisplayPolicy(),
         amountRangePct,
+        riskLimit: simRiskLimit,
       };
     }
 
@@ -525,6 +668,7 @@ export async function simulateHqUsdtQuote(input: {
         customerProfileId: input.customerProfileId ?? null,
         usdtAmount: fiatAmount / rate,
         enforce: enforceCustomerLimits,
+        riskSource: 'simulator',
         fiatCurrency: currency,
         exchangeRate: rate,
       });
@@ -564,6 +708,7 @@ export async function simulateHqUsdtQuote(input: {
       policyBasis,
       currencyAmountDisplay: amountPolicy,
       amountRangePct,
+      riskLimit: simRiskLimit,
     };
   } catch (e) {
     if (isAppError(e)) throw e;
@@ -582,6 +727,10 @@ export async function createUsdtPurchaseTicket(
     targetUsdtAmount?: number;
     fiatCurrency?: FiatCurrency;
     walletId: string;
+    /** REMITTANCE = Wise 등 송금거래(USD/EUR 금액 그대로). BANK_TRANSFER = 로컬 이체 */
+    paymentMethod?: 'BANK_TRANSFER' | 'REMITTANCE';
+    /** EXPRESS 등급. 미선택 시 BASIC(정책 활성 시) */
+    expressTier?: string | null;
   },
 ) {
   if (!isMerchantSide(user) || !user.customerProfileId) {
@@ -606,9 +755,67 @@ export async function createUsdtPurchaseTicket(
     throw new AppError(404, 'Wallet not found', 'NOT_FOUND');
   }
 
+  const customerProfile = await prisma.customerProfile.findUnique({
+    where: { id: user.customerProfileId },
+    select: {
+      customerType: true,
+      usdtCollectionMode: true,
+      usdtQuoteResponseMode: true,
+      usdtQuoteAutoDelayMinutes: true,
+      usdtQuoteManualSlaHours: true,
+      expressFeeMode: true,
+      expressFeeConfig: true,
+      memberGrade: true,
+    },
+  });
+  if (!customerProfile) {
+    throw new AppError(404, 'Customer profile not found', 'NOT_FOUND');
+  }
+  const expressSelection = await resolveExpressSelectionForCustomer(
+    customerProfile,
+    input.expressTier,
+  );
+
   const sessionPolicy = await hqPolicyService.getSessionPolicy();
-  const currency = input.fiatCurrency ?? sessionPolicy.defaultUsdtFiatCurrency ?? 'JPY';
-  await hqPolicyService.assertUsdtFiatMethodEnabled(currency, 'TRANSFER');
+  const [curfexCfgEarly, remitCurrenciesEarly] = await Promise.all([
+    getCurfexConfig(),
+    hqPolicyService.getRemittanceTradeCurrencies(),
+  ]);
+  const directCurrencies = remitCurrenciesEarly;
+  const collectionKind = resolveUsdtCollectionProvider({
+    customerMode: customerProfile.usdtCollectionMode,
+    config: curfexCfgEarly,
+    currency: input.fiatCurrency ?? 'USD',
+    customerType: customerProfile.customerType,
+  });
+  /** 명시적 송금거래 또는 고객이 송금계좌 모드일 때 송금 경로 */
+  const useDirectRemit =
+    input.paymentMethod === 'REMITTANCE' ||
+    (input.paymentMethod !== 'BANK_TRANSFER' && collectionKind === 'DIRECT');
+  const paymentMethodStored: UsdtPaymentMethod = useDirectRemit
+    ? UsdtPaymentMethod.REMITTANCE
+    : UsdtPaymentMethod.BANK_TRANSFER;
+  let currency: FiatCurrency = (input.fiatCurrency ??
+    (useDirectRemit
+      ? (directCurrencies[0] as FiatCurrency) ?? 'USD'
+      : sessionPolicy.defaultUsdtFiatCurrency ?? 'JPY')) as FiatCurrency;
+  if (useDirectRemit && !isDirectRemitCurrency(currency, directCurrencies)) {
+    throw new AppError(
+      400,
+      `Remittance trade allows only: ${directCurrencies.join(', ')} (amount in that currency, no FX)`,
+      'DIRECT_REMIT_CURRENCY_ONLY',
+    );
+  }
+  if (useDirectRemit) {
+    const accounts = await hqPolicyService.getDepositReceivingAccounts();
+    const acct = accounts[currency as keyof typeof accounts];
+    if (acct?.remittanceEnabled === false) {
+      throw new AppError(400, `Remittance trade disabled for ${currency}`, 'FIAT_REMITTANCE_DISABLED');
+    }
+  } else {
+    /** 송금거래는 remittanceEnabled로 검증. 이체(transfer) 플래그와 독립 */
+    await hqPolicyService.assertUsdtFiatMethodEnabled(currency, 'TRANSFER');
+  }
   const { rate, source, fetchedAt } = await fetchUsdtFiatRate(currency);
 
   let fiatAmount: number;
@@ -627,7 +834,15 @@ export async function createUsdtPurchaseTicket(
       fiatCurrency: currency,
       exchangeRate: rate,
     });
-    const quoted = await quoteFromTarget(wallet, currency, input.targetUsdtAmount, rate, undefined, user.customerProfileId);
+    const quoted = await quoteFromTarget(
+      wallet,
+      currency,
+      input.targetUsdtAmount,
+      rate,
+      undefined,
+      user.customerProfileId,
+      input.expressTier,
+    );
     fees = quoted.fees;
     fiatAmount = quoted.fiatAmount;
     feeBreakdown = quoted.breakdown;
@@ -649,7 +864,12 @@ export async function createUsdtPurchaseTicket(
         exchangeRate: rate,
       });
     }
-    fees = await resolveFeesForPurchase(wallet, currency, fiatAmount, rate, { customerProfileId: user.customerProfileId });
+    fees = withExpressFeeRates(
+      await resolveFeesForPurchase(wallet, currency, fiatAmount, rate, {
+        customerProfileId: user.customerProfileId,
+      }),
+      expressSelection,
+    );
     const amountPolicy = await getCurrencyAmountDisplayPolicy();
     feeBreakdown = finalizeFiatBreakdown(
       currency,
@@ -668,19 +888,9 @@ export async function createUsdtPurchaseTicket(
     max = range.max;
   }
 
-  const customerProfile = await prisma.customerProfile.findUnique({
-    where: { id: user.customerProfileId },
-    select: {
-      customerType: true,
-      usdtCollectionMode: true,
-      usdtQuoteResponseMode: true,
-      usdtQuoteAutoDelayMinutes: true,
-      usdtQuoteManualSlaHours: true,
-    },
-  });
-  if (!customerProfile) {
-    throw new AppError(404, 'Customer profile not found', 'NOT_FOUND');
-  }
+  const expressDueAt = expressSelection
+    ? expressDeadlineAt(new Date(), expressSelection.tier)
+    : null;
 
   await validateCustomerTransactionAmount({
     customerId: user.customerProfileId,
@@ -694,15 +904,19 @@ export async function createUsdtPurchaseTicket(
     usdtQuoteAutoDelayMinutes: customerProfile.usdtQuoteAutoDelayMinutes,
     usdtQuoteManualSlaHours: customerProfile.usdtQuoteManualSlaHours,
   });
-  const curfexCfg = await getCurfexConfig();
-  const useVirtual =
-    resolveUsdtCollectionProvider({
-      customerMode: customerProfile.usdtCollectionMode,
-      config: curfexCfg,
-      currency,
-    }) === 'CURFEX';
+  const curfexCfg = curfexCfgEarly;
+  /** 송금거래는 항상 송금계좌(DIRECT). CURFEX/고정계좌 미사용 */
+  const resolvedProvider = useDirectRemit
+    ? ('DIRECT' as const)
+    : resolveUsdtCollectionProvider({
+        customerMode: customerProfile.usdtCollectionMode,
+        config: curfexCfg,
+        currency,
+        customerType: customerProfile.customerType,
+      });
+  const useVirtual = resolvedProvider === 'CURFEX';
   /**
-   * 은행이체(고정·CURFEX) + 견적 정책 ON → 견적대기/확정.
+   * 은행이체(고정·직접송금·CURFEX) + 견적 정책 ON → 견적대기/확정.
    * 고객별 견적 모드(FOLLOW_HQ/AUTO/MANUAL/OFF)가 본사 정책을 오버라이드.
    * CURFEX 가상계좌는 견적 확정 후 발급(확정 금액 기준).
    * 견적 OFF면 기존처럼 신청 직후 입금대기(+CURFEX면 즉시 계좌발급).
@@ -716,6 +930,13 @@ export async function createUsdtPurchaseTicket(
     transferFeeUsdt: feeBreakdown?.transferFeeUsdt ?? 0,
     otherFeeUsdt: feeBreakdown?.baseOtherFeeUsdt ?? feeBreakdown?.otherFeeUsdt ?? 0,
   });
+  Object.assign(feeSnapshots.feePolicySnapshot as object, {
+    expressFeeUsdt: fees.expressFeeUsdt ?? 0,
+    expressFeePercent: fees.expressFeePercent ?? 0,
+    expressTier: fees.expressTier ?? null,
+    operatingFeePercent: fees.operatingFeePercent ?? 0,
+    operatingFeeFixedUsdt: fees.operatingFeeFixedUsdt ?? 0,
+  });
 
   const ticketNo = generateTicketNo();
   const dbUser = await prisma.user.findUnique({
@@ -728,7 +949,14 @@ export async function createUsdtPurchaseTicket(
     curfexRefNo?: string;
     curfexStatusCode?: string;
     collectionAccountJson?: object;
-  } = { collectionProvider: useVirtual ? 'CURFEX' : 'FIXED' };
+  } = {
+    collectionProvider:
+      resolvedProvider === 'CURFEX'
+        ? 'CURFEX'
+        : resolvedProvider === 'DIRECT'
+          ? 'DIRECT'
+          : 'FIXED',
+  };
 
   const depositDeadlineAt = useQuoteFlow ? null : new Date(Date.now() + DEPOSIT_WINDOW_MS);
   const quoteDueAt = useQuoteFlow ? computeQuoteDueAt(quotePolicy) : null;
@@ -782,7 +1010,19 @@ export async function createUsdtPurchaseTicket(
             depositDeadlineAt,
             quoteMode: useQuoteFlow ? quotePolicy.mode : null,
             quoteDueAt,
+            paymentMethod: paymentMethodStored,
             ...feeSnapshots,
+            ...(expressSelection
+              ? {
+                  expressTier: expressSelection.tier,
+                  /** 신청 시점 계산된 EXPRESS 총액(고정+% 반영) */
+                  expressFeeUsdtSnapshot: fees.expressFeeUsdt ?? expressSelection.feeUsdt,
+                  expressDueAt,
+                  expressPolicySnapshot: expressSelection.policySnapshot as object,
+                  memberGradeSnapshot: expressSelection.memberGrade,
+                  memberGradeBenefitSnapshot: expressSelection.memberGradeBenefit as object,
+                }
+              : {}),
             walletId: wallet.id,
             ...collectionFields,
           },
@@ -797,7 +1037,13 @@ export async function createUsdtPurchaseTicket(
         fromStatus: null,
         toStatus: initialStatus,
         changedById: user.id,
-        note: useQuoteFlow ? 'USDT 매입 신청 (견적 대기)' : 'USDT 매입 신청',
+        note: useQuoteFlow
+          ? useDirectRemit
+            ? `USDT 매입 신청 · 송금거래 (견적 대기)${expressSelection ? ` · EXPRESS ${expressSelection.tier}` : ''}`
+            : `USDT 매입 신청 (견적 대기)${expressSelection ? ` · EXPRESS ${expressSelection.tier}` : ''}`
+          : useDirectRemit
+            ? `USDT 매입 신청 · 송금거래${expressSelection ? ` · EXPRESS ${expressSelection.tier}` : ''}`
+            : `USDT 매입 신청${expressSelection ? ` · EXPRESS ${expressSelection.tier}` : ''}`,
       },
     });
 
@@ -1208,6 +1454,7 @@ export async function transitionUsdtPurchaseStatus(
     return serializeTicket(refreshed, (await getWorkflowDisplay()).sla);
   }
 
+  let expressSettlement: ReturnType<typeof settleExpressFee> = null;
   if (toStatus === UsdtPurchaseStatus.COMPLETED) {
     if (!extra?.usdtTxId) {
       throw new AppError(400, 'usdtTxId is required for completion', 'VALIDATION_ERROR');
@@ -1236,6 +1483,28 @@ export async function transitionUsdtPurchaseStatus(
         );
       }
     }
+    const startedAt = ticket.usdtPurchase.quoteConfirmedAt ?? ticket.createdAt;
+    const completedAt = new Date();
+    const settleGross =
+      ticket.usdtPurchase.actualUsdtAmount != null
+        ? Number(ticket.usdtPurchase.actualUsdtAmount)
+        : ticket.usdtPurchase.confirmedUsdtAmount != null
+          ? Number(ticket.usdtPurchase.confirmedUsdtAmount)
+          : ticket.usdtPurchase.expectedUsdtAmount != null
+            ? Number(ticket.usdtPurchase.expectedUsdtAmount)
+            : 0;
+    expressSettlement = settleExpressFee({
+      promisedTier: ticket.usdtPurchase.expressTier,
+      promisedFeeUsdt:
+        ticket.usdtPurchase.expressFeeUsdtSnapshot != null
+          ? Number(ticket.usdtPurchase.expressFeeUsdtSnapshot)
+          : null,
+      policySnapshot: ticket.usdtPurchase.expressPolicySnapshot,
+      memberGradeBenefitSnapshot: ticket.usdtPurchase.memberGradeBenefitSnapshot,
+      grossUsdt: settleGross,
+      startedAt,
+      completedAt,
+    });
   }
 
   const updated = await prisma.$transaction(async (tx) => {
@@ -1251,6 +1520,14 @@ export async function transitionUsdtPurchaseStatus(
         ...(toStatus === UsdtPurchaseStatus.CANCELLED && {
           cancelReason: extra?.cancelReason ?? extra?.adminNote ?? '관리자 취소',
         }),
+        ...(expressSettlement
+          ? {
+              expressActualTier: expressSettlement.actualTier,
+              expressFeeSettledUsdt: expressSettlement.settledFeeUsdt,
+              expressSlaMet: expressSettlement.slaMet,
+              expressElapsedHours: expressSettlement.elapsedHours,
+            }
+          : {}),
       },
     });
 
@@ -1338,25 +1615,42 @@ export async function getUsdtDepositContext(user: AuthUser) {
       ? prisma.customerProfile.findUnique({
           where: { id: user.customerProfileId },
           select: {
+            customerType: true,
             usdtCollectionMode: true,
             usdtQuoteResponseMode: true,
             usdtQuoteAutoDelayMinutes: true,
             usdtQuoteManualSlaHours: true,
+            expressFeeMode: true,
+            expressFeeConfig: true,
+            memberGrade: true,
           },
         })
       : Promise.resolve(null),
     getUsdtQuoteResponsePolicy(),
   ]);
+  const expressSelection = await resolveExpressSelectionForCustomer(customerMode, 'BASIC');
   const mode = customerMode?.usdtCollectionMode ?? 'FOLLOW_HQ';
+  const directCurrencies = remittanceCurrenciesFromAccounts(receivingAccounts);
+  const sampleCurrency = directCurrencies[0] ?? 'USD';
+  const effectiveProvider = resolveUsdtCollectionProvider({
+    customerMode: mode,
+    config: curfexCfg,
+    currency: sampleCurrency,
+    customerType: customerMode?.customerType,
+  });
+  const useDirectRemit = effectiveProvider === 'DIRECT';
   const currencies = (curfexCfg.currencies ?? ['JPY']) as string[];
-  const virtualCurrencies = currencies.filter(
-    (c) =>
-      resolveUsdtCollectionProvider({
-        customerMode: mode,
-        config: curfexCfg,
-        currency: c,
-      }) === 'CURFEX',
-  );
+  const virtualCurrencies = useDirectRemit
+    ? []
+    : currencies.filter(
+        (c) =>
+          resolveUsdtCollectionProvider({
+            customerMode: mode,
+            config: curfexCfg,
+            currency: c,
+            customerType: customerMode?.customerType,
+          }) === 'CURFEX',
+      );
   const quoteResponse = await getEffectiveQuotePolicyForCustomer(customerMode);
 
   let dailyTicketCount = 0;
@@ -1372,13 +1666,77 @@ export async function getUsdtDepositContext(user: AuthUser) {
   const dailyTicketLimitReached =
     maxDailyTicketsPerCustomer > 0 && dailyTicketCount >= maxDailyTicketsPerCustomer;
 
+  /**
+   * DIRECT(개인 송금계좌):
+   * - 계좌이체 = 송금통화가 아닌 통화 중 transfer on (예: JPY)
+   * - 송금거래 = remittance on 통화 (USD/EUR) — transfer 플래그와 독립
+   * 이전: 송금통화에만 transfer를 켜고 remittance도 transfer를 요구 → 전부 비활성되는 버그
+   */
+  const effectiveCurrencyTrade = useDirectRemit
+    ? Object.fromEntries(
+        (['KRW', 'JPY', 'THB', 'CNY', 'USD', 'EUR'] as const).map((c) => {
+          const isRemit = isDirectRemitCurrency(c, directCurrencies);
+          return [
+            c,
+            {
+              transfer: !isRemit && currencyTrade[c]?.transfer !== false,
+              card: currencyTrade[c]?.card !== false,
+            },
+          ];
+        }),
+      )
+    : currencyTrade;
+
+  const effectiveMode =
+    effectiveProvider === 'DIRECT'
+      ? 'DIRECT'
+      : effectiveProvider === 'CURFEX'
+        ? 'VIRTUAL'
+        : mode === 'FOLLOW_HQ'
+          ? 'FOLLOW_HQ'
+          : 'FIXED';
+
+  const hqDefaultForCustomer = hqDefaultCollectionModeForCustomer(
+    curfexCfg,
+    customerMode?.customerType,
+  );
+
+  const [liveUsdtRiskLimit, simulatorUsdtRiskLimit, individualLimitCtx, hqApplicationLimits] =
+    user.customerProfileId
+      ? await Promise.all([
+          resolveUsdtRiskLimitForCustomer(user.customerProfileId, { riskSource: 'live' }),
+          resolveUsdtRiskLimitForCustomer(user.customerProfileId, { riskSource: 'simulator' }),
+          import('./individual-limit.service').then((m) =>
+            m.resolveCustomerIndividualLimitContext(user.customerProfileId!),
+          ),
+          import('./transaction-fee.service').then(async (m) => {
+            const risk = await m.getCommissionRiskConfig();
+            const typeKey =
+              customerMode?.customerType === 'CORPORATE' ? 'CORPORATE' : 'INDIVIDUAL';
+            return {
+              enabled: risk.riskEnabled,
+              customerType: typeKey,
+              byCurrency: risk.transactionLimits[typeKey],
+            };
+          }),
+        ])
+      : [null, null, null, null];
+
   return {
     receivingAccounts,
-    currencyTrade,
+    currencyTrade: effectiveCurrencyTrade,
     /** 이 고객에게 가상계좌가 적용되는 통화 (신청 UI용) */
     curfexEnabledCurrencies: virtualCurrencies,
-    usdtCollectionMode: mode,
-    hqDefaultCollectionMode: curfexCfg.defaultCollectionMode === 'VIRTUAL' ? 'VIRTUAL' : 'FIXED',
+    usdtCollectionMode: effectiveMode,
+    hqDefaultCollectionMode: hqDefaultForCustomer,
+    individualDirectRemit: useDirectRemit,
+    individualDirectRemitCurrencies: useDirectRemit ? directCurrencies : undefined,
+    directRemitCurrencies: directCurrencies,
+    /** 송금거래 결제수단 통화 — remittanceEnabled 기준 (이체 on/off와 무관) */
+    remittancePaymentCurrencies: [...directCurrencies],
+    /** 송금계좌 모드(개인 기본 등)면 신청 UI에서 송금거래 기본 선택 */
+    preferRemittancePayment: useDirectRemit,
+    remittancePaymentAvailable: directCurrencies.length > 0,
     registeredBank: registeredBank
       ? {
           bankName: registeredBank.bankName,
@@ -1395,6 +1753,50 @@ export async function getUsdtDepositContext(user: AuthUser) {
     dailyTicketLimitReached,
     quoteResponse,
     usdtQuoteResponseMode: customerMode?.usdtQuoteResponseMode ?? 'FOLLOW_HQ',
+    /** 실제 매입 1회 USDT 한도 */
+    usdtRiskLimit: liveUsdtRiskLimit,
+    /** 시뮬레이터 전용 1회 USDT 한도 (hq.commission.simulator_risk) */
+    simulatorUsdtRiskLimit,
+    /** HQ 「한도 설정」— 신청 통화별 1회·일·월 한도 */
+    applicationLimits: hqApplicationLimits,
+    /** 개인: 국가 기준 한도 안내 (가입 국가·전화·IP) + HQ 한도 설정 연동 */
+    individualCountryLimit: individualLimitCtx
+      ? (() => {
+          const home = individualLimitCtx.band.homeCurrency;
+          const hqHome = hqApplicationLimits?.byCurrency?.[home];
+          const maxFiat =
+            hqHome && hqHome.perTransactionMax > 0
+              ? hqHome.perTransactionMax
+              : individualLimitCtx.band.maxFiat;
+          return {
+            country: individualLimitCtx.country,
+            source: individualLimitCtx.source,
+            homeCurrency: home,
+            maxFiat,
+            maxUsd: individualLimitCtx.band.maxUsd,
+            minUsdt: liveUsdtRiskLimit?.minUsdt ?? individualLimitCtx.band.minUsdt,
+            maxUsdt: liveUsdtRiskLimit?.maxUsdt ?? individualLimitCtx.band.maxUsd,
+          };
+        })()
+      : null,
+    express: expressSelection
+      ? {
+          enabled: true,
+          tier: expressSelection.tier,
+          feeUsdt: expressSelection.feeUsdt,
+          feePercent: expressSelection.feePercent,
+          maxHours: expressSelection.maxHours,
+          options: expressSelection.options,
+          source: expressSelection.source,
+        }
+      : {
+          enabled: false,
+          tier: null,
+          feeUsdt: 0,
+          feePercent: 0,
+          options: [],
+          source: 'DISABLED' as const,
+        },
   };
 }
 
@@ -1407,7 +1809,7 @@ function serializeTicket(
   const detail = ticket.usdtPurchase!;
   const registeredBank = ticket.customer?.user.bankAccounts?.[0] ?? null;
   const channel =
-    detail.paymentMethod === UsdtPaymentMethod.CARD ? 'CARD' : 'BANK_TRANSFER';
+    detail.paymentMethod === UsdtPaymentMethod.CARD ? 'CARD' : 'BANK_TRANSFER'; // REMITTANCE도 이체 채널 SLA
   const completionProfile = ticket.customer
     ? {
         expectedCompleteTier: ticket.customer.expectedCompleteTier,
@@ -1490,6 +1892,25 @@ function serializeTicket(
     otherFeeSnapshot: Number(detail.otherFeeSnapshot),
     platformFeeSnapshot: Number(detail.platformFeeSnapshot),
     feePolicySnapshot: detail.feePolicySnapshot ?? null,
+    expressTier: detail.expressTier ?? null,
+    expressFeeUsdt: detail.expressFeeUsdtSnapshot != null ? Number(detail.expressFeeUsdtSnapshot) : null,
+    expressDueAt: detail.expressDueAt ?? null,
+    memberGrade: detail.memberGradeSnapshot ?? null,
+    expressActualTier: detail.expressActualTier ?? null,
+    expressFeeSettledUsdt:
+      detail.expressFeeSettledUsdt != null ? Number(detail.expressFeeSettledUsdt) : null,
+    expressSlaMet: detail.expressSlaMet ?? null,
+    expressElapsedHours:
+      detail.expressElapsedHours != null ? Number(detail.expressElapsedHours) : null,
+    expressRefundUsdt:
+      detail.expressFeeUsdtSnapshot != null && detail.expressFeeSettledUsdt != null
+        ? Math.max(
+            0,
+            Number(
+              (Number(detail.expressFeeUsdtSnapshot) - Number(detail.expressFeeSettledUsdt)).toFixed(8),
+            ),
+          )
+        : null,
     cardFeePercentSnapshot: detail.cardFeePercentSnapshot
       ? Number(detail.cardFeePercentSnapshot)
       : null,

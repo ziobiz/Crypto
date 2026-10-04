@@ -22,6 +22,7 @@ import {
   transitionTradeEscrowStatus,
 } from '../services/trade-escrow.service';
 import { assertTicketAccess } from '../services/ticket-access.service';
+import { assertCustomerTradeAllowed } from '../services/customer-access.service';
 import { addTicketScheduleDelay } from '../services/ticket-schedule-delay.service';
 import { saveAttachment } from '../services/attachment.service';
 import { AppError } from '../lib/errors';
@@ -88,6 +89,7 @@ router.post(
   '/',
   requireRoles(...MERCHANT_TRADE_ROLES),
   asyncHandler(async (req, res) => {
+    await assertCustomerTradeAllowed(req.user!);
     const schema = z.object({
       counterpartyEmail: z.string().email(),
       myRole: z.enum(['BUYER', 'SELLER']),

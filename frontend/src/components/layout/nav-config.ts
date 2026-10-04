@@ -130,6 +130,7 @@ const HQ_POLICY_CHILDREN: NavItem[] = [
   { href: '/dashboard/hq-policy/access', labelKey: 'hq.hub.access', icon: 'hq' },
   { href: '/dashboard/hq-policy/org-columns', labelKey: 'hq.hub.org', icon: 'orgs' },
   { href: '/dashboard/hq-policy/commission', labelKey: 'hq.hub.commission', icon: 'ledger' },
+  { href: '/dashboard/hq-policy/accounts', labelKey: 'hq.hub.accounts', icon: 'hq' },
   { href: '/dashboard/hq-policy/platform', labelKey: 'hq.hub.platform', icon: 'hq' },
   { href: '/dashboard/hq-policy/ops', labelKey: 'hq.hub.ops', icon: 'hq' },
   { href: '/dashboard/hq-policy/deletion', labelKey: 'hq.hub.deletion', icon: 'hq' },

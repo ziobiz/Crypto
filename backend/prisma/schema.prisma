@@ -45,6 +45,13 @@ enum CustomerType {
   CORPORATE  // 기업 (가맹점 형태)
 }
 
+/// 자기가입 개인고객 등 — 관리자 승인 후 거래 가능
+enum CustomerApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 /// 에스크로 거래 등급 (양사 회원 유형 기준 자동 분류)
 enum EscrowTradeTier {
   PREMIUM  // 양사 기업 — 당일 USDT 송금
@@ -58,9 +65,11 @@ enum TicketType {
 }
 
 /// USDT 매입 결제 수단
+/// BANK_TRANSFER=로컬이체, CARD=카드, REMITTANCE=Wise등 송금(USD/EUR 금액 그대로)
 enum UsdtPaymentMethod {
   BANK_TRANSFER
   CARD
+  REMITTANCE
 }
 
 /// ICOPAY 카드 결제 상태
@@ -120,6 +129,7 @@ enum LedgerEntryType {
 enum CurrencyCode {
   KRW
   USD
+  EUR
   JPY
   THB
   CNY
@@ -152,6 +162,8 @@ enum UsdtCollectionMode {
   FOLLOW_HQ
   FIXED
   VIRTUAL
+  /// 직접송금(플랫폼 수취계좌 중 HQ가 지정한 통화 — 기본 USD/EUR, THB 등 확장 가능)
+  DIRECT
 }
 
 /// 고객 USDT 견적 응답 — FOLLOW_HQ면 본사 정책
@@ -175,6 +187,23 @@ enum TradeReceiptUiMode {
   FOLLOW_HQ
   ENABLED
   DISABLED
+}
+
+/// EXPRESS 추가 수수료 — FOLLOW_HQ면 본사(개인/법인) 정책
+enum ExpressFeeMode {
+  FOLLOW_HQ
+  CUSTOM
+  DISABLED
+}
+
+/// 관리자 지정 회원 등급 (개인·법인 동일). EXPRESS 수수료 보너스
+enum MemberGrade {
+  STANDARD
+  PREMIUM
+  VIP
+  VVIP
+  PRESTIGE
+  BLACK
 }
 
 enum TradeReceiptSendStatus {
@@ -211,6 +240,10 @@ model Organization {
   /// 시뮬레이터 수수료 체계 — LIVE=실제, SAND=시뮬레이터 전용
   simulatorRateMode  SimulatorRateMode  @default(LIVE)
 
+  /// 개인가입 추천·가입링크에 쓸 조직 담당자(ORG_STAFF). 미설정 시 링크는 조직코드만
+  referralUserId String?
+  referralUser   User?   @relation("OrgReferralUser", fields: [referralUserId], references: [id], onDelete: SetNull)
+
   users            User[]
   customers        CustomerProfile[] @relation("RecruitingOrg")
   commissionRates  CommissionRate[]
@@ -221,6 +254,7 @@ model Organization {
   @@index([path])
   @@index([deletedAt])
   @@index([purgeAt])
+  @@index([referralUserId])
   @@map("organizations")
 }
 
@@ -237,7 +271,8 @@ enum UserManagementAction {
 
 model User {
   id           String    @id @default(cuid())
-  email        String    @unique
+  /// 기업·개인 각각 동일 이메일 허용 — 유형별 중복은 앱에서 검사
+  email        String
   passwordHash String
   name         String
   phone        String?
@@ -270,6 +305,8 @@ model User {
 
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id])
+  /// 조직 추천·가입링크 담당자로 지정된 경우
+  referralForOrganizations Organization[] @relation("OrgReferralUser")
 
   /// 가맹점 운영자 → 대표 관리자(CUSTOMER) user id
   merchantAdminUserId String?
@@ -277,6 +314,7 @@ model User {
   merchantOperators   User[]  @relation("MerchantOperators")
 
   customerProfile CustomerProfile?
+  referredCustomers CustomerProfile[] @relation("CustomerReferredBy")
   wallets         Wallet[]
   bankAccounts    BankAccount[]
   statusChanges   TicketStatusHistory[] @relation("StatusChangedBy")
@@ -299,6 +337,7 @@ model User {
   merchantOpLogsAsActor MerchantOperationLog[] @relation("MerchantOpActor")
   merchantOpLogsAsAdmin MerchantOperationLog[] @relation("MerchantOpAdmin")
 
+  @@index([email])
   @@index([organizationId])
   @@index([role])
   @@index([deletedAt])
@@ -339,9 +378,16 @@ model CustomerProfile {
   businessAddress String?
   businessCategory String?
 
-  // 유치 영업점 (수수료 정산 체인 시작점)
+  /// 자기가입 승인. 관리자 등록 고객·기존 데이터는 APPROVED
+  approvalStatus CustomerApprovalStatus @default(APPROVED)
+
+  // 유치 조직 (수수료 정산 체인 시작점 — 추천자 소속/유치 조직)
   recruitingOrgId String
   recruitingOrg   Organization @relation("RecruitingOrg", fields: [recruitingOrgId], references: [id])
+
+  /// 자기가입 시 확인한 추천자(사용자). 관리자 수동 등록은 null 가능
+  referredByUserId String?
+  referredByUser   User?   @relation("CustomerReferredBy", fields: [referredByUserId], references: [id], onDelete: SetNull)
 
   /// 고객별 수수료 배분 (총본사 기본값을 복사 후 고객마다 수정)
   feeShare Json?
@@ -360,6 +406,12 @@ model CustomerProfile {
   usdtLimitMinUsdt Float?
   /// ML일 때 1회 최대 USDT
   usdtLimitMaxUsdt Float?
+  /// 개인 한도 산정 국가 (ISO2: JP/KR/TH/US/CN). 가입 선택·전화·IP로 설정
+  limitCountry String?
+  /// 가입 시 클라이언트 IP
+  signupIp String?
+  /// 가입 시 IP 국가 헤더 (CF-IPCountry 등)
+  signupCountry String?
   /// 예상완료 등급(계좌이체): REGULAR|PLUS|PRIME|ELITE|SIGNATURE|CUSTOM
   expectedCompleteTier String @default("REGULAR")
   /// 계좌이체 CUSTOM일 때 T+N 일수 (1~10)
@@ -383,10 +435,31 @@ model CustomerProfile {
   /// MANUAL일 때 SLA(시간). null이면 본사 manualSlaHours 사용
   usdtQuoteManualSlaHours Int?
 
+  /// EXPRESS 추가 수수료 — FOLLOW_HQ / CUSTOM / DISABLED
+  expressFeeMode ExpressFeeMode @default(FOLLOW_HQ)
+  /// CUSTOM일 때 { enabled, tiers: { ULTRA: { feeUsdt }, ... } }
+  expressFeeConfig Json?
+
+  /// 관리자 지정 회원 등급 (개인·법인 공통). EXPRESS 보너스 적용
+  memberGrade MemberGrade @default(STANDARD)
+
   /// 본사 허용 시에만 관리자 1 + 운영자 2 멀티계정 활성화
   operatorsEnabled Boolean @default(false)
   /// 가맹점 「내 지갑」 수수료 숫자 노출. false(비활성)면 「본사설정에따름」만 표시
   walletFeesVisible Boolean @default(false)
+
+  /// 빠른송금 사용 여부 (개인 가입·프로필)
+  wiseEnabled Boolean @default(false)
+  /// 빠른송금 서비스 코드 (WISE / REMITLY / … / OTHER)
+  remittanceProvider String?
+  /// Other 선택 시 송금방식 이름
+  remittanceProviderOther String?
+  /// 빠른송금 송금자 성명
+  wiseSenderName String?
+  /// 빠른송금 송금자 이메일
+  wiseSenderEmail String?
+  /// 빠른송금 송금자 국가/지역 (선택)
+  wiseSenderCountry String?
 
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -399,6 +472,7 @@ model CustomerProfile {
   updatedAt DateTime @updatedAt
 
   @@index([recruitingOrgId])
+  @@index([referredByUserId])
   @@index([businessNumber])
   @@map("customer_profiles")
 }
@@ -676,6 +750,20 @@ model UsdtPurchaseDetail {
   otherFeeSnapshot      Decimal @default(0) @db.Decimal(18, 8)
   platformFeeSnapshot   Decimal @default(0) @db.Decimal(18, 8)
   feePolicySnapshot     Json?
+
+  /// EXPRESS 등급·수수료 스냅샷 (신청 시점)
+  expressTier              String?
+  expressFeeUsdtSnapshot   Decimal? @db.Decimal(18, 8)
+  expressDueAt             DateTime?
+  expressPolicySnapshot    Json?
+  /// 신청 시점 회원 등급 + 혜택 스냅샷
+  memberGradeSnapshot      String?
+  memberGradeBenefitSnapshot Json?
+  /// 완료 시 SLA 재계산
+  expressActualTier        String?
+  expressFeeSettledUsdt    Decimal? @db.Decimal(18, 8)
+  expressSlaMet            Boolean?
+  expressElapsedHours      Decimal? @db.Decimal(12, 4)
 
   /// 카드 결제 — 수수료·청구 스냅샷
   cardFeePercentSnapshot Decimal? @db.Decimal(5, 4)
@@ -1059,7 +1147,7 @@ model OtpLoginChallenge {
 model EmailVerificationChallenge {
   id         String    @id @default(cuid())
   email      String
-  purpose    String    // REGISTER | OTP_ENROLL
+  purpose    String    // REGISTER | OTP_ENROLL | PASSWORD_RESET | OTP_RESET
   codeHash   String
   expiresAt  DateTime
   consumedAt DateTime?

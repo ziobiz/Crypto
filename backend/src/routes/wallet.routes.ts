@@ -9,6 +9,7 @@ import { requireSensitiveOtp } from '../middleware/sensitiveOtp';
 import { isMerchantAdmin, merchantScopeUserId } from '../lib/merchant-role';
 import { recordMerchantOperation } from '../services/merchant-operation-log.service';
 import { getGasNetworkPolicy, getHqTransactionFees, resolveTransactionFees, withNetworkGasFee } from '../services/transaction-fee.service';
+import { assertCustomerTradeAllowed } from '../services/customer-access.service';
 
 const router = Router();
 
@@ -131,6 +132,7 @@ router.post(
     if (!isMerchantAdmin(req.user!)) {
       throw new AppError(403, 'Merchant admin only', 'FORBIDDEN');
     }
+    await assertCustomerTradeAllowed(req.user!);
     const data = createWalletSchema.parse(req.body);
     const ownerId = merchantScopeUserId(req.user!);
 

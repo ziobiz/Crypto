@@ -4,7 +4,13 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthProvider';
 import { useT } from '@/context/LocaleProvider';
-import { api, ApiError, type SimulatorRunRow, type UsdtFeePreview } from '@/lib/api';
+import {
+  api,
+  ApiError,
+  type SimulatorRunRow,
+  type UsdtDepositContext,
+  type UsdtFeePreview,
+} from '@/lib/api';
 import { WALLET_NETWORKS, type WalletNetwork } from '@/constants/wallet-networks';
 import type { MessageKey } from '@/i18n/messages';
 import { UsdtRatePanel } from '@/components/UsdtRatePanel';
@@ -13,7 +19,7 @@ import { FormattedAmountInput } from '@/components/FormattedAmountInput';
 import { ContentCard } from '@/components/layout/ContentCard';
 import { formatDate, formatFiatAmount, setCurrencyAmountDisplayPolicy } from '@/lib/format';
 
-const FIAT_CURRENCIES = ['KRW', 'JPY', 'THB', 'CNY'] as const;
+const FIAT_CURRENCIES = ['KRW', 'JPY', 'THB', 'CNY', 'USD', 'EUR'] as const;
 type FiatCurrency = (typeof FIAT_CURRENCIES)[number];
 type InputMode = 'fiat' | 'target';
 type SimulatorFeeMode = 'LIVE' | 'SAND';
@@ -149,7 +155,11 @@ export default function UsdtSimulatorPage() {
   const [running, setRunning] = useState(false);
   const [invoiceMsg, setInvoiceMsg] = useState('');
   const [invoiceErr, setInvoiceErr] = useState('');
+  const [simRiskLimit, setSimRiskLimit] = useState<
+    NonNullable<UsdtDepositContext['simulatorUsdtRiskLimit']> | null
+  >(null);
   const lastSaved = useRef('');
+  const isCustomer = user?.role === 'CUSTOMER' || user?.role === 'CUSTOMER_OPERATOR';
 
   useEffect(() => {
     if (user && user.pageAccess?.['/dashboard/simulator'] === 'NONE') {
@@ -160,6 +170,12 @@ export default function UsdtSimulatorPage() {
   useEffect(() => {
     if (!user) return;
     if (user.role === 'CUSTOMER' || user.role === 'CUSTOMER_OPERATOR') {
+      api.usdt
+        .depositContext()
+        .then((ctx) => {
+          if (ctx.simulatorUsdtRiskLimit) setSimRiskLimit(ctx.simulatorUsdtRiskLimit);
+        })
+        .catch(() => undefined);
       api.simulator
         .mine(HISTORY_LIMIT)
         .then((rows) => {
@@ -226,6 +242,7 @@ export default function UsdtSimulatorPage() {
         feeDiagramDisplay: p.feeDiagramDisplay,
         amountRangePct: p.amountRangePct ?? null,
       });
+      if (p.riskLimit) setSimRiskLimit(p.riskLimit);
       setError('');
 
       try {
@@ -346,6 +363,20 @@ export default function UsdtSimulatorPage() {
       <ContentCard title={t('simulator.title')}>
         <p className="pg-hint mb-3">{t('simulator.hint')}</p>
         <div className="pg-callout pg-callout-muted mb-3 text-xs">{t('simulator.disclaimer')}</div>
+        {isCustomer && simRiskLimit && (
+          <div className="pg-callout pg-callout-muted mb-3 text-xs">
+            {simRiskLimit.maxUsdt > 0
+              ? t('simulator.riskLimitHint', {
+                  code: simRiskLimit.code,
+                  min: simRiskLimit.minUsdt.toLocaleString(),
+                  max: simRiskLimit.maxUsdt.toLocaleString(),
+                })
+              : t('simulator.riskLimitHintOpen', {
+                  code: simRiskLimit.code,
+                  min: simRiskLimit.minUsdt.toLocaleString(),
+                })}
+          </div>
+        )}
         {hq && (
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <button

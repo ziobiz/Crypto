@@ -48,6 +48,11 @@ export type ResolvedTransactionFees = TransactionFees & {
   operatingFeePercent?: number;
   /** 운영수수료 고정 USDT */
   operatingFeeFixedUsdt?: number;
+  /** EXPRESS 추가 수수료 — 고정 USDT 성분 */
+  expressFeeUsdt?: number;
+  /** EXPRESS 추가 수수료 — gross 대비 % */
+  expressFeePercent?: number;
+  expressTier?: string;
 };
 
 export type UsdtFeeBreakdownDetail = {
@@ -63,6 +68,9 @@ export type UsdtFeeBreakdownDetail = {
   kimchiPremiumFeeUsdt: number;
   kimchiPremiumPercent: number;
   operatingFeeUsdt: number;
+  expressFeeUsdt: number;
+  expressFeePercent?: number;
+  expressTier?: string;
   netUsdt: number;
   requiredFiat: number;
   fairExchangeRate?: number;
@@ -169,13 +177,19 @@ export function breakdownFromFiat(
     fees.operatingFeePercent ?? 0,
     fees.operatingFeeFixedUsdt ?? 0,
   );
+  const expressFixed = Math.max(0, Number(fees.expressFeeUsdt ?? 0) || 0);
+  const expressPct = Math.max(0, Number(fees.expressFeePercent ?? 0) || 0);
+  const expressFeeUsdt = Number(
+    (expressFixed + (grossUsdt * expressPct) / 100).toFixed(8),
+  );
   const rawNet =
     grossUsdt -
     amounts.fxFeeUsdt -
     amounts.gasFeeUsdt -
     amounts.transferFeeUsdt -
     otherTotal -
-    operatingFeeUsdt;
+    operatingFeeUsdt -
+    expressFeeUsdt;
   const netUsdt = Math.max(0, Number(rawNet.toFixed(8)));
   return {
     targetUsdt: netUsdt,
@@ -190,6 +204,9 @@ export function breakdownFromFiat(
     kimchiPremiumFeeUsdt: premiumFee,
     kimchiPremiumPercent: premiumPct,
     operatingFeeUsdt,
+    expressFeeUsdt,
+    expressFeePercent: expressPct,
+    expressTier: fees.expressTier,
     netUsdt,
     requiredFiat: Number(fiatAmount),
     fairExchangeRate: fees.fairExchangeRate,
@@ -233,8 +250,10 @@ export function breakdownFromTarget(
   const premiumPct = finiteNum(fees.localPremiumPercent ?? fees.kimchiPremiumPercent ?? 0);
   const opPct = finiteNum(fees.operatingFeePercent);
   const opFixed = finiteNum(fees.operatingFeeFixedUsdt);
-  const pctSum = finiteNum(percentMultiplierSum(fees, premiumPct) + opPct);
-  const fixed = finiteNum(fixedFeeSum(fees) + opFixed);
+  const expressFixed = finiteNum(fees.expressFeeUsdt);
+  const expressPct = finiteNum(fees.expressFeePercent);
+  const pctSum = finiteNum(percentMultiplierSum(fees, premiumPct) + opPct + expressPct);
+  const fixed = finiteNum(fixedFeeSum(fees) + opFixed + expressFixed);
   const denom = 1 - pctSum / 100;
   if (!(denom > 0.0001) || !(rate > 0) || want <= 0) {
     return breakdownFromFiat(0, rate, {
@@ -309,10 +328,15 @@ export async function resolveFeesForPurchase(
     feePolicy?: import('./transaction-fee.service').FeePolicyScope;
     feeShare?: unknown;
     customerProfileId?: string | null;
+    customerType?: import('../constants/hq-policy').CustomerTypeLimitKey;
     asOf?: Date;
   },
 ): Promise<ResolvedTransactionFees> {
-  const base = await resolveFeesForAmount(wallet, currency, fiatAmount, options);
+  const base = await resolveFeesForAmount(wallet, currency, fiatAmount, {
+    feePolicy: options?.feePolicy,
+    customerProfileId: options?.customerProfileId,
+    customerType: options?.customerType,
+  });
   const op = await loadOperatingFeeRates({
     feeShareRaw: options?.feeShare,
     customerProfileId: options?.customerProfileId,

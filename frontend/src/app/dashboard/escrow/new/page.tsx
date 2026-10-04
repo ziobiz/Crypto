@@ -10,7 +10,7 @@ import { ContentCard } from '@/components/layout/ContentCard';
 import { ReferenceClocks } from '@/components/ReferenceClocks';
 import { formatCurrency } from '@/lib/format';
 
-const ESCROW_CURRENCIES = ['KRW', 'USD', 'JPY', 'THB', 'CNY', 'USDT'] as const;
+const ESCROW_CURRENCIES = ['KRW', 'USD', 'EUR', 'JPY', 'THB', 'CNY', 'USDT'] as const;
 
 export default function EscrowNewPage() {
   const router = useRouter();
@@ -19,6 +19,8 @@ export default function EscrowNewPage() {
   const t = useT();
   const { user } = useAuth();
   const kycOk = isKycApproved(user);
+  const tradeAllowed = user?.tradeAccess !== 'VIEW_ONLY';
+  const canApply = kycOk && tradeAllowed;
   const [form, setForm] = useState({
     myRole: 'BUYER' as 'BUYER' | 'SELLER',
     counterpartyEmail: '',
@@ -66,7 +68,7 @@ export default function EscrowNewPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!disclaimerAccepted || amount <= 0) return;
+    if (!disclaimerAccepted || amount <= 0 || !canApply) return;
     setLoading(true);
     setError('');
     try {
@@ -95,7 +97,10 @@ export default function EscrowNewPage() {
     <div className="pg-stack">
       <ReferenceClocks compact />
       <p className="pg-hint">{t('escrow.flowHint')}</p>
-      {!kycOk && (
+      {!tradeAllowed && (
+        <div className="pg-callout pg-callout-warn text-sm">{t('tradeAccess.requiredToTrade')}</div>
+      )}
+      {tradeAllowed && !kycOk && (
         <div className="pg-callout pg-callout-warn text-sm">
           {t('kyc.requiredToTrade')} <a href="/dashboard/kyc" className="pg-link">{t('nav.kyc')}</a>
         </div>
@@ -186,7 +191,7 @@ export default function EscrowNewPage() {
               {error && <p className="sm:col-span-2 text-sm text-red-600">{error}</p>}
 
               <div className="sm:col-span-2">
-                <button type="submit" disabled={loading || !disclaimerAccepted || amount <= 0 || !kycOk} className="pg-btn pg-btn-primary disabled:opacity-50">
+                <button type="submit" disabled={loading || !disclaimerAccepted || amount <= 0 || !canApply} className="pg-btn pg-btn-primary disabled:opacity-50">
                   {loading ? t('escrow.creating') : t('escrow.createSubmit')}
                 </button>
               </div>

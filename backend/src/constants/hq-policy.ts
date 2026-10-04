@@ -46,6 +46,7 @@ export const HQ_PAGE_CATALOG = [
   { path: '/dashboard/hq-policy/access', label: '접근·권한', group: 'hqPolicy' },
   { path: '/dashboard/hq-policy/org-columns', label: '조직·화면', group: 'hqPolicy' },
   { path: '/dashboard/hq-policy/commission', label: '수수료·리스크', group: 'hqPolicy' },
+  { path: '/dashboard/hq-policy/accounts', label: '계좌관리', group: 'hqPolicy' },
   { path: '/dashboard/hq-policy/platform', label: '플랫폼', group: 'hqPolicy' },
   { path: '/dashboard/hq-policy/ops', label: '운영관리', group: 'hqPolicy' },
   { path: '/dashboard/hq-policy/ops/workflow', label: '진행상태·처리시한', group: 'hqPolicy' },
@@ -115,6 +116,10 @@ export const HQ_CONFIG_KEYS = {
   workflowDisplay: 'hq.workflow.display',
   /** 고정계좌 USDT 견적 응답(자동/수동·대기시간) */
   usdtQuoteResponse: 'hq.usdt.quote_response',
+  /** EXPRESS 추가 수수료 (개인/법인) */
+  expressFee: 'hq.commission.express_fee',
+  /** 회원 등급(개인·법인 공통) EXPRESS 보너스 */
+  memberGrade: 'hq.commission.member_grade',
 } as const;
 
 /** 자동 확정 지연(분). 0 = 즉시 */
@@ -654,6 +659,8 @@ export type FeeDiagramDisplayConfig = {
   localPremium: boolean;
   /** 운영수수료(합계%+건당) — 표시만 제어, 정산은 항상 적용 */
   operatingFee: boolean;
+  /** EXPRESS 추가 수수료 */
+  expressFee: boolean;
   net: boolean;
   requiredFiat: boolean;
   /** 도식 중앙 수수료율 열 */
@@ -674,12 +681,394 @@ export const DEFAULT_FEE_DIAGRAM_DISPLAY: FeeDiagramDisplayConfig = {
   otherFee: true,
   localPremium: true,
   operatingFee: true,
+  expressFee: true,
   net: true,
   requiredFiat: true,
   showRates: true,
   showTotalFee: true,
   defaultFeeBillingMethod: 'ITEMIZED',
 };
+
+/** EXPRESS 빠른 완료 추가 수수료 등급 */
+export const EXPRESS_TIERS = [
+  'ULTRA',
+  'PRIORITY',
+  'HALF',
+  'DAY',
+  'T1',
+  'T2',
+  'BASIC',
+] as const;
+export type ExpressTier = (typeof EXPRESS_TIERS)[number];
+
+export type ExpressFeeMode = 'FOLLOW_HQ' | 'CUSTOM' | 'DISABLED';
+
+/**
+ * 등급별 SLA 상한(시간).
+ * ULTRA~DAY: 벽시계 시간. T1/T2/BASIC: T+N일 ≈ N×24h (DAY 24h와 구분되도록 T1부터 48h).
+ */
+export const EXPRESS_TIER_MAX_HOURS: Record<ExpressTier, number> = {
+  ULTRA: 1,
+  PRIORITY: 6,
+  HALF: 12,
+  DAY: 24,
+  T1: 48,
+  T2: 72,
+  BASIC: 96,
+};
+
+export type ExpressTierFeeConfig = {
+  /** null = 미설정. BASIC은 활성 시 0으로 취급(퍼센트도 없으면) */
+  feeUsdt: number | null;
+  /** null = 미사용. gross USDT 대비 % */
+  feePercent: number | null;
+  /** 등급별 사용 여부. false면 EXPRESS 전체 활성이어도 신청에 미노출. 수수료 값은 유지 */
+  enabled: boolean;
+};
+
+export type HqExpressCustomerTypePolicy = {
+  enabled: boolean;
+  tiers: Record<ExpressTier, ExpressTierFeeConfig>;
+};
+
+export type HqExpressPolicy = Record<CustomerTypeLimitKey, HqExpressCustomerTypePolicy>;
+
+export type ExpressTierOption = {
+  tier: ExpressTier;
+  feeUsdt: number;
+  feePercent: number;
+  maxHours: number;
+};
+
+export type ResolvedExpressSelection = {
+  enabled: boolean;
+  tier: ExpressTier;
+  feeUsdt: number;
+  feePercent: number;
+  maxHours: number;
+  source: 'HQ' | 'CUSTOM' | 'DISABLED';
+  customerType: CustomerTypeLimitKey;
+  options: ExpressTierOption[];
+  policySnapshot: HqExpressCustomerTypePolicy;
+};
+
+function hasExpressTierFeeValues(cfg: ExpressTierFeeConfig | undefined, tier: ExpressTier): boolean {
+  if (tier === 'BASIC') return true;
+  const fixed = cfg?.feeUsdt;
+  const pct = cfg?.feePercent;
+  const hasFixed = fixed != null && Number.isFinite(fixed) && fixed >= 0;
+  const hasPct = pct != null && Number.isFinite(pct) && pct >= 0;
+  return hasFixed || hasPct;
+}
+
+/** 티어별 사용(관리). 구데이터는 수수료 유무로 추론 */
+export function isExpressTierEnabled(
+  cfg: ExpressTierFeeConfig | undefined,
+  tier: ExpressTier,
+): boolean {
+  if (cfg && typeof cfg.enabled === 'boolean') return cfg.enabled;
+  return hasExpressTierFeeValues(cfg, tier);
+}
+
+/** @deprecated isExpressTierEnabled 사용 — 신청 노출 = 티어 사용(관리) */
+export function isExpressTierConfigured(
+  cfg: ExpressTierFeeConfig | undefined,
+  tier: ExpressTier,
+): boolean {
+  return isExpressTierEnabled(cfg, tier);
+}
+
+export function expressMaxHours(tier: ExpressTier): number {
+  return EXPRESS_TIER_MAX_HOURS[tier];
+}
+
+export function expressDeadlineAt(startedAt: Date, tier: ExpressTier): Date {
+  return new Date(startedAt.getTime() + expressMaxHours(tier) * 3_600_000);
+}
+
+export function defaultExpressCustomerTypePolicy(): HqExpressCustomerTypePolicy {
+  const tiers = {} as Record<ExpressTier, ExpressTierFeeConfig>;
+  for (const tier of EXPRESS_TIERS) {
+    tiers[tier] = {
+      feeUsdt: tier === 'BASIC' ? 0 : null,
+      feePercent: null,
+      enabled: tier === 'BASIC',
+    };
+  }
+  return { enabled: false, tiers };
+}
+
+export function defaultExpressPolicy(): HqExpressPolicy {
+  return {
+    INDIVIDUAL: defaultExpressCustomerTypePolicy(),
+    CORPORATE: defaultExpressCustomerTypePolicy(),
+  };
+}
+
+export function normalizeExpressTier(raw?: string | null): ExpressTier | null {
+  const v = String(raw ?? '').toUpperCase();
+  if ((EXPRESS_TIERS as readonly string[]).includes(v)) return v as ExpressTier;
+  if (v === 'PIRORITY') return 'PRIORITY';
+  return null;
+}
+
+export function normalizeExpressFeeMode(raw?: string | null): ExpressFeeMode {
+  const v = String(raw ?? 'FOLLOW_HQ').toUpperCase();
+  if (v === 'CUSTOM' || v === 'DISABLED' || v === 'FOLLOW_HQ') return v;
+  return 'FOLLOW_HQ';
+}
+
+function normalizeNonNegOrNull(raw: unknown, emptyAs: number | null): number | null {
+  if (raw == null || (typeof raw === 'string' && raw.trim() === '')) return emptyAs;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return emptyAs;
+  return Number(n.toFixed(8));
+}
+
+export function normalizeExpressCustomerTypePolicy(raw: unknown): HqExpressCustomerTypePolicy {
+  const base = defaultExpressCustomerTypePolicy();
+  if (!raw || typeof raw !== 'object') return base;
+  const obj = raw as Partial<HqExpressCustomerTypePolicy> & {
+    tiers?: Partial<
+      Record<ExpressTier, { feeUsdt?: unknown; feePercent?: unknown; enabled?: unknown }>
+    >;
+  };
+  const tiers = { ...base.tiers };
+  for (const tier of EXPRESS_TIERS) {
+    const row = obj.tiers?.[tier];
+    const feeUsdt = normalizeNonNegOrNull(row?.feeUsdt, tier === 'BASIC' ? 0 : null);
+    const feePercent = normalizeNonNegOrNull(row?.feePercent, null);
+    const partial: ExpressTierFeeConfig = { feeUsdt, feePercent, enabled: false };
+    const enabled =
+      typeof row?.enabled === 'boolean'
+        ? row.enabled
+        : hasExpressTierFeeValues(partial, tier);
+    tiers[tier] = { feeUsdt, feePercent, enabled };
+  }
+  return {
+    enabled: Boolean(obj.enabled),
+    tiers,
+  };
+}
+
+export function normalizeExpressPolicy(raw: unknown): HqExpressPolicy {
+  const defaults = defaultExpressPolicy();
+  if (!raw || typeof raw !== 'object') return defaults;
+  const obj = raw as Partial<Record<CustomerTypeLimitKey, unknown>>;
+  return {
+    INDIVIDUAL: normalizeExpressCustomerTypePolicy(obj.INDIVIDUAL),
+    CORPORATE: normalizeExpressCustomerTypePolicy(obj.CORPORATE),
+  };
+}
+
+/** 관리자 지정 회원 등급 — EXPRESS 추가 수수료는 법인·개인 각각 설정 */
+export const MEMBER_GRADES = [
+  'STANDARD',
+  'PREMIUM',
+  'VIP',
+  'VVIP',
+  'PRESTIGE',
+  'BLACK',
+] as const;
+export type MemberGrade = (typeof MEMBER_GRADES)[number];
+
+/**
+ * 등급별 EXPRESS 추가 수수료(혜택).
+ * - tierFees / tierFeePercents[tier]=null → 해당 고객유형 본사 EXPRESS 기본 따름
+ * - number → 해당 등급 전용 고정/% (0 허용, 티어 개방 가능)
+ * - discountPercent / discountUsdt → 최종 EXPRESS 수수료에서 차감
+ */
+export type MemberGradeExpressBenefit = {
+  tierFees: Record<ExpressTier, number | null>;
+  tierFeePercents: Record<ExpressTier, number | null>;
+  discountPercent: number;
+  discountUsdt: number;
+};
+
+export type HqMemberGradeCustomerTypePolicy = {
+  grades: Record<MemberGrade, MemberGradeExpressBenefit>;
+};
+
+/** 법인·개인 각각 회원등급 EXPRESS 추가 수수료 */
+export type HqMemberGradePolicy = {
+  INDIVIDUAL: HqMemberGradeCustomerTypePolicy;
+  CORPORATE: HqMemberGradeCustomerTypePolicy;
+};
+
+export function defaultMemberGradeBenefit(): MemberGradeExpressBenefit {
+  const tierFees = {} as Record<ExpressTier, number | null>;
+  const tierFeePercents = {} as Record<ExpressTier, number | null>;
+  for (const tier of EXPRESS_TIERS) {
+    tierFees[tier] = null;
+    tierFeePercents[tier] = null;
+  }
+  return { tierFees, tierFeePercents, discountPercent: 0, discountUsdt: 0 };
+}
+
+/** 1차 보수안: % 할인 위주, Black만 ULTRA 0 + 소액 USDT */
+export function conservativeMemberGradeBenefit(
+  discountPercent: number,
+  discountUsdt = 0,
+  ultraFeeUsdt: number | null = null,
+): MemberGradeExpressBenefit {
+  const base = defaultMemberGradeBenefit();
+  return {
+    ...base,
+    tierFees: { ...base.tierFees, ULTRA: ultraFeeUsdt },
+    discountPercent: Math.min(100, Math.max(0, discountPercent)),
+    discountUsdt: Math.max(0, discountUsdt),
+  };
+}
+
+export function defaultMemberGradeCustomerTypePolicy(): HqMemberGradeCustomerTypePolicy {
+  return {
+    grades: {
+      STANDARD: conservativeMemberGradeBenefit(0, 0),
+      PREMIUM: conservativeMemberGradeBenefit(3, 0),
+      VIP: conservativeMemberGradeBenefit(5, 0),
+      VVIP: conservativeMemberGradeBenefit(8, 0),
+      PRESTIGE: conservativeMemberGradeBenefit(12, 0),
+      BLACK: conservativeMemberGradeBenefit(15, 1, 0),
+    },
+  };
+}
+
+export function defaultMemberGradePolicy(): HqMemberGradePolicy {
+  // 법인·개인 동일 보수안(1차). 운영에서 유형별 따로 조정 가능.
+  return {
+    INDIVIDUAL: defaultMemberGradeCustomerTypePolicy(),
+    CORPORATE: defaultMemberGradeCustomerTypePolicy(),
+  };
+}
+
+export function normalizeMemberGrade(raw?: string | null): MemberGrade {
+  const v = String(raw ?? 'STANDARD').toUpperCase();
+  if ((MEMBER_GRADES as readonly string[]).includes(v)) return v as MemberGrade;
+  return 'STANDARD';
+}
+
+export function normalizeMemberGradeBenefit(raw: unknown): MemberGradeExpressBenefit {
+  const base = defaultMemberGradeBenefit();
+  if (!raw || typeof raw !== 'object') return base;
+  const obj = raw as Partial<MemberGradeExpressBenefit> & {
+    tierFees?: Partial<Record<ExpressTier, unknown>>;
+    tierFeePercents?: Partial<Record<ExpressTier, unknown>>;
+  };
+  const tierFees = { ...base.tierFees };
+  const tierFeePercents = { ...base.tierFeePercents };
+  for (const tier of EXPRESS_TIERS) {
+    tierFees[tier] = normalizeNonNegOrNull(obj.tierFees?.[tier], null);
+    tierFeePercents[tier] = normalizeNonNegOrNull(obj.tierFeePercents?.[tier], null);
+  }
+  const discountPercent = Math.min(100, Math.max(0, Number(obj.discountPercent) || 0));
+  const discountUsdt = Math.max(0, Number(obj.discountUsdt) || 0);
+  return { tierFees, tierFeePercents, discountPercent, discountUsdt };
+}
+
+export function normalizeMemberGradeCustomerTypePolicy(
+  raw: unknown,
+): HqMemberGradeCustomerTypePolicy {
+  const defaults = defaultMemberGradeCustomerTypePolicy();
+  if (!raw || typeof raw !== 'object') return defaults;
+  const obj = raw as { grades?: Partial<Record<MemberGrade, unknown>> };
+  const grades = { ...defaults.grades };
+  for (const g of MEMBER_GRADES) {
+    if (obj.grades?.[g] != null) {
+      grades[g] = normalizeMemberGradeBenefit(obj.grades[g]);
+    }
+  }
+  return { grades };
+}
+
+export function normalizeMemberGradePolicy(raw: unknown): HqMemberGradePolicy {
+  const defaults = defaultMemberGradePolicy();
+  if (!raw || typeof raw !== 'object') return defaults;
+  const obj = raw as {
+    grades?: Partial<Record<MemberGrade, unknown>>;
+    INDIVIDUAL?: unknown;
+    CORPORATE?: unknown;
+  };
+  // 구형식 { grades } → 법인·개인 동일 값으로 이전
+  if (obj.grades != null && obj.INDIVIDUAL == null && obj.CORPORATE == null) {
+    const migrated = normalizeMemberGradeCustomerTypePolicy({ grades: obj.grades });
+    return {
+      INDIVIDUAL: normalizeMemberGradeCustomerTypePolicy(migrated),
+      CORPORATE: normalizeMemberGradeCustomerTypePolicy(migrated),
+    };
+  }
+  return {
+    INDIVIDUAL: normalizeMemberGradeCustomerTypePolicy(obj.INDIVIDUAL ?? defaults.INDIVIDUAL),
+    CORPORATE: normalizeMemberGradeCustomerTypePolicy(obj.CORPORATE ?? defaults.CORPORATE),
+  };
+}
+
+export type ResolvedExpressRates = {
+  feeUsdt: number;
+  feePercent: number;
+};
+
+/**
+ * 기본 EXPRESS 고정/% + 회원등급 지정가.
+ * - 등급 지정 고정/% 가 있으면 그 값, 없으면 본사 EXPRESS
+ * - 둘 다 없으면 BASIC만 0/0, 그 외 null(미제공)
+ * - 등급 할인(%·USDT)은 최종 금액에 적용(computeExpressFeeUsdt)
+ */
+export function resolveExpressRatesWithMemberGrade(
+  baseFeeUsdt: number | null,
+  baseFeePercent: number | null,
+  benefit: MemberGradeExpressBenefit,
+  tier: ExpressTier,
+): ResolvedExpressRates | null {
+  const overrideFixed = benefit.tierFees[tier];
+  const overridePct = benefit.tierFeePercents[tier];
+  let feeUsdt: number | null =
+    overrideFixed != null && Number.isFinite(overrideFixed) && overrideFixed >= 0
+      ? Number(overrideFixed)
+      : baseFeeUsdt != null && Number.isFinite(baseFeeUsdt) && baseFeeUsdt >= 0
+        ? Number(baseFeeUsdt)
+        : null;
+  let feePercent: number | null =
+    overridePct != null && Number.isFinite(overridePct) && overridePct >= 0
+      ? Number(overridePct)
+      : baseFeePercent != null && Number.isFinite(baseFeePercent) && baseFeePercent >= 0
+        ? Number(baseFeePercent)
+        : null;
+  if (feeUsdt == null && feePercent == null) {
+    if (tier !== 'BASIC') return null;
+    feeUsdt = 0;
+    feePercent = 0;
+  }
+  return {
+    feeUsdt: feeUsdt ?? 0,
+    feePercent: feePercent ?? 0,
+  };
+}
+
+/** 고정 + gross×% 후 등급 할인 적용 */
+export function computeExpressFeeUsdt(
+  rates: ResolvedExpressRates,
+  grossUsdt: number,
+  benefit?: MemberGradeExpressBenefit | null,
+): number {
+  const gross = Math.max(0, Number(grossUsdt) || 0);
+  const raw = Math.max(0, rates.feeUsdt) + gross * (Math.max(0, rates.feePercent) / 100);
+  const discPct = Math.min(100, Math.max(0, benefit?.discountPercent || 0));
+  const discUsdt = Math.max(0, benefit?.discountUsdt || 0);
+  return Math.max(0, Number((raw * (1 - discPct / 100) - discUsdt).toFixed(8)));
+}
+
+/** @deprecated resolveExpressRatesWithMemberGrade + computeExpressFeeUsdt 사용 */
+export function resolveExpressFeeWithMemberGrade(
+  baseFeeUsdt: number | null,
+  benefit: MemberGradeExpressBenefit,
+  tier: ExpressTier,
+  baseFeePercent: number | null = null,
+  grossUsdt = 0,
+): number | null {
+  const rates = resolveExpressRatesWithMemberGrade(baseFeeUsdt, baseFeePercent, benefit, tier);
+  if (!rates) return null;
+  return computeExpressFeeUsdt(rates, grossUsdt, benefit);
+}
 
 export type TotalFeeVisibility = 'FOLLOW_HQ' | 'SHOW' | 'HIDE';
 
@@ -706,7 +1095,7 @@ export const IDLE_TIMEOUT_MINUTES_OPTIONS = [10, 30, 60, 90, 120] as const;
 export type IdleTimeoutMinutes = (typeof IDLE_TIMEOUT_MINUTES_OPTIONS)[number];
 
 /** 시볼(티켓) 수수료 — 통화·금액 구간별 (PG 수수료정책 표) */
-export const SYMBOL_FEE_CURRENCIES = ['KRW', 'JPY', 'THB', 'CNY', 'USD'] as const;
+export const SYMBOL_FEE_CURRENCIES = ['KRW', 'JPY', 'THB', 'CNY', 'USD', 'EUR'] as const;
 export type SymbolFeeCurrency = (typeof SYMBOL_FEE_CURRENCIES)[number];
 
 export type SymbolFeeTierRow = {
@@ -730,6 +1119,9 @@ export type SymbolFeeTierRow = {
 
 export type SymbolFeeTierPolicy = SymbolFeeTierRow[];
 
+/** 시볼 수수료 구간 — 개인/법인 분리 (기존 단일 배열은 법인으로 마이그레이션) */
+export type SymbolFeeTiersByCustomerType = Record<CustomerTypeLimitKey, SymbolFeeTierPolicy>;
+
 /** USDT 매입·표시용 통화별 기준가 소스 (PG 수수료정책 — 기준가) */
 export const EXCHANGE_RATE_SOURCES = [
   'coingecko',
@@ -746,13 +1138,55 @@ export type ExchangeRateSourceId = (typeof EXCHANGE_RATE_SOURCES)[number];
 
 export type HqExchangeRateSourcePolicy = Record<SymbolFeeCurrency, ExchangeRateSourceId>;
 
-export const USDT_FIAT_CURRENCIES = ['KRW', 'JPY', 'THB', 'CNY'] as const;
+/** USDT 매입·직접송금 수취 통화 (USD/EUR = 개인고객 직접송금 수신 계좌) */
+export const USDT_FIAT_CURRENCIES = ['KRW', 'JPY', 'THB', 'CNY', 'USD', 'EUR'] as const;
 export type UsdtFiatCurrency = (typeof USDT_FIAT_CURRENCIES)[number];
+
+/** 직접송금 기본 통화 (HQ에서 확장 가능 — THB 등) */
+export const DEFAULT_DIRECT_REMIT_CURRENCIES = ['USD', 'EUR'] as const;
+
+export function normalizeDirectRemitCurrencies(
+  raw?: string[] | null,
+): UsdtFiatCurrency[] {
+  const allowed = new Set<string>(USDT_FIAT_CURRENCIES);
+  const list = Array.isArray(raw)
+    ? raw.map((c) => String(c).toUpperCase()).filter((c) => allowed.has(c))
+    : [];
+  const uniq = [...new Set(list)] as UsdtFiatCurrency[];
+  return uniq.length ? uniq : [...DEFAULT_DIRECT_REMIT_CURRENCIES];
+}
+
+export function isDirectRemitCurrency(
+  currency: string,
+  allowed: readonly string[] = DEFAULT_DIRECT_REMIT_CURRENCIES,
+): boolean {
+  return allowed.includes(String(currency).toUpperCase());
+}
+
+/** HQ·고객 UI 표시명 */
+export const USDT_FIAT_CURRENCY_LABELS: Record<UsdtFiatCurrency, string> = {
+  KRW: 'KRW',
+  JPY: 'JPY',
+  THB: 'THB',
+  CNY: 'CNY',
+  USD: 'USD',
+  EUR: 'EUR',
+};
+
+/** USD=ACH, EUR=SEPA, 그 외=로컬 은행이체 */
+export type DepositPaymentRail = 'ACH' | 'SEPA' | 'LOCAL';
+
+export function depositPaymentRail(currency: UsdtFiatCurrency | string): DepositPaymentRail {
+  if (currency === 'USD') return 'ACH';
+  if (currency === 'EUR') return 'SEPA';
+  return 'LOCAL';
+}
 
 export type DepositNoticeLocale = 'KR' | 'US' | 'JP' | 'CH' | 'TH';
 
 export type DepositReceivingAccount = {
   bankName: string;
+  /** ACH 계좌번호 또는 SEPA IBAN */
   accountNumber: string;
   accountHolder: string;
   /** 은행 주소 (해외·JPY 등) */
@@ -763,8 +1197,14 @@ export type DepositReceivingAccount = {
   branchCode?: string;
   /** 지점명 (선택) */
   branchName?: string;
-  /** 계좌 유형 (예: Savings / Futsu) */
+  /** 계좌 유형 (예: Savings / Futsu, Business) */
   accountType?: string;
+  /** 은행 국가 코드 (예: US, MT) — ACH/SEPA */
+  bankCountry?: string;
+  /** USD ACH routing number */
+  routingNumber?: string;
+  /** EUR SEPA BIC/SWIFT */
+  bic?: string;
   /**
    * @deprecated 단일 언어 안내 — noticeI18n 사용 권장. 있으면 시 KR 폴백.
    */
@@ -775,6 +1215,11 @@ export type DepositReceivingAccount = {
   transferEnabled?: boolean;
   /** 카드결제 USDT 매입. 미지정 시 true */
   cardEnabled?: boolean;
+  /**
+   * 송금계좌(DIRECT) 모드에서 이 통화 계좌 사용 가능 여부.
+   * 미지정 시 USD·EUR만 true, 그 외 false.
+   */
+  remittanceEnabled?: boolean;
 };
 
 /** 기본 고객 안내 — 언어별 (수취인명은 항상 半角カタカナ 원문) */
@@ -798,7 +1243,54 @@ export const DEFAULT_JPY_DEPOSIT_RECEIVING_ACCOUNT = (): DepositReceivingAccount
   noticeI18n: DEFAULT_DEPOSIT_NOTICE_I18N(),
   transferEnabled: true,
   cardEnabled: true,
+  remittanceEnabled: false,
 });
+
+/** USD ACH 수취 계좌 기본값 */
+export const DEFAULT_USD_ACH_DEPOSIT_RECEIVING_ACCOUNT = (): DepositReceivingAccount => ({
+  bankName: 'LEAD BANK',
+  accountNumber: '219202635366',
+  accountHolder: 'ONTHELINE CO LTD',
+  accountType: 'Business',
+  bankCountry: 'US',
+  routingNumber: '101019644',
+  transferEnabled: true,
+  cardEnabled: true,
+  remittanceEnabled: true,
+});
+
+/** EUR SEPA 수취 계좌 기본값 */
+export const DEFAULT_EUR_SEPA_DEPOSIT_RECEIVING_ACCOUNT = (): DepositReceivingAccount => ({
+  bankName: 'OpenPayd Financial Services Malta Ltd',
+  accountNumber: 'MT03CFTE28004000000000005161666',
+  accountHolder: 'ONTHELINE CO LTD',
+  accountType: 'Business',
+  bankCountry: 'MT',
+  bic: 'CFTEMTM1',
+  transferEnabled: true,
+  cardEnabled: true,
+  remittanceEnabled: true,
+});
+
+/** 통화별 송금거래(송금계좌 모드) 기본값 — USD·EUR만 true */
+export function defaultRemittanceEnabled(currency: string): boolean {
+  const c = String(currency).toUpperCase();
+  return c === 'USD' || c === 'EUR';
+}
+
+/** 입금 수취 계좌의 송금거래 on 통화 목록 */
+export function remittanceCurrenciesFromAccounts(
+  accounts?: Partial<Record<UsdtFiatCurrency, DepositReceivingAccount>> | null,
+): UsdtFiatCurrency[] {
+  const list = USDT_FIAT_CURRENCIES.filter((c) => {
+    const a = accounts?.[c];
+    if (!a) return false;
+    if (a.remittanceEnabled === true) return true;
+    if (a.remittanceEnabled === false) return false;
+    return defaultRemittanceEnabled(c);
+  });
+  return list.length ? list : [...DEFAULT_DIRECT_REMIT_CURRENCIES];
+}
 
 export function resolveDepositNotice(
   account: Pick<DepositReceivingAccount, 'notice' | 'noticeI18n'> | null | undefined,
@@ -839,6 +1331,8 @@ export type HqPlatformConfig = {
   faviconUrl?: string;
   /** 로그인 첫화면 왼쪽 배경 (/api/branding/background) */
   authBackgroundUrl?: string;
+  /** 개인 회원가입 왼쪽 비주얼 (/api/branding/register-background). 없으면 왼쪽 이미지 미표시 */
+  registerBackgroundUrl?: string;
   /** 왼쪽 배경 위 브랜드 문구 (줄바꿈 가능). 비우면 화면에 문구 미표시. 메신저 미리보기와 무관 */
   authMainText?: string;
   /** 링크 미리보기 캐시 무효화용 버전 (저장할 때마다 증가) */
@@ -851,8 +1345,16 @@ export type HqPlatformConfig = {
   loginNoticeI18n?: Partial<
     Record<'KR' | 'JP' | 'US' | 'CH' | 'TH', { title: string; body: string }>
   >;
-  /** 고객 공개 회원가입 (오프라인 계약 가입만 허용 시 false) */
+  /** 고객 공개 회원가입 (오프라인 계약 가입만 허용 시 false). 기본 true — 개인만 */
   customerRegistrationEnabled?: boolean;
+  /** 로그인 첫화면 비밀번호 / OTP 초기화 메뉴 노출. 기본 true */
+  accountRecoveryEnabled?: boolean;
+  /** 개인고객 가입 화면 경고 안내 노출 */
+  individualRegisterNoticeEnabled?: boolean;
+  /** 개인고객 가입 경고 안내 (다국어) — 기업가입 불가·1회 한도 등 */
+  individualRegisterNoticeI18n?: Partial<
+    Record<'KR' | 'JP' | 'US' | 'CH' | 'TH', { title: string; body: string }>
+  >;
   /** 미사용 자동 로그아웃 (분) — 10·30·60·90·120 */
   idleTimeoutMinutes?: number;
   /**
@@ -870,7 +1372,7 @@ export type HqPlatformConfig = {
     bodyI18n?: Partial<Record<'KR' | 'US' | 'JP' | 'CH' | 'TH', string>>;
   }>;
   /** USDT 매입 기본 구매 통화 */
-  defaultUsdtFiatCurrency?: 'KRW' | 'JPY' | 'THB' | 'CNY';
+  defaultUsdtFiatCurrency?: UsdtFiatCurrency;
   /** 시뮬레이터 기록 자동 삭제 보관 개월 (기본 3) */
   simulatorRetentionMonths?: number;
   /** 시뮬레이터 실행 시 Invoice(tinpass-sim) 자동 발급 여부 (기본 true) */
@@ -913,6 +1415,7 @@ export const DEFAULT_CARD_PAYMENT_CONFIG = (): HqCardPaymentConfig => ({
     THB: { min: 500, max: 200_000 },
     CNY: { min: 100, max: 50_000 },
     USD: { min: 10, max: 10_000 },
+    EUR: { min: 10, max: 10_000 },
   },
 });
 
@@ -932,8 +1435,16 @@ export const DEFAULT_ICOPAY_CONFIG = (): HqIcopayConfig => ({
 export const CURFEX_CURRENCY_OPTIONS = ['JPY', 'KRW', 'THB', 'CNY'] as const;
 export type CurfexCurrency = (typeof CURFEX_CURRENCY_OPTIONS)[number];
 
-/** 본사 기본 입금계좌 방식 (고객 FOLLOW_HQ 시). VIRTUAL = 가상계좌 */
-export type HqDefaultCollectionMode = 'FIXED' | 'VIRTUAL';
+/** 본사 기본 입금계좌 방식 (고객 FOLLOW_HQ 시). DIRECT = 송금계좌 */
+export type HqDefaultCollectionMode = 'FIXED' | 'VIRTUAL' | 'DIRECT';
+
+export function normalizeHqCollectionMode(
+  raw: unknown,
+  fallback: HqDefaultCollectionMode,
+): HqDefaultCollectionMode {
+  if (raw === 'VIRTUAL' || raw === 'DIRECT' || raw === 'FIXED') return raw;
+  return fallback;
+}
 
 export type HqCurfexConfig = {
   enabled: boolean;
@@ -953,10 +1464,18 @@ export type HqCurfexConfig = {
    */
   autoApproveOnDeposit?: boolean;
   /**
-   * 고객이 「본사설정따름」일 때 기본 입금계좌 방식.
-   * VIRTUAL이어도 해당 통화 CURFEX OFF면 고정계좌로 폴백.
+   * @deprecated defaultCollectionModeCorporate 사용. 하위호환(기업 기본으로 migrate).
    */
   defaultCollectionMode?: HqDefaultCollectionMode;
+  /** 기업고객 「본사설정따름」 기본 입금계좌 방식 */
+  defaultCollectionModeCorporate?: HqDefaultCollectionMode;
+  /** 개인고객 「본사설정따름」 기본 입금계좌 방식 (초기값 DIRECT=송금계좌) */
+  defaultCollectionModeIndividual?: HqDefaultCollectionMode;
+  /**
+   * @deprecated 송금 통화는 입금계좌 remittanceEnabled가 단일 소스.
+   * 하위호환·표시용으로 유지.
+   */
+  directRemitCurrencies?: UsdtFiatCurrency[];
 };
 
 export const DEFAULT_CURFEX_CONFIG = (): HqCurfexConfig => ({
@@ -970,6 +1489,9 @@ export const DEFAULT_CURFEX_CONFIG = (): HqCurfexConfig => ({
   webhookSecret: '',
   autoApproveOnDeposit: true,
   defaultCollectionMode: 'FIXED',
+  defaultCollectionModeCorporate: 'FIXED',
+  defaultCollectionModeIndividual: 'DIRECT',
+  directRemitCurrencies: [...DEFAULT_DIRECT_REMIT_CURRENCIES],
 });
 
 export type CurfexCollectionAccount = {

@@ -81,6 +81,11 @@ cd ..
 
 echo "==> [2/4] Frontend runtime"
 cd frontend
+# 구 CSS/JS 청크가 남아 HTML이 없는 파일을 가리키면 사이드바·메뉴가 비는 증상 발생
+if [ -d .next/static ]; then
+  CURRENT_BUILD="$(cat .next/BUILD_ID 2>/dev/null || true)"
+  echo "    frontend BUILD_ID=${CURRENT_BUILD:-unknown}"
+fi
 npm ci --omit=dev --ignore-scripts
 echo "    frontend OK"
 cd ..

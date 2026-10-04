@@ -13,6 +13,7 @@ export type HqCurrencyAmountDisplayPolicy = {
   CNY?: HqCurrencyAmountRule;
   HKD?: HqCurrencyAmountRule;
   USD?: HqCurrencyAmountRule;
+  EUR?: HqCurrencyAmountRule;
 };
 
 export function defaultCurrencyAmountDisplayPolicy(): HqCurrencyAmountDisplayPolicy {
@@ -24,6 +25,7 @@ export function defaultCurrencyAmountDisplayPolicy(): HqCurrencyAmountDisplayPol
     CNY: { decimals: 2, mode: 'ROUND' },
     HKD: { decimals: 2, mode: 'ROUND' },
     USD: { decimals: 2, mode: 'ROUND' },
+    EUR: { decimals: 2, mode: 'ROUND' },
   };
 }
 
@@ -44,6 +46,7 @@ export function normalizeCurrencyAmountDisplayPolicy(
     CNY: mergeRule(raw.CNY, base.CNY),
     HKD: mergeRule(raw.HKD, base.HKD),
     USD: mergeRule(raw.USD, base.USD),
+    EUR: mergeRule(raw.EUR, base.EUR),
   };
 }
 

@@ -70,6 +70,18 @@ foreach ($item in $copy) {
   }
 }
 
+# 이전·스테이징 산출물은 배포 zip에서 제외 (용량·unzip 지연 방지)
+$excludeDirs = @(
+  (Join-Path $Stage "deploy\release\migrate-staging"),
+  (Join-Path $Stage "deploy\release\crypto-release.zip")
+)
+foreach ($dir in $excludeDirs) {
+  if (Test-Path $dir) { Remove-Item $dir -Recurse -Force }
+}
+Get-ChildItem (Join-Path $Stage "deploy\release") -ErrorAction SilentlyContinue |
+  Where-Object { $_.Name -like "crypto-release*.zip" -or $_.Name -like "*.dump" -or $_.Name -like "*.tar.gz" } |
+  ForEach-Object { Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue }
+
 Compress-Archive -Path (Join-Path $Stage "*") -DestinationPath $ZipPath -CompressionLevel Optimal -Force
 Remove-Item $Stage -Recurse -Force
 

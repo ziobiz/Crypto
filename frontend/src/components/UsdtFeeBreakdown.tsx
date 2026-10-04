@@ -22,6 +22,9 @@ export type UsdtFeeBreakdown = {
   kimchiPremiumFeeUsdt?: number;
   kimchiPremiumPercent?: number;
   operatingFeeUsdt?: number;
+  expressFeeUsdt?: number;
+  expressFeePercent?: number;
+  expressTier?: string;
   fairExchangeRate?: number;
 };
 
@@ -31,6 +34,9 @@ type FeeRates = Partial<TransactionFees> & {
   kimchiPremiumPercent?: number;
   operatingFeePercent?: number;
   operatingFeeFixedUsdt?: number;
+  expressFeeUsdt?: number;
+  expressFeePercent?: number;
+  expressTier?: string;
 };
 
 type FeeStep = {
@@ -62,6 +68,7 @@ const DEFAULT_DISPLAY: FeeDiagramDisplayConfig = {
   otherFee: true,
   localPremium: true,
   operatingFee: true,
+  expressFee: true,
   net: true,
   requiredFiat: true,
   showRates: true,
@@ -105,6 +112,13 @@ export function UsdtFeeBreakdownPanel({
   const showLocalPremium = isLocalPremiumCurrency(currency) && premiumPct > 0;
   const baseOther = breakdown.baseOtherFeeUsdt ?? fees?.baseOtherFeeUsdt ?? breakdown.otherFeeUsdt;
   const operatingFeeUsdt = breakdown.operatingFeeUsdt ?? 0;
+  const expressFeeUsdt = breakdown.expressFeeUsdt ?? fees?.expressFeeUsdt ?? 0;
+  const expressFeePercent = breakdown.expressFeePercent ?? fees?.expressFeePercent ?? 0;
+  const expressTier = breakdown.expressTier ?? fees?.expressTier;
+  const expressRateParts: string[] = [];
+  if (expressTier) expressRateParts.push(String(expressTier));
+  if (expressFeePercent > 0) expressRateParts.push(`${expressFeePercent}%`);
+  const expressRate = expressRateParts.length ? expressRateParts.join(' · ') : '—';
 
   const premiumFeeLabel =
     currency === 'KRW'
@@ -182,6 +196,15 @@ export function UsdtFeeBreakdownPanel({
       rate: formatOperatingFeeRate(fees),
       label: t('usdt.operatingFee'),
       tone: 'bg-rose-50',
+    });
+  }
+  if (cfg.expressFee !== false && (expressFeeUsdt > 0 || expressFeePercent > 0 || !!expressTier)) {
+    itemizedFeeParts.push({
+      key: 'expressFee',
+      amount: expressFeeUsdt,
+      rate: expressRate,
+      label: t('usdt.expressFee'),
+      tone: 'bg-amber-50',
     });
   }
 

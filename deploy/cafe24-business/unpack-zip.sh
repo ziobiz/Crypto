@@ -14,7 +14,17 @@ fi
 mkdir -p "$DEST"
 
 if command -v unzip >/dev/null 2>&1; then
-  unzip -o "$ZIP" -d "$DEST"
+  # Windows zip은 경로에 \ 가 있어 unzip이 warning(exit 1)을 낼 수 있음 — 해제 성공으로 처리
+  set +e
+  unzip -o "$ZIP" -d "$DEST" >/tmp/crypto-unzip.log 2>&1
+  code=$?
+  set -e
+  tail -n 20 /tmp/crypto-unzip.log || true
+  if [ "$code" -gt 1 ]; then
+    echo "ERROR: unzip failed (exit $code)"
+    exit "$code"
+  fi
+  echo "extracted via unzip -> $DEST (exit $code)"
   exit 0
 fi
 

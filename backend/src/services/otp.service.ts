@@ -141,5 +141,8 @@ export async function clearUserTotp(userId: string): Promise<void> {
 }
 
 export function isSmtpConfigured(cfg: HqEmailOtpConfig): boolean {
-  return Boolean(cfg.smtpHost || process.env.SMTP_HOST);
+  const host = (cfg.smtpHost || process.env.SMTP_HOST || '').trim();
+  const user = (cfg.smtpUser || process.env.SMTP_USER || '').trim();
+  const pass = (cfg.smtpPassword || process.env.SMTP_PASSWORD || '').trim();
+  return Boolean(host && user && pass);
 }

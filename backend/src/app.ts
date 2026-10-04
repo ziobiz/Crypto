@@ -105,6 +105,10 @@ export function createApiApp(): express.Application {
     sendBrandingFile(res, hqPolicyService.getBackgroundFilePath());
   });
 
+  app.get('/api/branding/register-background', (_req, res) => {
+    sendBrandingFile(res, hqPolicyService.getRegisterBackgroundFilePath());
+  });
+
   app.get('/api/branding/og', (_req, res) => {
     sendBrandingFile(res, hqPolicyService.getOgImageFilePath());
   });
