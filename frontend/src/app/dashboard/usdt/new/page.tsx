@@ -436,6 +436,11 @@ export default function UsdtNewPage() {
       }
 
       if (isCard) {
+        if (!cardForm.email.trim() || !cardForm.phone.trim()) {
+          setError(t('usdt.cardBuyerRequired'));
+          setLoading(false);
+          return;
+        }
         const ticket = await api.usdt.create({
           walletId,
           fiatCurrency,
@@ -444,15 +449,17 @@ export default function UsdtNewPage() {
           targetUsdtAmount: inputMode === 'target' ? usdtAmount : undefined,
           cardChargeFiat: inputMode === 'cardCharge' ? cardChargeFiat : undefined,
           card: {
-            cardNumber: cardForm.cardNumber,
-            cardExpiry: cardForm.cardExpiry,
-            cardCvv: cardForm.cardCvv,
-            cardholderName: cardForm.cardholderName,
+            cardholderName: cardForm.cardholderName || cardContext?.userName || 'TINPASS',
             email: cardForm.email,
             phone: cardForm.phone,
             phoneCountryCode: cardForm.phoneCountryCode,
           },
         });
+        const payUrl = ticket.icopayCheckout?.payUrl;
+        if (payUrl) {
+          window.location.href = payUrl;
+          return;
+        }
         router.push(`/dashboard/usdt/${ticket.id}`);
         return;
       }

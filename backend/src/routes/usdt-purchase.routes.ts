@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { z } from 'zod';
-import { AttachmentPurpose, TicketType, UsdtPurchaseStatus } from '@prisma/client';
+import { AttachmentPurpose, TicketType, UserRole, UsdtPurchaseStatus } from '@prisma/client';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { authenticate, requireRoles } from '../middleware/auth';
 import { MERCHANT_TRADE_ROLES } from '../lib/merchant-role';
@@ -37,6 +37,7 @@ import {
   createUsdtCardPurchase,
   getUsdtCardPaymentContext,
   previewUsdtCardFees,
+  syncUsdtCardPayment,
 } from '../services/usdt-card-purchase.service';
 import { assertTicketAccess, canOperateUsdtTicket } from '../services/ticket-access.service';
 import { assertCustomerTradeAllowed } from '../services/customer-access.service';
@@ -214,14 +215,30 @@ router.get(
   }),
 );
 
+/** ICOPAY Status API sync after browser return */
+router.post(
+  '/:id/sync-card-payment',
+  requireRoles(
+    ...MERCHANT_TRADE_ROLES,
+    UserRole.SUPER_ADMIN,
+    UserRole.ORG_STAFF,
+    UserRole.ORGANIZER,
+    UserRole.SETTLEMENT_ADMIN,
+  ),
+  asyncHandler(async (req, res) => {
+    const ticket = await syncUsdtCardPayment(req.user!, req.params.id);
+    res.json(ticket);
+  }),
+);
+
+/** ICOPAY hosted checkout — card PAN is entered on ICOPAY page */
 const cardSchema = z.object({
-  cardNumber: z.string().min(13),
-  cardExpiry: z.string().min(4),
-  cardCvv: z.string().min(3).max(4),
-  cardholderName: z.string().min(1),
   email: z.string().email(),
   phone: z.string().min(6),
   phoneCountryCode: z.string().min(1),
+  cardholderName: z.string().min(1).optional(),
+  firstName: z.string().min(1).optional(),
+  lastName: z.string().min(1).optional(),
 });
 
 const createSchema = z
@@ -260,6 +277,7 @@ router.post(
         cardChargeFiat: body.cardChargeFiat,
         card: body.card,
         cardWaiverAccepted: true,
+        lang: typeof req.headers['accept-language'] === 'string' ? req.headers['accept-language'] : undefined,
       });
       res.status(201).json(ticket);
       return;

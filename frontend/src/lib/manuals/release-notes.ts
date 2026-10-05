@@ -3,6 +3,116 @@ import type { PlatformReleaseNote } from './version';
 /** 본사정책 → 검증관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
 export const PLATFORM_RELEASE_NOTES: PlatformReleaseNote[] = [
   {
+    version: '2.6.197',
+    kind: 'minor',
+    date: '2026-10-05',
+    items: {
+      KR: [
+        '카드 결제 수수료: 이체와 동일 시볼 수수료 + 카드 수수료(%) 별도 가산·노출. ICOPAY 청구는 카드 결제 총액·표시 통화 그대로. HQ 카드 수수료 기본값 3.5%.',
+      ],
+      US: [
+        'Card fees: same symbol fees as bank transfer, plus a separate card % surcharge shown in the preview. ICOPAY charge equals the card total in the display currency. HQ default card fee 3.5%.',
+      ],
+      JP: [
+        'カード手数料: 振込と同じシンボル手数料＋カード手数料(%)を別途加算・表示。ICOPAY請求はカード決済総額・表示通貨のまま。HQカード手数料既定値3.5%。',
+      ],
+      CH: [
+        '卡手续费：与转账相同的交易对手续费，另加卡手续费(%)并单独展示。ICOPAY 扣款等于卡支付总额（页面显示货币）。总部默认卡费率 3.5%。',
+      ],
+      TH: [
+        'ค่าธรรมเนียมบัตร: ค่าสัญลักษณ์เหมือนโอน + ค่าบัตร(%) แยกคิดและแสดง ICOPAY เรียกเก็บเท่ากับยอดบัตรรวมตามสกุลที่แสดง ค่าเริ่มต้น HQ 3.5%',
+      ],
+    },
+  },
+  {
+    version: '2.6.196',
+    kind: 'minor',
+    date: '2026-10-05',
+    items: {
+      KR: [
+        '카드 결제: ICOPAY 청구는 표시 통화·금액 그대로(예: JPY→JPY). 카드 경로는 번들 수수료만 적용하고 시볼 구매 수수료는 적용하지 않습니다.',
+      ],
+      US: [
+        'Card pay: ICOPAY is charged in the same display currency/amount (e.g. JPY). Card path applies the bundle fee only; symbol purchase fees are skipped.',
+      ],
+      JP: [
+        'カード決済: ICOPAY請求は表示通貨・金額のまま（例: JPY）。カード経路はバンドル手数料のみ、シンボル購入手数料は適用しません。',
+      ],
+      CH: [
+        '卡支付：ICOPAY 按页面同一货币与金额扣款（如 JPY）。卡路径仅收打包手续费，不收交易对采购手续费。',
+      ],
+      TH: [
+        'ชำระบัตร: ICOPAY เรียกเก็บสกุล·ยอดเดียวกับที่แสดง (เช่น JPY) เส้นทางบัตรใช้ค่าธรรมเนียมรวมเท่านั้น ไม่คิดค่าซื้อสัญลักษณ์',
+      ],
+    },
+  },
+  {
+    version: '2.6.195',
+    kind: 'minor',
+    date: '2026-10-05',
+    items: {
+      KR: [
+        '본사정책 「수수료·리스크」를 「수수료관리」와 「리스크관리」메뉴로 분리했습니다. 수수료 티어·도식·가스·EXPRESS는 수수료관리, 거래한도·USDT 리스크·환율·견적은 리스크관리에서 설정합니다.',
+      ],
+      US: [
+        'HQ Policy “Fees & risk” is split into Fee management and Risk management. Fee tiers, diagrams, gas, and EXPRESS stay under Fees; transaction limits, USDT risk tiers, FX sources, and quote timers move to Risk.',
+      ],
+      JP: [
+        '本社ポリシー「手数料・リスク」を「手数料管理」と「リスク管理」に分離。手数料段階・図式・ガス・EXPRESSは手数料管理、取引限度・USDTリスク・為替・見積はリスク管理。',
+      ],
+      CH: [
+        '总部策略「手续费·风险」拆分为「手续费管理」与「风险管理」。手续费档位、图示、燃气、EXPRESS 在手续费管理；交易限额、USDT 风险、汇率、报价在风险管理。',
+      ],
+      TH: [
+        'แยกนโยบาย HQ「ค่าธรรมเนียม·ความเสี่ยง」เป็น「จัดการค่าธรรมเนียม」กับ「จัดการความเสี่ยง」 ชั้นค่าธรรมเนียม·แผนภาพ·แก๊ส·EXPRESS อยู่ค่าธรรมเนียม วงเงิน·ความเสี่ยง USDT·อัตรา·ใบเสนอราคาอยู่ความเสี่ยง',
+      ],
+    },
+  },
+  {
+    version: '2.6.194',
+    kind: 'minor',
+    date: '2026-10-05',
+    items: {
+      KR: [
+        '결제관리에 「카드 결제 한도」 전용 카드를 분리했습니다. 이체·송금 한도와 별도이며 개인·법인 공통입니다. TINPASS 선검증 + ICOPAY 최종 한도 안내를 추가했습니다.',
+      ],
+      US: [
+        'Payment management now has a dedicated Card payment limits card. Limits are separate from bank/remittance and shared by individual and corporate. TINPASS validates first; ICOPAY enforces the final limit.',
+      ],
+      JP: [
+        '決済管理に「カード決済限度」専用カードを分離。振込・送金限度と別で個人・法人共通。TINPASSが先に検証しICOPAYが最終限度を適用する案内を追加。',
+      ],
+      CH: [
+        '支付管理新增独立「卡支付限额」卡片。与转账/汇款限额分开，个人与企业共用。TINPASS 先校验，ICOPAY 为最终限额。',
+      ],
+      TH: [
+        'แยกการ์ด「วงเงินชำระบัตร」ในจัดการชำระเงิน แยกจากโอน/ธุรกรรมโอน ใช้ร่วมบุคคล·นิติ TINPASS ตรวจก่อน ICOPAY เป็นขีดจำกัดสุดท้าย',
+      ],
+    },
+  },
+  {
+    version: '2.6.193',
+    kind: 'minor',
+    date: '2026-10-05',
+    items: {
+      KR: [
+        'ICOPAY 라이브 Unified Checkout 연동: prepare→결제페이지→Webhook/Status로 확정. 카드번호는 ICOPAY에서 입력. Webhook https://api.tinpass.com/api/webhooks/icopay',
+      ],
+      US: [
+        'ICOPAY LIVE Unified Checkout: prepare → hosted pay page → Webhook/Status confirm. Card data entered on ICOPAY. Webhook https://api.tinpass.com/api/webhooks/icopay',
+      ],
+      JP: [
+        'ICOPAY LIVE Unified Checkout連携: prepare→決済ページ→Webhook/Statusで確定。カード番号はICOPAYで入力。Webhook https://api.tinpass.com/api/webhooks/icopay',
+      ],
+      CH: [
+        'ICOPAY 正式 Unified Checkout：prepare→支付页→Webhook/Status 确认。卡号在 ICOPAY 输入。Webhook https://api.tinpass.com/api/webhooks/icopay',
+      ],
+      TH: [
+        'เชื่อม ICOPAY LIVE Unified Checkout: prepare→หน้าชำระ→Webhook/Status ยืนยัน กรอกบัตรที่ ICOPAY Webhook https://api.tinpass.com/api/webhooks/icopay',
+      ],
+    },
+  },
+  {
     version: '2.6.192',
     kind: 'minor',
     date: '2026-10-05',

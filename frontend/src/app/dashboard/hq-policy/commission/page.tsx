@@ -7,25 +7,17 @@ import { useDoubleConfirm } from '@/hooks/useDoubleConfirm';
 import {
   api,
   hqPolicyApi,
-  type ExchangeRatePreviewRow,
-  type ExchangeRateSourceId,
   type HqCommissionPayload,
   type HqCommissionRiskConfig,
-  type HqExchangeRateSourcePolicy,
   type HqGasNetworkPolicy,
   type FeeTypeTemplate,
   type GasFeeGroupId,
-  type CurrencyTransactionLimits,
-  type CustomerTransactionLimitsPolicy,
   type FeeDiagramDisplayConfig,
-  type HqCurrencyAmountDisplayPolicy,
   type SymbolFeeCurrency,
   type SymbolFeeTierRow,
   type SymbolFeeTiersByCustomerType,
   type HqExpressPolicy,
   type HqMemberGradePolicy,
-  type UsdtRiskLimitTier,
-  type HqUsdtRiskLimitTiers,
   defaultExpressPolicy,
   defaultMemberGradePolicy,
 } from '@/lib/api';
@@ -40,6 +32,12 @@ import { PolicyCellValue } from '@/components/policy/PolicyCellValue';
 import { PolicyNumberInput } from '@/components/policy/PolicyNumberInput';
 import { SimulatorCommissionPanel } from '@/components/hq-policy/SimulatorCommissionPanel';
 import { FeeTypeTemplateGrid } from '@/components/hq-policy/FeeTypeTemplateGrid';
+import {
+  DEFAULT_FEE_DIAGRAM,
+  FEE_CURRENCIES,
+  withFeeDiagramDefaults,
+  saveFeeConfig,
+} from '@/lib/hq-commission-shared';
 
 type OrgRateRow = {
   organizationId: string;
@@ -51,7 +49,6 @@ type OrgRateRow = {
   tradeEscrow: string;
 };
 
-const FEE_CURRENCIES: SymbolFeeCurrency[] = ['KRW', 'JPY', 'THB', 'CNY', 'USD', 'EUR'];
 const LIMIT_CUSTOMER_TYPES = ['INDIVIDUAL', 'CORPORATE'] as const;
 type LimitCustomerType = (typeof LIMIT_CUSTOMER_TYPES)[number];
 
@@ -104,71 +101,6 @@ const DEFAULT_GAS_NETWORKS: HqGasNetworkPolicy = {
   ],
 };
 
-const DEFAULT_CURRENCY_AMOUNT: HqCurrencyAmountDisplayPolicy = {
-  default: { decimals: 2, mode: 'ROUND' },
-  KRW: { decimals: 0, mode: 'FLOOR' },
-  JPY: { decimals: 0, mode: 'FLOOR' },
-  THB: { decimals: 2, mode: 'ROUND' },
-  CNY: { decimals: 2, mode: 'ROUND' },
-  HKD: { decimals: 2, mode: 'ROUND' },
-  USD: { decimals: 2, mode: 'ROUND' },
-  EUR: { decimals: 2, mode: 'ROUND' },
-};
-
-const AMOUNT_CURRENCIES = ['KRW', 'JPY', 'THB', 'CNY', 'USD', 'EUR'] as const;
-
-const DEFAULT_FEE_DIAGRAM: FeeDiagramDisplayConfig = {
-  gross: true,
-  fxFee: true,
-  gasFee: true,
-  transferFee: true,
-  otherFee: true,
-  localPremium: true,
-  operatingFee: true,
-  expressFee: true,
-  net: true,
-  requiredFiat: true,
-  showRates: true,
-  showTotalFee: true,
-  defaultFeeBillingMethod: 'ITEMIZED',
-};
-
-function withFeeDiagramDefaults(risk: HqCommissionRiskConfig): HqCommissionRiskConfig {
-  const showTotalFee = risk.showTotalFee !== false;
-  const live = {
-    ...DEFAULT_FEE_DIAGRAM,
-    ...risk.feeDiagramDisplay,
-    showTotalFee,
-  };
-  const sandbox = {
-    ...DEFAULT_FEE_DIAGRAM,
-    ...live,
-    ...risk.sandboxFeeDiagramDisplay,
-    showTotalFee,
-  };
-  const hqLive = {
-    ...DEFAULT_FEE_DIAGRAM,
-    ...risk.hqFeeDiagramDisplay,
-    showTotalFee: true,
-    showRates: risk.hqFeeDiagramDisplay?.showRates ?? true,
-  };
-  const hqSandbox = {
-    ...DEFAULT_FEE_DIAGRAM,
-    ...hqLive,
-    ...risk.hqSandboxFeeDiagramDisplay,
-    showTotalFee: true,
-    showRates: risk.hqSandboxFeeDiagramDisplay?.showRates ?? risk.hqFeeDiagramDisplay?.showRates ?? true,
-  };
-  return {
-    ...risk,
-    showTotalFee,
-    feeDiagramDisplay: live,
-    sandboxFeeDiagramDisplay: sandbox,
-    hqFeeDiagramDisplay: hqLive,
-    hqSandboxFeeDiagramDisplay: hqSandbox,
-  };
-}
-
 type FeeDiagramEnv = 'live' | 'sandbox';
 type FeeDiagramAudience = 'customer' | 'hq';
 
@@ -192,98 +124,6 @@ function patchFeeDiagramEnv(
     [key]: { ...DEFAULT_FEE_DIAGRAM, ...current, ...patch },
   };
 }
-
-const LIMIT_FIELDS: Array<{ key: keyof CurrencyTransactionLimits; labelKey: MessageKey }> = [
-  { key: 'perTransactionMin', labelKey: 'hq.commission.limitPerTxMin' },
-  { key: 'perTransactionMax', labelKey: 'hq.commission.limitPerTxMax' },
-  { key: 'dailyMin', labelKey: 'hq.commission.limitDailyMin' },
-  { key: 'dailyMax', labelKey: 'hq.commission.limitDailyMax' },
-  { key: 'monthlyMin', labelKey: 'hq.commission.limitMonthlyMin' },
-  { key: 'monthlyMax', labelKey: 'hq.commission.limitMonthlyMax' },
-];
-
-function emptyCurrencyLimits(): CurrencyTransactionLimits {
-  return {
-    perTransactionMin: 0,
-    perTransactionMax: 0,
-    dailyMin: 0,
-    dailyMax: 0,
-    monthlyMin: 0,
-    monthlyMax: 0,
-  };
-}
-
-function ensureTransactionLimits(risk: HqCommissionRiskConfig): HqCommissionRiskConfig {
-  if (risk.transactionLimits) return risk;
-  const policy = {
-    INDIVIDUAL: {} as CustomerTransactionLimitsPolicy['INDIVIDUAL'],
-    CORPORATE: {} as CustomerTransactionLimitsPolicy['CORPORATE'],
-  };
-  for (const currency of FEE_CURRENCIES) {
-    const row = emptyCurrencyLimits();
-    if (currency === 'KRW' && risk.maxTicketAmountKrw > 0) {
-      row.perTransactionMax = risk.maxTicketAmountKrw;
-      row.dailyMax = risk.maxTicketAmountKrw * 5;
-      row.monthlyMax = risk.maxTicketAmountKrw * 20;
-    }
-    policy.INDIVIDUAL[currency] = { ...row };
-    policy.CORPORATE[currency] = {
-      ...row,
-      perTransactionMax: row.perTransactionMax * 5,
-      dailyMax: row.dailyMax * 5,
-      monthlyMax: row.monthlyMax * 5,
-    };
-  }
-  return { ...risk, transactionLimits: policy };
-}
-
-const USDT_RISK_LIMIT_TIERS: UsdtRiskLimitTier[] = ['LR', 'MR', 'HR', 'XR', 'SR'];
-
-const DEFAULT_USDT_RISK_LIMIT_TIERS: HqUsdtRiskLimitTiers = {
-  LR: { minUsdt: 100, maxUsdt: 3_000 },
-  MR: { minUsdt: 100, maxUsdt: 10_000 },
-  HR: { minUsdt: 100, maxUsdt: 30_000 },
-  XR: { minUsdt: 100, maxUsdt: 100_000 },
-  SR: { minUsdt: 100, maxUsdt: 500_000 },
-};
-
-const USDT_RISK_TIER_LABEL_KEYS: Record<UsdtRiskLimitTier, MessageKey> = {
-  LR: 'hq.commission.usdtRiskTier.LR',
-  MR: 'hq.commission.usdtRiskTier.MR',
-  HR: 'hq.commission.usdtRiskTier.HR',
-  XR: 'hq.commission.usdtRiskTier.XR',
-  SR: 'hq.commission.usdtRiskTier.SR',
-};
-
-function ensureUsdtRiskLimitTiers(risk: HqCommissionRiskConfig): HqCommissionRiskConfig {
-  const raw = risk.usdtRiskLimitTiers;
-  const tiers = {} as HqUsdtRiskLimitTiers;
-  for (const tier of USDT_RISK_LIMIT_TIERS) {
-    const band = raw?.[tier];
-    const fallback = DEFAULT_USDT_RISK_LIMIT_TIERS[tier];
-    tiers[tier] = {
-      minUsdt: Math.max(0, Number(band?.minUsdt ?? fallback.minUsdt) || 0),
-      maxUsdt: Math.max(0, Number(band?.maxUsdt ?? fallback.maxUsdt) || 0),
-    };
-  }
-  return { ...risk, usdtRiskLimitTiers: tiers };
-}
-
-function withRiskDefaults(risk: HqCommissionRiskConfig): HqCommissionRiskConfig {
-  return ensureUsdtRiskLimitTiers(ensureTransactionLimits(withFeeDiagramDefaults(risk)));
-}
-
-const RATE_SOURCES: ExchangeRateSourceId[] = [
-  'coingecko',
-  'exchangerate_api',
-  'binance_cross',
-  'binance_global',
-  'binance_th',
-  'bybit_cross',
-  'kraken_book',
-  'upbit',
-  'kr_domestic',
-];
 
 function newTierId() {
   return `tier-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -314,10 +154,6 @@ function sortedTierIds(currency: SymbolFeeCurrency, tiers: SymbolFeeTierRow[]) {
     .filter((row) => row.currency === currency)
     .sort((a, b) => a.maxAmount - b.maxAmount)
     .map((row) => row.id);
-}
-
-function depthFromPath(path: string) {
-  return path.split('/').filter(Boolean).length;
 }
 
 function buildOrgRows(data: HqCommissionPayload): OrgRateRow[] {
@@ -390,45 +226,22 @@ export default function HqCommissionPage() {
   const [memberGrade, setMemberGrade] = useState<HqMemberGradePolicy>(defaultMemberGradePolicy());
   const [savingMemberGrade, setSavingMemberGrade] = useState(false);
   const [memberGradeMsg, setMemberGradeMsg] = useState('');
-  const [exchangeRateSources, setExchangeRateSources] = useState<HqExchangeRateSourcePolicy | null>(null);
-  const [exchangeRatePreview, setExchangeRatePreview] = useState<ExchangeRatePreviewRow[]>([]);
-  const [savingRateSources, setSavingRateSources] = useState(false);
-  const [rateSourcesMsg, setRateSourcesMsg] = useState('');
   const [feeCurrency, setFeeCurrency] = useState<SymbolFeeCurrency>('KRW');
   const [savingTiers, setSavingTiers] = useState(false);
   const [tiersMsg, setTiersMsg] = useState('');
   const [editingTierId, setEditingTierId] = useState<string | null>(null);
   const [tierDraft, setTierDraft] = useState<SymbolFeeTierRow | null>(null);
   const [tierDisplayOrder, setTierDisplayOrder] = useState<string[]>([]);
-  const [editingLimitCurrency, setEditingLimitCurrency] = useState<SymbolFeeCurrency | null>(null);
-  const [limitDraft, setLimitDraft] = useState<CurrencyTransactionLimits | null>(null);
   const [editingOrgId, setEditingOrgId] = useState<string | null>(null);
   const [orgDraft, setOrgDraft] = useState<{ usdtPurchase: string; tradeEscrow: string } | null>(null);
-  const [editingMaxDaily, setEditingMaxDaily] = useState(false);
-  const [maxDailyDraft, setMaxDailyDraft] = useState(0);
   const [savingRisk, setSavingRisk] = useState(false);
   const [gasNetworks, setGasNetworks] = useState<HqGasNetworkPolicy>(DEFAULT_GAS_NETWORKS);
   const [savingGas, setSavingGas] = useState(false);
   const [gasMsg, setGasMsg] = useState('');
-  const [currencyAmount, setCurrencyAmount] = useState<HqCurrencyAmountDisplayPolicy>(DEFAULT_CURRENCY_AMOUNT);
-  const [savingCurrencyAmount, setSavingCurrencyAmount] = useState(false);
-  const [currencyAmountMsg, setCurrencyAmountMsg] = useState('');
-  const [quoteResponse, setQuoteResponse] = useState({
-    enabled: true,
-    mode: 'AUTO' as 'AUTO' | 'MANUAL',
-    autoDelayMinutes: 0,
-    manualSlaHours: 3,
-    applyIdleMinutes: 5,
-    applyMaxMinutes: 10,
-    quoteValidMinutes: 20,
-  });
-  const [savingQuote, setSavingQuote] = useState(false);
-  const [quoteMsg, setQuoteMsg] = useState('');
   const [savingRates, setSavingRates] = useState(false);
   const [msg, setMsg] = useState('');
   const [ratesMsg, setRatesMsg] = useState('');
   const [error, setError] = useState('');
-  const [limitCustomerType, setLimitCustomerType] = useState<LimitCustomerType>('INDIVIDUAL');
 
   const feeTiers = feeTiersByCustomerType[feeCustomerType];
 
@@ -440,39 +253,12 @@ export default function HqCommissionPage() {
   }
 
   const orgTypeLabel = (type: string) => t(`org.${type}` as MessageKey);
-  const rateSourceLabel = (source: ExchangeRateSourceId | string) =>
-    t(`hq.commission.rateSource.${source}` as MessageKey);
-
-  function previewFor(currency: SymbolFeeCurrency) {
-    return exchangeRatePreview.find((row) => row.currency === currency);
-  }
-
-  function updateRateSource(currency: SymbolFeeCurrency, source: ExchangeRateSourceId) {
-    setExchangeRateSources((prev) => (prev ? { ...prev, [currency]: source } : prev));
-  }
-
-  async function saveRateSources() {
-    if (!exchangeRateSources) return;
-    setSavingRateSources(true);
-    setRateSourcesMsg('');
-    try {
-      const next = await hqPolicyApi.saveExchangeRateSources(exchangeRateSources);
-      setData(next);
-      setExchangeRateSources(next.exchangeRateSources);
-      setExchangeRatePreview(next.exchangeRatePreview ?? []);
-      setRateSourcesMsg(t('hq.commission.rateSourcesSaved'));
-    } catch (e) {
-      setRateSourcesMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
-    } finally {
-      setSavingRateSources(false);
-    }
-  }
 
   useEffect(() => {
     Promise.all([hqPolicyApi.getCommission(), api.organizations()])
       .then(([commission, orgs]) => {
         setData(commission);
-        setRisk(withRiskDefaults({
+        setRisk(withFeeDiagramDefaults({
           ...commission.risk,
           defaultFxFeePercent: commission.risk.defaultFxFeePercent ?? 0,
           defaultTransferFeeUsdt:
@@ -489,89 +275,9 @@ export default function HqCommissionPage() {
         setFeeTiersByCustomerType(normalizeFeeTiersByCustomerType(commission));
         setExpressFee(commission.expressFee ?? defaultExpressPolicy());
         setMemberGrade(commission.memberGrade ?? defaultMemberGradePolicy());
-        setExchangeRateSources(commission.exchangeRateSources);
-        setExchangeRatePreview(commission.exchangeRatePreview ?? []);
-        setCurrencyAmount({
-          ...DEFAULT_CURRENCY_AMOUNT,
-          ...(commission.currencyAmountDisplay ?? {}),
-        });
-        if (commission.usdtQuoteResponse) {
-          const q = commission.usdtQuoteResponse;
-          setQuoteResponse({
-            enabled: q.enabled !== false,
-            mode: q.mode === 'MANUAL' ? 'MANUAL' : 'AUTO',
-            autoDelayMinutes: q.autoDelayMinutes ?? 0,
-            manualSlaHours: q.manualSlaHours ?? 3,
-            applyIdleMinutes: q.applyIdleMinutes ?? 5,
-            applyMaxMinutes: q.applyMaxMinutes ?? 10,
-            quoteValidMinutes: q.quoteValidMinutes ?? 20,
-          });
-        }
       })
       .catch((e) => setError(e instanceof Error ? e.message : t('common.loadFailed')));
   }, [t]);
-
-  async function saveCurrencyAmountDisplay() {
-    requestConfirm({
-      title: t('hq.commission.currencyAmountSave'),
-      step1: t('common.doubleConfirm.step1'),
-      step2: t('common.doubleConfirm.step2'),
-      confirmLabel: t('common.save'),
-      onConfirm: async () => {
-        setSavingCurrencyAmount(true);
-        setCurrencyAmountMsg('');
-        try {
-          const next = await hqPolicyApi.saveCurrencyAmountDisplay(currencyAmount);
-          setData(next);
-          setCurrencyAmount({
-            ...DEFAULT_CURRENCY_AMOUNT,
-            ...(next.currencyAmountDisplay ?? {}),
-          });
-          const { setCurrencyAmountDisplayPolicy } = await import('@/lib/format');
-          setCurrencyAmountDisplayPolicy(next.currencyAmountDisplay ?? DEFAULT_CURRENCY_AMOUNT);
-          setCurrencyAmountMsg(t('hq.saved'));
-        } catch (e) {
-          setCurrencyAmountMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
-        } finally {
-          setSavingCurrencyAmount(false);
-        }
-      },
-    });
-  }
-
-  async function saveUsdtQuoteResponse() {
-    requestConfirm({
-      title: t('hq.commission.quoteResponseSave'),
-      step1: t('common.doubleConfirm.step1'),
-      step2: t('common.doubleConfirm.step2'),
-      confirmLabel: t('common.save'),
-      onConfirm: async () => {
-        setSavingQuote(true);
-        setQuoteMsg('');
-        try {
-          const next = await hqPolicyApi.saveUsdtQuoteResponse(quoteResponse);
-          setData(next);
-          if (next.usdtQuoteResponse) {
-            const q = next.usdtQuoteResponse;
-            setQuoteResponse({
-              enabled: q.enabled !== false,
-              mode: q.mode === 'MANUAL' ? 'MANUAL' : 'AUTO',
-              autoDelayMinutes: q.autoDelayMinutes ?? 0,
-              manualSlaHours: q.manualSlaHours ?? 3,
-              applyIdleMinutes: q.applyIdleMinutes ?? 5,
-              applyMaxMinutes: q.applyMaxMinutes ?? 10,
-              quoteValidMinutes: q.quoteValidMinutes ?? 20,
-            });
-          }
-          setQuoteMsg(t('hq.saved'));
-        } catch (e) {
-          setQuoteMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
-        } finally {
-          setSavingQuote(false);
-        }
-      },
-    });
-  }
 
   const currencyTiers = useMemo(() => {
     const byId = new Map(
@@ -602,51 +308,8 @@ export default function HqCommissionPage() {
   function hasPolicyEditInProgress() {
     return (
       editingTierId !== null ||
-      editingLimitCurrency !== null ||
-      editingOrgId !== null ||
-      editingMaxDaily
+      editingOrgId !== null
     );
-  }
-
-  function cancelLimitEdit() {
-    setEditingLimitCurrency(null);
-    setLimitDraft(null);
-    setMsg('');
-  }
-
-  function startLimitEdit(currency: SymbolFeeCurrency) {
-    if (!risk || hasPolicyEditInProgress()) return;
-    setEditingLimitCurrency(currency);
-    setLimitDraft({ ...risk.transactionLimits[limitCustomerType][currency] });
-    setMsg('');
-  }
-
-  function updateLimitDraft(field: keyof CurrencyTransactionLimits, value: number) {
-    setLimitDraft((prev) => (prev ? { ...prev, [field]: value } : prev));
-  }
-
-  function saveLimitEdit() {
-    if (!risk || !editingLimitCurrency || !limitDraft) return;
-    setRisk((prev) => {
-      if (!prev) return prev;
-      const base = ensureTransactionLimits(prev);
-      const nextLimits = {
-        ...base.transactionLimits,
-        [limitCustomerType]: {
-          ...base.transactionLimits[limitCustomerType],
-          [editingLimitCurrency]: { ...limitDraft },
-        },
-      };
-      return {
-        ...base,
-        transactionLimits: nextLimits,
-        maxTicketAmountKrw:
-          limitCustomerType === 'INDIVIDUAL' && editingLimitCurrency === 'KRW'
-            ? limitDraft.perTransactionMax
-            : base.maxTicketAmountKrw,
-      };
-    });
-    cancelLimitEdit();
   }
 
   function cancelOrgEdit() {
@@ -672,25 +335,6 @@ export default function HqCommissionPage() {
       ),
     );
     cancelOrgEdit();
-  }
-
-  function cancelMaxDailyEdit() {
-    setEditingMaxDaily(false);
-    setMaxDailyDraft(0);
-    setMsg('');
-  }
-
-  function startMaxDailyEdit() {
-    if (!risk || hasPolicyEditInProgress()) return;
-    setEditingMaxDaily(true);
-    setMaxDailyDraft(risk.maxDailyTicketsPerCustomer);
-    setMsg('');
-  }
-
-  function saveMaxDailyEdit() {
-    if (!risk) return;
-    setRisk({ ...risk, maxDailyTicketsPerCustomer: Math.max(0, maxDailyDraft) });
-    cancelMaxDailyEdit();
   }
 
   function startTierEdit(row: SymbolFeeTierRow) {
@@ -744,7 +388,7 @@ export default function HqCommissionPage() {
     }
   }
 
-  async function saveRisk() {
+  async function saveFeeSettings() {
     if (!risk) return;
     if (hasPolicyEditInProgress()) {
       setMsg(t('hq.commission.tierFinishEditFirst'));
@@ -759,14 +403,9 @@ export default function HqCommissionPage() {
         setSavingRisk(true);
         setMsg('');
         try {
-          const payload = withRiskDefaults({
-            ...risk,
-            maxTicketAmountKrw:
-              risk.transactionLimits?.INDIVIDUAL?.KRW?.perTransactionMax ?? risk.maxTicketAmountKrw,
-          });
-          const next = await hqPolicyApi.saveCommissionRisk(payload);
+          const next = await saveFeeConfig(risk);
           setData(next);
-          setRisk(withRiskDefaults(next.risk));
+          setRisk(withFeeDiagramDefaults(next.risk));
           setMsg(t('hq.saved'));
         } catch (e) {
           setMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
@@ -826,1244 +465,618 @@ export default function HqCommissionPage() {
     );
   }
 
-  if (!data || !risk || !exchangeRateSources) return <p className="pg-hint">{t('hq.loading')}</p>;
+  if (!data || !risk) return <p className="pg-hint">{t('hq.loading')}</p>;
 
   return (
     <div className="pg-stack">
       {doubleConfirmDialog}
-      <section className="pg-section">
-        <div className="pg-section-head">{t('hq.commission.rateSourceTitle')}</div>
-        <div className="pg-section-pad space-y-3">
-          <p className="pg-hint">{t('hq.commission.rateSourceDesc')}</p>
-          <div className="pg-card pg-table-wrap">
-            <table className="pg-table">
-              <thead>
-                <tr>
-                  <th>{t('hq.commission.rateSourceCurrency')}</th>
-                  <th>{t('hq.commission.rateSourceSelect')}</th>
-                  <th>{t('hq.commission.rateSourcePreview')}</th>
-                  <th>{t('hq.commission.rateSourceActual')}</th>
-                  <th>{t('hq.commission.rateSourceUpdated')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {FEE_CURRENCIES.map((currency) => {
-                  const preview = previewFor(currency);
-                  return (
-                    <tr key={currency}>
-                      <td className="font-mono font-semibold">{currency}</td>
-                      <td>
-                        <select
-                          value={exchangeRateSources[currency]}
-                          onChange={(e) =>
-                            updateRateSource(currency, e.target.value as ExchangeRateSourceId)
-                          }
-                          className="pg-input min-w-[12rem]"
-                        >
-                          {RATE_SOURCES.map((source) => (
-                            <option key={source} value={source}>
-                              {rateSourceLabel(source)}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="tabular-nums font-semibold text-blue-700">
-                        {preview?.rate != null
-                          ? preview.rate.toLocaleString(undefined, {
-                              maximumFractionDigits: currency === 'JPY' ? 2 : 0,
-                            })
-                          : '—'}
-                      </td>
-                      <td className="pg-muted text-xs">{preview ? rateSourceLabel(preview.actualSource.replace('_fallback', '')) : '—'}</td>
-                      <td className="pg-muted text-xs">
-                        {preview?.fetchedAt
-                          ? new Date(preview.fetchedAt).toLocaleString()
-                          : '—'}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          {rateSourcesMsg && <p className="text-sm text-green-700">{rateSourcesMsg}</p>}
-          {(data.localPremiums?.length ? data.localPremiums : data.kimchiPremium ? [{
-            currency: 'KRW' as const,
-            domesticRate: data.kimchiPremium.domesticRate,
-            fairRate: data.kimchiPremium.fairRate,
-            premiumPercent: data.kimchiPremium.premiumPercent,
-            domesticSource: 'kr_domestic',
-            domesticLabel: 'Upbit·Bithumb',
-            usdFiatRate: data.kimchiPremium.usdKrwRate,
-            usdtUsdRate: data.kimchiPremium.usdtUsdRate,
-            detailRates: {
-              upbit: data.kimchiPremium.upbitRate,
-              bithumb: data.kimchiPremium.bithumbRate,
-            },
-            fetchedAt: data.kimchiPremium.fetchedAt,
-          }] : []).map((premium) => (
-            <div
-              key={premium.currency}
-              className="rounded border border-rose-100 bg-rose-50/50 p-3 text-xs text-rose-900"
-            >
-              <p className="font-semibold">
-                {t(`hq.commission.localPremium.${premium.currency}.title` as 'hq.commission.localPremium.KRW.title')}
-              </p>
-              <p className="mt-1">
-                {t(`hq.commission.localPremium.${premium.currency}.desc` as 'hq.commission.localPremium.KRW.desc')}
-              </p>
-              <dl className="mt-2 grid gap-1 sm:grid-cols-2">
-                <div>
-                  <dt className="text-rose-700">{t('hq.commission.localPremium.percent')}</dt>
-                  <dd className="font-bold tabular-nums">{premium.premiumPercent.toFixed(2)}%</dd>
-                </div>
-                <div>
-                  <dt className="text-rose-700">{t('hq.commission.localPremium.domestic')}</dt>
-                  <dd className="font-mono tabular-nums">
-                    {premium.domesticRate.toLocaleString()} {premium.currency}
-                    {premium.currency === 'KRW' && premium.detailRates.upbit != null && premium.detailRates.bithumb != null
-                      ? ` (Upbit ${premium.detailRates.upbit.toLocaleString()} / Bithumb ${premium.detailRates.bithumb.toLocaleString()})`
-                      : premium.domesticLabel
-                        ? ` (${premium.domesticLabel})`
-                        : ''}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-rose-700">{t('hq.commission.localPremium.fair')}</dt>
-                  <dd className="font-mono tabular-nums">
-                    {premium.fairRate.toLocaleString(undefined, { maximumFractionDigits: 2 })} {premium.currency}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-rose-700">{t('hq.commission.localPremium.fx')}</dt>
-                  <dd className="font-mono tabular-nums">
-                    USD/{premium.currency} {premium.usdFiatRate.toLocaleString()} × USDT/USD {premium.usdtUsdRate.toFixed(4)}
-                  </dd>
-                </div>
-              </dl>
-            </div>
-          ))}
-          {((data.localPremiums?.length ?? 0) > 0 || data.kimchiPremium) && (
-            <p className="text-xs text-rose-800">{t('hq.commission.localPremiumDesc')}</p>
-          )}
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={saveRateSources}
-              disabled={savingRateSources}
-              className="pg-btn pg-btn-primary"
-            >
-              {savingRateSources ? t('hq.saving') : t('hq.commission.saveRateSources')}
-            </button>
-          </div>
-        </div>
-      </section>
-
+      
       <section className="pg-section">
         <div className="pg-section-head">{t('hq.commission.symbolTitle')}</div>
         <div className="pg-section-pad space-y-3">
-        <p className="pg-hint">{t('hq.commission.symbolDesc')}</p>
+          <p className="pg-hint">{t('hq.commission.symbolDesc')}</p>
 
-        <div className="pg-card">
-          <div className="pg-card-head">{t('hq.commission.showFeeRatesTitle')}</div>
-          <div className="pg-card-body space-y-3">
-            <p className="pg-hint text-xs">{t('hq.commission.showFeeRatesDesc')}</p>
-            {(
-              [
-                {
-                  audience: 'customer' as const,
-                  audienceTitle: 'hq.commission.showFeeRatesAudienceCustomer' as MessageKey,
-                  audienceHint: 'hq.commission.showFeeRatesAudienceCustomerHint' as MessageKey,
-                  liveCfg: risk.feeDiagramDisplay,
-                  sandCfg: risk.sandboxFeeDiagramDisplay,
-                },
-                {
-                  audience: 'hq' as const,
-                  audienceTitle: 'hq.commission.showFeeRatesAudienceHq' as MessageKey,
-                  audienceHint: 'hq.commission.showFeeRatesAudienceHqHint' as MessageKey,
-                  liveCfg: risk.hqFeeDiagramDisplay,
-                  sandCfg: risk.hqSandboxFeeDiagramDisplay,
-                },
-              ] as const
-            ).map(({ audience, audienceTitle, audienceHint, liveCfg, sandCfg }) => (
-              <div key={audience} className="space-y-3 rounded-md border border-slate-200 p-3">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">{t(audienceTitle)}</p>
-                  <p className="mt-0.5 pg-hint text-xs">{t(audienceHint)}</p>
-                </div>
-                <div className="grid gap-4 lg:grid-cols-2">
-                  {(
-                    [
-                      {
-                        env: 'live' as const,
-                        titleKey: 'hq.commission.showFeeRatesLive' as MessageKey,
-                        cfg: liveCfg,
-                        radioName: `showFeeRates-${audience}-live`,
-                      },
-                      {
-                        env: 'sandbox' as const,
-                        titleKey: 'hq.commission.showFeeRatesSandbox' as MessageKey,
-                        cfg: sandCfg,
-                        radioName: `showFeeRates-${audience}-sandbox`,
-                      },
-                    ] as const
-                  ).map(({ env, titleKey, cfg, radioName }) => {
-                    const showRates = cfg?.showRates ?? DEFAULT_FEE_DIAGRAM.showRates;
-                    const billing =
-                      cfg?.defaultFeeBillingMethod ?? DEFAULT_FEE_DIAGRAM.defaultFeeBillingMethod;
-                    return (
-                      <div
-                        key={`${audience}-${env}`}
-                        className="space-y-3 rounded-md border border-slate-200 bg-slate-50/60 p-3"
-                      >
-                        <p className="text-sm font-semibold text-slate-800">{t(titleKey)}</p>
-                        <div className="flex flex-wrap gap-4">
-                          <label className="flex items-center gap-2 text-sm">
-                            <input
-                              type="radio"
-                              name={radioName}
-                              checked={showRates === true}
-                              onChange={() =>
-                                setRisk((prev) =>
-                                  prev
-                                    ? patchFeeDiagramEnv(prev, env, { showRates: true }, audience)
-                                    : prev,
-                                )
-                              }
-                            />
-                            {t('hq.commission.showFeeRatesOn')}
-                          </label>
-                          <label className="flex items-center gap-2 text-sm">
-                            <input
-                              type="radio"
-                              name={radioName}
-                              checked={showRates === false}
-                              onChange={() =>
-                                setRisk((prev) =>
-                                  prev
-                                    ? patchFeeDiagramEnv(prev, env, { showRates: false }, audience)
-                                    : prev,
-                                )
-                              }
-                            />
-                            {t('hq.commission.showFeeRatesOff')}
-                          </label>
-                        </div>
-                        {audience === 'customer' && (
-                          <div className="border-t border-slate-200 pt-3 space-y-2">
-                            <p className="pg-label text-sm">{t('hq.commission.defaultBillingMethod')}</p>
-                            <p className="pg-hint text-xs">
-                              {t(
-                                env === 'live'
-                                  ? 'hq.commission.defaultBillingMethodDescLive'
-                                  : 'hq.commission.defaultBillingMethodDescSandbox',
-                              )}
-                            </p>
-                            <div className="flex flex-wrap items-center gap-3">
-                              <select
-                                className="pg-input max-w-xs text-sm"
-                                value={billing}
-                                onChange={(e) =>
+          <div className="pg-card">
+            <div className="pg-card-head">{t('hq.commission.showFeeRatesTitle')}</div>
+            <div className="pg-card-body space-y-3">
+              <p className="pg-hint text-xs">{t('hq.commission.showFeeRatesDesc')}</p>
+              {(
+                [
+                  {
+                    audience: 'customer' as const,
+                    audienceTitle: 'hq.commission.showFeeRatesAudienceCustomer' as MessageKey,
+                    audienceHint: 'hq.commission.showFeeRatesAudienceCustomerHint' as MessageKey,
+                    liveCfg: risk.feeDiagramDisplay,
+                    sandCfg: risk.sandboxFeeDiagramDisplay,
+                  },
+                  {
+                    audience: 'hq' as const,
+                    audienceTitle: 'hq.commission.showFeeRatesAudienceHq' as MessageKey,
+                    audienceHint: 'hq.commission.showFeeRatesAudienceHqHint' as MessageKey,
+                    liveCfg: risk.hqFeeDiagramDisplay,
+                    sandCfg: risk.hqSandboxFeeDiagramDisplay,
+                  },
+                ] as const
+              ).map(({ audience, audienceTitle, audienceHint, liveCfg, sandCfg }) => (
+                <div key={audience} className="space-y-3 rounded-md border border-slate-200 p-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">{t(audienceTitle)}</p>
+                    <p className="mt-0.5 pg-hint text-xs">{t(audienceHint)}</p>
+                  </div>
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    {(
+                      [
+                        {
+                          env: 'live' as const,
+                          titleKey: 'hq.commission.showFeeRatesLive' as MessageKey,
+                          cfg: liveCfg,
+                          radioName: `showFeeRates-${audience}-live`,
+                        },
+                        {
+                          env: 'sandbox' as const,
+                          titleKey: 'hq.commission.showFeeRatesSandbox' as MessageKey,
+                          cfg: sandCfg,
+                          radioName: `showFeeRates-${audience}-sandbox`,
+                        },
+                      ] as const
+                    ).map(({ env, titleKey, cfg, radioName }) => {
+                      const showRates = cfg?.showRates ?? DEFAULT_FEE_DIAGRAM.showRates;
+                      const billing =
+                        cfg?.defaultFeeBillingMethod ?? DEFAULT_FEE_DIAGRAM.defaultFeeBillingMethod;
+                      return (
+                        <div
+                          key={`${audience}-${env}`}
+                          className="space-y-3 rounded-md border border-slate-200 bg-slate-50/60 p-3"
+                        >
+                          <p className="text-sm font-semibold text-slate-800">{t(titleKey)}</p>
+                          <div className="flex flex-wrap gap-4">
+                            <label className="flex items-center gap-2 text-sm">
+                              <input
+                                type="radio"
+                                name={radioName}
+                                checked={showRates === true}
+                                onChange={() =>
                                   setRisk((prev) =>
                                     prev
-                                      ? patchFeeDiagramEnv(
-                                          prev,
-                                          env,
-                                          {
-                                            defaultFeeBillingMethod: e.target.value as
-                                              | 'INTEGRATED'
-                                              | 'ITEMIZED'
-                                              | 'HYBRID',
-                                          },
-                                          'customer',
-                                        )
+                                      ? patchFeeDiagramEnv(prev, env, { showRates: true }, audience)
                                       : prev,
                                   )
                                 }
-                              >
-                                <option value="ITEMIZED">{t('feeBilling.ITEMIZED')}</option>
-                                <option value="INTEGRATED">{t('feeBilling.INTEGRATED')}</option>
-                                <option value="HYBRID">{t('feeBilling.HYBRID')}</option>
-                              </select>
-                              <span className="text-xs text-slate-600">
-                                {t('hq.commission.currentDefaultBilling')}:{' '}
-                                <strong>{t(`feeBilling.${billing}` as MessageKey)}</strong>
-                              </span>
-                            </div>
+                              />
+                              {t('hq.commission.showFeeRatesOn')}
+                            </label>
+                            <label className="flex items-center gap-2 text-sm">
+                              <input
+                                type="radio"
+                                name={radioName}
+                                checked={showRates === false}
+                                onChange={() =>
+                                  setRisk((prev) =>
+                                    prev
+                                      ? patchFeeDiagramEnv(prev, env, { showRates: false }, audience)
+                                      : prev,
+                                  )
+                                }
+                              />
+                              {t('hq.commission.showFeeRatesOff')}
+                            </label>
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-            <div className="border-t border-slate-200 pt-3 space-y-2">
-              <p className="pg-label text-sm">{t('hq.commission.showTotalFeeTitle')}</p>
-              <p className="pg-hint text-xs">{t('hq.commission.showTotalFeeDesc')}</p>
-              <div className="flex flex-wrap gap-4">
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="radio"
-                    name="showTotalFee"
-                    checked={(risk.showTotalFee ?? true) === true}
-                    onChange={() =>
-                      setRisk((prev) =>
-                        prev
-                          ? {
-                              ...prev,
-                              showTotalFee: true,
-                              feeDiagramDisplay: {
-                                ...DEFAULT_FEE_DIAGRAM,
-                                ...prev.feeDiagramDisplay,
-                                showTotalFee: true,
-                              },
-                              sandboxFeeDiagramDisplay: {
-                                ...DEFAULT_FEE_DIAGRAM,
-                                ...prev.sandboxFeeDiagramDisplay,
-                                showTotalFee: true,
-                              },
-                            }
-                          : prev,
-                      )
-                    }
-                  />
-                  {t('hq.commission.showFeeRatesOn')}
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="radio"
-                    name="showTotalFee"
-                    checked={(risk.showTotalFee ?? true) === false}
-                    onChange={() =>
-                      setRisk((prev) =>
-                        prev
-                          ? {
-                              ...prev,
-                              showTotalFee: false,
-                              feeDiagramDisplay: {
-                                ...DEFAULT_FEE_DIAGRAM,
-                                ...prev.feeDiagramDisplay,
-                                showTotalFee: false,
-                              },
-                              sandboxFeeDiagramDisplay: {
-                                ...DEFAULT_FEE_DIAGRAM,
-                                ...prev.sandboxFeeDiagramDisplay,
-                                showTotalFee: false,
-                              },
-                            }
-                          : prev,
-                      )
-                    }
-                  />
-                  {t('hq.commission.showFeeRatesOff')}
-                </label>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-3 pt-1">
-              <button
-                type="button"
-                onClick={saveRisk}
-                disabled={savingRisk || hasPolicyEditInProgress()}
-                className="pg-btn pg-btn-primary text-xs disabled:opacity-50"
-              >
-                {savingRisk ? t('hq.saving') : t('hq.commission.showFeeRatesSave')}
-              </button>
-              {msg && <span className="pg-hint">{msg}</span>}
-            </div>
-            <p className="pg-hint text-[10px]">{t('hq.commission.showFeeRatesSaveHint')}</p>
-          </div>
-        </div>
-
-        <div className="pg-card">
-          <div className="pg-card-head">{t('hq.commission.currencyAmountTitle')}</div>
-          <div className="pg-card-body space-y-3">
-            <p className="pg-hint text-xs">{t('hq.commission.currencyAmountDesc')}</p>
-            <div className="pg-table-wrap overflow-x-auto">
-              <table className="pg-table text-sm">
-                <thead>
-                  <tr>
-                    <th>{t('hq.commission.currencyAmount.currency')}</th>
-                    <th>{t('hq.commission.currencyAmount.decimals')}</th>
-                    <th>{t('hq.commission.currencyAmount.mode')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {AMOUNT_CURRENCIES.map((ccy) => {
-                    const rule = currencyAmount[ccy] ?? currencyAmount.default;
-                    return (
-                      <tr key={ccy}>
-                        <td className="font-mono font-medium">{ccy}</td>
-                        <td>
-                          <input
-                            type="number"
-                            min={0}
-                            max={8}
-                            className="pg-input !w-20 !text-xs"
-                            value={rule.decimals}
-                            onChange={(e) =>
-                              setCurrencyAmount((prev) => ({
-                                ...prev,
-                                [ccy]: {
-                                  ...rule,
-                                  decimals: Math.max(0, Math.min(8, Number(e.target.value) || 0)),
-                                },
-                              }))
-                            }
-                          />
-                        </td>
-                        <td>
-                          <select
-                            className="pg-input !text-xs max-w-[10rem]"
-                            value={rule.mode}
-                            onChange={(e) =>
-                              setCurrencyAmount((prev) => ({
-                                ...prev,
-                                [ccy]: {
-                                  ...rule,
-                                  mode: e.target.value as 'ROUND' | 'CEIL' | 'FLOOR',
-                                },
-                              }))
-                            }
-                          >
-                            <option value="ROUND">{t('hq.commission.currencyAmount.modeRound')}</option>
-                            <option value="CEIL">{t('hq.commission.currencyAmount.modeCeil')}</option>
-                            <option value="FLOOR">{t('hq.commission.currencyAmount.modeFloor')}</option>
-                          </select>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                className="pg-btn pg-btn-primary text-xs"
-                disabled={savingCurrencyAmount}
-                onClick={() => void saveCurrencyAmountDisplay()}
-              >
-                {savingCurrencyAmount ? t('hq.saving') : t('hq.commission.currencyAmountSave')}
-              </button>
-              {currencyAmountMsg && <span className="pg-hint">{currencyAmountMsg}</span>}
-            </div>
-          </div>
-        </div>
-
-        <div className="pg-card">
-          <div className="pg-card-head">{t('hq.commission.quoteResponseTitle')}</div>
-          <div className="pg-card-body space-y-3">
-            <p className="pg-hint text-xs">{t('hq.commission.quoteResponseDesc')}</p>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={quoteResponse.enabled}
-                onChange={(e) =>
-                  setQuoteResponse((p) => ({ ...p, enabled: e.target.checked }))
-                }
-              />
-              {t('hq.commission.quoteResponseEnabled')}
-            </label>
-            <div className="flex flex-wrap gap-4 text-sm">
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="quoteMode"
-                  checked={quoteResponse.mode === 'AUTO'}
-                  onChange={() => setQuoteResponse((p) => ({ ...p, mode: 'AUTO' }))}
-                />
-                {t('hq.commission.quoteModeAuto')}
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="quoteMode"
-                  checked={quoteResponse.mode === 'MANUAL'}
-                  onChange={() => setQuoteResponse((p) => ({ ...p, mode: 'MANUAL' }))}
-                />
-                {t('hq.commission.quoteModeManual')}
-              </label>
-            </div>
-            {quoteResponse.mode === 'AUTO' && (
-              <div>
-                <label className="pg-label">{t('hq.commission.quoteAutoDelay')}</label>
-                <select
-                  className="pg-input mt-1 max-w-xs"
-                  value={quoteResponse.autoDelayMinutes}
-                  onChange={(e) =>
-                    setQuoteResponse((p) => ({
-                      ...p,
-                      autoDelayMinutes: Number(e.target.value),
-                    }))
-                  }
-                >
-                  {[0, 1, 3, 5, 10, 30, 60, 180, 360, 720, 1440, 2880, 4320].map((m) => (
-                    <option key={m} value={m}>
-                      {m === 0
-                        ? t('hq.commission.quoteDelayImmediate')
-                        : m < 60
-                          ? t('hq.commission.quoteDelayMinutes', { n: String(m) })
-                          : m < 1440
-                            ? t('hq.commission.quoteDelayHours', { n: String(m / 60) })
-                            : t('hq.commission.quoteDelayDays', { n: String(m / 1440) })}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-            {quoteResponse.mode === 'MANUAL' && (
-              <div>
-                <label className="pg-label">{t('hq.commission.quoteManualSla')}</label>
-                <select
-                  className="pg-input mt-1 max-w-xs"
-                  value={quoteResponse.manualSlaHours}
-                  onChange={(e) =>
-                    setQuoteResponse((p) => ({
-                      ...p,
-                      manualSlaHours: Number(e.target.value),
-                    }))
-                  }
-                >
-                  {[3, 6, 12, 24].map((h) => (
-                    <option key={h} value={h}>
-                      {t('hq.commission.quoteDelayHours', { n: String(h) })}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-            <div className="rounded border border-slate-100 bg-slate-50/80 p-3 space-y-3">
-              <p className="pg-hint text-xs">{t('hq.commission.quoteTimersDesc')}</p>
-              <div className="grid gap-3 sm:grid-cols-3">
-                <label className="pg-field">
-                  <span className="pg-label">{t('hq.commission.applyIdleMinutes')}</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={60}
-                    className="pg-input mt-1 w-full"
-                    value={quoteResponse.applyIdleMinutes}
-                    onChange={(e) =>
-                      setQuoteResponse((p) => ({
-                        ...p,
-                        applyIdleMinutes: Math.max(1, Number(e.target.value) || 1),
-                      }))
-                    }
-                  />
-                </label>
-                <label className="pg-field">
-                  <span className="pg-label">{t('hq.commission.applyMaxMinutes')}</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={120}
-                    className="pg-input mt-1 w-full"
-                    value={quoteResponse.applyMaxMinutes}
-                    onChange={(e) =>
-                      setQuoteResponse((p) => ({
-                        ...p,
-                        applyMaxMinutes: Math.max(1, Number(e.target.value) || 1),
-                      }))
-                    }
-                  />
-                </label>
-                <label className="pg-field">
-                  <span className="pg-label">{t('hq.commission.quoteValidMinutes')}</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={240}
-                    className="pg-input mt-1 w-full"
-                    value={quoteResponse.quoteValidMinutes}
-                    onChange={(e) =>
-                      setQuoteResponse((p) => ({
-                        ...p,
-                        quoteValidMinutes: Math.max(1, Number(e.target.value) || 1),
-                      }))
-                    }
-                  />
-                </label>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                className="pg-btn pg-btn-primary text-xs"
-                disabled={savingQuote}
-                onClick={() => void saveUsdtQuoteResponse()}
-              >
-                {savingQuote ? t('hq.saving') : t('hq.commission.quoteResponseSave')}
-              </button>
-              {quoteMsg && <span className="pg-hint">{quoteMsg}</span>}
-            </div>
-          </div>
-        </div>
-
-        <div className="pg-card">
-          <div className="pg-card-head">{t('hq.commission.feeDiagramTitle')}</div>
-          <div className="pg-card-body space-y-3">
-            <p className="pg-hint text-xs">{t('hq.commission.feeDiagramDesc')}</p>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {FEE_DIAGRAM_KEYS.map(({ key, labelKey }) => (
-                <label key={key} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={risk.feeDiagramDisplay?.[key] ?? DEFAULT_FEE_DIAGRAM[key]}
-                    onChange={() =>
-                      setRisk((prev) => {
-                        if (!prev) return prev;
-                        const nextVal = !(
-                          prev.feeDiagramDisplay?.[key] ?? DEFAULT_FEE_DIAGRAM[key]
-                        );
-                        const live = {
-                          ...DEFAULT_FEE_DIAGRAM,
-                          ...prev.feeDiagramDisplay,
-                          [key]: nextVal,
-                        };
-                        const sandboxPrev =
-                          prev.sandboxFeeDiagramDisplay ?? DEFAULT_FEE_DIAGRAM;
-                        return {
-                          ...prev,
-                          feeDiagramDisplay: live,
-                          // 행 표시는 LIVE와 동기화. 노출·청구방식만 Sandbox 독립 유지
-                          sandboxFeeDiagramDisplay: {
-                            ...DEFAULT_FEE_DIAGRAM,
-                            ...sandboxPrev,
-                            [key]: nextVal,
-                            showRates: sandboxPrev.showRates ?? DEFAULT_FEE_DIAGRAM.showRates,
-                            defaultFeeBillingMethod:
-                              sandboxPrev.defaultFeeBillingMethod ??
-                              DEFAULT_FEE_DIAGRAM.defaultFeeBillingMethod,
-                          },
-                        };
-                      })
-                    }
-                  />
-                  <span>{t(labelKey)}</span>
-                </label>
-              ))}
-            </div>
-            <p className="pg-hint text-[10px]">{t('hq.commission.feeDiagramSaveHint')}</p>
-            <div className="flex flex-wrap items-center gap-3 pt-1">
-              <button
-                type="button"
-                onClick={saveRisk}
-                disabled={savingRisk || hasPolicyEditInProgress()}
-                className="pg-btn pg-btn-primary text-xs disabled:opacity-50"
-              >
-                {savingRisk ? t('hq.saving') : t('hq.commission.saveRisk')}
-              </button>
-              {msg && <span className="pg-hint">{msg}</span>}
-            </div>
-          </div>
-        </div>
-
-        <div className="pg-card">
-          <div className="pg-card-head">{t('hq.commission.gasNetworksTitle')}</div>
-          <div className="pg-card-body space-y-3">
-            <p className="pg-hint">{t('hq.commission.gasNetworksDesc')}</p>
-            <p className="pg-callout pg-callout-muted">{t('hq.commission.gasGroupHint')}</p>
-            <div className="pg-card pg-table-wrap">
-              <table className="pg-table">
-                <thead>
-                  <tr>
-                    <th>{t('wallets.col.network')}</th>
-                    {GAS_GROUPS.map((group) => {
-                      const selected = gasNetworks.activeGroup === group;
-                      return (
-                        <th key={group} className={selected ? 'bg-sky-100' : undefined}>
-                          <button
-                            type="button"
-                            onClick={() => setGasNetworks((prev) => ({ ...prev, activeGroup: group }))}
-                            className={`w-full rounded px-2 py-1 text-left ${
-                              selected
-                                ? 'bg-sky-600 text-white'
-                                : 'bg-slate-100 text-slate-800 hover:bg-slate-200'
-                            }`}
-                          >
-                            <span className="block text-sm font-semibold">{t(GAS_GROUP_LABEL[group])}</span>
-                            <span className="block text-[10px] font-normal opacity-90">
-                              {selected ? t('hq.commission.gasGroupSelected') : t('hq.commission.gasGroupSelect')}
-                            </span>
-                          </button>
-                        </th>
+                          {audience === 'customer' && (
+                            <div className="border-t border-slate-200 pt-3 space-y-2">
+                              <p className="pg-label text-sm">{t('hq.commission.defaultBillingMethod')}</p>
+                              <p className="pg-hint text-xs">
+                                {t(
+                                  env === 'live'
+                                    ? 'hq.commission.defaultBillingMethodDescLive'
+                                    : 'hq.commission.defaultBillingMethodDescSandbox',
+                                )}
+                              </p>
+                              <div className="flex flex-wrap items-center gap-3">
+                                <select
+                                  className="pg-input max-w-xs text-sm"
+                                  value={billing}
+                                  onChange={(e) =>
+                                    setRisk((prev) =>
+                                      prev
+                                        ? patchFeeDiagramEnv(
+                                            prev,
+                                            env,
+                                            {
+                                              defaultFeeBillingMethod: e.target.value as
+                                                | 'INTEGRATED'
+                                                | 'ITEMIZED'
+                                                | 'HYBRID',
+                                            },
+                                            'customer',
+                                          )
+                                        : prev,
+                                    )
+                                  }
+                                >
+                                  <option value="ITEMIZED">{t('feeBilling.ITEMIZED')}</option>
+                                  <option value="INTEGRATED">{t('feeBilling.INTEGRATED')}</option>
+                                  <option value="HYBRID">{t('feeBilling.HYBRID')}</option>
+                                </select>
+                                <span className="text-xs text-slate-600">
+                                  {t('hq.commission.currentDefaultBilling')}:{' '}
+                                  <strong>{t(`feeBilling.${billing}` as MessageKey)}</strong>
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       );
                     })}
-                  </tr>
-                </thead>
-                <tbody>
-                  {gasNetworks.networks.map((row) => (
-                    <tr key={row.code}>
-                      <td>{t(`network.${row.code}` as MessageKey)}</td>
-                      {GAS_GROUPS.map((group) => {
-                        const selected = gasNetworks.activeGroup === group;
-                        return (
-                          <td key={group} className={selected ? 'bg-sky-50' : undefined}>
-                            <PolicyNumberInput
-                              step="0.01"
-                              min={0}
-                              value={row.fees[group]}
-                              onChange={(n) =>
-                                setGasNetworks((prev) => ({
-                                  ...prev,
-                                  networks: prev.networks.map((r) =>
-                                    r.code === row.code
-                                      ? { ...r, fees: { ...r.fees, [group]: n } }
-                                      : r,
-                                  ),
-                                }))
-                              }
-                              className={`pg-input w-24 ${selected ? 'border-sky-400 ring-1 ring-sky-300' : ''}`}
-                            />
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <button
-              type="button"
-              onClick={async () => {
-                setSavingGas(true);
-                setGasMsg('');
-                try {
-                  const next = await hqPolicyApi.saveGasNetworks(gasNetworks);
-                  setData(next);
-                  setGasNetworks(next.gasNetworks ?? gasNetworks);
-                  setGasMsg(
-                    t('hq.commission.gasNetworksSaved', {
-                      group: t(GAS_GROUP_LABEL[gasNetworks.activeGroup]),
-                    }),
-                  );
-                } catch (e) {
-                  setGasMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
-                } finally {
-                  setSavingGas(false);
-                }
-              }}
-              disabled={savingGas}
-              className="pg-btn pg-btn-primary disabled:opacity-50"
-            >
-              {savingGas ? t('hq.saving') : t('hq.commission.saveGasNetworks')}
-            </button>
-            {gasMsg && <p className="pg-hint">{gasMsg}</p>}
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {LIMIT_CUSTOMER_TYPES.map((type) => (
-            <button
-              key={type}
-              type="button"
-              onClick={() => {
-                if (feeCustomerType !== type) cancelTierEdit();
-                setFeeCustomerType(type);
-              }}
-              className={`pg-btn text-xs ${
-                feeCustomerType === type ? 'pg-btn-primary' : 'pg-btn-secondary'
-              }`}
-            >
-              {type === 'INDIVIDUAL'
-                ? t('hq.commission.limitsIndividual')
-                : t('hq.commission.limitsCorporate')}
-            </button>
-          ))}
-        </div>
-
-        <div className="pg-segment-bar">
-          {FEE_CURRENCIES.map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => {
-                if (feeCurrency !== c) cancelTierEdit();
-                setFeeCurrency(c);
-              }}
-              className={`pg-subtab ${feeCurrency === c ? 'pg-subtab-active' : 'pg-subtab-idle'}`}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
-
-        <p className="pg-hint">{t('hq.commission.tierTableDesc')}</p>
-        <p className="pg-hint text-xs text-sky-800">{t('hq.commission.tierCustomerTypeHint')}</p>
-        {feeCustomerType === 'INDIVIDUAL' && (feeCurrency === 'USD' || feeCurrency === 'EUR') && (
-          <p className="pg-hint text-xs text-sky-800">{t('hq.commission.tierIndividualRemitHint')}</p>
-        )}
-        <p className="pg-callout pg-callout-muted">{t('hq.commission.feeDualHint')}</p>
-        <p className="pg-callout pg-callout-muted">{t('hq.commission.tierEditHint')}</p>
-
-        <div className="pg-card pg-table-wrap">
-          <table className="pg-table">
-            <thead>
-              <tr>
-                <th>{t('hq.commission.tierCurrency')}</th>
-                <th>{t('hq.commission.tierMaxAmount')}</th>
-                <th>{t('hq.commission.fxFee')}</th>
-                <th>{t('hq.commission.transferFee')}</th>
-                <th>{t('hq.commission.otherFee')}</th>
-                <th>{t('hq.commission.tierActions')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {currencyTiers.map((row) => {
-                const isEditing = editingTierId === row.id;
-                const rowLocked = editingTierId !== null && !isEditing;
-                return (
-                <tr
-                  key={row.id}
-                  className={isEditing ? 'pg-row-edit' : undefined}
-                >
-                  <td className="font-mono">{row.currency}</td>
-                  <td>
-                    {isEditing ? (
-                      <FormattedAmountInput
-                        min={1}
-                        commitOnBlur
-                        value={row.maxAmount}
-                        onChange={(maxAmount) => updateTierDraft({ maxAmount })}
-                        className="pg-input min-w-[8rem]"
-                      />
-                    ) : (
-                      <PolicyCellValue>{formatAmountInput(row.maxAmount)}</PolicyCellValue>
-                    )}
-                  </td>
-                  <td>
-                    <FeeDualInput
-                      feeKey="fx"
-                      fees={row}
-                      editing={isEditing}
-                      onChange={(patch) => updateTierDraft(patch)}
-                    />
-                  </td>
-                  <td>
-                    <FeeDualInput
-                      feeKey="transfer"
-                      fees={row}
-                      editing={isEditing}
-                      onChange={(patch) => updateTierDraft(patch)}
-                    />
-                  </td>
-                  <td>
-                    <FeeDualInput
-                      feeKey="other"
-                      fees={row}
-                      editing={isEditing}
-                      onChange={(patch) => updateTierDraft(patch)}
-                    />
-                  </td>
-                  <td>
-                    <PolicyTableActions>
-                      {isEditing ? (
-                        <>
-                          <button
-                            type="button"
-                            onClick={saveTierEdit}
-                            className="pg-btn pg-btn-primary text-xs"
-                          >
-                            {t('hq.commission.tierSaveRow')}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={cancelTierEdit}
-                            className="pg-btn pg-btn-secondary text-xs"
-                          >
-                            {t('hq.commission.tierCancelEdit')}
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => startTierEdit(row)}
-                            disabled={rowLocked}
-                            className="pg-btn pg-btn-secondary text-xs disabled:opacity-40"
-                          >
-                            {t('hq.commission.tierEdit')}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => removeTier(row.id)}
-                            disabled={rowLocked}
-                            className="pg-btn pg-btn-secondary text-xs text-red-600 disabled:opacity-40"
-                          >
-                            {t('hq.commission.tierRemove')}
-                          </button>
-                        </>
-                      )}
-                    </PolicyTableActions>
-                  </td>
-                </tr>
-              );
-              })}
-              {currencyTiers.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="py-8 text-center pg-hint">
-                    {t('hq.commission.tierEmpty')}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={addTier}
-            disabled={editingTierId !== null}
-            className="pg-btn pg-btn-secondary disabled:opacity-40"
-          >
-            {t('hq.commission.tierAdd')}
-          </button>
-          <button
-            type="button"
-            onClick={saveFeeTiers}
-            disabled={savingTiers || editingTierId !== null}
-            className="pg-btn pg-btn-primary disabled:opacity-50"
-          >
-            {savingTiers ? t('hq.saving') : t('hq.commission.saveTiers')}
-          </button>
-          {tiersMsg && <span className="pg-hint">{tiersMsg}</span>}
-        </div>
-
-        <div className="pg-card">
-          <div className="pg-card-body space-y-4">
-            <ExpressFeePolicyEditor value={expressFee} onChange={setExpressFee} />
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                disabled={savingExpress}
-                className="pg-btn pg-btn-primary disabled:opacity-50"
-                onClick={async () => {
-                  setSavingExpress(true);
-                  setExpressMsg('');
-                  try {
-                    const next = await hqPolicyApi.saveExpressFee(expressFee);
-                    setData(next);
-                    setExpressFee(next.expressFee ?? expressFee);
-                    setExpressMsg(t('express.hq.saved'));
-                  } catch (e) {
-                    setExpressMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
-                  } finally {
-                    setSavingExpress(false);
-                  }
-                }}
-              >
-                {savingExpress ? t('hq.saving') : t('express.hq.save')}
-              </button>
-              {expressMsg && <span className="pg-hint">{expressMsg}</span>}
-            </div>
-          </div>
-        </div>
-
-        <div className="pg-card">
-          <div className="pg-card-body space-y-4">
-            <MemberGradePolicyEditor value={memberGrade} onChange={setMemberGrade} />
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                disabled={savingMemberGrade}
-                className="pg-btn pg-btn-primary disabled:opacity-50"
-                onClick={async () => {
-                  setSavingMemberGrade(true);
-                  setMemberGradeMsg('');
-                  try {
-                    const next = await hqPolicyApi.saveMemberGrade(memberGrade);
-                    setData(next);
-                    setMemberGrade(next.memberGrade ?? memberGrade);
-                    setMemberGradeMsg(t('memberGrade.hq.saved'));
-                  } catch (e) {
-                    setMemberGradeMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
-                  } finally {
-                    setSavingMemberGrade(false);
-                  }
-                }}
-              >
-                {savingMemberGrade ? t('hq.saving') : t('memberGrade.hq.save')}
-              </button>
-              {memberGradeMsg && <span className="pg-hint">{memberGradeMsg}</span>}
-            </div>
-          </div>
-        </div>
-
-        <div className="pg-card">
-          <div className="pg-card-head">{t('hq.commission.limitsTitle')}</div>
-          <div className="pg-card-body space-y-4">
-            <p className="pg-hint text-xs">{t('hq.commission.limitsDesc')}</p>
-            <p className="pg-hint text-xs text-sky-800">{t('hq.commission.limitsApplyLink')}</p>
-            <p className="pg-hint text-xs text-sky-800">{t('hq.commission.limitsRemittanceNote')}</p>
-            <p className="pg-callout pg-callout-muted">{t('hq.commission.tierEditHint')}</p>
-            <div className="flex flex-wrap gap-2">
-              {LIMIT_CUSTOMER_TYPES.map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => {
-                    if (limitCustomerType !== type) cancelLimitEdit();
-                    setLimitCustomerType(type);
-                  }}
-                  className={`pg-btn text-xs ${
-                    limitCustomerType === type ? 'pg-btn-primary' : 'pg-btn-secondary'
-                  }`}
-                >
-                  {type === 'INDIVIDUAL'
-                    ? t('hq.commission.limitsIndividual')
-                    : t('hq.commission.limitsCorporate')}
-                </button>
+                  </div>
+                </div>
               ))}
+              <div className="border-t border-slate-200 pt-3 space-y-2">
+                <p className="pg-label text-sm">{t('hq.commission.showTotalFeeTitle')}</p>
+                <p className="pg-hint text-xs">{t('hq.commission.showTotalFeeDesc')}</p>
+                <div className="flex flex-wrap gap-4">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="showTotalFee"
+                      checked={(risk.showTotalFee ?? true) === true}
+                      onChange={() =>
+                        setRisk((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                showTotalFee: true,
+                                feeDiagramDisplay: {
+                                  ...DEFAULT_FEE_DIAGRAM,
+                                  ...prev.feeDiagramDisplay,
+                                  showTotalFee: true,
+                                },
+                                sandboxFeeDiagramDisplay: {
+                                  ...DEFAULT_FEE_DIAGRAM,
+                                  ...prev.sandboxFeeDiagramDisplay,
+                                  showTotalFee: true,
+                                },
+                              }
+                            : prev,
+                        )
+                      }
+                    />
+                    {t('hq.commission.showFeeRatesOn')}
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="showTotalFee"
+                      checked={(risk.showTotalFee ?? true) === false}
+                      onChange={() =>
+                        setRisk((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                showTotalFee: false,
+                                feeDiagramDisplay: {
+                                  ...DEFAULT_FEE_DIAGRAM,
+                                  ...prev.feeDiagramDisplay,
+                                  showTotalFee: false,
+                                },
+                                sandboxFeeDiagramDisplay: {
+                                  ...DEFAULT_FEE_DIAGRAM,
+                                  ...prev.sandboxFeeDiagramDisplay,
+                                  showTotalFee: false,
+                                },
+                              }
+                            : prev,
+                        )
+                      }
+                    />
+                    {t('hq.commission.showFeeRatesOff')}
+                  </label>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={saveFeeSettings}
+                  disabled={savingRisk || hasPolicyEditInProgress()}
+                  className="pg-btn pg-btn-primary text-xs disabled:opacity-50"
+                >
+                  {savingRisk ? t('hq.saving') : t('hq.commission.showFeeRatesSave')}
+                </button>
+                {msg && <span className="pg-hint">{msg}</span>}
+              </div>
+              <p className="pg-hint text-[10px]">{t('hq.commission.showFeeRatesSaveHint')}</p>
             </div>
-            <div className="pg-card pg-table-wrap">
-              <table className="pg-table">
-                <thead>
-                  <tr>
-                    <th>{t('hq.commission.tierCurrency')}</th>
-                    {LIMIT_FIELDS.map((field) => (
-                      <th key={field.key}>{t(field.labelKey)}</th>
-                    ))}
-                    <th>{t('hq.commission.tierActions')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {FEE_CURRENCIES.map((currency) => {
-                    const isEditing = editingLimitCurrency === currency;
-                    const rowLocked = editingLimitCurrency !== null && !isEditing;
-                    const limits = isEditing && limitDraft
-                      ? limitDraft
-                      : risk.transactionLimits[limitCustomerType][currency];
-                    return (
-                      <tr
-                        key={currency}
-                        className={isEditing ? 'pg-row-edit' : undefined}
-                      >
-                        <td className="font-mono font-medium">{currency}</td>
-                        {LIMIT_FIELDS.map((field) => (
-                          <td key={field.key}>
-                            {isEditing ? (
-                              <FormattedAmountInput
-                                min={0}
-                                commitOnBlur
-                                className="pg-input w-28 text-xs"
-                                value={limits[field.key]}
-                                onChange={(n) => updateLimitDraft(field.key, n)}
-                              />
-                            ) : (
-                              <PolicyCellValue>
-                                {formatAmountInput(limits[field.key])}
-                              </PolicyCellValue>
-                            )}
-                          </td>
-                        ))}
-                        <td>
-                          <PolicyTableActions>
-                            {isEditing ? (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={saveLimitEdit}
-                                  className="pg-btn pg-btn-primary text-xs"
-                                >
-                                  {t('hq.commission.tierSaveRow')}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={cancelLimitEdit}
-                                  className="pg-btn pg-btn-secondary text-xs"
-                                >
-                                  {t('hq.commission.tierCancelEdit')}
-                                </button>
-                              </>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => startLimitEdit(currency)}
-                                disabled={rowLocked || hasPolicyEditInProgress()}
-                                className="pg-btn pg-btn-secondary text-xs disabled:opacity-40"
-                              >
-                                {t('hq.commission.tierEdit')}
-                              </button>
-                            )}
-                          </PolicyTableActions>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <p className="pg-hint text-[10px]">{t('hq.commission.limitZeroHint')}</p>
-            <button
-              type="button"
-              onClick={saveRisk}
-              disabled={savingRisk || hasPolicyEditInProgress()}
-              className="pg-btn pg-btn-primary disabled:opacity-50"
-            >
-              {savingRisk ? t('hq.saving') : t('hq.commission.saveLimits')}
-            </button>
           </div>
-        </div>
 
-        <div className="pg-card">
-          <div className="pg-card-head">{t('hq.commission.riskTitle')}</div>
-          <div className="pg-card-body space-y-4">
-            <p className="pg-hint">{t('hq.commission.riskDesc')}</p>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={risk.riskEnabled}
-                onChange={(e) => setRisk({ ...risk, riskEnabled: e.target.checked })}
-              />
-              <span className="pg-label">{t('hq.commission.riskEnabled')}</span>
-            </label>
+          <div className="pg-card">
+            <div className="pg-card-head">{t('hq.commission.feeDiagramTitle')}</div>
+            <div className="pg-card-body space-y-3">
+              <p className="pg-hint text-xs">{t('hq.commission.feeDiagramDesc')}</p>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {FEE_DIAGRAM_KEYS.map(({ key, labelKey }) => (
+                  <label key={key} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={risk.feeDiagramDisplay?.[key] ?? DEFAULT_FEE_DIAGRAM[key]}
+                      onChange={() =>
+                        setRisk((prev) => {
+                          if (!prev) return prev;
+                          const nextVal = !(
+                            prev.feeDiagramDisplay?.[key] ?? DEFAULT_FEE_DIAGRAM[key]
+                          );
+                          const live = {
+                            ...DEFAULT_FEE_DIAGRAM,
+                            ...prev.feeDiagramDisplay,
+                            [key]: nextVal,
+                          };
+                          const sandboxPrev =
+                            prev.sandboxFeeDiagramDisplay ?? DEFAULT_FEE_DIAGRAM;
+                          return {
+                            ...prev,
+                            feeDiagramDisplay: live,
+                            // 행 표시는 LIVE와 동기화. 노출·청구방식만 Sandbox 독립 유지
+                            sandboxFeeDiagramDisplay: {
+                              ...DEFAULT_FEE_DIAGRAM,
+                              ...sandboxPrev,
+                              [key]: nextVal,
+                              showRates: sandboxPrev.showRates ?? DEFAULT_FEE_DIAGRAM.showRates,
+                              defaultFeeBillingMethod:
+                                sandboxPrev.defaultFeeBillingMethod ??
+                                DEFAULT_FEE_DIAGRAM.defaultFeeBillingMethod,
+                            },
+                          };
+                        })
+                      }
+                    />
+                    <span>{t(labelKey)}</span>
+                  </label>
+                ))}
+              </div>
+              <p className="pg-hint text-[10px]">{t('hq.commission.feeDiagramSaveHint')}</p>
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={saveFeeSettings}
+                  disabled={savingRisk || hasPolicyEditInProgress()}
+                  className="pg-btn pg-btn-primary text-xs disabled:opacity-50"
+                >
+                  {savingRisk ? t('hq.saving') : t('hq.commission.showFeeRatesSave')}
+                </button>
+                {msg && <span className="pg-hint">{msg}</span>}
+              </div>
+            </div>
+          </div>
 
-            <div className="space-y-2">
-              <p className="pg-label">{t('hq.commission.usdtRiskTiersTitle')}</p>
-              <p className="pg-hint text-xs">{t('hq.commission.usdtRiskTiersDesc')}</p>
+          <div className="pg-card">
+            <div className="pg-card-head">{t('hq.commission.gasNetworksTitle')}</div>
+            <div className="pg-card-body space-y-3">
+              <p className="pg-hint">{t('hq.commission.gasNetworksDesc')}</p>
+              <p className="pg-callout pg-callout-muted">{t('hq.commission.gasGroupHint')}</p>
               <div className="pg-card pg-table-wrap">
                 <table className="pg-table">
                   <thead>
                     <tr>
-                      <th>{t('hq.commission.usdtRiskTierCode')}</th>
-                      <th>{t('hq.commission.usdtRiskTierLabel')}</th>
-                      <th>{t('hq.commission.usdtRiskTierMin')}</th>
-                      <th>{t('hq.commission.usdtRiskTierMax')}</th>
+                      <th>{t('wallets.col.network')}</th>
+                      {GAS_GROUPS.map((group) => {
+                        const selected = gasNetworks.activeGroup === group;
+                        return (
+                          <th key={group} className={selected ? 'bg-sky-100' : undefined}>
+                            <button
+                              type="button"
+                              onClick={() => setGasNetworks((prev) => ({ ...prev, activeGroup: group }))}
+                              className={`w-full rounded px-2 py-1 text-left ${
+                                selected
+                                  ? 'bg-sky-600 text-white'
+                                  : 'bg-slate-100 text-slate-800 hover:bg-slate-200'
+                              }`}
+                            >
+                              <span className="block text-sm font-semibold">{t(GAS_GROUP_LABEL[group])}</span>
+                              <span className="block text-[10px] font-normal opacity-90">
+                                {selected ? t('hq.commission.gasGroupSelected') : t('hq.commission.gasGroupSelect')}
+                              </span>
+                            </button>
+                          </th>
+                        );
+                      })}
                     </tr>
                   </thead>
                   <tbody>
-                    {USDT_RISK_LIMIT_TIERS.map((tier) => {
-                      const band = risk.usdtRiskLimitTiers?.[tier] ?? DEFAULT_USDT_RISK_LIMIT_TIERS[tier];
-                      return (
-                        <tr key={tier}>
-                          <td className="font-mono font-medium">{tier}</td>
-                          <td>{t(USDT_RISK_TIER_LABEL_KEYS[tier])}</td>
-                          <td>
-                            <FormattedAmountInput
-                              min={0}
-                              commitOnBlur
-                              className="pg-input w-28 text-xs"
-                              value={band.minUsdt}
-                              onChange={(n) =>
-                                setRisk((prev) => {
-                                  if (!prev) return prev;
-                                  const base = ensureUsdtRiskLimitTiers(prev);
-                                  return {
-                                    ...base,
-                                    usdtRiskLimitTiers: {
-                                      ...base.usdtRiskLimitTiers!,
-                                      [tier]: {
-                                        ...base.usdtRiskLimitTiers![tier],
-                                        minUsdt: Math.max(0, n),
-                                      },
-                                    },
-                                  };
-                                })
-                              }
-                            />
-                          </td>
-                          <td>
-                            <FormattedAmountInput
-                              min={0}
-                              commitOnBlur
-                              className="pg-input w-28 text-xs"
-                              value={band.maxUsdt}
-                              onChange={(n) =>
-                                setRisk((prev) => {
-                                  if (!prev) return prev;
-                                  const base = ensureUsdtRiskLimitTiers(prev);
-                                  return {
-                                    ...base,
-                                    usdtRiskLimitTiers: {
-                                      ...base.usdtRiskLimitTiers!,
-                                      [tier]: {
-                                        ...base.usdtRiskLimitTiers![tier],
-                                        maxUsdt: Math.max(0, n),
-                                      },
-                                    },
-                                  };
-                                })
-                              }
-                            />
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {gasNetworks.networks.map((row) => (
+                      <tr key={row.code}>
+                        <td>{t(`network.${row.code}` as MessageKey)}</td>
+                        {GAS_GROUPS.map((group) => {
+                          const selected = gasNetworks.activeGroup === group;
+                          return (
+                            <td key={group} className={selected ? 'bg-sky-50' : undefined}>
+                              <PolicyNumberInput
+                                step="0.01"
+                                min={0}
+                                value={row.fees[group]}
+                                onChange={(n) =>
+                                  setGasNetworks((prev) => ({
+                                    ...prev,
+                                    networks: prev.networks.map((r) =>
+                                      r.code === row.code
+                                        ? { ...r, fees: { ...r.fees, [group]: n } }
+                                        : r,
+                                    ),
+                                  }))
+                                }
+                                className={`pg-input w-24 ${selected ? 'border-sky-400 ring-1 ring-sky-300' : ''}`}
+                              />
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
-              <p className="pg-hint text-[10px]">{t('hq.commission.usdtRiskTierZeroHint')}</p>
+              <button
+                type="button"
+                onClick={async () => {
+                  setSavingGas(true);
+                  setGasMsg('');
+                  try {
+                    const next = await hqPolicyApi.saveGasNetworks(gasNetworks);
+                    setData(next);
+                    setGasNetworks(next.gasNetworks ?? gasNetworks);
+                    setGasMsg(
+                      t('hq.commission.gasNetworksSaved', {
+                        group: t(GAS_GROUP_LABEL[gasNetworks.activeGroup]),
+                      }),
+                    );
+                  } catch (e) {
+                    setGasMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
+                  } finally {
+                    setSavingGas(false);
+                  }
+                }}
+                disabled={savingGas}
+                className="pg-btn pg-btn-primary disabled:opacity-50"
+              >
+                {savingGas ? t('hq.saving') : t('hq.commission.saveGasNetworks')}
+              </button>
+              {gasMsg && <p className="pg-hint">{gasMsg}</p>}
             </div>
+          </div>
 
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="min-w-[12rem]">
-                <span className="pg-label">{t('hq.commission.maxDaily')}</span>
-                {editingMaxDaily ? (
-                  <PolicyNumberInput
-                    min={0}
-                    value={maxDailyDraft}
-                    onChange={setMaxDailyDraft}
-                    className="pg-input mt-1 w-full"
-                    step="1"
-                  />
-                ) : (
-                  <p className="mt-1 text-center font-mono tabular-nums text-sm">
-                    {risk.maxDailyTicketsPerCustomer}
-                  </p>
-                )}
-              </div>
-              <PolicyTableActions>
-                {editingMaxDaily ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={saveMaxDailyEdit}
-                      className="pg-btn pg-btn-primary text-xs"
-                    >
-                      {t('hq.commission.tierSaveRow')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={cancelMaxDailyEdit}
-                      className="pg-btn pg-btn-secondary text-xs"
-                    >
-                      {t('hq.commission.tierCancelEdit')}
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={startMaxDailyEdit}
-                    disabled={hasPolicyEditInProgress()}
-                    className="pg-btn pg-btn-secondary text-xs disabled:opacity-40"
+          <div className="flex flex-wrap gap-2">
+            {LIMIT_CUSTOMER_TYPES.map((type) => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => {
+                  if (feeCustomerType !== type) cancelTierEdit();
+                  setFeeCustomerType(type);
+                }}
+                className={`pg-btn text-xs ${
+                  feeCustomerType === type ? 'pg-btn-primary' : 'pg-btn-secondary'
+                }`}
+              >
+                {type === 'INDIVIDUAL'
+                  ? t('hq.commission.limitsIndividual')
+                  : t('hq.commission.limitsCorporate')}
+              </button>
+            ))}
+          </div>
+
+          <div className="pg-segment-bar">
+            {FEE_CURRENCIES.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => {
+                  if (feeCurrency !== c) cancelTierEdit();
+                  setFeeCurrency(c);
+                }}
+                className={`pg-subtab ${feeCurrency === c ? 'pg-subtab-active' : 'pg-subtab-idle'}`}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+
+          <p className="pg-hint">{t('hq.commission.tierTableDesc')}</p>
+          <p className="pg-hint text-xs text-sky-800">{t('hq.commission.tierCustomerTypeHint')}</p>
+          {feeCustomerType === 'INDIVIDUAL' && (feeCurrency === 'USD' || feeCurrency === 'EUR') && (
+            <p className="pg-hint text-xs text-sky-800">{t('hq.commission.tierIndividualRemitHint')}</p>
+          )}
+          <p className="pg-callout pg-callout-muted">{t('hq.commission.feeDualHint')}</p>
+          <p className="pg-callout pg-callout-muted">{t('hq.commission.tierEditHint')}</p>
+
+          <div className="pg-card pg-table-wrap">
+            <table className="pg-table">
+              <thead>
+                <tr>
+                  <th>{t('hq.commission.tierCurrency')}</th>
+                  <th>{t('hq.commission.tierMaxAmount')}</th>
+                  <th>{t('hq.commission.fxFee')}</th>
+                  <th>{t('hq.commission.transferFee')}</th>
+                  <th>{t('hq.commission.otherFee')}</th>
+                  <th>{t('hq.commission.tierActions')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {currencyTiers.map((row) => {
+                  const isEditing = editingTierId === row.id;
+                  const rowLocked = editingTierId !== null && !isEditing;
+                  return (
+                  <tr
+                    key={row.id}
+                    className={isEditing ? 'pg-row-edit' : undefined}
                   >
-                    {t('hq.commission.tierEdit')}
-                  </button>
+                    <td className="font-mono">{row.currency}</td>
+                    <td>
+                      {isEditing ? (
+                        <FormattedAmountInput
+                          min={1}
+                          commitOnBlur
+                          value={row.maxAmount}
+                          onChange={(maxAmount) => updateTierDraft({ maxAmount })}
+                          className="pg-input min-w-[8rem]"
+                        />
+                      ) : (
+                        <PolicyCellValue>{formatAmountInput(row.maxAmount)}</PolicyCellValue>
+                      )}
+                    </td>
+                    <td>
+                      <FeeDualInput
+                        feeKey="fx"
+                        fees={row}
+                        editing={isEditing}
+                        onChange={(patch) => updateTierDraft(patch)}
+                      />
+                    </td>
+                    <td>
+                      <FeeDualInput
+                        feeKey="transfer"
+                        fees={row}
+                        editing={isEditing}
+                        onChange={(patch) => updateTierDraft(patch)}
+                      />
+                    </td>
+                    <td>
+                      <FeeDualInput
+                        feeKey="other"
+                        fees={row}
+                        editing={isEditing}
+                        onChange={(patch) => updateTierDraft(patch)}
+                      />
+                    </td>
+                    <td>
+                      <PolicyTableActions>
+                        {isEditing ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={saveTierEdit}
+                              className="pg-btn pg-btn-primary text-xs"
+                            >
+                              {t('hq.commission.tierSaveRow')}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={cancelTierEdit}
+                              className="pg-btn pg-btn-secondary text-xs"
+                            >
+                              {t('hq.commission.tierCancelEdit')}
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => startTierEdit(row)}
+                              disabled={rowLocked}
+                              className="pg-btn pg-btn-secondary text-xs disabled:opacity-40"
+                            >
+                              {t('hq.commission.tierEdit')}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeTier(row.id)}
+                              disabled={rowLocked}
+                              className="pg-btn pg-btn-secondary text-xs text-red-600 disabled:opacity-40"
+                            >
+                              {t('hq.commission.tierRemove')}
+                            </button>
+                          </>
+                        )}
+                      </PolicyTableActions>
+                    </td>
+                  </tr>
+                );
+                })}
+                {currencyTiers.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="py-8 text-center pg-hint">
+                      {t('hq.commission.tierEmpty')}
+                    </td>
+                  </tr>
                 )}
-              </PolicyTableActions>
-            </div>
-            <label className="block">
-              <span className="pg-label">{t('hq.commission.memo')}</span>
-              <textarea
-                value={risk.notes ?? ''}
-                onChange={(e) => setRisk({ ...risk, notes: e.target.value })}
-                className="pg-input mt-1"
-                rows={2}
-              />
-            </label>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
-              onClick={saveRisk}
-              disabled={savingRisk || hasPolicyEditInProgress()}
+              onClick={addTier}
+              disabled={editingTierId !== null}
+              className="pg-btn pg-btn-secondary disabled:opacity-40"
+            >
+              {t('hq.commission.tierAdd')}
+            </button>
+            <button
+              type="button"
+              onClick={saveFeeTiers}
+              disabled={savingTiers || editingTierId !== null}
               className="pg-btn pg-btn-primary disabled:opacity-50"
             >
-              {savingRisk ? t('hq.saving') : t('hq.commission.saveRisk')}
+              {savingTiers ? t('hq.saving') : t('hq.commission.saveTiers')}
             </button>
-            {msg && <p className="pg-hint">{msg}</p>}
+            {tiersMsg && <span className="pg-hint">{tiersMsg}</span>}
           </div>
-        </div>
+
+          <div className="pg-card">
+            <div className="pg-card-body space-y-4">
+              <ExpressFeePolicyEditor value={expressFee} onChange={setExpressFee} />
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  disabled={savingExpress}
+                  className="pg-btn pg-btn-primary disabled:opacity-50"
+                  onClick={async () => {
+                    setSavingExpress(true);
+                    setExpressMsg('');
+                    try {
+                      const next = await hqPolicyApi.saveExpressFee(expressFee);
+                      setData(next);
+                      setExpressFee(next.expressFee ?? expressFee);
+                      setExpressMsg(t('express.hq.saved'));
+                    } catch (e) {
+                      setExpressMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
+                    } finally {
+                      setSavingExpress(false);
+                    }
+                  }}
+                >
+                  {savingExpress ? t('hq.saving') : t('express.hq.save')}
+                </button>
+                {expressMsg && <span className="pg-hint">{expressMsg}</span>}
+              </div>
+            </div>
+          </div>
+
+          <div className="pg-card">
+            <div className="pg-card-body space-y-4">
+              <MemberGradePolicyEditor value={memberGrade} onChange={setMemberGrade} />
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  disabled={savingMemberGrade}
+                  className="pg-btn pg-btn-primary disabled:opacity-50"
+                  onClick={async () => {
+                    setSavingMemberGrade(true);
+                    setMemberGradeMsg('');
+                    try {
+                      const next = await hqPolicyApi.saveMemberGrade(memberGrade);
+                      setData(next);
+                      setMemberGrade(next.memberGrade ?? memberGrade);
+                      setMemberGradeMsg(t('memberGrade.hq.saved'));
+                    } catch (e) {
+                      setMemberGradeMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
+                    } finally {
+                      setSavingMemberGrade(false);
+                    }
+                  }}
+                >
+                  {savingMemberGrade ? t('hq.saving') : t('memberGrade.hq.save')}
+                </button>
+                {memberGradeMsg && <span className="pg-hint">{memberGradeMsg}</span>}
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 

@@ -108,6 +108,10 @@ const RULES: RouteRule[] = [
     meta: { titleKey: 'hq.tab.commission', trail: [{ labelKey: 'nav.hqPolicy', href: D.hq }] },
   },
   {
+    test: (p) => p.startsWith('/dashboard/hq-policy/risk'),
+    meta: { titleKey: 'hq.tab.risk', trail: [{ labelKey: 'nav.hqPolicy', href: D.hq }] },
+  },
+  {
     test: (p) => p.startsWith('/dashboard/hq-policy/user-access'),
     meta: {
       titleKey: 'hq.sub.access.userPageAccess',

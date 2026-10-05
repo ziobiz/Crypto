@@ -264,7 +264,8 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <ul>
           <li><strong>접근·권한</strong> — 조직 단계별 메뉴 권한, 사용자 OTP·비밀번호</li>
           <li><strong>조직항목</strong> — 화면 컬럼·표시 순서</li>
-          <li><strong>수수료·리스크</strong> — 시볼 수수료 구간, 한도, 조직 요율, 수수료율 노출</li>
+          <li><strong>수수료관리</strong> — 시볼 수수료 구간, 조직 요율, 수수료율·도식 노출, EXPRESS·등급</li>
+          <li><strong>리스크관리</strong> — 거래 한도, USDT 리스크 티어, 환율 소스, 통화 표시, 견적 응답</li>
           <li><strong>플랫폼 도메인·SSL</strong> — 브랜드(사이트 이름·브라우저 탭)·입금 수취 계좌(통화별 이체/카드)·도메인·이메일·SSL. 이메일·OTP 숫자 표에 <strong>민감작업 OTP 유지시간(분)</strong>(기본 10분, 1~60). 가맹점 사용자관리·내 지갑 등 민감작업에 적용됩니다. 6자리를 모두 넣고 맞으면 확인 버튼을 누르지 않아도 진행됩니다.</li>
           <li><strong>검증관리</strong> — 변경이력, 업데이트 내용/이력, 결제관리</li>
           <li><strong>삭제관리</strong> — 삭제 정책·처리</li>
@@ -278,7 +279,8 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <ul>
           <li><strong>Access</strong> — org menu permissions, OTP/password</li>
           <li><strong>Org columns</strong> — grid columns & order</li>
-          <li><strong>Fees & risk</strong> — symbol tiers, limits, org rates, rate visibility</li>
+          <li><strong>Fee management</strong> — symbol tiers, org rates, rate/diagram visibility, EXPRESS & grade</li>
+          <li><strong>Risk management</strong> — transaction limits, USDT risk tiers, FX sources, amount display, quote timers</li>
           <li><strong>Platform</strong> — brand (site name, browser tab), deposit accounts (transfer/card per currency), domain, email, SSL. Email/OTP numeric table includes <strong>Sensitive action OTP duration (minutes)</strong> (default 10, range 1–60) for merchant Users, wallets, and similar. Six correct digits proceed without tapping Verify.</li>
           <li><strong>Verification Mgmt</strong> — change log, release notes/history, payment</li>
           <li><strong>Deletion</strong> — deletion policy and processing</li>
@@ -292,7 +294,8 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <ul>
           <li><strong>アクセス・権限</strong> — 組織段階別メニュー権限、ユーザーOTP・パスワード</li>
           <li><strong>組織項目</strong> — 画面カラム・表示順</li>
-          <li><strong>手数料・リスク</strong> — シンボル手数料段階、限度、組織料率、料率表示</li>
+          <li><strong>手数料管理</strong> — シンボル手数料段階、組織料率、料率・図式表示、EXPRESS・等級</li>
+          <li><strong>リスク管理</strong> — 取引限度、USDTリスク段階、為替ソース、金額表示、見積応答</li>
           <li><strong>プラットフォーム ドメイン・SSL</strong> — ブランド(サイト名・タブ)・入金受取口座(通貨別振込/カード)・ドメイン・メール・SSL。メール・OTP数値表に<strong>機密操作OTP維持時間（分）</strong>(既定10分、1〜60)。加盟店ユーザー管理・マイウォレット等に適用。6桁が正しければ確認ボタンなしで進みます。</li>
           <li><strong>検証管理</strong> — 変更履歴、更新内容/履歴、決済管理</li>
           <li><strong>削除管理</strong> — 削除方針・処理</li>
@@ -306,7 +309,8 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <ul>
           <li><strong>访问·权限</strong> — 按组织层级的菜单权限、用户 OTP·密码</li>
           <li><strong>组织字段</strong> — 界面列与显示顺序</li>
-          <li><strong>手续费·风险</strong> — 交易对手续费档位、限额、组织费率、费率显示</li>
+          <li><strong>手续费管理</strong> — 交易对手续费档位、组织费率、费率·图示显示、EXPRESS·等级</li>
+          <li><strong>风险管理</strong> — 交易限额、USDT 风险档位、汇率来源、金额显示、报价响应</li>
           <li><strong>平台域名·SSL</strong> — 品牌（站点名·浏览器标签）、入金收款账户（按币种转账/卡）、域名、邮箱、SSL。邮箱·OTP 数字表含<strong>敏感操作 OTP 保持时间（分钟）</strong>（默认 10，1–60），用于加盟商用户管理、我的钱包等。输入正确 6 位后无需点确认即可继续。</li>
           <li><strong>验证管理</strong> — 变更历史、更新内容/历史、支付管理</li>
           <li><strong>删除管理</strong> — 删除策略与处理</li>
@@ -320,7 +324,8 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <ul>
           <li><strong>สิทธิ์การเข้าถึง</strong> — สิทธิ์เมนูตามระดับองค์กร OTP/รหัสผ่านผู้ใช้</li>
           <li><strong>คอลัมน์องค์กร</strong> — คอลัมน์หน้าจอและลำดับแสดง</li>
-          <li><strong>ค่าธรรมเนียม·ความเสี่ยง</strong> — ชั้นค่าธรรมเนียมสัญลักษณ์ วงเงิน อัตราองค์กร การแสดงอัตรา</li>
+          <li><strong>จัดการค่าธรรมเนียม</strong> — ชั้นค่าธรรมเนียม อัตราองค์กร การแสดงอัตรา·แผนภาพ EXPRESS·เกรด</li>
+          <li><strong>จัดการความเสี่ยง</strong> — วงเงินธุรกรรม ชั้นความเสี่ยง USDT แหล่งอัตรา การแสดงจำนวน ตัวจับเวลาใบเสนอราคา</li>
           <li><strong>แพลตฟอร์ม โดเมน·SSL</strong> — แบรนด์ (ชื่อไซต์·แท็บ) บัญชีรับเงิน (โอน/บัตรตามสกุล) โดเมน อีเมล SSL ตารางตัวเลขอีเมล/OTP มี<strong>ระยะเวลา OTP งานสำคัญ (นาที)</strong> (ค่าเริ่ม 10, 1–60) สำหรับจัดการผู้ใช้และกระเป๋าของร้าน กรอก 6 หลักถูกต้องแล้วไม่ต้องกดยืนยัน</li>
           <li><strong>การจัดการตรวจสอบ</strong> — ประวัติการเปลี่ยนแปลง บันทึกอัปเดต การชำระเงิน</li>
           <li><strong>การลบ</strong> — นโยบายและการจัดการลบ</li>
@@ -565,12 +570,12 @@ export const HQ_OPS_MANUAL: ManualDoc = {
       id: 's3',
       title: L('수수료 정책 (% / 고정)', 'Fee policy (% / fixed)', '手数料ポリシー', '手续费政策', 'นโยบายค่าธรรมเนียม'),
       bodyHtml: L(
-        `<span class="menu-path">본사정책 → 수수료·리스크 → 시볼(티켓) 수수료</span>
+        `<span class="menu-path">본사정책 → 수수료관리 → 시볼(티켓) 수수료</span>
         <p>FX·가스피·송금·기타 수수료마다 <strong>%</strong> 또는 <strong>고정(USDT)</strong>을 선택합니다. 선택한 방식만 계산·도식에 반영됩니다.</p>
         <div class="check-box"><strong>세팅된 수수료율 노출</strong> — <strong>LIVE</strong>와 <strong>Sandbox</strong>를 각각 사용/미사용·본사 기본 청구방식을 설정합니다. 사용 시 해당 환경 도식에 수수료율 열이 표시됩니다.</div>
         <div class="check-box"><strong>총 수수료 노출</strong> — 본사 기본(LIVE·Sandbox 공통). 미사용 시 시뮬레이터·USDT 도식에서 합계·항목 수수료를 숨기고 수령 USDT·입금액·환율만 표시. 고객별 설정이 있으면 고객이 우선.</div>
         <p>통화·금액 구간별로 행을 편집한 뒤 저장하십시오.</p>
-        <p class="mt-2"><strong>시뮬레이터 Sandbox 수수료</strong> (<span class="menu-path">본사정책 → 수수료·리스크 → 시뮬레이터용 수수료</span>, Sandbox 탭)</p>
+        <p class="mt-2"><strong>시뮬레이터 Sandbox 수수료</strong> (<span class="menu-path">본사정책 → 수수료관리 → 시뮬레이터용 수수료</span>, Sandbox 탭)</p>
         <ul>
           <li><strong>LIVE</strong> 구간·가스는 실거래(시볼) 수수료와 동일합니다.</li>
           <li><strong>Sandbox</strong>는 LIVE에 <strong>추가 기본 수수료</strong>(FX %, 가스/송금/기타 USDT)만 더합니다. 구간 표는 LIVE 미러(읽기 전용), 화면에는 <strong>합계 (LIVE)</strong>로 표시됩니다.</li>
@@ -591,11 +596,11 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li>“Apply LIVE default fees” reloads HQ LIVE defaults/tiers/gas and fills Sandbox add-ons with LIVE basics for merchant/HQ SAND testing.</li>
           <li>Per-network gas has the same “reset gas add-on to 0” / “Apply LIVE default gas”. Always save after applying.</li>
         </ul>`,
-        `<span class="menu-path">本社ポリシー → 手数料・リスク → シンボル(チケット)手数料</span>
+        `<span class="menu-path">本社ポリシー → 手数料管理 → シンボル(チケット)手数料</span>
         <p>FX・ガス・送金・その他ごとに<strong>%</strong>または<strong>固定(USDT)</strong>を選びます。選んだ方式だけが計算・図式に反映されます。</p>
         <div class="check-box"><strong>設定手数料率の表示</strong> — <strong>LIVE</strong>と<strong>Sandbox</strong>をそれぞれ使用/未使用・本社既定請求方式で設定します。使用時はその環境の図式に料率列を表示します。</div>
         <p>通貨・金額段階ごとに行を編集して保存してください。</p>
-        <p class="mt-2"><strong>シミュレーターSandbox手数料</strong> (<span class="menu-path">本社ポリシー → 手数料・リスク → シミュレーター用手数料</span>、Sandboxタブ)</p>
+        <p class="mt-2"><strong>シミュレーターSandbox手数料</strong> (<span class="menu-path">本社ポリシー → 手数料管理 → シミュレーター用手数料</span>、Sandboxタブ)</p>
         <ul>
           <li><strong>LIVE</strong>段階・ガスは実取引(シンボル)手数料と同じです。</li>
           <li><strong>Sandbox</strong>はLIVEに<strong>追加基本手数料</strong>(FX %、ガス/送金/その他USDT)だけを加算します。段階表はLIVEミラー(読取専用)、画面は<strong>合計 (LIVE)</strong>表示です。</li>
@@ -603,11 +608,11 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li>「LIVE基本手数料を適用」で本社LIVE基本・段階・ガスを再読込し、Sandbox追加分にLIVE基本値を入れます。加盟店・本社のSANDテスト用です。</li>
           <li>ネットワーク別ガスも「Sandboxガス追加分0」/「LIVE基本ガス適用」が同様です。適用後は必ず保存してください。</li>
         </ul>`,
-        `<span class="menu-path">总部策略 → 手续费·风险 → 交易对（票据）手续费</span>
+        `<span class="menu-path">总部策略 → 手续费管理 → 交易对（票据）手续费</span>
         <p>FX、燃气、汇款、其他各项可分别选择<strong>%</strong>或<strong>固定(USDT)</strong>。仅所选方式参与计算与图示。</p>
         <div class="check-box"><strong>显示已设手续费率</strong> — 分别设置 <strong>LIVE</strong> 与 <strong>Sandbox</strong>（使用/未使用及总部默认计费方式）。开启时该环境图示显示费率列。</div>
         <p>按币种与金额档位编辑行后保存。</p>
-        <p class="mt-2"><strong>模拟器 Sandbox 手续费</strong> (<span class="menu-path">总部策略 → 手续费·风险 → 模拟器用手续费</span>，Sandbox 标签)</p>
+        <p class="mt-2"><strong>模拟器 Sandbox 手续费</strong> (<span class="menu-path">总部策略 → 手续费管理 → 模拟器用手续费</span>，Sandbox 标签)</p>
         <ul>
           <li><strong>LIVE</strong> 档位与燃气与实盘（交易对）手续费相同。</li>
           <li><strong>Sandbox</strong> 仅在 LIVE 上叠加<strong>附加基本手续费</strong>（FX %、燃气/汇款/其他 USDT）。档位表为 LIVE 镜像（只读），界面显示<strong>合计 (LIVE)</strong>。</li>
@@ -615,7 +620,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li>「应用 LIVE 默认手续费」会重新读取总部 LIVE 默认/档位/gas，并将 LIVE 默认值填入 Sandbox 附加费，供加盟店/总部 SAND 测试。</li>
           <li>各网络 gas 同样有「Sandbox gas 附加归零」/「应用 LIVE 默认 gas」。应用后请务必保存。</li>
         </ul>`,
-        `<span class="menu-path">HQ Policy → ค่าธรรมเนียม·ความเสี่ยง → ค่าธรรมเนียมสัญลักษณ์ (ตั๋ว)</span>
+        `<span class="menu-path">HQ Policy → จัดการค่าธรรมเนียม → ค่าธรรมเนียมสัญลักษณ์ (ตั๋ว)</span>
         <p>แต่ละรายการ FX แก๊ส โอน อื่นๆ เลือก <strong>%</strong> หรือ <strong>คงที่ (USDT)</strong> ได้ โหมดที่เลือกเท่านั้นที่ใช้คำนวณและแผนภาพ</p>
         <div class="check-box"><strong>แสดงอัตราค่าธรรมเนียมที่ตั้ง</strong> — ตั้ง <strong>LIVE</strong> และ <strong>Sandbox</strong> แยกกัน (ใช้/ไม่ใช้ และวิธีเรียกเก็บเริ่มต้น HQ) เปิดแล้วแสดงคอลัมน์อัตราในแผนภาพของสภาพแวดล้อมนั้น</div>
         <p>แก้แถวตามสกุลและชั้นยอดเงินแล้วบันทึก</p>
@@ -636,9 +641,10 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         `<span class="menu-path">본사정책 → 검증관리 → 결제관리</span>
         <p><strong>ICOPAY (카드)</strong></p>
         <ol>
-          <li>ICOPAY 연동: MID, Bracket Secret, API Base URL, 샌드박스</li>
-          <li>카드 결제 사용 체크 → 저장(이중 확인)</li>
-          <li>카드 수수료 %·통화별 최소/최대 한도</li>
+          <li>카드 결제 정책: 사용 on/off, 카드 수수료 %</li>
+          <li><strong>카드 결제 한도</strong> 카드: 통화별 최소·최대 (이체·송금 한도와 별도, 개인·법인 공통)</li>
+          <li>ICOPAY 연동: compId, Broker Secret, MID, API Base URL</li>
+          <li>TINPASS 한도는 ICOPAY 가맹 한도와 같거나 더 좁게. TINPASS가 먼저 검증하고 ICOPAY가 최종 승인합니다.</li>
         </ol>
         <div class="block-box">카드 결제를 끄면 고객 화면의 카드 버튼은 회색(비활성)으로 남고 숨기지 않습니다. 통화별 카드 ON/OFF는 플랫폼 입금 수취 계좌에서 따로 설정합니다.</div>
         <p class="mt-3"><strong>본사 기본 입금계좌 방식</strong></p>
@@ -665,9 +671,10 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         `<span class="menu-path">HQ Policy → Verification Mgmt → Payment</span>
         <p><strong>ICOPAY (card)</strong></p>
         <ol>
-          <li>ICOPAY: MID, Bracket Secret, API URL, sandbox</li>
-          <li>Enable card payment → save (confirm)</li>
-          <li>Card fee % and min/max per currency</li>
+          <li>Card payment policy: on/off and card fee %</li>
+          <li><strong>Card payment limits</strong> card: per-currency min/max (separate from bank/remittance; same for individual and corporate)</li>
+          <li>ICOPAY: compId, Broker Secret, MID, API Base URL</li>
+          <li>Keep TINPASS limits equal to or tighter than ICOPAY. TINPASS validates first; ICOPAY is final.</li>
         </ol>
         <div class="block-box">When card is off, the customer card button stays gray (disabled), not hidden. Per-currency card on/off is set on Platform deposit accounts.</div>
         <p class="mt-3"><strong>HQ default deposit account mode</strong></p>
@@ -694,9 +701,10 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         `<span class="menu-path">本社ポリシー → 検証管理 → 決済管理</span>
         <p><strong>ICOPAY（カード）</strong></p>
         <ol>
-          <li>ICOPAY連携: MID、Bracket Secret、API Base URL、サンドボックス</li>
-          <li>カード決済使用にチェック → 保存(二重確認)</li>
-          <li>カード手数料%・通貨別最小/最大限度</li>
+          <li>カード決済ポリシー: 使用 ON/OFF、カード手数料%</li>
+          <li><strong>カード決済限度</strong>カード: 通貨別最小・最大（振込・送金限度と別、個人・法人共通）</li>
+          <li>ICOPAY連携: compId、Broker Secret、MID、API Base URL</li>
+          <li>TINPASS限度はICOPAY加盟限度と同じかより狭く。TINPASSが先に検証し、ICOPAYが最終承認します。</li>
         </ol>
         <div class="block-box">カード決済をOFFにしても顧客画面のカードボタンは灰色(無効)のまま非表示にはしません。通貨別カードON/OFFはプラットフォーム入金受取口座で別設定です。</div>
         <p class="mt-3"><strong>バーチャル口座サービス(CURFEX) Collection（日本JPY振込受取）— 追加機能</strong></p>
@@ -721,9 +729,10 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         `<span class="menu-path">总部策略 → 验证管理 → 支付管理</span>
         <p><strong>ICOPAY（卡）</strong></p>
         <ol>
-          <li>ICOPAY 对接：MID、Bracket Secret、API Base URL、沙盒</li>
-          <li>勾选启用卡支付 → 保存（二次确认）</li>
-          <li>卡手续费 %、按币种最小/最大限额</li>
+          <li>卡支付策略：开关与卡手续费 %</li>
+          <li><strong>卡支付限额</strong>卡片：按币种最小/最大（与转账/汇款限额分开，个人与企业共用）</li>
+          <li>ICOPAY 对接：compId、Broker Secret、MID、API Base URL</li>
+          <li>TINPASS 限额应等于或严于 ICOPAY。TINPASS 先校验，ICOPAY 为最终批准。</li>
         </ol>
         <div class="block-box">关闭卡支付后，客户页卡按钮仍为灰色（禁用），不会隐藏。按币种卡开关在平台入金收款账户单独设置。</div>
         <p class="mt-3"><strong>虚拟账户服务(CURFEX) Collection（日本 JPY 转账收款）— 附加功能</strong></p>
@@ -748,9 +757,10 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         `<span class="menu-path">HQ Policy → Verification Mgmt → Payment</span>
         <p><strong>ICOPAY (บัตร)</strong></p>
         <ol>
-          <li>เชื่อม ICOPAY: MID, Bracket Secret, API Base URL, แซนด์บ็อกซ์</li>
-          <li>ติ๊กใช้ชำระบัตร → บันทึก (ยืนยันสองชั้น)</li>
-          <li>% ค่าธรรมเนียมบัตร และวงเงินต่ำสุด/สูงสุดตามสกุล</li>
+          <li>นโยบายชำระบัตร: เปิด/ปิด และ % ค่าธรรมเนียมบัตร</li>
+          <li>การ์ด<strong>วงเงินชำระบัตร</strong>: ขั้นต่ำ·สูงสุดรายสกุล (แยกจากโอน/ธุรกรรมโอน ใช้ร่วมบุคคล·นิติบุคคล)</li>
+          <li>เชื่อม ICOPAY: compId, Broker Secret, MID, API Base URL</li>
+          <li>ตั้งวงเงิน TINPASS ให้เท่าหรือแคบกว่า ICOPAY TINPASS ตรวจก่อน ICOPAY เป็นขีดจำกัดอนุมัติสุดท้าย</li>
         </ol>
         <div class="block-box">ปิดบัตรแล้วปุ่มบัตรหน้าลูกค้ายังเป็นสีเทา (ปิดใช้) ไม่ซ่อน การเปิด/ปิดบัตรตามสกุลตั้งที่บัญชีรับเงินบนแพลตฟอร์มแยกต่างหาก</div>
         <p class="mt-3"><strong>บริการบัญชีเสมือน(CURFEX) Collection (รับโอน JPY ญี่ปุ่น) — ฟีเจอร์เพิ่ม</strong></p>
@@ -1038,7 +1048,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li><strong>LIVE</strong> — 실거래(시볼) 수수료·환율로 계산합니다.</li>
           <li><strong>Sandbox</strong> — LIVE 구간·가스에 Sandbox 추가 기본 수수료를 더합니다. 구간 표는 LIVE 미러(읽기 전용), 값은 <strong>합계 (LIVE)</strong>로 표시됩니다.</li>
         </ul>
-        <div class="info-box">Sandbox 수수료 편집은 <span class="menu-path">수수료·리스크 → 시뮬레이터용 수수료</span>에서 합니다(「수수료 정책」 참고).</div>`,
+        <div class="info-box">Sandbox 수수료 편집은 <span class="menu-path">수수료관리 → 시뮬레이터용 수수료</span>에서 합니다(「수수료 정책」 참고).</div>`,
         `<span class="menu-path">HQ Policy → USDT simulator / Record simulator</span>
         <p>HQ menus sit under HQ Policy. Customers and orgs use the work-menu simulator.</p>
         <ul>
@@ -1076,7 +1086,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li><strong>LIVE</strong> — 実取引(シンボル)手数料・為替で計算します。</li>
           <li><strong>Sandbox</strong> — LIVE段階・ガスにSandbox追加基本手数料を加算。段階表はLIVEミラー(読取専用)、値は<strong>合計 (LIVE)</strong>表示。</li>
         </ul>
-        <div class="info-box">Sandbox手数料の編集は<span class="menu-path">手数料・リスク → シミュレーター用手数料</span>です（「手数料ポリシー」参照）。</div>`,
+        <div class="info-box">Sandbox手数料の編集は<span class="menu-path">手数料管理 → シミュレーター用手数料</span>です（「手数料ポリシー」参照）。</div>`,
         `<span class="menu-path">总部策略 → USDT 模拟器 / 记录模拟器</span>
         <p>总部菜单在总部策略下。客户与组织使用业务菜单中的模拟器。</p>
         <ul>
@@ -1095,7 +1105,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li><strong>LIVE</strong> — 按实盘（交易对）手续费与汇率计算。</li>
           <li><strong>Sandbox</strong> — 在 LIVE 档位·燃气上叠加 Sandbox 附加基本手续费。档位表为 LIVE 镜像（只读），显示为<strong>合计 (LIVE)</strong>。</li>
         </ul>
-        <div class="info-box">Sandbox 手续费在<span class="menu-path">手续费·风险 → 模拟器用手续费</span>编辑（见「手续费政策」）。</div>`,
+        <div class="info-box">Sandbox 手续费在<span class="menu-path">手续费管理 → 模拟器用手续费</span>编辑（见「手续费政策」）。</div>`,
         `<span class="menu-path">HQ Policy → ตัวจำลอง USDT / ตัวจำลองบันทึก</span>
         <p>เมนู HQ อยู่ใต้ HQ Policy ลูกค้าและองค์กรใช้ตัวจำลองในเมนูงาน</p>
         <ul>

@@ -8,9 +8,15 @@ import { PolicyTableActions } from '@/components/policy/PolicyTableActions';
 const EMPTY: HqIcopayConfig = {
   enabled: false,
   mid: '',
+  compId: '',
   bracketSecret: '',
-  sandbox: true,
+  apiBaseUrl: 'https://api.icopay.co.kr',
+  sandbox: false,
+  channel: 'IN',
 };
+
+const WEBHOOK_URL = 'https://api.tinpass.com/api/webhooks/icopay';
+const RESULT_URL = 'https://tinpass.com/dashboard/usdt';
 
 export function IcopayConfigPanel() {
   const t = useT();
@@ -27,7 +33,7 @@ export function IcopayConfigPanel() {
     setMsg('');
     try {
       const next = await hqPolicyApi.saveIcopay(config);
-      setConfig(next.config);
+      setConfig({ ...EMPTY, ...next.config });
       setMsg(t('hq.icopay.saved'));
     } catch (e) {
       setMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
@@ -50,11 +56,21 @@ export function IcopayConfigPanel() {
           {t('hq.icopay.enabled')}
         </label>
         <label className="block max-w-md">
+          <span className="pg-label">{t('hq.icopay.compId')}</span>
+          <input
+            className="pg-input mt-1 w-full"
+            value={config.compId ?? ''}
+            onChange={(e) => setConfig({ ...config, compId: e.target.value })}
+            placeholder="6000000035"
+          />
+        </label>
+        <label className="block max-w-md">
           <span className="pg-label">{t('hq.icopay.mid')}</span>
           <input
             className="pg-input mt-1 w-full"
             value={config.mid}
             onChange={(e) => setConfig({ ...config, mid: e.target.value })}
+            placeholder="5f681081-2466-4c1c-9505-5ff960715ec3"
           />
         </label>
         <label className="block max-w-md">
@@ -73,8 +89,21 @@ export function IcopayConfigPanel() {
             className="pg-input mt-1 w-full"
             value={config.apiBaseUrl ?? ''}
             onChange={(e) => setConfig({ ...config, apiBaseUrl: e.target.value || undefined })}
-            placeholder="https://pg.ziobiz.com/api/v1"
+            placeholder="https://api.icopay.co.kr"
           />
+        </label>
+        <label className="block max-w-md">
+          <span className="pg-label">{t('hq.icopay.channel')}</span>
+          <select
+            className="pg-input mt-1 w-full"
+            value={config.channel ?? 'IN'}
+            onChange={(e) =>
+              setConfig({ ...config, channel: e.target.value === 'RE' ? 'RE' : 'IN' })
+            }
+          >
+            <option value="IN">IN — INLINE</option>
+            <option value="RE">RE — REDIRECT</option>
+          </select>
         </label>
         <label className="flex items-center gap-2 text-sm">
           <input
@@ -84,6 +113,16 @@ export function IcopayConfigPanel() {
           />
           {t('hq.icopay.sandbox')}
         </label>
+        <div className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-[12px] text-slate-700">
+          <p className="font-semibold">{t('hq.icopay.urlsTitle')}</p>
+          <p className="mt-1 break-all">
+            <span className="font-medium">Webhook (NOTI):</span> {WEBHOOK_URL}
+          </p>
+          <p className="mt-1 break-all">
+            <span className="font-medium">Result:</span> {RESULT_URL}
+          </p>
+          <p className="mt-1 text-[11px] text-slate-500">{t('hq.icopay.urlsHint')}</p>
+        </div>
         {msg && <p className="pg-hint">{msg}</p>}
         <PolicyTableActions>
           <button type="button" onClick={save} disabled={saving} className="pg-btn pg-btn-primary">

@@ -437,7 +437,7 @@ export default function HqPlatformPage() {
             <p className="text-xs font-medium text-slate-700">{t('hq.platform.individualLimitsHintTitle')}</p>
             <p className="mt-1 pg-hint whitespace-pre-line">{t('hq.platform.individualLimitsHint')}</p>
             <a
-              href="/dashboard/hq-policy/commission"
+              href="/dashboard/hq-policy/risk"
               className="mt-2 inline-block text-xs font-medium text-blue-600 hover:underline"
             >
               {t('hq.platform.individualLimitsLink')}

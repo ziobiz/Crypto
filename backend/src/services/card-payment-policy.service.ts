@@ -77,6 +77,7 @@ export async function saveIcopayConfig(
   return maskIcopaySecret(normalized);
 }
 
+/** TINPASS card min/max — shared by individual and corporate (no IND/CORP split). ICOPAY still enforces its own merchant limit. */
 export function validateCardChargeAmount(
   config: HqCardPaymentConfig,
   currency: SymbolFeeCurrency,
@@ -107,7 +108,8 @@ export async function assertCardPaymentAvailable(): Promise<{
   if (!card.enabled) {
     throw new AppError(503, 'Card payment is not enabled', 'CARD_DISABLED');
   }
-  if (!icopay.enabled || !icopay.mid || !icopay.bracketSecret) {
+  const compId = String(icopay.compId || icopay.mid || '').trim();
+  if (!icopay.enabled || !compId || !icopay.bracketSecret) {
     throw new AppError(503, 'ICOPAY is not configured', 'ICOPAY_NOT_CONFIGURED');
   }
   return { card, icopay };

@@ -808,10 +808,17 @@ model UsdtPurchaseDetail {
   expressSlaMet            Boolean?
   expressElapsedHours      Decimal? @db.Decimal(12, 4)
 
-  /// 카드 결제 — 수수료·청구 스냅샷
+  /// 카드 결제 — 수수료·청구 스냅샷 (표시 통화 = fiatCurrency)
   cardFeePercentSnapshot Decimal? @db.Decimal(5, 4)
   cardFeeFiatSnapshot    Decimal? @db.Decimal(18, 2)
   cardChargeFiat         Decimal? @db.Decimal(18, 2)
+  /// ICOPAY 실제 청구 통화·금액 (현재 THB)
+  cardPayCurrency        CurrencyCode?
+  cardPayAmount          Decimal? @db.Decimal(18, 2)
+  /// 표시통화→청구통화 교차환율 (THB per 1 display unit)
+  cardPayCrossRate       Decimal? @db.Decimal(18, 8)
+  /// 청구통화 USDT 환율 스냅샷 (THB per 1 USDT)
+  cardPayUsdtRate        Decimal? @db.Decimal(18, 8)
   cardPaymentStatus      CardPaymentStatus?
   cardWaiverAcceptedAt   DateTime?
   icopayOrderId          String?

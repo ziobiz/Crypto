@@ -18,7 +18,7 @@ export type CardFeeQuote = {
   };
 };
 
-/** 희망 USDT → 카드 청구 금액 (기존 입금액 + 카드 수수료) */
+/** 시볼 requiredFiat 위에 카드 수수료 % 가산 → ICOPAY 청구 총액 */
 export function quoteCardFromTarget(
   breakdown: CardFeeQuote['breakdown'],
   cardFeePercent: number,
@@ -35,7 +35,7 @@ export function quoteCardFromTarget(
   };
 }
 
-/** 카드 결제 금액 → USDT (카드 수수료 차감 후 기존 수수료 도식 적용) */
+/** 카드 결제 총액 → 순수 구매 재원 (카드 수수료 역산) */
 export function splitCardCharge(cardChargeFiat: number, cardFeePercent: number) {
   const cardFeeFiat = round2((cardChargeFiat * cardFeePercent) / (100 + cardFeePercent));
   const fiatForConversion = round2(Math.max(0, cardChargeFiat - cardFeeFiat));

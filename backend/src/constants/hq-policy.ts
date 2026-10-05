@@ -46,7 +46,8 @@ export const HQ_PAGE_CATALOG = [
   { path: '/dashboard/trade-receipts', label: '명세서관리', group: 'ops' },
   { path: '/dashboard/hq-policy/access', label: '접근·권한', group: 'hqPolicy' },
   { path: '/dashboard/hq-policy/org-columns', label: '조직·화면', group: 'hqPolicy' },
-  { path: '/dashboard/hq-policy/commission', label: '수수료·리스크', group: 'hqPolicy' },
+  { path: '/dashboard/hq-policy/commission', label: '수수료관리', group: 'hqPolicy' },
+  { path: '/dashboard/hq-policy/risk', label: '리스크관리', group: 'hqPolicy' },
   { path: '/dashboard/hq-policy/accounts', label: '계좌관리', group: 'hqPolicy' },
   { path: '/dashboard/hq-policy/platform', label: '플랫폼', group: 'hqPolicy' },
   { path: '/dashboard/hq-policy/ops', label: '운영관리', group: 'hqPolicy' },
@@ -1386,13 +1387,19 @@ export type HqPlatformConfig = {
   serviceTimezone?: string;
 };
 
-/** ICOPAY 카드 결제 연동 (ziobiz/PG) */
+/** ICOPAY Unified Checkout (api.icopay.co.kr) — DEALMAI / TINPASS */
 export type HqIcopayConfig = {
   enabled: boolean;
+  /** PG binding MID (UUID) — 표시·참조용 */
   mid: string;
+  /** 가맹 업체코드 (prepare compId) e.g. 6000000035 */
+  compId?: string;
+  /** Broker secret (X-Icopay-Merchant-Broker-Secret). DB 키명 호환으로 bracketSecret 유지 */
   bracketSecret: string;
   apiBaseUrl?: string;
   sandbox?: boolean;
+  /** IN=INLINE · RE=REDIRECT */
+  channel?: 'IN' | 'RE';
 };
 
 export type CardCurrencyLimits = {
@@ -1409,6 +1416,7 @@ export type HqCardPaymentConfig = {
 
 export const DEFAULT_CARD_PAYMENT_CONFIG = (): HqCardPaymentConfig => ({
   enabled: false,
+  /** Card acquiring surcharge only (symbol FX/gas/transfer fees apply separately) */
   cardFeePercent: 3.5,
   limits: {
     KRW: { min: 10_000, max: 5_000_000 },
@@ -1423,8 +1431,11 @@ export const DEFAULT_CARD_PAYMENT_CONFIG = (): HqCardPaymentConfig => ({
 export const DEFAULT_ICOPAY_CONFIG = (): HqIcopayConfig => ({
   enabled: false,
   mid: '',
+  compId: '',
   bracketSecret: '',
-  sandbox: true,
+  apiBaseUrl: 'https://api.icopay.co.kr',
+  sandbox: false,
+  channel: 'IN',
 });
 
 /**

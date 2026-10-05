@@ -385,6 +385,9 @@ export function UsdtFeeBreakdownPanel({
             <p className="text-xl font-bold text-rose-900 tabular-nums text-center">
               {cardChargeFiat.toLocaleString()} {currency}
             </p>
+            <p className="mt-1 text-[10px] text-rose-800/80 text-center">
+              {t('usdt.fee.cardPayThbHint')}
+            </p>
           </div>
         </div>
       )}

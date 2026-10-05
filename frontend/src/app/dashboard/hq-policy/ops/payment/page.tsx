@@ -27,7 +27,8 @@ const DEFAULT_CONFIG: HqCardPaymentConfig = {
 export default function HqPaymentManagementPage() {
   const t = useT();
   const [config, setConfig] = useState<HqCardPaymentConfig>(DEFAULT_CONFIG);
-  const [saving, setSaving] = useState(false);
+  const [savingPolicy, setSavingPolicy] = useState(false);
+  const [savingLimits, setSavingLimits] = useState(false);
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
   const [confirmSave, setConfirmSave] = useState(false);
@@ -35,31 +36,43 @@ export default function HqPaymentManagementPage() {
   useEffect(() => {
     hqPolicyApi
       .getCardPayment()
-      .then((r) => setConfig({ ...DEFAULT_CONFIG, ...r.config, limits: { ...DEFAULT_CONFIG.limits, ...r.config.limits } }))
+      .then((r) =>
+        setConfig({
+          ...DEFAULT_CONFIG,
+          ...r.config,
+          limits: { ...DEFAULT_CONFIG.limits, ...r.config.limits },
+        }),
+      )
       .catch((e) => setError(e instanceof Error ? e.message : t('common.loadFailed')));
   }, [t]);
 
-  async function save() {
-    setSaving(true);
+  async function save(kind: 'policy' | 'limits') {
+    if (kind === 'policy') setSavingPolicy(true);
+    else setSavingLimits(true);
     setMsg('');
     setConfirmSave(false);
     try {
       const next = await hqPolicyApi.saveCardPayment(config);
-      setConfig(next.config);
-      setMsg(t('hq.payment.saved'));
+      setConfig({
+        ...DEFAULT_CONFIG,
+        ...next.config,
+        limits: { ...DEFAULT_CONFIG.limits, ...next.config.limits },
+      });
+      setMsg(kind === 'limits' ? t('hq.payment.limitsSaved') : t('hq.payment.saved'));
     } catch (e) {
       setMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
     } finally {
-      setSaving(false);
+      setSavingPolicy(false);
+      setSavingLimits(false);
     }
   }
 
-  function requestSave() {
+  function requestPolicySave() {
     if (config.enabled) {
       setConfirmSave(true);
       return;
     }
-    void save();
+    void save('policy');
   }
 
   function setLimit(currency: SymbolFeeCurrency, field: 'min' | 'max', value: number) {
@@ -67,7 +80,7 @@ export default function HqPaymentManagementPage() {
       ...c,
       limits: {
         ...c.limits,
-        [currency]: { ...c.limits[currency], [field]: value },
+        [currency]: { ...(c.limits[currency] ?? { min: 0, max: 0 }), [field]: value },
       },
     }));
   }
@@ -78,9 +91,11 @@ export default function HqPaymentManagementPage() {
       {error && <p className="text-sm text-red-600">{error}</p>}
       {msg && <p className="text-sm text-green-700">{msg}</p>}
 
+      {/* 카드 결제 정책: 사용 on/off + 수수료 */}
       <div className="pg-card">
         <div className="pg-card-head">{t('hq.payment.title')}</div>
         <div className="pg-card-body space-y-4">
+          <p className="pg-hint">{t('hq.payment.policyHint')}</p>
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
@@ -97,6 +112,54 @@ export default function HqPaymentManagementPage() {
               onChange={(v) => setConfig({ ...config, cardFeePercent: v })}
               className="pg-input mt-1 w-full"
             />
+            <p className="pg-hint mt-1 text-[11px]">{t('hq.payment.cardFeeBundleHint')}</p>
+          </div>
+
+          <PolicyTableActions>
+            <button
+              type="button"
+              onClick={requestPolicySave}
+              disabled={savingPolicy}
+              className="pg-btn pg-btn-primary"
+            >
+              {savingPolicy ? t('common.saving') : t('hq.payment.savePolicy')}
+            </button>
+          </PolicyTableActions>
+
+          {confirmSave && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+              <p className="text-sm font-semibold text-amber-950">{t('hq.payment.saveConfirmTitle')}</p>
+              <p className="mt-2 whitespace-pre-line text-xs text-amber-900">{t('hq.payment.saveConfirmBody')}</p>
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmSave(false)}
+                  className="flex-1 rounded border border-gray-200 bg-white py-2 text-xs text-gray-700"
+                >
+                  {t('common.cancel')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void save('policy')}
+                  disabled={savingPolicy}
+                  className="flex-1 rounded bg-amber-600 py-2 text-xs font-medium text-white disabled:opacity-50"
+                >
+                  {t('hq.payment.saveConfirm')}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 카드 결제 한도: 이체/송금과 분리, 개인·법인 공통 */}
+      <div className="pg-card">
+        <div className="pg-card-head">{t('hq.payment.limitsTitle')}</div>
+        <div className="pg-card-body space-y-4">
+          <p className="pg-hint">{t('hq.payment.limitsDesc')}</p>
+          <div className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-[12px] text-slate-700">
+            <p>{t('hq.payment.limitsCommonNote')}</p>
+            <p className="mt-1">{t('hq.payment.limitsIcopayNote')}</p>
           </div>
 
           <div className="pg-table-wrap">
@@ -137,34 +200,15 @@ export default function HqPaymentManagementPage() {
           </div>
 
           <PolicyTableActions>
-            <button type="button" onClick={requestSave} disabled={saving} className="pg-btn pg-btn-primary">
-              {saving ? t('common.saving') : t('common.save')}
+            <button
+              type="button"
+              onClick={() => void save('limits')}
+              disabled={savingLimits}
+              className="pg-btn pg-btn-primary"
+            >
+              {savingLimits ? t('common.saving') : t('hq.payment.saveLimits')}
             </button>
           </PolicyTableActions>
-
-          {confirmSave && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-              <p className="text-sm font-semibold text-amber-950">{t('hq.payment.saveConfirmTitle')}</p>
-              <p className="mt-2 whitespace-pre-line text-xs text-amber-900">{t('hq.payment.saveConfirmBody')}</p>
-              <div className="mt-3 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setConfirmSave(false)}
-                  className="flex-1 rounded border border-gray-200 bg-white py-2 text-xs text-gray-700"
-                >
-                  {t('common.cancel')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void save()}
-                  disabled={saving}
-                  className="flex-1 rounded bg-amber-600 py-2 text-xs font-medium text-white disabled:opacity-50"
-                >
-                  {t('hq.payment.saveConfirm')}
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 

@@ -464,9 +464,13 @@ export const api = {
       cardWaiverAccepted?: true;
       card?: CardPaymentInput;
     }) =>
-      request<UsdtTicket>('/api/tickets/usdt-purchase', {
+      request<UsdtTicket & { icopayCheckout?: IcopayCheckoutInfo }>('/api/tickets/usdt-purchase', {
         method: 'POST',
         body: JSON.stringify(data),
+      }),
+    syncCardPayment: (id: string) =>
+      request<UsdtTicket>(`/api/tickets/usdt-purchase/${id}/sync-card-payment`, {
+        method: 'POST',
       }),
     updateStatus: (
       id: string,
@@ -1675,6 +1679,11 @@ export interface UsdtFeePreview {
   cardFeeFiat?: number;
   cardChargeFiat?: number;
   fiatForConversion?: number;
+  /** ICOPAY settlement (THB) */
+  cardPayCurrency?: string;
+  cardPayAmount?: number;
+  cardPayCrossRate?: number;
+  cardPayUsdtRate?: number;
   express?: {
     enabled: boolean;
     tier: ExpressTier | string | null;
@@ -1693,20 +1702,32 @@ export interface UsdtCardPaymentContext {
   limits: Record<SymbolFeeCurrency, { min: number; max: number }>;
   currencyTrade?: Record<'KRW' | 'JPY' | 'THB' | 'CNY' | 'USD' | 'EUR', UsdtCurrencyTradeFlags>;
   icopayConfigured: boolean;
+  webhookUrl?: string;
+  resultUrl?: string;
   userPhone: string | null;
   userPhoneCountryCode: string | null;
   userEmail: string | null;
   userName: string | null;
 }
 
+/** Buyer prefill for ICOPAY hosted checkout (no PAN on TINPASS). */
 export interface CardPaymentInput {
-  cardNumber: string;
-  cardExpiry: string;
-  cardCvv: string;
   cardholderName: string;
   email: string;
   phone: string;
   phoneCountryCode: string;
+  firstName?: string;
+  lastName?: string;
+}
+
+export interface IcopayCheckoutInfo {
+  payUrl: string;
+  sessionId: string;
+  sessionToken: string;
+  embedScriptUrl?: string;
+  expiresAt?: string;
+  integrationMode?: string;
+  orderNo: string;
 }
 
 export interface TransactionLimitSummary {
@@ -1778,6 +1799,10 @@ export interface UsdtTicket {
   cardFeePercentSnapshot?: number | null;
   cardFeeFiatSnapshot?: number | null;
   cardChargeFiat?: number | null;
+  cardPayCurrency?: string | null;
+  cardPayAmount?: number | null;
+  cardPayCrossRate?: number | null;
+  cardPayUsdtRate?: number | null;
   cardPaymentStatus?: string | null;
   cardLast4?: string | null;
   icopayOrderId?: string | null;
@@ -2956,9 +2981,11 @@ export interface HqEmailOtpConfig {
 export interface HqIcopayConfig {
   enabled: boolean;
   mid: string;
+  compId?: string;
   bracketSecret: string;
   apiBaseUrl?: string;
   sandbox?: boolean;
+  channel?: 'IN' | 'RE';
 }
 
 export interface HqCurfexConfig {

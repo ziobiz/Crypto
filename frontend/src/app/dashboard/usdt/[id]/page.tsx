@@ -155,6 +155,20 @@ export default function UsdtDetailPage() {
     return () => clearInterval(idTimer);
   }, [id, isCurfex, ticket?.status]);
 
+  // ICOPAY: sync Status API while card payment pending
+  useEffect(() => {
+    if (ticket?.status !== 'CARD_PAYMENT_PENDING') return;
+    const sync = () => {
+      api.usdt
+        .syncCardPayment(id)
+        .then(setTicket)
+        .catch(() => load());
+    };
+    sync();
+    const idTimer = setInterval(sync, 10_000);
+    return () => clearInterval(idTimer);
+  }, [id, ticket?.status]);
+
   // AUTO 견적: 확정 대기 중 폴링
   useEffect(() => {
     if (ticket?.status !== 'QUOTE_PENDING') return;
@@ -619,6 +633,18 @@ export default function UsdtDetailPage() {
             )}
             {ticket.cardPaymentStatus === 'DECLINED' && (
               <p className="mt-2 text-red-700">{t('usdt.detail.cardDeclined')}</p>
+            )}
+            {ticket.status === 'CARD_PAYMENT_PENDING' && (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <p className="text-[11px] text-slate-600">{t('usdt.detail.cardPendingHint')}</p>
+                <button
+                  type="button"
+                  className="pg-btn pg-btn-secondary text-xs"
+                  onClick={() => api.usdt.syncCardPayment(id).then(setTicket).catch(console.error)}
+                >
+                  {t('usdt.detail.syncCardPayment')}
+                </button>
+              </div>
             )}
           </div>
         </div>
