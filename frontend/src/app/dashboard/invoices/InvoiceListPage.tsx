@@ -5,6 +5,7 @@ import { useT } from '@/context/LocaleProvider';
 import { api, ApiError } from '@/lib/api';
 import { ContentCard } from '@/components/layout/ContentCard';
 import { rangeForQuick } from '@/lib/date-range';
+import { toPublicInvoiceNo } from '@/lib/invoice-brand';
 
 type Kind = 'live' | 'simulator';
 
@@ -46,6 +47,7 @@ export function InvoiceListPage({ kind }: { kind: Kind }) {
   const [to, setTo] = useState(initial.to);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   async function load(range = { from, to }) {
     setLoading(true);
@@ -58,6 +60,21 @@ export function InvoiceListPage({ kind }: { kind: Kind }) {
       setError(e instanceof ApiError ? e.message : t('invoices.loadFailed'));
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function onDelete(row: Row) {
+    const no = toPublicInvoiceNo(row.invoice_no);
+    if (!window.confirm(t('invoices.deleteConfirm').replace('{no}', no))) return;
+    setDeletingId(row.id);
+    setError('');
+    try {
+      await api.invoices.delete(row.id, kind);
+      setRows((prev) => prev.filter((r) => r.id !== row.id));
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : t('invoices.deleteFailed'));
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -123,20 +140,28 @@ export function InvoiceListPage({ kind }: { kind: Kind }) {
             {rows.map((row) => (
               <tr key={row.id}>
                 <td className="text-xs">{fmtWhen(row.issued_at)}</td>
-                <td className="font-mono text-xs">{row.invoice_no}</td>
+                <td className="font-mono text-xs">{toPublicInvoiceNo(row.invoice_no)}</td>
                 <td className="text-xs">{row.ticket_no && !row.ticket_no.startsWith('SIM-') ? row.ticket_no : '—'}</td>
                 <td className="text-xs">{fmtMoney(row.amount, row.currency)}</td>
-                <td>
+                <td className="whitespace-nowrap">
                   <button
                     type="button"
                     className="pg-btn"
                     onClick={() =>
                       void api.invoices
-                        .downloadPdf(row.id, row.invoice_no, kind)
+                        .downloadPdf(row.id, toPublicInvoiceNo(row.invoice_no), kind)
                         .catch((e) => setError(e instanceof Error ? e.message : t('invoices.loadFailed')))
                     }
                   >
                     {t('invoices.pdf')}
+                  </button>{' '}
+                  <button
+                    type="button"
+                    className="pg-btn pg-btn-danger"
+                    disabled={deletingId === row.id}
+                    onClick={() => void onDelete(row)}
+                  >
+                    {deletingId === row.id ? t('common.loading') : t('invoices.delete')}
                   </button>
                 </td>
               </tr>

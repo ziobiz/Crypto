@@ -16,6 +16,39 @@ import {
   detectUsdtSandboxTicket,
   notifyInvoiceTransactionCompleted,
 } from './invoice-webhook.service';
+
+/** Issue Invoice PDF at USDT order time (quote confirmed / apply without quote). */
+function queueUsdtOrderInvoice(input: {
+  ticketId: string;
+  ticketNo: string;
+  fiatAmount: number | string;
+  fiatCurrency: string;
+  assetAmount?: number | string | null;
+  buyerRef?: string | null;
+  usdtTxId?: string | null;
+  adminNote?: string | null;
+  collectionAccountJson?: unknown;
+  sandboxInvoice?: boolean;
+}) {
+  const sandbox =
+    input.sandboxInvoice === true ||
+    detectUsdtSandboxTicket({
+      adminNote: input.adminNote,
+      collectionAccountJson: input.collectionAccountJson,
+    }) ||
+    input.adminNote?.includes('[SANDBOX]') === true;
+  const { payload, idempotencyKey } = buildUsdtPurchaseInvoicePayload({
+    ticketId: input.ticketId,
+    ticketNo: input.ticketNo,
+    fiatAmount: input.fiatAmount,
+    fiatCurrency: input.fiatCurrency,
+    assetAmount: input.assetAmount,
+    buyerRef: input.buyerRef,
+    usdtTxId: input.usdtTxId,
+    sandbox,
+  });
+  void notifyInvoiceTransactionCompleted(payload, idempotencyKey);
+}
 import { hqPolicyService } from './hq-policy.service';
 import { getWorkflowDisplay } from './workflow-display.service';
 import { assertCustomerKycApproved } from './kyc.service';
@@ -1142,13 +1175,30 @@ export async function createUsdtPurchaseTicket(
     otpVerified: false,
   });
 
-  // AUTO + 즉시(0분): 생성 직후 확정
+  // AUTO + 즉시(0분): 생성 직후 확정 (invoice fires inside confirmUsdtQuote)
   if (
     useQuoteFlow &&
     quotePolicy.mode === 'AUTO' &&
     quotePolicy.autoDelayMinutes === 0
   ) {
     return confirmUsdtQuote(user, ticket.id, { system: true });
+  }
+
+  // 견적 없이 바로 주문(APPLICATION_COMPLETED)된 경우 — 주문 시점에 인보이스 발급
+  if (!useQuoteFlow && ticket.usdtPurchase) {
+    const detail = ticket.usdtPurchase;
+    queueUsdtOrderInvoice({
+      ticketId: ticket.id,
+      ticketNo: ticket.ticketNo,
+      fiatAmount: Number(detail.confirmedFiatAmount ?? detail.fiatAmount),
+      fiatCurrency: detail.fiatCurrency,
+      assetAmount: Number(
+        detail.confirmedUsdtAmount ?? detail.expectedUsdtAmount ?? detail.targetUsdtAmount ?? 0,
+      ),
+      buyerRef: ticket.customerId || ticket.customer?.user?.email || null,
+      adminNote: detail.adminNote,
+      collectionAccountJson: detail.collectionAccountJson,
+    });
   }
 
   return serializeTicket(ticket, (await getWorkflowDisplay()).sla);
@@ -1277,6 +1327,23 @@ export async function confirmUsdtQuote(
       include: USDT_PURCHASE_INCLUDE,
     });
   });
+
+  // 견적 확정 = 주문 확정 — 이 시점에 Proforma Invoice 발급
+  if (updated.usdtPurchase) {
+    const detail = updated.usdtPurchase;
+    queueUsdtOrderInvoice({
+      ticketId: updated.id,
+      ticketNo: updated.ticketNo,
+      fiatAmount: Number(detail.confirmedFiatAmount ?? detail.fiatAmount),
+      fiatCurrency: detail.fiatCurrency,
+      assetAmount: Number(
+        detail.confirmedUsdtAmount ?? detail.expectedUsdtAmount ?? detail.targetUsdtAmount ?? 0,
+      ),
+      buyerRef: updated.customerId || updated.customer?.user?.email || null,
+      adminNote: detail.adminNote,
+      collectionAccountJson: detail.collectionAccountJson,
+    });
+  }
 
   return serializeTicket(updated, (await getWorkflowDisplay()).sla);
 }
@@ -1645,24 +1712,7 @@ export async function transitionUsdtPurchaseStatus(
     }).catch((err) => console.error('[trade-email]', err));
   }
 
-  if (toStatus === UsdtPurchaseStatus.COMPLETED) {
-    const detail = updated.usdtPurchase!;
-    const sandbox =
-      extra?.sandboxInvoice === true ||
-      detectUsdtSandboxTicket(detail) ||
-      detail.adminNote?.includes('[SANDBOX]') === true;
-    const { payload, idempotencyKey } = buildUsdtPurchaseInvoicePayload({
-      ticketId: updated.id,
-      ticketNo: updated.ticketNo,
-      fiatAmount: Number(detail.fiatAmount),
-      fiatCurrency: detail.fiatCurrency,
-      assetAmount: Number(detail.actualUsdtAmount ?? detail.expectedUsdtAmount),
-      buyerRef: ticket.customerId || ticket.customer?.user?.email || null,
-      usdtTxId: detail.usdtTxId,
-      sandbox,
-    });
-    void notifyInvoiceTransactionCompleted(payload, idempotencyKey);
-  }
+  // Invoice is issued at order time (quote confirm / apply). Do not re-issue on COMPLETED.
 
   return serializeTicket(updated, (await getWorkflowDisplay()).sla);
 }

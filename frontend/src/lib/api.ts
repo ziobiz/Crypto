@@ -661,6 +661,7 @@ export const api = {
       }>(`/api/invoices?${q.toString()}`);
     },
     async downloadPdf(id: string, filename: string, kind: 'live' | 'simulator' = 'live') {
+      const { publicInvoicePdfFileName } = await import('./invoice-brand');
       const token = getToken();
       const q = new URLSearchParams({ kind });
       const res = await fetch(
@@ -677,11 +678,19 @@ export const api = {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = filename.endsWith('.pdf') ? filename : `${filename}.pdf`;
+      a.download = publicInvoicePdfFileName(filename);
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
+    },
+    delete: (id: string, kind: 'live' | 'simulator' = 'live') => {
+      const q = new URLSearchParams({ kind });
+      return request<{
+        invoice?: { id: string; invoiceNo?: string; status?: string };
+      }>(`/api/invoices/${encodeURIComponent(id)}?${q.toString()}`, {
+        method: 'DELETE',
+      });
     },
   },
 

@@ -1,9 +1,11 @@
 import { createHmac } from 'node:crypto';
 import { hqPolicyService } from './hq-policy.service';
 
+export type InvoiceEvent = 'transaction.ordered' | 'transaction.completed';
+
 export type InvoiceCompletedPayload = {
   site: string;
-  event: 'transaction.completed';
+  event: InvoiceEvent;
   occurredAt: string;
   transactionId: string;
   ticketNo?: string;
@@ -96,6 +98,8 @@ export function getInvoiceApiClient(channel: InvoiceChannel = 'live'): {
 /**
  * Fire-and-forget safe by default: returns result, never throws.
  * Retries once on 5xx/network.
+ * Live USDT purchase issues at order time (`transaction.ordered`);
+ * simulator may still use completed-style payloads.
  */
 export async function notifyInvoiceTransactionCompleted(
   payload: Omit<InvoiceCompletedPayload, 'site' | 'event'> &
@@ -113,9 +117,11 @@ export async function notifyInvoiceTransactionCompleted(
     return { ok: false, error: 'missing_env' };
   }
 
+  const event: InvoiceEvent =
+    payload.event === 'transaction.completed' ? 'transaction.completed' : 'transaction.ordered';
   const bodyObj: InvoiceCompletedPayload = {
     site: payload.site || cfg.siteCode,
-    event: 'transaction.completed',
+    event,
     occurredAt: payload.occurredAt,
     transactionId: payload.transactionId,
     ticketNo: payload.ticketNo,
@@ -131,7 +137,11 @@ export async function notifyInvoiceTransactionCompleted(
   const body = JSON.stringify(bodyObj);
   const signature = createHmac('sha256', cfg.hmacSecret).update(body, 'utf8').digest('hex');
   const ts = Math.floor(Date.now() / 1000).toString();
-  const url = `${cfg.baseUrl}/v1/webhooks/transactions/completed`;
+  const path =
+    event === 'transaction.ordered'
+      ? '/v1/webhooks/transactions/ordered'
+      : '/v1/webhooks/transactions/completed';
+  const url = `${cfg.baseUrl}${path}`;
 
   const attempt = async (): Promise<Response> =>
     fetch(url, {
@@ -205,10 +215,12 @@ export function buildUsdtPurchaseInvoicePayload(input: {
   ].filter(Boolean);
 
   return {
+    // Order-time issue (not completion). Keep stable key so retries / later COMPLETED do not double-issue.
     idempotencyKey: input.sandbox
-      ? `tinpass:usdt:${input.ticketId}:sandbox:completed`
-      : `tinpass:usdt:${input.ticketId}:completed`,
+      ? `tinpass:usdt:${input.ticketId}:sandbox:ordered`
+      : `tinpass:usdt:${input.ticketId}:ordered`,
     payload: {
+      event: 'transaction.ordered',
       occurredAt: new Date().toISOString(),
       transactionId: input.ticketId,
       ticketNo: input.ticketNo,
