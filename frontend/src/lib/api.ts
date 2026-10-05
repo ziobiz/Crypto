@@ -643,7 +643,10 @@ export const api = {
   },
 
   invoices: {
-    list: (kind: 'live' | 'simulator' | 'sandbox' | 'all', range?: { from?: string; to?: string }) => {
+    list: (
+      kind: 'live' | 'official' | 'simulator' | 'sandbox' | 'all',
+      range?: { from?: string; to?: string },
+    ) => {
       const q = new URLSearchParams({ kind });
       if (range?.from) q.set('from', range.from);
       if (range?.to) q.set('to', range.to);
@@ -660,8 +663,7 @@ export const api = {
         }>;
       }>(`/api/invoices?${q.toString()}`);
     },
-    async downloadPdf(id: string, filename: string, kind: 'live' | 'simulator' = 'live') {
-      const { publicInvoicePdfFileName } = await import('./invoice-brand');
+    async fetchPdfBlob(id: string, kind: 'live' | 'official' | 'simulator' = 'live') {
       const token = getToken();
       const q = new URLSearchParams({ kind });
       const res = await fetch(
@@ -674,7 +676,21 @@ export const api = {
         const err = await res.json().catch(() => ({ error: res.statusText }));
         throw new ApiError(res.status, err.error ?? 'PDF failed', err.code);
       }
-      const blob = await res.blob();
+      return res.blob();
+    },
+    async previewPdf(id: string, kind: 'live' | 'official' | 'simulator' = 'live') {
+      const blob = await this.fetchPdfBlob(id, kind);
+      const url = URL.createObjectURL(blob);
+      const opened = window.open(url, '_blank', 'noopener,noreferrer');
+      if (!opened) {
+        URL.revokeObjectURL(url);
+        throw new ApiError(400, 'Popup blocked', 'POPUP_BLOCKED');
+      }
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    },
+    async downloadPdf(id: string, filename: string, kind: 'live' | 'official' | 'simulator' = 'live') {
+      const { publicInvoicePdfFileName } = await import('./invoice-brand');
+      const blob = await this.fetchPdfBlob(id, kind);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -684,7 +700,7 @@ export const api = {
       a.remove();
       URL.revokeObjectURL(url);
     },
-    delete: (id: string, kind: 'live' | 'simulator' = 'live') => {
+    delete: (id: string, kind: 'live' | 'official' | 'simulator' = 'live') => {
       const q = new URLSearchParams({ kind });
       return request<{
         invoice?: { id: string; invoiceNo?: string; status?: string };

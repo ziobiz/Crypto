@@ -36,6 +36,7 @@ export const HQ_PAGE_CATALOG = [
   { path: '/dashboard/escrow', label: '무역 에스크로', group: 'main' },
   { path: '/dashboard/ledger', label: '수수료 장부', group: 'main' },
   { path: '/dashboard/invoices/live', label: '인보이스 실거래', group: 'invoices' },
+  { path: '/dashboard/invoices/official', label: '인보이스 공식거래', group: 'invoices' },
   { path: '/dashboard/invoices/simulator', label: '인보이스 시뮬레이터', group: 'invoices' },
   { path: '/dashboard/customers', label: '고객관리', group: 'ops' },
   { path: '/dashboard/customers/fees', label: '수수료관리', group: 'ops' },

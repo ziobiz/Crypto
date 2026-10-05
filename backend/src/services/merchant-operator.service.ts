@@ -25,8 +25,6 @@ export const MERCHANT_OPERATOR_PAGE_PATHS = [
   '/dashboard/usdt',
   '/dashboard/escrow',
   '/dashboard/kyc',
-  '/dashboard/invoices/live',
-  '/dashboard/invoices/simulator',
   '/dashboard/operation-history',
 ] as const;
 

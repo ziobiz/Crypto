@@ -198,6 +198,11 @@ export function buildUsdtPurchaseInvoicePayload(input: {
   memo?: string | null;
   /** When true, memo is prefixed with [SANDBOX] and idempotency key is sandbox-scoped. */
   sandbox?: boolean;
+  /**
+   * Official / original trade invoice (공식거래): memo [OFFICIAL], no line presets on Invoice side.
+   * Mutually exclusive with sandbox.
+   */
+  official?: boolean;
 }): {
   payload: Omit<InvoiceCompletedPayload, 'site' | 'event'> &
     Partial<Pick<InvoiceCompletedPayload, 'site' | 'event'>>;
@@ -208,17 +213,21 @@ export function buildUsdtPurchaseInvoicePayload(input: {
     input.assetAmount != null && input.assetAmount !== ''
       ? String(input.assetAmount)
       : undefined;
+  const official = input.official === true && input.sandbox !== true;
   const memoParts = [
+    official ? '[OFFICIAL]' : '',
     input.sandbox ? '[SANDBOX]' : '',
     input.memo?.trim() || '',
     input.usdtTxId ? `USDT tx: ${input.usdtTxId}` : '',
   ].filter(Boolean);
 
+  let idempotencyKey = `tinpass:usdt:${input.ticketId}:ordered`;
+  if (input.sandbox) idempotencyKey = `tinpass:usdt:${input.ticketId}:sandbox:ordered`;
+  else if (official) idempotencyKey = `tinpass:usdt:${input.ticketId}:official:ordered`;
+
   return {
     // Order-time issue (not completion). Keep stable key so retries / later COMPLETED do not double-issue.
-    idempotencyKey: input.sandbox
-      ? `tinpass:usdt:${input.ticketId}:sandbox:ordered`
-      : `tinpass:usdt:${input.ticketId}:ordered`,
+    idempotencyKey,
     payload: {
       event: 'transaction.ordered',
       occurredAt: new Date().toISOString(),

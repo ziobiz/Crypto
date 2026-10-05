@@ -13,6 +13,8 @@ import {
 const router = Router();
 router.use(authenticate);
 
+type InvoiceListKind = 'live' | 'official' | 'simulator' | 'sandbox' | 'all';
+
 function invoiceEnv(channel: InvoiceChannel) {
   try {
     return getInvoiceApiClient(channel);
@@ -21,28 +23,45 @@ function invoiceEnv(channel: InvoiceChannel) {
   }
 }
 
-function buyerScope(user: AuthUser): string | null {
-  if (!isMerchantSide(user)) return null;
-  return [user.email, user.customerProfileId].filter(Boolean).join(',');
+function parseKind(raw: unknown): InvoiceListKind {
+  const kindRaw = String(raw || 'live').toLowerCase();
+  if (kindRaw === 'simulator' || kindRaw === 'sim') return 'simulator';
+  if (kindRaw === 'sandbox') return 'sandbox';
+  if (kindRaw === 'official' || kindRaw === 'original') return 'official';
+  if (kindRaw === 'all') return 'all';
+  return 'live';
+}
+
+function channelForKind(kind: InvoiceListKind): InvoiceChannel {
+  return kind === 'simulator' ? 'simulator' : 'live';
+}
+
+/** Upstream Invoice filter: simulator site uses its own key; pass kind through for live/official. */
+function upstreamKind(kind: InvoiceListKind): string {
+  if (kind === 'simulator') return 'simulator';
+  return kind;
+}
+
+function assertHqInvoiceAccess(user: AuthUser | undefined) {
+  if (!user || isMerchantSide(user)) {
+    throw new AppError(403, 'Invoice menu is available to HQ operators only', 'FORBIDDEN');
+  }
 }
 
 router.get(
   '/',
   asyncHandler(async (req, res) => {
-    const kindRaw = String(req.query.kind || 'live').toLowerCase();
-    const channel: InvoiceChannel =
-      kindRaw === 'simulator' || kindRaw === 'sim' ? 'simulator' : 'live';
+    assertHqInvoiceAccess(req.user);
+    const kind = parseKind(req.query.kind);
+    const channel = channelForKind(kind);
     const { baseUrl, apiKey } = invoiceEnv(channel);
     const from = String(req.query.from || '');
     const to = String(req.query.to || '');
     const url = new URL(`${baseUrl}/v1/invoices`);
     url.searchParams.set('limit', '100');
-    // Each channel uses its own Invoice site key — list all on that site
-    url.searchParams.set('kind', 'all');
+    url.searchParams.set('kind', upstreamKind(kind));
     if (from) url.searchParams.set('from', from);
     if (to) url.searchParams.set('to', to);
-    const buyer = buyerScope(req.user!);
-    if (buyer) url.searchParams.set('buyer', buyer);
     const upstream = await fetch(url, { headers: { 'X-Api-Key': apiKey, Accept: 'application/json' } });
     const data = await upstream.json().catch(() => ({}));
     if (!upstream.ok) {
@@ -62,13 +81,9 @@ router.get(
 router.delete(
   '/:id',
   asyncHandler(async (req, res) => {
-    // Merchants may view their invoices; only HQ/ops may delete (syncs to Invoice service)
-    if (isMerchantSide(req.user!)) {
-      throw new AppError(403, 'Only HQ operators can delete invoices', 'FORBIDDEN');
-    }
-    const kindRaw = String(req.query.kind || 'live').toLowerCase();
-    const channel: InvoiceChannel =
-      kindRaw === 'simulator' || kindRaw === 'sim' ? 'simulator' : 'live';
+    assertHqInvoiceAccess(req.user);
+    const kind = parseKind(req.query.kind);
+    const channel = channelForKind(kind);
     const { baseUrl, apiKey } = invoiceEnv(channel);
     const upstream = await fetch(
       `${baseUrl}/v1/invoices/${encodeURIComponent(req.params.id)}`,
@@ -111,9 +126,9 @@ router.delete(
 router.get(
   '/:id/pdf',
   asyncHandler(async (req, res) => {
-    const kindRaw = String(req.query.kind || 'live').toLowerCase();
-    const channel: InvoiceChannel =
-      kindRaw === 'simulator' || kindRaw === 'sim' ? 'simulator' : 'live';
+    assertHqInvoiceAccess(req.user);
+    const kind = parseKind(req.query.kind);
+    const channel = channelForKind(kind);
     const { baseUrl, apiKey } = invoiceEnv(channel);
     const upstream = await fetch(`${baseUrl}/v1/invoices/${encodeURIComponent(req.params.id)}/pdf`, {
       headers: { 'X-Api-Key': apiKey },

@@ -3,6 +3,50 @@ import type { PlatformReleaseNote } from './version';
 /** 본사정책 → 검증관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
 export const PLATFORM_RELEASE_NOTES: PlatformReleaseNote[] = [
   {
+    version: '2.6.192',
+    kind: 'minor',
+    date: '2026-10-05',
+    items: {
+      KR: [
+        '고객 이용 메뉴얼을 개인용·기업용으로 분리했습니다. 고객은 본인 유형 메뉴얼만, 총본사·조직은 둘 다 열 수 있습니다. 가입·승인·결제수단·지갑·인보이스 등 최신 기능을 간편 가이드로 반영했습니다(KR/US/JP/CH/TH).',
+      ],
+      US: [
+        'Customer manuals are split into Individual and Corporate. Customers open only their type; HQ/org can open both. Quick guides cover signup, approval, pay methods, wallets, invoices, and more (KR/US/JP/CH/TH).',
+      ],
+      JP: [
+        '顧客マニュアルを個人用・法人用に分離しました。顧客は自分のタイプのみ、総本社・組織は両方を開けます。登録・承認・決済手段・ウォレット・インボイスなど最新機能をかんたんガイドに反映(KR/US/JP/CH/TH)。',
+      ],
+      CH: [
+        '客户手册已拆分为个人版与企业版。客户仅能打开本类型手册，总部/组织可打开两者。简易指南已纳入注册、批准、支付方式、钱包、发票等最新功能（KR/US/JP/CH/TH）。',
+      ],
+      TH: [
+        'แยกคู่มือลูกค้าเป็นบุคคลและนิติบุคคล ลูกค้าเปิดได้เฉพาะประเภทตน HQ/องค์กรเปิดได้ทั้งสอง คู่มือง่ายครอบคลุมสมัคร อนุมัติ ช่องทางชำระ กระเป๋า ใบแจ้งหนี้ ฯลฯ (KR/US/JP/CH/TH)',
+      ],
+    },
+  },
+  {
+    version: '2.6.191',
+    kind: 'minor',
+    date: '2026-10-05',
+    items: {
+      KR: [
+        '인보이스 목록에 PDF 미리보기를 두고, 삭제 전에 확인할 수 있게 했습니다. 삭제는 2단계 확인 후 Invoice 서비스에서도 함께 삭제됩니다.',
+      ],
+      US: [
+        'Invoice lists now have a PDF preview before download and delete. Delete uses a two-step confirm and also removes the invoice from the Invoice service.',
+      ],
+      JP: [
+        'インボイス一覧にPDFプレビューを追加し、削除前に確認できます。削除は2段階確認後、Invoiceサービスからも削除されます。',
+      ],
+      CH: [
+        '发票列表增加 PDF 预览，可在删除前确认。删除需两步确认，并会从 Invoice 服务一并删除。',
+      ],
+      TH: [
+        'รายการใบแจ้งหนี้มีดูตัวอย่าง PDF ก่อนดาวน์โหลดและลบ การลบยืนยัน 2 ขั้น และลบจากบริการ Invoice ด้วย',
+      ],
+    },
+  },
+  {
     version: '2.6.190',
     kind: 'minor',
     date: '2026-10-05',

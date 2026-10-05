@@ -30,7 +30,11 @@ export default function ManualsPage() {
   const [error, setError] = useState('');
 
   const role = (user?.role ?? 'CUSTOMER') as AppRole;
-  const items = useMemo(() => manualsForRole(role), [role]);
+  const customerType = user?.customerProfile?.customerType ?? null;
+  const items = useMemo(
+    () => manualsForRole(role, { customerType }),
+    [role, customerType],
+  );
   const templateLocale = localeFromApp(locale);
 
   const grouped = useMemo(() => {

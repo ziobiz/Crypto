@@ -1,13 +1,28 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthProvider';
 import { useT } from '@/context/LocaleProvider';
 import { api, ApiError } from '@/lib/api';
 import { ContentCard } from '@/components/layout/ContentCard';
 import { rangeForQuick } from '@/lib/date-range';
 import { toPublicInvoiceNo } from '@/lib/invoice-brand';
+import { useDoubleConfirm } from '@/hooks/useDoubleConfirm';
 
-type Kind = 'live' | 'simulator';
+type Kind = 'live' | 'official' | 'simulator';
+
+function titleKey(kind: Kind) {
+  if (kind === 'official') return 'invoices.officialTitle' as const;
+  if (kind === 'simulator') return 'invoices.simulatorTitle' as const;
+  return 'invoices.liveTitle' as const;
+}
+
+function hintKey(kind: Kind) {
+  if (kind === 'official') return 'invoices.officialHint' as const;
+  if (kind === 'simulator') return 'invoices.simulatorHint' as const;
+  return 'invoices.liveHint' as const;
+}
 
 type Row = {
   id: string;
@@ -41,6 +56,9 @@ function defaultInvoiceRange() {
 
 export function InvoiceListPage({ kind }: { kind: Kind }) {
   const t = useT();
+  const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
+  const { requestConfirm, dialog: doubleConfirmDialog } = useDoubleConfirm();
   const initial = defaultInvoiceRange();
   const [rows, setRows] = useState<Row[]>([]);
   const [from, setFrom] = useState(initial.from);
@@ -48,6 +66,15 @@ export function InvoiceListPage({ kind }: { kind: Kind }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [previewingId, setPreviewingId] = useState<string | null>(null);
+
+  const isMerchant =
+    user?.role === 'CUSTOMER' || user?.role === 'CUSTOMER_OPERATOR';
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (isMerchant) router.replace('/dashboard');
+  }, [authLoading, isMerchant, router]);
 
   async function load(range = { from, to }) {
     setLoading(true);
@@ -63,35 +90,66 @@ export function InvoiceListPage({ kind }: { kind: Kind }) {
     }
   }
 
-  async function onDelete(row: Row) {
+  function onDelete(row: Row) {
     const no = toPublicInvoiceNo(row.invoice_no);
-    if (!window.confirm(t('invoices.deleteConfirm').replace('{no}', no))) return;
-    setDeletingId(row.id);
+    requestConfirm({
+      title: t('invoices.deleteTitle'),
+      step1: t('invoices.deleteStep1', { no }),
+      step2: t('invoices.deleteStep2', { no }),
+      confirmLabel: t('invoices.delete'),
+      onConfirm: async () => {
+        setDeletingId(row.id);
+        setError('');
+        try {
+          await api.invoices.delete(row.id, kind);
+          setRows((prev) => prev.filter((r) => r.id !== row.id));
+        } catch (e) {
+          setError(e instanceof ApiError ? e.message : t('invoices.deleteFailed'));
+        } finally {
+          setDeletingId(null);
+        }
+      },
+    });
+  }
+
+  async function onPreview(row: Row) {
+    setPreviewingId(row.id);
     setError('');
     try {
-      await api.invoices.delete(row.id, kind);
-      setRows((prev) => prev.filter((r) => r.id !== row.id));
+      await api.invoices.previewPdf(row.id, kind);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : t('invoices.deleteFailed'));
+      if (e instanceof ApiError && e.code === 'POPUP_BLOCKED') {
+        setError(t('invoices.previewBlocked'));
+      } else {
+        setError(e instanceof Error ? e.message : t('invoices.previewFailed'));
+      }
     } finally {
-      setDeletingId(null);
+      setPreviewingId(null);
     }
   }
 
   useEffect(() => {
+    if (authLoading || isMerchant) return;
     const range = defaultInvoiceRange();
     setFrom(range.from);
     setTo(range.to);
     void load(range);
     // initial load for this kind only
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kind]);
+  }, [kind, authLoading, isMerchant]);
+
+  if (authLoading || isMerchant) {
+    return (
+      <ContentCard title={t(titleKey(kind))}>
+        <p className="pg-hint">{t('common.loading')}</p>
+      </ContentCard>
+    );
+  }
 
   return (
-    <ContentCard title={kind === 'live' ? t('invoices.liveTitle') : t('invoices.simulatorTitle')}>
-      <p className="pg-hint mb-3">
-        {kind === 'live' ? t('invoices.liveHint') : t('invoices.simulatorHint')}
-      </p>
+    <ContentCard title={t(titleKey(kind))}>
+      {doubleConfirmDialog}
+      <p className="pg-hint mb-3">{t(hintKey(kind))}</p>
       <div className="mb-3 flex flex-wrap items-end gap-2">
         <label className="text-xs">
           {t('invoices.from')}
@@ -147,6 +205,14 @@ export function InvoiceListPage({ kind }: { kind: Kind }) {
                   <button
                     type="button"
                     className="pg-btn"
+                    disabled={previewingId === row.id}
+                    onClick={() => void onPreview(row)}
+                  >
+                    {previewingId === row.id ? t('common.loading') : t('invoices.preview')}
+                  </button>{' '}
+                  <button
+                    type="button"
+                    className="pg-btn"
                     onClick={() =>
                       void api.invoices
                         .downloadPdf(row.id, toPublicInvoiceNo(row.invoice_no), kind)
@@ -159,7 +225,7 @@ export function InvoiceListPage({ kind }: { kind: Kind }) {
                     type="button"
                     className="pg-btn pg-btn-danger"
                     disabled={deletingId === row.id}
-                    onClick={() => void onDelete(row)}
+                    onClick={() => onDelete(row)}
                   >
                     {deletingId === row.id ? t('common.loading') : t('invoices.delete')}
                   </button>

@@ -17,7 +17,10 @@ import {
   notifyInvoiceTransactionCompleted,
 } from './invoice-webhook.service';
 
-/** Issue Invoice PDF at USDT order time (quote confirmed / apply without quote). */
+/** Issue Invoice PDF at USDT order time (quote confirmed / apply without quote).
+ * Live trades → 2 invoices: processed (실거래) + official/original (공식거래).
+ * Sandbox → sandbox invoice only.
+ */
 function queueUsdtOrderInvoice(input: {
   ticketId: string;
   ticketNo: string;
@@ -37,7 +40,7 @@ function queueUsdtOrderInvoice(input: {
       collectionAccountJson: input.collectionAccountJson,
     }) ||
     input.adminNote?.includes('[SANDBOX]') === true;
-  const { payload, idempotencyKey } = buildUsdtPurchaseInvoicePayload({
+  const base = {
     ticketId: input.ticketId,
     ticketNo: input.ticketNo,
     fiatAmount: input.fiatAmount,
@@ -45,9 +48,13 @@ function queueUsdtOrderInvoice(input: {
     assetAmount: input.assetAmount,
     buyerRef: input.buyerRef,
     usdtTxId: input.usdtTxId,
-    sandbox,
-  });
-  void notifyInvoiceTransactionCompleted(payload, idempotencyKey);
+  };
+  const processed = buildUsdtPurchaseInvoicePayload({ ...base, sandbox });
+  void notifyInvoiceTransactionCompleted(processed.payload, processed.idempotencyKey);
+  if (!sandbox) {
+    const official = buildUsdtPurchaseInvoicePayload({ ...base, official: true });
+    void notifyInvoiceTransactionCompleted(official.payload, official.idempotencyKey);
+  }
 }
 import { hqPolicyService } from './hq-policy.service';
 import { getWorkflowDisplay } from './workflow-display.service';

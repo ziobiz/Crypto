@@ -1356,6 +1356,7 @@ export const hqPolicyService = {
         ['/dashboard/escrow', 'MODIFY'],
         ['/dashboard/ledger', 'VIEW'],
         ['/dashboard/invoices/live', 'VIEW'],
+        ['/dashboard/invoices/official', 'VIEW'],
         ['/dashboard/invoices/simulator', 'VIEW'],
         ['/dashboard/users', 'MODIFY'],
         ['/dashboard/customers', 'MODIFY'],

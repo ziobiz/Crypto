@@ -156,6 +156,7 @@ const INVOICE_ITEM: NavItem = {
   icon: 'ledger',
   children: [
     { href: '/dashboard/invoices/live', labelKey: 'nav.invoicesLive', shortKey: 'nav.short.invoicesLive', icon: 'ledger' },
+    { href: '/dashboard/invoices/official', labelKey: 'nav.invoicesOfficial', shortKey: 'nav.short.invoicesOfficial', icon: 'ledger' },
     { href: '/dashboard/invoices/simulator', labelKey: 'nav.invoicesSimulator', shortKey: 'nav.short.invoicesSimulator', icon: 'simulator' },
   ],
 };
@@ -186,7 +187,6 @@ export const NAV_ITEMS: Record<string, NavItem[]> = {
     { href: '/dashboard/escrow', labelKey: 'nav.escrow', shortKey: 'nav.short.escrow', icon: 'escrow' },
     { href: '/dashboard/kyc', labelKey: 'nav.kyc', shortKey: 'nav.short.kyc', icon: 'kyc' },
     { href: '/dashboard/wallets', labelKey: 'nav.wallets', shortKey: 'nav.short.wallets', icon: 'wallets' },
-    INVOICE_ITEM,
     MERCHANT_USERS_ITEM,
     OPERATION_HISTORY_ITEM,
     MANUAL_ITEM,
@@ -197,7 +197,6 @@ export const NAV_ITEMS: Record<string, NavItem[]> = {
     { href: '/dashboard/usdt', labelKey: 'nav.usdt', shortKey: 'nav.short.usdt', icon: 'usdt' },
     { href: '/dashboard/escrow', labelKey: 'nav.escrow', shortKey: 'nav.short.escrow', icon: 'escrow' },
     { href: '/dashboard/kyc', labelKey: 'nav.kyc', shortKey: 'nav.short.kyc', icon: 'kyc' },
-    INVOICE_ITEM,
     OPERATION_HISTORY_ITEM,
     MANUAL_ITEM,
   ],

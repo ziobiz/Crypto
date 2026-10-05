@@ -216,6 +216,27 @@ const RULES: RouteRule[] = [
   { test: (p) => p.startsWith('/dashboard/escrow'), meta: { titleKey: 'nav.escrow', trail: [] } },
   { test: (p) => p.startsWith('/dashboard/ledger'), meta: { titleKey: 'nav.ledger', trail: [] } },
   {
+    test: (p) => p.startsWith('/dashboard/invoices/official'),
+    meta: {
+      titleKey: 'nav.invoicesOfficial',
+      trail: [{ labelKey: 'nav.invoices', href: '/dashboard/invoices/live' }],
+    },
+  },
+  {
+    test: (p) => p.startsWith('/dashboard/invoices/simulator'),
+    meta: {
+      titleKey: 'nav.invoicesSimulator',
+      trail: [{ labelKey: 'nav.invoices', href: '/dashboard/invoices/live' }],
+    },
+  },
+  {
+    test: (p) => p.startsWith('/dashboard/invoices'),
+    meta: {
+      titleKey: 'nav.invoicesLive',
+      trail: [{ labelKey: 'nav.invoices', href: '/dashboard/invoices/live' }],
+    },
+  },
+  {
     test: (p) => p.startsWith('/dashboard/organizations'),
     meta: { titleKey: 'nav.orgs', trail: [{ labelKey: 'nav.ops', href: D.ops }] },
   },
