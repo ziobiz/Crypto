@@ -646,6 +646,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li>ICOPAY 연동: compId, Broker Secret, MID, API Base URL</li>
           <li>TINPASS 한도는 ICOPAY 가맹 한도와 같거나 더 좁게. TINPASS가 먼저 검증하고 ICOPAY가 최종 승인합니다.</li>
         </ol>
+        <div class="info-box"><strong>카드 수수료 구조</strong> — 계좌이체는 시볼(FX·가스·송금·기타) 수수료만 적용합니다. 카드 결제는 <strong>이체와 동일한 시볼 수수료</strong>에 <strong>카드 수수료(%)</strong>를 결제수단 할증으로 별도 가산합니다. 고객 미리보기에 받을 USDT·시볼·카드 수수료·카드 결제 총액이 각각 표시되며, ICOPAY 청구 금액은 카드 결제 총액과 동일(표시 통화)합니다. HQ 「카드 수수료 %」는 시볼을 덮는 번들이 아니라 카드 원가+마진만 설정합니다.</div>
         <div class="block-box">카드 결제를 끄면 고객 화면의 카드 버튼은 회색(비활성)으로 남고 숨기지 않습니다. 통화별 카드 ON/OFF는 플랫폼 입금 수취 계좌에서 따로 설정합니다.</div>
         <p class="mt-3"><strong>본사 기본 입금계좌 방식</strong></p>
         <p>결제관리 CURFEX 카드에서 <strong>고정 수취계좌</strong> 또는 <strong>가상계좌</strong>를 본사 기본으로 둡니다. 고객이 「본사설정따름」이면 이 값이 적용됩니다. 고객이 고정/가상계좌를 직접 고르면 고객 선택이 우선합니다. 가상계좌는 VA·통화가 켜진 경우에만 발급되고, 아니면 고정 계좌로 폴백합니다.</p>
@@ -676,6 +677,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li>ICOPAY: compId, Broker Secret, MID, API Base URL</li>
           <li>Keep TINPASS limits equal to or tighter than ICOPAY. TINPASS validates first; ICOPAY is final.</li>
         </ol>
+        <div class="info-box"><strong>Card fee structure</strong> — Bank transfer applies symbol fees only (FX/gas/transfer/other). Card payment uses the <strong>same symbol fees as bank transfer</strong>, plus a separate <strong>card fee %</strong> as a payment-method surcharge. The customer preview shows USDT received, symbol fees, card fee, and card total; the ICOPAY charge equals that card total in the display currency. HQ “Card fee %” covers acquiring cost + margin only — it is not a bundle that replaces symbol fees.</div>
         <div class="block-box">When card is off, the customer card button stays gray (disabled), not hidden. Per-currency card on/off is set on Platform deposit accounts.</div>
         <p class="mt-3"><strong>HQ default deposit account mode</strong></p>
         <p>On the Payment CURFEX card, set HQ default to <strong>fixed receiving account</strong> or <strong>virtual account</strong>. Customers on “Follow HQ” use this value. A customer’s own Fixed/VA choice overrides HQ. VA issues only when VA and the currency are enabled; otherwise it falls back to fixed.</p>
@@ -706,6 +708,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li>ICOPAY連携: compId、Broker Secret、MID、API Base URL</li>
           <li>TINPASS限度はICOPAY加盟限度と同じかより狭く。TINPASSが先に検証し、ICOPAYが最終承認します。</li>
         </ol>
+        <div class="info-box"><strong>カード手数料の構造</strong> — 口座振込はシンボル(FX・ガス・送金・その他)手数料のみです。カード決済は<strong>振込と同じシンボル手数料</strong>に、決済手段割増として<strong>カード手数料(%)</strong>を別途加算します。顧客プレビューに受取USDT・シンボル・カード手数料・カード決済総額を表示し、ICOPAY請求はカード決済総額と同一（表示通貨）です。HQの「カード手数料%」はシンボルを置き換えるバンドルではなく、カード原価+マージンのみを設定します。</div>
         <div class="block-box">カード決済をOFFにしても顧客画面のカードボタンは灰色(無効)のまま非表示にはしません。通貨別カードON/OFFはプラットフォーム入金受取口座で別設定です。</div>
         <p class="mt-3"><strong>バーチャル口座サービス(CURFEX) Collection（日本JPY振込受取）— 追加機能</strong></p>
         <p>既定は<strong>OFF</strong>です。OFFのときはプラットフォームの<strong>固定受取口座</strong>を案内します。ONにするとJPY口座振込USDT購入でバーチャル口座サービス(CURFEX)が<strong>取引ごとの受取口座</strong>を発行します。固定口座設定は消えません。</p>
@@ -734,6 +737,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li>ICOPAY 对接：compId、Broker Secret、MID、API Base URL</li>
           <li>TINPASS 限额应等于或严于 ICOPAY。TINPASS 先校验，ICOPAY 为最终批准。</li>
         </ol>
+        <div class="info-box"><strong>卡手续费结构</strong> — 银行转账仅收取交易对（FX/燃气/汇款/其他）手续费。卡支付在<strong>与转账相同的交易对手续费</strong>之外，另加支付方式加价<strong>卡手续费(%)</strong>。客户预览分别显示到账 USDT、交易对手续费、卡手续费、卡支付总额；ICOPAY 扣款等于卡支付总额（页面显示货币）。总部「卡手续费 %」只覆盖收单成本+利润，不是替代交易对手续费的打包费率。</div>
         <div class="block-box">关闭卡支付后，客户页卡按钮仍为灰色（禁用），不会隐藏。按币种卡开关在平台入金收款账户单独设置。</div>
         <p class="mt-3"><strong>虚拟账户服务(CURFEX) Collection（日本 JPY 转账收款）— 附加功能</strong></p>
         <p>默认<strong>关闭</strong>。关闭时引导平台<strong>固定收款账户</strong>。开启后，JPY 银行转账 USDT 采购由虚拟账户服务(CURFEX) 开立<strong>按单收款账户</strong>。固定账户设置不会删除。</p>
@@ -762,6 +766,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li>เชื่อม ICOPAY: compId, Broker Secret, MID, API Base URL</li>
           <li>ตั้งวงเงิน TINPASS ให้เท่าหรือแคบกว่า ICOPAY TINPASS ตรวจก่อน ICOPAY เป็นขีดจำกัดอนุมัติสุดท้าย</li>
         </ol>
+        <div class="info-box"><strong>โครงสร้างค่าธรรมเนียมบัตร</strong> — โอนธนาคารคิดเฉพาะค่าสัญลักษณ์ (FX/แก๊ส/โอน/อื่นๆ) ชำระบัตรใช้<strong>ค่าสัญลักษณ์เหมือนโอน</strong> แล้วบวก<strong>ค่าธรรมเนียมบัตร(%)</strong> แยกเป็นส่วนเพิ่มของช่องทางชำระ หน้าพรีวิวลูกค้าแสดง USDT ที่ได้รับ·ค่าสัญลักษณ์·ค่าบัตร·ยอดบัตรรวม และการเรียกเก็บ ICOPAY เท่ากับยอดบัตรรวม (สกุลที่แสดง) 「ค่าธรรมเนียมบัตร %」ของ HQ ตั้งแค่ต้นทุนรับบัตร+มาร์จิ้น ไม่ใช่แพ็กเกจแทนค่าสัญลักษณ์</div>
         <div class="block-box">ปิดบัตรแล้วปุ่มบัตรหน้าลูกค้ายังเป็นสีเทา (ปิดใช้) ไม่ซ่อน การเปิด/ปิดบัตรตามสกุลตั้งที่บัญชีรับเงินบนแพลตฟอร์มแยกต่างหาก</div>
         <p class="mt-3"><strong>บริการบัญชีเสมือน(CURFEX) Collection (รับโอน JPY ญี่ปุ่น) — ฟีเจอร์เพิ่ม</strong></p>
         <p>ค่าเริ่มต้นคือ<strong>ปิด</strong> เมื่อปิดจะแนะนำ<strong>บัญชีรับเงินคงที่</strong>ของแพลตฟอร์ม เมื่อเปิด การซื้อ USDT โอนบัญชี JPY จะได้<strong>บัญชีรับรายตั๋ว</strong>จากบริการบัญชีเสมือน(CURFEX) การตั้งบัญชีคงที่ไม่ถูกลบ</p>

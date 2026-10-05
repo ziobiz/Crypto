@@ -3,6 +3,28 @@ import type { PlatformReleaseNote } from './version';
 /** 본사정책 → 검증관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
 export const PLATFORM_RELEASE_NOTES: PlatformReleaseNote[] = [
   {
+    version: '2.6.198',
+    kind: 'minor',
+    date: '2026-10-05',
+    items: {
+      KR: [
+        '매뉴얼(결제관리): 카드 수수료 구조 안내 추가 — 이체=시볼, 카드=시볼+카드% 별도 가산. ICOPAY 청구=카드 결제 총액(표시 통화).',
+      ],
+      US: [
+        'Manuals (Payment): added card fee structure — bank = symbol fees; card = symbol fees + separate card %. ICOPAY charge = card total (display currency).',
+      ],
+      JP: [
+        'マニュアル（決済管理）: カード手数料構造を追加 — 振込=シンボル、カード=シンボル+カード%別加算。ICOPAY請求=カード決済総額（表示通貨）。',
+      ],
+      CH: [
+        '手册（支付管理）：补充卡手续费结构 — 转账=交易对手续费；卡=交易对+卡手续费(%)。ICOPAY 扣款=卡支付总额（显示货币）。',
+      ],
+      TH: [
+        'คู่มือ (Payment): เพิ่มโครงสร้างค่าบัตร — โอน=ค่าสัญลักษณ์ บัตร=ค่าสัญลักษณ์+ค่าบัตร(%) แยก ICOPAY=ยอดบัตรรวม (สกุลที่แสดง)',
+      ],
+    },
+  },
+  {
     version: '2.6.197',
     kind: 'minor',
     date: '2026-10-05',
