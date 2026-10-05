@@ -83,6 +83,35 @@ export function verifyStepUpToken(token: string, userId: string): void {
   }
 }
 
+export interface RegisterEmailProofPayload {
+  purpose: 'register_email';
+  email: string;
+  challengeId: string;
+}
+
+/** 가입 이메일 인증 확인 후, 나머지 가입 입력을 마칠 수 있는 증명 (30분) */
+export function signRegisterEmailProof(email: string, challengeId: string, minutes = 30): string {
+  const ttl = Math.min(60, Math.max(1, Math.round(minutes)));
+  return jwt.sign(
+    { purpose: 'register_email', email, challengeId },
+    JWT_SECRET,
+    { expiresIn: `${ttl}m` as SignOptions['expiresIn'] },
+  );
+}
+
+export function verifyRegisterEmailProof(token: string): RegisterEmailProofPayload {
+  try {
+    const payload = jwt.verify(token, JWT_SECRET) as RegisterEmailProofPayload;
+    if (payload.purpose !== 'register_email' || !payload.email || !payload.challengeId) {
+      throw new AppError(401, 'Email verification is required', 'EMAIL_NOT_VERIFIED');
+    }
+    return payload;
+  } catch (e) {
+    if (e instanceof AppError) throw e;
+    throw new AppError(401, 'Email verification is required', 'EMAIL_NOT_VERIFIED');
+  }
+}
+
 export function verifyFlowToken(token: string, purpose: FlowJwtPayload['purpose']): FlowJwtPayload {
   try {
     const payload = jwt.verify(token, JWT_SECRET) as FlowJwtPayload;

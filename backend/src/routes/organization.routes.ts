@@ -34,6 +34,9 @@ const updateSchema = z.object({
   simulatorEnabled: z.boolean().optional(),
   simulatorRateMode: z.enum(['LIVE', 'SAND']).optional(),
   referralUserId: z.string().min(1).nullable().optional(),
+  introducerRewardEnabled: z.boolean().optional(),
+  introducerRewardPercent: z.number().min(0).max(100).optional(),
+  introducerRewardFixedUsdt: z.number().min(0).max(1_000_000).optional(),
 });
 
 router.get(

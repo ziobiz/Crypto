@@ -141,7 +141,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li><strong>수수료 노출</strong> — 비활성(기본)이면 가맹점 「내 지갑」 수수료에 숫자가 없고 <strong>본사설정에따름</strong>만 보입니다. 활성이면 가스·플랫폼 수수료가 표시됩니다.</li>
           <li><strong>청구방식</strong> — 본사설정따름 / 통합 / 항목별 / 하이브리드. USDT 상세 「수수료 내역」과 신청 도식이 이 값을 따릅니다.</li>
           <li><strong>입금계좌 방식</strong> — 본사설정따름 / 고정 수취계좌 / 가상계좌. 고객 선택이 본사 기본보다 우선합니다. 가상계좌는 결제관리에서 VA가 켜진 통화만 발급되며, 고객 화면에는 CURFEX 명칭을 쓰지 않습니다.</li>
-          <li><strong>추가 지갑 승인</strong> — 본사가 등록한 기본 지갑은 가맹점이 주소를 바꿀 수 없습니다. 가맹점이 추가한 지갑은 고객 상세에서 승인해야 매입·에스크로에 쓸 수 있습니다.</li>
+          <li><strong>지갑</strong> — 개인·기업 최대 5개. 등록·주소 변경·삭제 요청은 OTP와 두 번 확인. 새 주소는 고객 상세에서 승인. 한 번 승인된 주소는 재승인 없음. 삭제는 고객이 직접 하지 않고 본사 승인 후 처리. 거래 내역에는 그 건에서 고른 주소만 보이며, 주소를 나중에 바꿔도 기존 거래 주소는 유지됩니다. 진행 중 거래가 있으면 그 지갑 주소는 바꿀 수 없습니다.</li>
         </ul>
         <p>인증 상태</p>
         <ul>
@@ -173,7 +173,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li><strong>Fee display</strong> — Inactive (default): merchant My wallets shows <strong>Follow HQ settings</strong> instead of fee amounts. Active: gas and platform fees are shown.</li>
           <li><strong>Billing method</strong> — Follow HQ / integrated / itemized / hybrid. USDT detail fee section and apply diagram follow this value.</li>
           <li><strong>Deposit account mode</strong> — Follow HQ / fixed receiving account / virtual account. Customer choice overrides the HQ default. VA issues only when the currency is enabled in Payment; customer UI never shows the vendor name.</li>
-          <li><strong>Extra wallet approval</strong> — HQ-registered default wallets cannot have their address changed by the merchant. Extra wallets added by the merchant stay pending until HQ approves them on the customer detail page.</li>
+          <li><strong>Wallets</strong> — up to 5 for individuals and companies. Register, address change, and deletion request need OTP plus two confirmations. New addresses are approved on the customer detail page. An address approved once does not need approval again. Customers cannot delete a wallet; HQ must approve. A trade shows only the address selected for that trade, and later address changes do not rewrite it. An in-progress trade blocks changing that wallet.</li>
         </ul>
         <ul>
           <li><strong>Verified pass</strong> — may use USDT purchase and trade escrow</li>
@@ -199,7 +199,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li><strong>手数料表示</strong> — 無効(既定)なら加盟店「マイウォレット」手数料は数字なしで<strong>本社設定に従う</strong>のみ。有効ならガス・プラットフォーム手数料を表示。</li>
           <li><strong>請求方式</strong> — 本社設定に従う / 統合 / 項目別 / ハイブリッド。USDT詳細の手数料内訳と申請図がこの値に従います。</li>
           <li><strong>入金口座方式</strong> — 本社設定に従う / 固定受取口座 / バーチャル口座。顧客選択が本社既定より優先。バーチャルは決済管理でVAが有効な通貨のみ。顧客画面にベンダー名は出しません。</li>
-          <li><strong>追加ウォレット承認</strong> — 本社登録の既定ウォレットは加盟店がアドレス変更不可。加盟店が追加したウォレットは顧客詳細で承認後に使用。</li>
+          <li><strong>ウォレット</strong> — 個人・法人とも最大5件。登録・アドレス変更・削除依頼はOTPと2回確認。新しいアドレスは顧客詳細で承認。一度承認したアドレスは再承認不要。削除は顧客が直接できず本社承認後。取引履歴にはその件で選んだアドレスのみ。後から変えても既存取引のアドレスは維持。進行中はそのウォレットを変更できません。</li>
           <li><strong>認証パス</strong> — USDT購入・貿易エスクロー利用可</li>
           <li><strong>未認証</strong> — 未提出または未承認</li>
           <li><strong>審査中</strong> — 顧客が認証センターで提出済み</li>
@@ -223,7 +223,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li><strong>手续费显示</strong> — 停用(默认)时，商户「我的钱包」手续费不显示数字，只显示<strong>遵循总部设置</strong>。启用后显示 Gas 与平台手续费。</li>
           <li><strong>计费方式</strong> — 跟随总部 / 合并 / 分项 / 混合。USDT 详情手续费与申请图示遵循此值。</li>
           <li><strong>入金账户方式</strong> — 跟随总部 / 固定收款账户 / 虚拟账户。客户选择优先于总部默认。虚拟账户仅在支付管理已开启该币种时签发；客户界面不展示供应商名称。</li>
-          <li><strong>额外钱包批准</strong> — 总部登记的默认钱包加盟商不能改地址。加盟商添加的钱包须在客户详情批准后才能使用。</li>
+          <li><strong>钱包</strong> — 个人与企业最多 5 个。登记、改地址、申请删除需要 OTP 和两次确认。新地址在客户详情批准。曾批准的地址无需再批。客户不能自行删除，须总部批准。交易记录只显示该笔所选地址，之后改地址也不会改写旧交易。进行中的交易不能改该钱包。</li>
           <li><strong>认证通过</strong> — 可使用 USDT 采购与贸易托管</li>
           <li><strong>未认证</strong> — 未提交或未批准</li>
           <li><strong>审核中</strong> — 客户已在认证中心提交</li>
@@ -247,7 +247,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li><strong>แสดงค่าธรรมเนียม</strong> — ถ้าปิด (ค่าเริ่ม) กระเป๋าของฉันจะไม่โชว์ตัวเลข แสดงแค่<strong>ตามการตั้งค่า HQ</strong> ถ้าเปิดจะโชว์แก๊สและค่าธรรมเนียมแพลตฟอร์ม</li>
           <li><strong>วิธีเรียกเก็บ</strong> — ตาม HQ / รวม / แยกรายการ / ไฮบริด รายละเอียดค่าธรรมเนียม USDT และแผนภาพคำขอใช้ค่านี้</li>
           <li><strong>โหมดบัญชีฝาก</strong> — ตาม HQ / บัญชีรับคงที่ / บัญชีเสมือน ตัวเลือกลูกค้ามีผลเหนือค่าเริ่มต้น HQ บัญชีเสมือนออกได้เมื่อเปิดสกุลเงินในหน้า Payment; หน้าลูกค้าไม่โชว์ชื่อผู้ให้บริการ</li>
-          <li><strong>อนุมัติกระเป๋าเพิ่ม</strong> — กระเป๋าเริ่มต้นที่ HQ ลงทะเบียน ร้านค้าแก้ที่อยู่ไม่ได้ กระเป๋าที่ร้านเพิ่มต้องอนุมัติในหน้ารายละเอียดลูกค้าก่อนใช้</li>
+          <li><strong>กระเป๋า</strong> — บุคคลและนิติบุคคลสูงสุด 5 ใบ ลงทะเบียน เปลี่ยนที่อยู่ ขอลบ ต้อง OTP และยืนยันสองครั้ง ที่อยู่ใหม่ให้อนุมัติในหน้ารายละเอียด ที่อยู่ที่เคยอนุมัติไม่ต้องอนุมัติซ้ำ ลูกค้าลบเองไม่ได้ ต้องให้ HQ อนุมัติ ประวัติรายการแสดงเฉพาะที่อยู่ที่เลือกในรายการนั้น การเปลี่ยนทีหลังไม่แก้รายการเก่า รายการที่กำลังทำเปลี่ยนกระเป๋านั้นไม่ได้</li>
           <li><strong>ผ่านการยืนยัน</strong> — ใช้ซื้อ USDT และเอสโครว์ได้</li>
           <li><strong>ยังไม่ยืนยัน</strong> — ยังไม่ส่งหรือยังไม่อนุมัติ</li>
           <li><strong>กำลังตรวจสอบ</strong> — ลูกค้าส่งเอกสารที่ศูนย์ยืนยันแล้ว</li>
@@ -1610,56 +1610,56 @@ export const CUSTOMER_MANUAL: ManualDoc = {
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">회원가입 (휴대폰·국가번호) 후 로그인. Google OTP가 있으면 앱 코드를 입력합니다.</span></div>
           <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">왼쪽 <strong>인증센터</strong>에서 서류를 올립니다. 양식은 <strong>이용메뉴얼</strong>에서 내려받습니다.</span></div>
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">상태가 <strong>심사중</strong>이 되면 총본사 인증패스를 기다립니다. 반려이면 사유를 보고 다시 제출합니다.</span></div>
-          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">본사가 등록한 <strong>기본 지갑</strong>이 승인되어 있는지 확인합니다. 주소는 가맹점이 바꿀 수 없습니다. 추가 지갑은 내 지갑에서 등록 후 본사 승인을 기다립니다.</span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">내 지갑은 최대 5개입니다. 등록·주소 변경·삭제 요청은 OTP와 두 번 확인이 필요합니다. 새 주소는 본사 승인 후 매입에서 고릅니다. 삭제는 본사 승인 후에만 됩니다.</span></div>
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc"><strong>USDT 시뮬레이터</strong>에서 네트워크를 고르고 입금액 또는 받을 USDT로 수수료·수령액을 미리 봅니다. 최근 결과는 최대 3건입니다.</span></div>
           <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>인증패스 후</strong> USDT 매입 또는 무역 에스크로를 신청합니다.</span></div>
         </div>
         <div class="warn-box">인증패스 전에는 USDT 매입·무역 에스크로 신청이 불가합니다. 시뮬레이터는 <strong>참고용 미리 계산</strong>이며 실제 신청·확정 금액이 아닙니다.</div>
-        <div class="info-box">대시보드에는 시뮬레이터 최근 결과가 2건만 보입니다. 언어는 상단에서 바꿉니다. 유휴 시간이 지나면 자동 로그아웃됩니다. 본사가 멀티 사용자를 허용하면 대표(관리자)만 운영자를 등록할 수 있습니다.</div>`,
+        <div class="info-box">대시보드에는 시뮬레이터 최근 결과가 2건만 보입니다. 언어는 상단에서 바꿉니다. 유휴 시간이 지나면 자동 로그아웃됩니다. 본사가 멀티 사용자를 허용하면 대표(관리자)만 운영자를 등록할 수 있습니다. 빠른송금을 쓰면 송금자 성명은 계정 이름과 같고, 국가·이메일은 계정 정보를 가져온 뒤 바꿀 수 있습니다. 국가는 한도 국가가 맨 위에 기본 선택되며 다른 국가도 고를 수 있습니다.</div>`,
         `<p>Follow this order. Later steps stay blocked until earlier ones are done.</p>
         <div class="flow">
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">Register (phone + country code) and sign in. Enter Google OTP if asked.</span></div>
           <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">Upload documents in <strong>Verification</strong>. Download templates from <strong>Usage manuals</strong>.</span></div>
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">When status is <strong>Under review</strong>, wait for HQ verification pass. If rejected, read the reason and resubmit.</span></div>
-          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">Confirm the <strong>HQ-registered default wallet</strong> is approved. You cannot change that address. Extra wallets: add in My wallets, then wait for HQ approval.</span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">My wallets holds up to 5. Register, address change, and deletion request need OTP and two confirmations. A new address is selectable on a purchase after HQ approval. Deletion happens only after HQ approves.</span></div>
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc">Open <strong>USDT simulator</strong>, choose a network, and preview fees from deposit or target USDT. Up to 3 recent results are kept.</span></div>
           <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc">After a <strong>verification pass</strong>, apply for USDT purchase or trade escrow.</span></div>
         </div>
         <div class="warn-box">USDT purchase and escrow stay blocked until you have a pass. The simulator is a <strong>reference preview only</strong>, not an application or binding amount.</div>
-        <div class="info-box">Dashboard shows only 2 recent simulator results. Change language in the top bar. Idle timeout signs you out. If HQ enabled multi-user, only the admin can add operators.</div>`,
+        <div class="info-box">Dashboard shows only 2 recent simulator results. Change language in the top bar. Idle timeout signs you out. If HQ enabled multi-user, only the admin can add operators. With fast remittance, the sender name matches the account name. Country and email are copied from the account and can be changed. The limit country is selected first; another country can be chosen.</div>`,
         `<p>次の順番どおりに進めてください。前の段階が終わるまで次が止まることがあります。</p>
         <div class="flow">
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">会員登録(電話・国番号)→ログイン。Google OTPがあれば入力。</span></div>
           <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">左の<strong>認証センター</strong>で書類をアップロード。様式は<strong>利用マニュアル</strong>から。</span></div>
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc"><strong>審査中</strong>なら総本社の認証パスを待つ。差戻しなら理由を見て再提出。</span></div>
-          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">本社登録の<strong>既定ウォレット</strong>が承認済みか確認。そのアドレスは加盟店が変更できません。追加ウォレットはマイウォレットで登録後、本社承認を待ちます。</span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">マイウォレットは最大5件。登録・アドレス変更・削除依頼はOTPと2回確認。新しいアドレスは本社承認後に買付で選択。削除は本社承認後のみ。</span></div>
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc"><strong>USDTシミュレーター</strong>でネットワークを選び、入金または受取USDTで手数料を確認。直近最大3件。</span></div>
           <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>認証パス後</strong>にUSDT購入または貿易エスクローを申請。</span></div>
         </div>
         <div class="warn-box">認証パス前はUSDT購入・エスクロー申請不可。シミュレーターは<strong>参考用の試算</strong>で申請・確定金額ではありません。</div>
-        <div class="info-box">ダッシュボードのシミュレーター表示は2件です。言語は上部で切替。アイドルで自動ログアウト。本社がマルチユーザーを許可した場合、代表(管理者)のみ運営者を登録できます。</div>`,
+        <div class="info-box">ダッシュボードのシミュレーター表示は2件です。言語は上部で切替。アイドルで自動ログアウト。本社がマルチユーザーを許可した場合、代表(管理者)のみ運営者を登録できます。クイック送金では送金者氏名はアカウント名と同じです。国とメールはアカウント情報を取り込み、変更できます。限度国が先頭に初期選択され、別の国も選べます。</div>`,
         `<p>请按此顺序操作。前一步未完成时，后一步可能无法进行。</p>
         <div class="flow">
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">注册（手机+国家号）并登录。如需 Google OTP 请输入。</span></div>
           <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">在左侧<strong>认证中心</strong>上传文件。模板从<strong>使用手册</strong>下载。</span></div>
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">状态为<strong>审核中</strong>时等待总部认证通过。退回则按原因重交。</span></div>
-          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">确认总部登记的<strong>默认钱包</strong>已批准。该地址加盟商不能改。额外钱包在我的钱包登记后等待总部批准。</span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">我的钱包最多 5 个。登记、改地址、申请删除需要 OTP 和两次确认。新地址经总部批准后才能在购买时选择。删除仅在总部批准后执行。</span></div>
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc">打开<strong>USDT 模拟器</strong>，选择网络，按入金或目标 USDT 预览手续费。最多保留 3 条。</span></div>
           <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>认证通过后</strong>再申请 USDT 采购或贸易托管。</span></div>
         </div>
         <div class="warn-box">未通过认证前无法申请采购或托管。模拟器为<strong>仅供参考的试算</strong>，不是申请或确定金额。</div>
-        <div class="info-box">仪表盘模拟器预览只显示 2 条。语言在顶部切换。空闲会自动退出。总部开启多用户后，仅代表(管理员)可登记操作员。</div>`,
+        <div class="info-box">仪表盘模拟器预览只显示 2 条。语言在顶部切换。空闲会自动退出。总部开启多用户后，仅代表(管理员)可登记操作员。使用快速汇款时，汇款人姓名与账户姓名相同。国家和邮箱从账户信息带入并可修改。限额国家默认排在最前，也可以选择其他国家。</div>`,
         `<p>ทำตามลำดับนี้ ขั้นหลังอาจถูกบล็อกจนกว่าขั้นก่อนจะเสร็จ</p>
         <div class="flow">
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">สมัคร (โทรศัพท์+รหัสประเทศ) แล้วเข้าสู่ระบบ ใส่ Google OTP หากมี</span></div>
           <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">อัปโหลดเอกสารที่ <strong>ศูนย์ยืนยัน</strong> ดาวน์โหลดแบบฟอร์มจาก <strong>คู่มือใช้งาน</strong></span></div>
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">เมื่อสถานะ <strong>กำลังตรวจสอบ</strong> รอ HQ ให้ผ่าน หากถูกปฏิเสธอ่านเหตุผลแล้วส่งใหม่</span></div>
-          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">ตรวจว่า<strong>กระเป๋าเริ่มต้นที่ HQ ลงทะเบียน</strong>ได้รับอนุมัติแล้ว ที่อยู่นี้ร้านค้าแก้ไม่ได้ กระเป๋าเพิ่ม: ลงที่กระเป๋าของฉันแล้วรอ HQ อนุมัติ</span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">กระเป๋าของฉันสูงสุด 5 ใบ ลงทะเบียน เปลี่ยนที่อยู่ ขอลบ ต้อง OTP และยืนยันสองครั้ง ที่อยู่ใหม่เลือกตอนซื้อได้หลัง HQ อนุมัติ การลบเกิดขึ้นเมื่อ HQ อนุมัติเท่านั้น</span></div>
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc">เปิด <strong>ตัวจำลอง USDT</strong> เลือกเครือข่าย ดูค่าธรรมเนียมจากยอดฝากหรือ USDT ที่จะรับ เก็บได้สูงสุด 3 รายการ</span></div>
           <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc">หลัง <strong>ผ่านการยืนยัน</strong> ค่อยสมัครซื้อ USDT หรือเอสโครว์</span></div>
         </div>
         <div class="warn-box">ยังไม่ผ่านจะสมัครซื้อ/เอสโครว์ไม่ได้ ตัวจำลองเป็น<strong>การอ้างอิงเท่านั้น</strong> ไม่ใช่การสมัครหรือจำนวนเงินที่ผูกพัน</div>
-        <div class="info-box">แดชบอร์ดโชว์ผลจำลอง 2 รายการ เปลี่ยนภาษาด้านบน หากไม่ใช้งานจะออกจากระบบอัตโนมัติ หาก HQ เปิดหลายผู้ใช้ ตัวแทน(แอดมิน)เท่านั้นที่เพิ่มผู้ปฏิบัติงานได้</div>`,
+        <div class="info-box">แดชบอร์ดโชว์ผลจำลอง 2 รายการ เปลี่ยนภาษาด้านบน หากไม่ใช้งานจะออกจากระบบอัตโนมัติ หาก HQ เปิดหลายผู้ใช้ ตัวแทน(แอดมิน)เท่านั้นที่เพิ่มผู้ปฏิบัติงานได้ หากใช้โอนด่วน ชื่อผู้ส่งตรงกับชื่อบัญชี ประเทศและอีเมลดึงจากบัญชีแล้วเปลี่ยนได้ ประเทศวงเงินถูกเลือกไว้ก่อนที่บนสุด และเลือกประเทศอื่นได้</div>`,
       ),
     },
     {
@@ -1945,52 +1945,57 @@ export const CUSTOMER_MANUAL: ManualDoc = {
         `<span class="menu-path">내 지갑</span>
         <p>업무 시작 순서의 <strong>4단계</strong>입니다. 매입·에스크로에 쓰는 수령 주소입니다. <strong>이 메뉴는 가맹점 관리자만</strong> 보입니다. 운영자는 승인된 지갑을 신청 화면에서 고르기만 합니다.</p>
         <ul>
-          <li><strong>본사 등록 기본 지갑</strong> — 주소·네트워크를 가맹점이 바꿀 수 없습니다.</li>
-          <li><strong>추가 지갑</strong> — 관리자가 등록하면 <strong>승인대기</strong>입니다. 본사가 고객 상세에서 승인한 뒤에만 매입·에스크로에 쓸 수 있습니다.</li>
+          <li><strong>최대 5개</strong> — 개인·기업 동일. 매입 화면에는 본사 승인이 끝난 지갑만 나오고, 그 중 하나를 고릅니다.</li>
+          <li><strong>등록·주소 변경</strong> — OTP와 두 번 확인이 필요합니다. 처음 쓰는 주소는 승인 대기입니다. 예전에 승인된 주소는 다시 승인하지 않습니다. 진행 중인 거래가 있으면 그 지갑 주소는 바꿀 수 없고, 이미 끝난 거래의 주소는 바뀌지 않습니다.</li>
+          <li><strong>삭제</strong> — 고객이 직접 삭제하지 않습니다. 삭제 요청 후 본사가 승인해야 삭제됩니다.</li>
           <li><strong>수수료 열</strong> — 본사가 수수료 노출을 켜기 전에는 숫자가 없고 <strong>본사설정에따름</strong>만 보입니다. 켜면 가스·플랫폼 수수료가 표시됩니다.</li>
           <li><strong>기본 지갑 전환</strong> — 이미 승인된 지갑 중에서만, 관리자가 OTP로 바꿉니다.</li>
         </ul>
-        <div class="warn-box">승인되지 않은 추가 지갑으로는 USDT 매입·무역 에스크로를 신청할 수 없습니다. 기본 지갑 주소를 직접 수정할 수 없다면 본사에 요청하세요.</div>
+        <div class="warn-box">승인되지 않은 지갑으로는 USDT 매입을 신청할 수 없습니다. 거래 내역에는 그 건에서 선택한 주소만 표시됩니다.</div>
         <div class="info-box">운영자 계정에는 내 지갑 메뉴가 없습니다. 지갑을 추가·전환하려면 대표 관리자로 로그인하세요.</div>`,
         `<span class="menu-path">My wallets</span>
         <p><strong>Step 4.</strong> Receiving addresses for purchase and escrow. <strong>Admin only</strong> — operators pick an approved wallet on the application screen.</p>
         <ul>
-          <li><strong>HQ-registered default</strong> — you cannot change the address or network.</li>
-          <li><strong>Extra wallets</strong> — stay <strong>pending</strong> until HQ approves them on the customer detail page.</li>
+          <li><strong>Up to 5</strong> — same for individuals and companies. The purchase screen lists only HQ-approved wallets, and you pick one.</li>
+          <li><strong>Register and address change</strong> — OTP plus two confirmations. A first-time address stays pending. An address approved before does not need approval again. An in-progress trade blocks changing that wallet, and completed trades keep their address.</li>
+          <li><strong>Deletion</strong> — you cannot delete a wallet yourself. HQ must approve the deletion request.</li>
           <li><strong>Fee column</strong> — until HQ turns on Fee display, amounts are hidden and the cell shows <strong>Follow HQ settings</strong>. When Active, gas and platform fees appear.</li>
           <li><strong>Switch default</strong> — among approved wallets only, admin + OTP.</li>
         </ul>
-        <div class="warn-box">Unapproved extra wallets cannot be used for USDT purchase or escrow. Ask HQ if the default address must change.</div>
+        <div class="warn-box">Unapproved wallets cannot be used for a USDT purchase. A trade shows only the address selected for that trade.</div>
         <div class="info-box">Operators do not see My wallets. Sign in as the admin to add or switch wallets.</div>`,
         `<span class="menu-path">マイウォレット</span>
         <p>開始順の<strong>4</strong>です。購入・エスクローの受取アドレスです。<strong>加盟店管理者のみ</strong>表示されます。運営者は申請画面で承認済みウォレットを選ぶだけです。</p>
         <ul>
-          <li><strong>本社登録の既定ウォレット</strong> — アドレス・ネットワークは加盟店が変更できません。</li>
-          <li><strong>追加ウォレット</strong> — 管理者が登録すると<strong>承認待ち</strong>。本社が顧客詳細で承認後に使用できます。</li>
+          <li><strong>最大5件</strong> — 個人・法人同じ。買付画面には本社承認済みだけが出て、その中から1つ選びます。</li>
+          <li><strong>登録・アドレス変更</strong> — OTPと2回確認。初めてのアドレスは承認待ち。以前承認されたアドレスは再承認不要。進行中の取引があると変更できず、完了済みのアドレスは変わりません。</li>
+          <li><strong>削除</strong> — お客様は直接削除できません。削除依頼のあと本社が承認して削除されます。</li>
           <li><strong>手数料列</strong> — 本社が手数料表示をONにするまで数字は出ず<strong>本社設定に従う</strong>のみ。ONならガス・プラットフォーム手数料が表示されます。</li>
           <li><strong>既定の切替</strong> — 承認済みの中から、管理者がOTPで変更します。</li>
         </ul>
-        <div class="warn-box">未承認の追加ウォレットではUSDT購入・エスクローを申請できません。既定アドレスの変更は本社へ依頼してください。</div>
+        <div class="warn-box">未承認のウォレットではUSDT買付を申請できません。取引履歴にはその件で選んだアドレスだけが表示されます。</div>
         <div class="info-box">運営者にはマイウォレットがありません。追加・切替は代表管理者でログインしてください。</div>`,
         `<span class="menu-path">我的钱包</span>
         <p>开工顺序<strong>第 4 步</strong>。采购与托管的收款地址。<strong>仅加盟商管理员</strong>可见。操作员只在申请页选择已批准钱包。</p>
         <ul>
-          <li><strong>总部登记的默认钱包</strong> — 加盟商不能改地址或网络。</li>
-          <li><strong>额外钱包</strong> — 管理员登记后为<strong>待批准</strong>。总部在客户详情批准后才能用于采购/托管。</li>
+          <li><strong>最多 5 个</strong> — 个人与企业相同。购买页只列出总部已批准的钱包，从中选一个。</li>
+          <li><strong>登记与修改地址</strong> — 需要 OTP 和两次确认。首次地址为待批准。曾批准的地址无需再批。有进行中的交易不能修改该钱包，已完成交易的地址保持不变。</li>
+          <li><strong>删除</strong> — 客户不能自行删除。提交删除申请后，由总部批准才删除。</li>
           <li><strong>手续费列</strong> — 总部开启手续费显示前不显示数字，只显示<strong>遵循总部设置</strong>。开启后显示 Gas 与平台手续费。</li>
           <li><strong>切换默认</strong> — 仅在已批准钱包中，管理员 + OTP。</li>
         </ul>
-        <div class="warn-box">未批准的额外钱包不能用于 USDT 采购或托管。默认地址需变更时请联系总部。</div>
+        <div class="warn-box">未批准的钱包不能用于 USDT 采购。交易记录只显示该笔所选地址。</div>
         <div class="info-box">操作员账号没有我的钱包。添加或切换请用代表管理员登录。</div>`,
         `<span class="menu-path">กระเป๋าของฉัน</span>
         <p>ขั้น <strong>4</strong> ที่อยู่รับสำหรับซื้อ/เอสโครว์ <strong>แอดมินร้านเท่านั้น</strong> ผู้ปฏิบัติงานเลือกกระเป๋าที่อนุมัติแล้วในหน้าสมัคร</p>
         <ul>
-          <li><strong>กระเป๋าเริ่มต้นที่ HQ ลงทะเบียน</strong> — ร้านค้าแก้ที่อยู่หรือเครือข่ายไม่ได้</li>
-          <li><strong>กระเป๋าเพิ่ม</strong> — หลังแอดมินลงทะเบียนจะเป็น<strong>รออนุมัติ</strong> ใช้ซื้อ/เอสโครว์ได้เมื่อ HQ อนุมัติในหน้ารายละเอียดลูกค้า</li>
+          <li><strong>สูงสุด 5 ใบ</strong> — บุคคลและนิติบุคคลเหมือนกัน หน้าซื้อแสดงเฉพาะกระเป๋าที่ HQ อนุมัติ แล้วเลือกหนึ่งใบ</li>
+          <li><strong>ลงทะเบียนและเปลี่ยนที่อยู่</strong> — ต้อง OTP และยืนยันสองครั้ง ที่อยู่แรกเป็นรออนุมัติ ที่อยู่ที่เคยอนุมัติไม่ต้องอนุมัติซ้ำ มีรายการที่กำลังทำจะเปลี่ยนกระเป๋านั้นไม่ได้ รายการที่เสร็จแล้วที่อยู่ไม่เปลี่ยน</li>
+          <li><strong>ลบ</strong> — ลูกค้าลบเองไม่ได้ ขอลบแล้ว HQ อนุมัติจึงจะลบ</li>
           <li><strong>คอลัมน์ค่าธรรมเนียม</strong> — จนกว่า HQ จะเปิดแสดงค่าธรรมเนียม จะไม่มีตัวเลข แสดงแค่<strong>ตามการตั้งค่า HQ</strong> ถ้าเปิดจะโชว์แก๊สและค่าธรรมเนียมแพลตฟอร์ม</li>
           <li><strong>สลับกระเป๋าหลัก</strong> — จากกระเป๋าที่อนุมัติแล้วเท่านั้น แอดมิน+OTP</li>
         </ul>
-        <div class="warn-box">กระเป๋าเพิ่มที่ยังไม่อนุมัติใช้สมัครซื้อ USDT หรือเอสโครว์ไม่ได้ หากต้องเปลี่ยนที่อยู่หลัก ติดต่อ HQ</div>
+        <div class="warn-box">กระเป๋าที่ยังไม่อนุมัติใช้สมัครซื้อ USDT ไม่ได้ ประวัติรายการแสดงเฉพาะที่อยู่ที่เลือกในรายการนั้น</div>
         <div class="info-box">บัญชีผู้ปฏิบัติงานไม่มีเมนูกระเป๋า เพิ่ม/สลับให้เข้าด้วยแอดมิน</div>`,
       ),
     },
@@ -2388,7 +2393,7 @@ export const CUSTOMER_MANUAL: ManualDoc = {
       bodyHtml: L(
         `<div class="faq-item"><div class="faq-q">카드 버튼이 회색입니다.</div><div class="faq-a">현재 카드 결제가 비활성입니다. 계좌 이체를 이용하거나 운영자에게 문의하세요.</div></div>
         <div class="faq-item"><div class="faq-q">USDT·에스크로를 신청할 수 없습니다.</div><div class="faq-a">인증센터에서 서류를 제출하고 총본사 인증패스를 기다리세요. 반려이면 사유를 보고 다시 올리세요. 본사가 승인한 지갑도 필요합니다.</div></div>
-        <div class="faq-item"><div class="faq-q">지갑 주소를 바꿀 수 없습니다.</div><div class="faq-a">본사가 등록한 기본 지갑은 가맹점이 주소·네트워크를 바꿀 수 없습니다. 추가 지갑은 내 지갑에서 등록한 뒤 본사 승인을 기다리세요. 기본 지갑은 승인된 지갑 중에서만 전환합니다.</div></div>
+        <div class="faq-item"><div class="faq-q">지갑 주소를 바꾸거나 지울 수 있나요?</div><div class="faq-a">주소 변경은 OTP와 두 번 확인 후 가능합니다. 새 주소는 본사 승인이 필요하고, 예전에 승인된 주소는 다시 받지 않습니다. 진행 중인 거래가 있으면 그 지갑은 바꿀 수 없고, 끝난 거래의 주소는 그대로입니다. 삭제는 직접 하지 못하고 본사에 요청한 뒤 승인을 받아야 합니다. 지갑은 최대 5개입니다.</div></div>
         <div class="faq-item"><div class="faq-q">내 지갑·사용자관리 메뉴가 없습니다.</div><div class="faq-a">운영자 계정이면 정상입니다. 지갑 추가·운영자 등록은 대표 관리자만 할 수 있습니다. 관리자인데 사용자관리가 없으면 본사에 멀티 사용자 허용을 요청하세요.</div></div>
         <div class="faq-item"><div class="faq-q">운영자를 더 만들 수 없습니다.</div><div class="faq-a">활성 운영자는 최대 2명입니다. 삭제는 없고 서비스 중지(비활성)만 됩니다. 중지된 자리도 총 2명 한도에 포함될 수 있습니다.</div></div>
         <div class="faq-item"><div class="faq-q">운영기록을 지울 수 없습니다.</div><div class="faq-a">가맹점 관리자·운영자는 조회만 가능합니다. 삭제는 총본사만 할 수 있습니다.</div></div>
@@ -2405,7 +2410,7 @@ export const CUSTOMER_MANUAL: ManualDoc = {
         <div class="faq-item"><div class="faq-q">USDT 목록의 날짜가 오늘만 안 나옵니다.</div><div class="faq-a">시작일은 <strong>1주 전</strong>, 종료일은 <strong>오늘</strong>이 기본입니다. 기간을 바꿔 조회하세요. 무역 에스크로 목록도 같습니다.</div></div>`,
         `<div class="faq-item"><div class="faq-q">Card button is gray.</div><div class="faq-a">Card pay is disabled; use bank transfer or contact support.</div></div>
         <div class="faq-item"><div class="faq-q">Cannot apply for USDT or escrow.</div><div class="faq-a">Submit files in Verification and wait for HQ verification pass. If rejected, resubmit after reading the reason. You also need an HQ-approved wallet.</div></div>
-        <div class="faq-item"><div class="faq-q">I cannot change the wallet address.</div><div class="faq-a">HQ-registered default wallets cannot have their address or network changed. Add an extra wallet in My wallets and wait for HQ approval. The default can only switch among approved wallets.</div></div>
+        <div class="faq-item"><div class="faq-q">Can I change or delete a wallet address?</div><div class="faq-a">Address changes need OTP and two confirmations. A new address needs HQ approval; an address approved before does not. An in-progress trade blocks that wallet, and completed trades keep their address. You cannot delete a wallet yourself — request it and wait for HQ. The limit is 5 wallets.</div></div>
         <div class="faq-item"><div class="faq-q">I do not see Wallets or Users.</div><div class="faq-a">Normal for operator accounts. Only the admin can add wallets or operators. If you are the admin and Users is missing, ask HQ to enable multi-user.</div></div>
         <div class="faq-item"><div class="faq-q">I cannot add another operator.</div><div class="faq-a">At most 2 operators. There is no delete — only suspend. Inactive operators may still count toward the cap of 2.</div></div>
         <div class="faq-item"><div class="faq-q">I cannot delete operation history.</div><div class="faq-a">Merchant admin and operators can view only. Only HQ Super Admin can delete logs.</div></div>
@@ -2422,7 +2427,7 @@ export const CUSTOMER_MANUAL: ManualDoc = {
         <div class="faq-item"><div class="faq-q">USDT list dates are not “today only”.</div><div class="faq-a">Default is start <strong>1 week ago</strong> through end <strong>today</strong>. Change the range as needed. Trade escrow uses the same default.</div></div>`,
         `<div class="faq-item"><div class="faq-q">カードボタンが灰色です。</div><div class="faq-a">現在カード決済が無効です。口座振込を使うか運営者に問い合わせてください。</div></div>
         <div class="faq-item"><div class="faq-q">USDT・エスクローを申請できません。</div><div class="faq-a">認証センターで書類を提出し、総本社の認証パスを待ってください。差戻しなら理由を見て再提出してください。本社承認済みウォレットも必要です。</div></div>
-        <div class="faq-item"><div class="faq-q">ウォレットアドレスを変更できません。</div><div class="faq-a">本社登録の既定ウォレットは加盟店がアドレス・ネットワークを変更できません。追加はマイウォレットで登録後、本社承認を待ってください。既定は承認済みの中からのみ切替です。</div></div>
+        <div class="faq-item"><div class="faq-q">ウォレットアドレスの変更や削除はできますか？</div><div class="faq-a">アドレス変更はOTPと2回確認の後に可能です。新しいアドレスは本社承認が必要で、以前承認されたアドレスは再承認不要です。進行中の取引があると変更できず、完了済みのアドレスはそのままです。削除は直接できず、本社へ依頼して承認を受けます。最大5件です。</div></div>
         <div class="faq-item"><div class="faq-q">マイウォレット・ユーザー管理が見えません。</div><div class="faq-a">運営者アカウントなら正常です。ウォレット追加・運営者登録は代表管理者のみです。管理者なのにユーザー管理がない場合は、本社にマルチユーザー許可を依頼してください。</div></div>
         <div class="faq-item"><div class="faq-q">運営者をこれ以上作れません。</div><div class="faq-a">有効運営者は最大2名です。削除はなく停止のみです。停止済みも2名上限に含まれることがあります。</div></div>
         <div class="faq-item"><div class="faq-q">運営記録を消せません。</div><div class="faq-a">加盟店の管理者・運営者は閲覧のみです。削除は総本社のみです。</div></div>
@@ -2439,7 +2444,7 @@ export const CUSTOMER_MANUAL: ManualDoc = {
         <div class="faq-item"><div class="faq-q">USDT一覧の日付が今日だけではありません。</div><div class="faq-a">開始は<strong>1週間前</strong>、終了は<strong>今日</strong>が既定です。期間を変えて照会してください。貿易エスクローも同じです。</div></div>`,
         `<div class="faq-item"><div class="faq-q">卡按钮是灰色。</div><div class="faq-a">当前卡支付未启用。请用银行转账或联系运营。</div></div>
         <div class="faq-item"><div class="faq-q">无法申请 USDT 或托管。</div><div class="faq-a">请在认证中心提交文件并等待总部认证通过。若被退回，请查看原因后重新提交。还需要总部已批准的钱包。</div></div>
-        <div class="faq-item"><div class="faq-q">无法修改钱包地址。</div><div class="faq-a">总部登记的默认钱包，加盟商不能改地址或网络。额外钱包请在我的钱包登记后等待总部批准。默认钱包只能在已批准钱包中切换。</div></div>
+        <div class="faq-item"><div class="faq-q">可以修改或删除钱包地址吗？</div><div class="faq-a">修改地址需要 OTP 和两次确认。新地址需要总部批准，曾经批准过的地址无需再批。有进行中的交易不能改该钱包，已完成交易的地址保持不变。不能自行删除，须向总部申请并获得批准。最多 5 个钱包。</div></div>
         <div class="faq-item"><div class="faq-q">没有我的钱包或用户管理菜单。</div><div class="faq-a">操作员账号属正常。添加钱包或操作员仅代表管理员可做。若您是管理员却没有用户管理，请向总部开启多用户。</div></div>
         <div class="faq-item"><div class="faq-q">无法再添加操作员。</div><div class="faq-a">启用中的操作员最多 2 名。不可删除，仅可停用。已停用的也可能计入 2 名上限。</div></div>
         <div class="faq-item"><div class="faq-q">无法删除运营记录。</div><div class="faq-a">加盟商管理员与操作员仅可查看。仅总部可删除。</div></div>
@@ -2456,7 +2461,7 @@ export const CUSTOMER_MANUAL: ManualDoc = {
         <div class="faq-item"><div class="faq-q">USDT 列表日期不是只有今天。</div><div class="faq-a">默认开始为<strong>一周前</strong>、结束为<strong>今天</strong>。可改期间再查。贸易托管相同。</div></div>`,
         `<div class="faq-item"><div class="faq-q">ปุ่มบัตรเป็นสีเทา</div><div class="faq-a">ตอนนี้ปิดชำระบัตรอยู่ ใช้โอนบัญชีหรือติดต่อผู้ดูแล</div></div>
         <div class="faq-item"><div class="faq-q">สมัคร USDT หรือเอสโครว์ไม่ได้</div><div class="faq-a">ส่งเอกสารที่ศูนย์ยืนยันแล้วรอ HQ ให้ผ่าน หากถูกปฏิเสธ อ่านเหตุผลแล้วส่งใหม่ ต้องมีกระเป๋าที่ HQ อนุมัติด้วย</div></div>
-        <div class="faq-item"><div class="faq-q">เปลี่ยนที่อยู่กระเป๋าไม่ได้</div><div class="faq-a">กระเป๋าเริ่มต้นที่ HQ ลงทะเบียน ร้านค้าแก้ที่อยู่หรือเครือข่ายไม่ได้ กระเป๋าเพิ่มให้ลงที่กระเป๋าของฉันแล้วรอ HQ อนุมัติ สลับกระเป๋าหลักได้เฉพาะที่อนุมัติแล้ว</div></div>
+        <div class="faq-item"><div class="faq-q">เปลี่ยนหรือลบที่อยู่กระเป๋าได้ไหม</div><div class="faq-a">เปลี่ยนที่อยู่ได้หลัง OTP และยืนยันสองครั้ง ที่อยู่ใหม่ต้องให้ HQ อนุมัติ ที่อยู่ที่เคยอนุมัติไม่ต้องอนุมัติซ้ำ มีรายการที่กำลังทำจะเปลี่ยนกระเป๋านั้นไม่ได้ รายการที่เสร็จแล้วที่อยู่ไม่เปลี่ยน ลบเองไม่ได้ ต้องขอ HQ อนุมัติ สูงสุด 5 ใบ</div></div>
         <div class="faq-item"><div class="faq-q">ไม่มีเมนูกระเป๋าหรือจัดการผู้ใช้</div><div class="faq-a">บัญชีผู้ปฏิบัติงานเป็นเรื่องปกติ เพิ่มกระเป๋า/ผู้ปฏิบัติงานได้เฉพาะแอดมิน หากเป็นแอดมินแต่ไม่มีเมนู ให้ขอ HQ เปิดหลายผู้ใช้</div></div>
         <div class="faq-item"><div class="faq-q">เพิ่มผู้ปฏิบัติงานอีกไม่ได้</div><div class="faq-a">ผู้ปฏิบัติงานที่เปิดใช้ได้สูงสุด 2 คน ลบไม่ได้ หยุดได้เท่านั้น รายการที่หยุดแล้วอาจนับในโควตา 2 คน</div></div>
         <div class="faq-item"><div class="faq-q">ลบประวัติการดำเนินงานไม่ได้</div><div class="faq-a">แอดมินและผู้ปฏิบัติงานร้านดูได้อย่างเดียว ลบได้เฉพาะ HQ</div></div>

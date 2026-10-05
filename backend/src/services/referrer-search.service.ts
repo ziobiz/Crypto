@@ -2,94 +2,167 @@ import { CustomerApprovalStatus, OrgType, Prisma, UserRole } from '@prisma/clien
 import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
 import { normalizeEmail } from '../lib/password-policy';
+import { canonicalizePhone } from '../lib/phone-number';
+import { findUserIdsByPhone } from './phone-lookup.service';
 
 export type ReferrerSearchHit = {
   userId: string;
   email: string;
+  /** 조직명. 가맹점 검색이면 그 가맹점의 유치 조직명 */
   displayName: string;
+  /** 가맹점 연락처로 찾았으면 소개 가맹점 id. 추천자(수수료)는 아님 */
+  introducedByUserId?: string;
+  /** 가맹점 검색 시 개인/기업. 동일 전화로 둘 다 나올 때 구분용 */
+  customerType?: 'INDIVIDUAL' | 'CORPORATE';
 };
 
-function displayNameFor(user: {
-  name: string;
-  role: UserRole;
-  customerProfile: { customerType: string; businessName: string | null } | null;
-  organization: { name: string } | null;
-}): string {
-  if (user.role === UserRole.CUSTOMER && user.customerProfile) {
-    if (user.customerProfile.customerType === 'CORPORATE') {
-      return (user.customerProfile.businessName || user.name).trim();
-    }
-    return user.name.trim();
+const userPick = {
+  id: true,
+  email: true,
+  name: true,
+  role: true,
+  customerProfile: {
+    select: {
+      customerType: true,
+      businessName: true,
+      approvalStatus: true,
+      recruitingOrgId: true,
+      recruitingOrg: { select: { id: true, name: true, isActive: true, deletedAt: true } },
+    },
+  },
+  organization: { select: { id: true, name: true, isActive: true, deletedAt: true } },
+} satisfies Prisma.UserSelect;
+
+type PickedUser = Prisma.UserGetPayload<{ select: typeof userPick }>;
+
+async function officialStaffForOrg(orgId: string): Promise<{ id: string; email: string } | null> {
+  const org = await prisma.organization.findFirst({
+    where: { id: orgId, isActive: true, deletedAt: null },
+    select: { referralUserId: true },
+  });
+  if (!org) return null;
+  if (org.referralUserId) {
+    const assigned = await prisma.user.findFirst({
+      where: {
+        id: org.referralUserId,
+        organizationId: orgId,
+        role: UserRole.ORG_STAFF,
+        isActive: true,
+        deletedAt: null,
+      },
+      select: { id: true, email: true },
+    });
+    if (assigned) return assigned;
   }
-  if (user.organization?.name) return user.organization.name.trim();
-  return user.name.trim();
+  return prisma.user.findFirst({
+    where: {
+      organizationId: orgId,
+      role: UserRole.ORG_STAFF,
+      isActive: true,
+      deletedAt: null,
+    },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true, email: true },
+  });
 }
 
-/** 공개 가입용 추천자 검색 — 이메일↔업체명(개인=성명). 조직 유형은 반환하지 않음 */
-export async function searchReferrers(rawQuery: string): Promise<ReferrerSearchHit[]> {
-  const q = rawQuery.trim();
-  if (q.length < 2) {
-    throw new AppError(400, 'Search query too short', 'VALIDATION');
+async function toReferrerHit(user: PickedUser): Promise<ReferrerSearchHit | null> {
+  if (user.role === UserRole.ORG_STAFF) {
+    if (!user.organization || !user.organization.isActive || user.organization.deletedAt) return null;
+    return {
+      userId: user.id,
+      email: user.email,
+      displayName: user.organization.name.trim(),
+    };
+  }
+  if (user.role !== UserRole.CUSTOMER) return null;
+  const profile = user.customerProfile;
+  const org = profile?.recruitingOrg;
+  if (
+    !profile ||
+    profile.approvalStatus !== CustomerApprovalStatus.APPROVED ||
+    !org ||
+    !org.isActive ||
+    org.deletedAt
+  ) {
+    return null;
+  }
+  const staff = await officialStaffForOrg(org.id);
+  return {
+    userId: staff?.id ?? user.id,
+    email: staff?.email ?? '',
+    displayName: org.name.trim(),
+    introducedByUserId: user.id,
+    customerType: profile.customerType === 'CORPORATE' ? 'CORPORATE' : 'INDIVIDUAL',
+  };
+}
+
+/** 공개 가입용 추천자 검색. 영업점 이상 직원만 추천자. 가맹점은 유치 조직으로 연결 */
+export async function searchReferrers(input: {
+  email?: string;
+  phone?: string;
+  phoneCountryCode?: string;
+}): Promise<ReferrerSearchHit[]> {
+  const email = input.email?.trim() ?? '';
+  const phone = input.phone?.trim() ?? '';
+  if (email && phone) {
+    throw new AppError(400, 'Search by email or phone', 'VALIDATION');
   }
 
-  const looksLikeEmail = q.includes('@');
-  const emailQ = looksLikeEmail ? normalizeEmail(q) : q;
-
-  const textMatch: Prisma.UserWhereInput = looksLikeEmail
-    ? { email: { contains: emailQ, mode: 'insensitive' } }
-    : {
-        OR: [
-          { name: { contains: q, mode: 'insensitive' } },
-          { customerProfile: { businessName: { contains: q, mode: 'insensitive' } } },
-          { organization: { name: { contains: q, mode: 'insensitive' } } },
-        ],
-      };
+  let idFilter: Prisma.UserWhereInput;
+  if (email) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new AppError(400, 'Email is required', 'VALIDATION');
+    }
+    idFilter = { email: { equals: normalizeEmail(email), mode: 'insensitive' } };
+  } else if (phone) {
+    if (!input.phoneCountryCode?.trim()) {
+      throw new AppError(400, 'Country code and phone are required', 'VALIDATION');
+    }
+    const canon = canonicalizePhone(input.phoneCountryCode, phone);
+    if (!canon || canon.phone.length < 8) {
+      throw new AppError(400, 'Country code and phone are required', 'VALIDATION');
+    }
+    const ids = await findUserIdsByPhone(input.phoneCountryCode, phone);
+    if (ids.length === 0) return [];
+    idFilter = { id: { in: ids } };
+  } else {
+    throw new AppError(400, 'Search by email or phone', 'VALIDATION');
+  }
 
   const users = await prisma.user.findMany({
     where: {
       deletedAt: null,
       isActive: true,
-      AND: [
-        textMatch,
+      ...idFilter,
+      OR: [
         {
-          OR: [
-            {
-              role: UserRole.CUSTOMER,
-              customerProfile: { approvalStatus: CustomerApprovalStatus.APPROVED },
-            },
-            {
-              role: UserRole.ORG_STAFF,
-              organizationId: { not: null },
-              organization: { isActive: true, deletedAt: null },
-            },
-          ],
+          role: UserRole.CUSTOMER,
+          customerProfile: { approvalStatus: CustomerApprovalStatus.APPROVED },
+        },
+        {
+          role: UserRole.ORG_STAFF,
+          organizationId: { not: null },
         },
       ],
     },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      role: true,
-      customerProfile: {
-        select: { customerType: true, businessName: true },
-      },
-      organization: { select: { name: true } },
-    },
+    select: userPick,
     take: 12,
     orderBy: { email: 'asc' },
   });
 
-  return users.map((u) => ({
-    userId: u.id,
-    email: u.email,
-    displayName: displayNameFor(u),
-  }));
+  const hits: ReferrerSearchHit[] = [];
+  for (const user of users) {
+    const hit = await toReferrerHit(user);
+    if (hit) hits.push(hit);
+  }
+  return hits;
 }
 
 export async function resolveRecruitingFromReferrer(referrerUserId: string): Promise<{
   recruitingOrgId: string;
-  referredByUserId: string;
+  referredByUserId: string | null;
+  introducedByUserId: string | null;
 }> {
   const referrer = await prisma.user.findFirst({
     where: {
@@ -106,6 +179,7 @@ export async function resolveRecruitingFromReferrer(referrerUserId: string): Pro
         select: {
           approvalStatus: true,
           recruitingOrgId: true,
+          recruitingOrg: { select: { id: true, isActive: true, deletedAt: true } },
         },
       },
     },
@@ -116,15 +190,21 @@ export async function resolveRecruitingFromReferrer(referrerUserId: string): Pro
   }
 
   if (referrer.role === UserRole.CUSTOMER) {
+    const org = referrer.customerProfile?.recruitingOrg;
     if (
       !referrer.customerProfile ||
-      referrer.customerProfile.approvalStatus !== CustomerApprovalStatus.APPROVED
+      referrer.customerProfile.approvalStatus !== CustomerApprovalStatus.APPROVED ||
+      !org ||
+      !org.isActive ||
+      org.deletedAt
     ) {
       throw new AppError(400, 'Referrer is not available', 'REFERRER_INVALID');
     }
+    const staff = await officialStaffForOrg(org.id);
     return {
-      recruitingOrgId: referrer.customerProfile.recruitingOrgId,
-      referredByUserId: referrer.id,
+      recruitingOrgId: org.id,
+      referredByUserId: staff?.id ?? null,
+      introducedByUserId: referrer.id,
     };
   }
 
@@ -140,6 +220,7 @@ export async function resolveRecruitingFromReferrer(referrerUserId: string): Pro
     return {
       recruitingOrgId: referrer.organizationId,
       referredByUserId: referrer.id,
+      introducedByUserId: null,
     };
   }
 
@@ -200,17 +281,25 @@ export async function resolveRecruitingFromOrgCode(orgCode: string): Promise<{
   };
 }
 
-/** 가입 링크 미리보기 — 조직 유형은 반환하지 않음 */
+/** 가입 링크 미리보기 — 가맹점 ref 는 유치 조직명만 보여 준다 */
 export async function getInvitePreview(input: {
   orgCode?: string;
   referrerUserId?: string;
 }): Promise<{ displayName: string; email?: string; mode: 'ORG' | 'REFERRER' }> {
   if (input.referrerUserId) {
-    const hits = await searchReferrersByUserId(input.referrerUserId);
-    if (!hits) {
+    const user = await prisma.user.findFirst({
+      where: { id: input.referrerUserId, deletedAt: null, isActive: true },
+      select: userPick,
+    });
+    const hit = user ? await toReferrerHit(user) : null;
+    if (!hit) {
       throw new AppError(404, 'Referrer not found', 'REFERRER_NOT_FOUND');
     }
-    return { displayName: hits.displayName, email: hits.email, mode: 'REFERRER' };
+    return {
+      displayName: hit.displayName,
+      email: hit.email || undefined,
+      mode: hit.introducedByUserId ? 'ORG' : 'REFERRER',
+    };
   }
   if (input.orgCode) {
     const org = await resolveRecruitingFromOrgCode(input.orgCode);
@@ -225,39 +314,4 @@ export async function getInvitePreview(input: {
     return { displayName: org.displayName, email, mode: 'ORG' };
   }
   throw new AppError(400, 'Invite parameter required', 'VALIDATION');
-}
-
-async function searchReferrersByUserId(userId: string): Promise<ReferrerSearchHit | null> {
-  const user = await prisma.user.findFirst({
-    where: {
-      id: userId,
-      deletedAt: null,
-      isActive: true,
-      OR: [
-        {
-          role: UserRole.CUSTOMER,
-          customerProfile: { approvalStatus: CustomerApprovalStatus.APPROVED },
-        },
-        {
-          role: UserRole.ORG_STAFF,
-          organizationId: { not: null },
-          organization: { isActive: true, deletedAt: null },
-        },
-      ],
-    },
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      role: true,
-      customerProfile: { select: { customerType: true, businessName: true } },
-      organization: { select: { name: true } },
-    },
-  });
-  if (!user) return null;
-  return {
-    userId: user.id,
-    email: user.email,
-    displayName: displayNameFor(user),
-  };
 }

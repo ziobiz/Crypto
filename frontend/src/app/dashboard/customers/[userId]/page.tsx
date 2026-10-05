@@ -16,6 +16,7 @@ import {
   type MemberGrade,
   type TradeReceiptEmailMode,
   type TradeReceiptUiMode,
+  type UsdtPayMethodAccess,
   type UsdtQuoteResponseMode,
   type UsdtRiskLimitCode,
 } from '@/lib/api';
@@ -89,6 +90,10 @@ export default function CustomerKycDetailPage() {
   const [usdtCollectionMode, setUsdtCollectionMode] = useState<
     'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL' | 'DIRECT'
   >('FOLLOW_HQ');
+  const [usdtPayBankMode, setUsdtPayBankMode] = useState<UsdtPayMethodAccess>('FOLLOW_HQ');
+  const [usdtPayRemittanceMode, setUsdtPayRemittanceMode] =
+    useState<UsdtPayMethodAccess>('FOLLOW_HQ');
+  const [usdtPayCardMode, setUsdtPayCardMode] = useState<UsdtPayMethodAccess>('FOLLOW_HQ');
   const [usdtQuoteResponseMode, setUsdtQuoteResponseMode] =
     useState<UsdtQuoteResponseMode>('FOLLOW_HQ');
   const [tradeReceiptEmailMode, setTradeReceiptEmailMode] =
@@ -103,6 +108,7 @@ export default function CustomerKycDetailPage() {
   const [usdtLimitMinUsdt, setUsdtLimitMinUsdt] = useState<number | null>(null);
   const [usdtLimitMaxUsdt, setUsdtLimitMaxUsdt] = useState<number | null>(null);
   const [limitCountry, setLimitCountry] = useState<LimitCountryCode | ''>('');
+  const [customerType, setCustomerType] = useState<'INDIVIDUAL' | 'CORPORATE'>('INDIVIDUAL');
   const [memberGrade, setMemberGrade] = useState<MemberGrade>('STANDARD');
 
   const load = () => {
@@ -138,6 +144,24 @@ export default function CustomerKycDetailPage() {
         profile.customerProfile.usdtCollectionMode === 'VIRTUAL' ||
         profile.customerProfile.usdtCollectionMode === 'DIRECT'
         ? profile.customerProfile.usdtCollectionMode
+        : 'FOLLOW_HQ',
+    );
+    setUsdtPayBankMode(
+      profile.customerProfile.usdtPayBankMode === 'ENABLED' ||
+        profile.customerProfile.usdtPayBankMode === 'DISABLED'
+        ? profile.customerProfile.usdtPayBankMode
+        : 'FOLLOW_HQ',
+    );
+    setUsdtPayRemittanceMode(
+      profile.customerProfile.usdtPayRemittanceMode === 'ENABLED' ||
+        profile.customerProfile.usdtPayRemittanceMode === 'DISABLED'
+        ? profile.customerProfile.usdtPayRemittanceMode
+        : 'FOLLOW_HQ',
+    );
+    setUsdtPayCardMode(
+      profile.customerProfile.usdtPayCardMode === 'ENABLED' ||
+        profile.customerProfile.usdtPayCardMode === 'DISABLED'
+        ? profile.customerProfile.usdtPayCardMode
         : 'FOLLOW_HQ',
     );
     const qMode = profile.customerProfile.usdtQuoteResponseMode;
@@ -187,6 +211,9 @@ export default function CustomerKycDetailPage() {
     setLimitCountry(
       LIMIT_COUNTRIES.some((c) => c.code === lc) ? (lc as LimitCountryCode) : '',
     );
+    setCustomerType(
+      profile.customerProfile.customerType === 'CORPORATE' ? 'CORPORATE' : 'INDIVIDUAL',
+    );
     setMemberGrade(normalizeMemberGradeUi(profile.customerProfile.memberGrade));
   }, [profile]);
 
@@ -210,6 +237,12 @@ export default function CustomerKycDetailPage() {
   const collectionDirty =
     !!profile?.customerProfile &&
     usdtCollectionMode !== (profile.customerProfile.usdtCollectionMode ?? 'FOLLOW_HQ');
+
+  const payMethodsDirty =
+    !!profile?.customerProfile &&
+    (usdtPayBankMode !== (profile.customerProfile.usdtPayBankMode ?? 'FOLLOW_HQ') ||
+      usdtPayRemittanceMode !== (profile.customerProfile.usdtPayRemittanceMode ?? 'FOLLOW_HQ') ||
+      usdtPayCardMode !== (profile.customerProfile.usdtPayCardMode ?? 'FOLLOW_HQ'));
 
   const quoteDirty =
     !!profile?.customerProfile &&
@@ -236,9 +269,29 @@ export default function CustomerKycDetailPage() {
           usdtLimitMaxUsdt !== (profile.customerProfile.usdtLimitMaxUsdt ?? null))) ||
       (limitCountry || null) !== (profile.customerProfile.limitCountry ?? null));
 
+  const customerTypeDirty =
+    !!profile?.customerProfile &&
+    customerType !==
+      (profile.customerProfile.customerType === 'CORPORATE' ? 'CORPORATE' : 'INDIVIDUAL');
+
   const memberGradeDirty =
     !!profile?.customerProfile &&
     memberGrade !== normalizeMemberGradeUi(profile.customerProfile.memberGrade);
+
+  async function saveCustomerTypeSettings() {
+    if (!profile) return;
+    setLoading(true);
+    setMsg('');
+    try {
+      const next = await api.users.update(profile.id, { customerType });
+      setProfile(next);
+      setMsg(t('customers.customerType.saved'));
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : t('users.saveFailed'));
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function saveMemberGradeSettings() {
     if (!profile) return;
@@ -346,6 +399,25 @@ export default function CustomerKycDetailPage() {
       const next = await api.users.update(profile.id, { usdtCollectionMode });
       setProfile(next);
       setMsg(t('customers.collectionMode.saved'));
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : t('users.saveFailed'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function savePayMethodSettings() {
+    if (!profile) return;
+    setLoading(true);
+    setMsg('');
+    try {
+      const next = await api.users.update(profile.id, {
+        usdtPayBankMode,
+        usdtPayRemittanceMode,
+        usdtPayCardMode,
+      });
+      setProfile(next);
+      setMsg(t('customers.payMethods.saved'));
     } catch (err) {
       setMsg(err instanceof Error ? err.message : t('users.saveFailed'));
     } finally {
@@ -503,15 +575,20 @@ export default function CustomerKycDetailPage() {
         msg !== t('customers.walletFees.saved') &&
         msg !== t('customers.totalFee.saved') &&
         msg !== t('customers.collectionMode.saved') &&
+        msg !== t('customers.payMethods.saved') &&
         msg !== t('customers.quoteResponse.saved') &&
         msg !== t('customers.riskLimit.saved') &&
         msg !== t('memberGrade.customer.saved') &&
+        msg !== t('customers.customerType.saved') &&
         msg !== t('customers.approval.saved') &&
         msg !== t('kyc.reviewSaved') &&
         msg !== t('users.saved') && (
           <p className="text-xs text-red-600">{msg}</p>
         )}
       {msg === t('memberGrade.customer.saved') && (
+        <p className="text-xs text-emerald-700">{msg}</p>
+      )}
+      {msg === t('customers.customerType.saved') && (
         <p className="text-xs text-emerald-700">{msg}</p>
       )}
       {msg === t('customers.approval.saved') && (
@@ -523,7 +600,9 @@ export default function CustomerKycDetailPage() {
             <strong>{kyc.user?.name ?? profile?.name}</strong> ({kyc.user?.email ?? profile?.email})
           </p>
           <p>
-            {kyc.user?.customerType === 'CORPORATE' ? t('auth.corporate') : t('auth.individual')}
+            {(profile?.customerProfile?.customerType ?? kyc.user?.customerType) === 'CORPORATE'
+              ? t('auth.corporate')
+              : t('auth.individual')}
             {kyc.user?.businessName ? ` · ${kyc.user.businessName}` : ''}
           </p>
           <p>
@@ -600,6 +679,102 @@ export default function CustomerKycDetailPage() {
           )}
         </div>
       </div>
+      {profile?.introducerSettlement && user?.role !== 'CUSTOMER_OPERATOR' && (
+          <div className="pg-card">
+            <div className="pg-card-head text-xs">{t('customers.introducer.title')}</div>
+            <div className="pg-card-body space-y-2 text-xs">
+              <p>
+                {t('customers.introducer.merchant')}:{' '}
+                <strong>{profile.introducerSettlement.introducerName}</strong>
+                <span className="text-slate-500"> · {profile.introducerSettlement.introducerEmail}</span>
+              </p>
+              {profile.introducerSettlement.enabled ? (
+                <>
+                  <p className="text-slate-600">
+                    {t('customers.introducer.formula', {
+                      percent: profile.introducerSettlement.percent,
+                      fixed: profile.introducerSettlement.fixedUsdt,
+                    })}
+                  </p>
+                  <p className="text-[11px] leading-relaxed text-slate-500">
+                    {t('customers.introducer.note')}
+                  </p>
+                  {profile.introducerSettlement.lines.length === 0 ? (
+                    <p className="text-slate-500">{t('customers.introducer.empty')}</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="text-slate-500">
+                            <th className="py-1 pr-3 font-medium">{t('customers.introducer.col.ticket')}</th>
+                            <th className="py-1 pr-3 font-medium">{t('customers.introducer.col.amount')}</th>
+                            <th className="py-1 font-medium">{t('customers.introducer.col.reward')}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {profile.introducerSettlement.lines.map((line) => (
+                            <tr key={line.ticketNo} className="border-t border-slate-100">
+                              <td className="py-1 pr-3">{line.ticketNo}</td>
+                              <td className="py-1 pr-3">{line.usdtAmount} USDT</td>
+                              <td className="py-1">
+                                {line.usdtAmount} × {profile.introducerSettlement?.percent}% +{' '}
+                                {profile.introducerSettlement?.fixedUsdt} = {line.rewardUsdt} USDT
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  <p>
+                    {t('customers.introducer.total')}:{' '}
+                    <strong>{profile.introducerSettlement.totalRewardUsdt} USDT</strong>
+                  </p>
+                </>
+              ) : (
+                <p className="text-slate-500">{t('customers.introducer.policyOff')}</p>
+              )}
+            </div>
+          </div>
+        )}
+      {profile?.customerProfile && (
+        <div className="pg-card">
+          <div className="pg-card-head text-xs">{t('auth.customerType')}</div>
+          <div className="pg-card-body space-y-2 text-xs">
+            <p className="text-[11px] leading-relaxed text-slate-500">
+              {t('customers.customerType.hint')}
+            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="font-medium text-slate-800">{t('auth.customerType')}</span>
+              <select
+                className="pg-select h-8 min-w-[10rem] shrink-0 px-2 py-1 text-xs"
+                disabled={loading || !canEditCustomer}
+                value={customerType}
+                onChange={(e) =>
+                  setCustomerType(e.target.value as 'INDIVIDUAL' | 'CORPORATE')
+                }
+                aria-label={t('auth.customerType')}
+              >
+                <option value="INDIVIDUAL">{t('auth.individual')}</option>
+                <option value="CORPORATE">{t('auth.corporate')}</option>
+              </select>
+            </div>
+            {canEditCustomer && (
+              <button
+                type="button"
+                className="pg-btn pg-btn-primary"
+                disabled={loading || !customerTypeDirty}
+                onClick={() => void saveCustomerTypeSettings()}
+              >
+                {t('customers.customerType.save')}
+              </button>
+            )}
+            {msg === t('customers.customerType.saved') && (
+              <p className="text-emerald-700">{msg}</p>
+            )}
+          </div>
+        </div>
+      )}
       {profile?.customerProfile && (
         <div className="pg-card">
           <div className="pg-card-head text-xs">{t('memberGrade.customer.title')}</div>
@@ -808,6 +983,53 @@ export default function CustomerKycDetailPage() {
                 type="button"
                 disabled={loading || !collectionDirty}
                 onClick={saveCollectionModeSettings}
+                className="pg-btn pg-btn-primary text-xs disabled:opacity-50"
+              >
+                {loading ? t('common.saving') : t('common.save')}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+      {profile?.customerProfile && (
+        <div className="pg-card">
+          <div className="pg-card-head text-xs">{t('customers.payMethods.title')}</div>
+          <div className="pg-card-body space-y-2 text-xs">
+            <p className="text-[11px] leading-relaxed text-slate-500">
+              {t('customers.payMethods.hint')}
+            </p>
+            {(
+              [
+                ['bank', usdtPayBankMode, setUsdtPayBankMode] as const,
+                ['remittance', usdtPayRemittanceMode, setUsdtPayRemittanceMode] as const,
+                ['card', usdtPayCardMode, setUsdtPayCardMode] as const,
+              ] as const
+            ).map(([key, value, setter]) => (
+              <div key={key} className="flex flex-wrap items-center gap-3">
+                <span className="min-w-[5.5rem] font-medium text-slate-800">
+                  {t(`customers.payMethods.${key}` as MessageKey)}
+                </span>
+                <select
+                  className="pg-select h-8 min-w-[10rem] shrink-0 px-2 py-1 text-xs"
+                  disabled={loading || !canEditCustomer}
+                  value={value}
+                  onChange={(e) => setter(e.target.value as UsdtPayMethodAccess)}
+                  aria-label={t(`customers.payMethods.${key}` as MessageKey)}
+                >
+                  <option value="FOLLOW_HQ">{t('customers.payMethods.FOLLOW_HQ')}</option>
+                  <option value="ENABLED">{t('customers.payMethods.ENABLED')}</option>
+                  <option value="DISABLED">{t('customers.payMethods.DISABLED')}</option>
+                </select>
+              </div>
+            ))}
+            {msg === t('customers.payMethods.saved') && (
+              <p className="text-green-700">{msg}</p>
+            )}
+            {canEditCustomer && (
+              <button
+                type="button"
+                disabled={loading || !payMethodsDirty}
+                onClick={() => void savePayMethodSettings()}
                 className="pg-btn pg-btn-primary text-xs disabled:opacity-50"
               >
                 {loading ? t('common.saving') : t('common.save')}
@@ -1172,6 +1394,7 @@ export default function CustomerKycDetailPage() {
                     meta={[
                       w.isDefault ? t('wallets.default') : '',
                       w.hqRegistered ? t('wallets.hqRegistered') : '',
+                      w.deleteRequestedAt ? t('wallets.deleteRequested') : '',
                       w.approvalStatus
                         ? t(
                             `wallets.${w.approvalStatus === 'PENDING' ? 'pending' : w.approvalStatus === 'REJECTED' ? 'rejected' : 'approved'}`,
@@ -1181,7 +1404,7 @@ export default function CustomerKycDetailPage() {
                       .filter(Boolean)
                       .join(' · ')}
                   />
-                  {isHq && w.approvalStatus === 'PENDING' && !w.hqRegistered ? (
+                  {isHq && w.approvalStatus === 'PENDING' ? (
                     <div className="flex gap-1">
                       <button
                         type="button"
@@ -1201,7 +1424,7 @@ export default function CustomerKycDetailPage() {
                           }
                         }}
                       >
-                        {t('kyc.approve')}
+                        {t('wallets.approveAction')}
                       </button>
                       <button
                         type="button"
@@ -1222,6 +1445,58 @@ export default function CustomerKycDetailPage() {
                         }}
                       >
                         {t('kyc.reject')}
+                      </button>
+                    </div>
+                  ) : null}
+                  {isHq && w.deleteRequestedAt ? (
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        className="pg-btn pg-btn-primary text-[11px]"
+                        disabled={loading}
+                        onClick={() =>
+                          requestConfirm({
+                            title: t('wallets.hqDeleteTitle'),
+                            step1: t('wallets.hqDelete1', { address: w.address }),
+                            step2: t('wallets.hqDelete2'),
+                            confirmLabel: t('wallets.deleteApprove'),
+                            onConfirm: async () => {
+                              setLoading(true);
+                              setMsg('');
+                              try {
+                                await api.users.reviewWalletDeletion(profile.id, w.id, 'APPROVED');
+                                load();
+                                setMsg(t('wallets.deleted'));
+                              } catch (e) {
+                                setMsg(e instanceof Error ? e.message : t('common.saveFailed'));
+                              } finally {
+                                setLoading(false);
+                              }
+                            },
+                          })
+                        }
+                      >
+                        {t('wallets.deleteApprove')}
+                      </button>
+                      <button
+                        type="button"
+                        className="pg-btn pg-btn-secondary text-[11px]"
+                        disabled={loading}
+                        onClick={async () => {
+                          setLoading(true);
+                          setMsg('');
+                          try {
+                            await api.users.reviewWalletDeletion(profile.id, w.id, 'REJECTED');
+                            load();
+                            setMsg(t('wallets.deleteRejected'));
+                          } catch (e) {
+                            setMsg(e instanceof Error ? e.message : t('common.saveFailed'));
+                          } finally {
+                            setLoading(false);
+                          }
+                        }}
+                      >
+                        {t('wallets.deleteReject')}
                       </button>
                     </div>
                   ) : null}

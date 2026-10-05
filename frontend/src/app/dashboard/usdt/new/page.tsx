@@ -23,6 +23,7 @@ import { ReferenceClocks } from '@/components/ReferenceClocks';
 import { CopyableMono } from '@/components/CopyButton';
 import { displayWalletLabel } from '@/lib/wallet-label';
 import { isKycApproved } from '@/lib/kyc';
+import { formatUsdtRiskError } from '@/lib/usdt-risk-message';
 import { useDoubleConfirm } from '@/hooks/useDoubleConfirm';
 import { useApplySessionTimers } from '@/hooks/useApplySessionTimers';
 import {
@@ -91,13 +92,10 @@ export default function UsdtNewPage() {
 
   useEffect(() => {
     if (!depositCtx) return;
-    if (depositCtx.preferRemittancePayment && depositCtx.remittancePaymentAvailable !== false) {
-      setPaymentMethod('REMITTANCE');
-      const allowed = (depositCtx.remittancePaymentCurrencies ??
-        depositCtx.directRemitCurrencies ?? ['USD', 'EUR']) as FiatCurrency[];
-      if (!allowed.includes(fiatCurrency)) {
-        setFiatCurrency(allowed[0] ?? 'USD');
-      }
+    const home = depositCtx.preferredBankCurrency;
+    if (home && FIAT_CURRENCIES.includes(home as FiatCurrency)) {
+      setPaymentMethod('BANK_TRANSFER');
+      setFiatCurrency(home as FiatCurrency);
       return;
     }
     const def = user?.sessionPolicy?.defaultUsdtFiatCurrency;
@@ -106,16 +104,16 @@ export default function UsdtNewPage() {
     }
   }, [
     user?.sessionPolicy?.defaultUsdtFiatCurrency,
-    depositCtx?.preferRemittancePayment,
-    depositCtx?.remittancePaymentAvailable,
-    depositCtx?.remittancePaymentCurrencies?.join('|'),
-    depositCtx?.directRemitCurrencies?.join('|'),
+    depositCtx?.preferredBankCurrency,
   ]);
 
   useEffect(() => {
     const apply = (rows: Wallet[]) => {
       const usable = rows.filter(
-        (x) => x.approvalStatus !== 'PENDING' && x.approvalStatus !== 'REJECTED',
+        (x) =>
+          x.approvalStatus !== 'PENDING' &&
+          x.approvalStatus !== 'REJECTED' &&
+          !x.deleteRequestedAt,
       );
       setWallets(usable);
       const def = usable.find((x) => x.isDefault) ?? usable[0];
@@ -169,8 +167,12 @@ export default function UsdtNewPage() {
   const cardFiats = FIAT_CURRENCIES.filter((c) => trade[c].card);
   const cardPaymentEnabled = cardContext?.cardPaymentEnabled === true;
   const cardOperational = cardContext?.enabled === true;
-  const cardMethodAvailable = cardPaymentEnabled && cardFiats.length > 0;
-  const bankMethodAvailable = transferFiats.length > 0;
+  const cardMethodAvailable =
+    cardPaymentEnabled &&
+    cardFiats.length > 0 &&
+    depositCtx?.cardPaymentCustomerAllowed !== false;
+  const bankMethodAvailable =
+    transferFiats.length > 0 && depositCtx?.bankPaymentAvailable !== false;
   const remittanceMethodAvailable =
     depositCtx?.remittancePaymentAvailable !== false && remitFiats.length > 0;
   const methodFiats = isCard ? cardFiats : isRemittance ? remitFiats : transferFiats;
@@ -210,7 +212,8 @@ export default function UsdtNewPage() {
   useEffect(() => {
     const list = isCard ? cardFiats : isRemittance ? remitFiats : transferFiats;
     if (list.length > 0 && !list.includes(fiatCurrency)) {
-      setFiatCurrency(list[0]);
+      const home = depositCtx?.preferredBankCurrency as FiatCurrency | undefined;
+      setFiatCurrency(home && list.includes(home) ? home : list[0]);
     }
   }, [
     isCard,
@@ -219,6 +222,7 @@ export default function UsdtNewPage() {
     transferFiats.join('|'),
     cardFiats.join('|'),
     remitFiats.join('|'),
+    depositCtx?.preferredBankCurrency,
   ]);
 
   useEffect(() => {
@@ -317,7 +321,7 @@ export default function UsdtNewPage() {
             err instanceof ApiError &&
             (err.code === 'USDT_RISK_MIN' || err.code === 'USDT_RISK_MAX')
           ) {
-            setError(err.message);
+            setError(formatUsdtRiskError(err, t) ?? err.message);
             setFeePreview(null);
           } else {
             setError(err instanceof Error ? err.message : t('usdt.submitFailed'));
@@ -371,7 +375,7 @@ export default function UsdtNewPage() {
               err instanceof ApiError &&
               (err.code === 'USDT_RISK_MIN' || err.code === 'USDT_RISK_MAX')
             ) {
-              setError(err.message);
+              setError(formatUsdtRiskError(err, t) ?? err.message);
               setFeePreview(null);
             } else {
               setError(err instanceof Error ? err.message : t('usdt.submitFailed'));
@@ -480,7 +484,7 @@ export default function UsdtNewPage() {
       } else if (err instanceof ApiError && err.code === 'FIAT_CARD_DISABLED') {
         setError(t('usdt.fiatCardDisabled', { currency: fiatCurrency }));
       } else if (err instanceof ApiError && (err.code === 'USDT_RISK_MIN' || err.code === 'USDT_RISK_MAX')) {
-        setError(err.message);
+        setError(formatUsdtRiskError(err, t) ?? err.message);
         setFeePreview(null);
       } else {
         setError(err instanceof Error ? err.message : t('usdt.submitFailed'));
@@ -521,13 +525,25 @@ export default function UsdtNewPage() {
         const min = band.perTransactionMin;
         const max = band.perTransactionMax;
         if (min <= 0 && max <= 0) return null;
+        const hint =
+          min > 0 && max > 0
+            ? t('usdt.hqLimitHint', {
+                currency: fiatCurrency,
+                min: min.toLocaleString(),
+                max: max.toLocaleString(),
+              })
+            : max > 0
+              ? t('usdt.hqLimitHintMaxOnly', {
+                  currency: fiatCurrency,
+                  max: max.toLocaleString(),
+                })
+              : t('usdt.hqLimitHintMinOnly', {
+                  currency: fiatCurrency,
+                  min: min.toLocaleString(),
+                });
         return (
           <div className="pg-callout pg-callout-muted text-sm">
-            {t('usdt.hqLimitHint', {
-              currency: fiatCurrency,
-              min: min > 0 ? min.toLocaleString() : '—',
-              max: max > 0 ? max.toLocaleString() : '—',
-            })}
+            {hint}
           </div>
         );
       })()}
@@ -780,13 +796,14 @@ export default function UsdtNewPage() {
               >
                 {wallets.map((w) => (
                   <option key={w.id} value={w.id}>
-                    {displayWalletLabel(w.label, t)} ({w.network})
+                    {displayWalletLabel(w.label, t)} ({w.network}) {w.address}
                   </option>
                 ))}
               </select>
               {wallets.length === 0 && (
                 <p className="mt-1 text-sm text-red-600">{t('usdt.noWallet')}</p>
               )}
+              <p className="pg-hint mt-1">{t('usdt.walletPickHint')}</p>
             </div>
 
             {isCard && cardPaymentEnabled && <CardPaymentForm value={cardForm} onChange={setCardForm} />}
@@ -947,6 +964,12 @@ export default function UsdtNewPage() {
                   </div>
                 )}
               </div>
+            )}
+
+            {!canApply && (
+              <p className="mt-4 text-sm text-amber-800">
+                {!tradeAllowed ? t('tradeAccess.requiredToTrade') : t('kyc.requiredToTrade')}
+              </p>
             )}
 
             {error && <p className="mt-4 text-sm text-red-600">{error}</p>}

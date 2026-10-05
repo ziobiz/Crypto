@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { Prisma, UserRole, WalletApprovalStatus } from '@prisma/client';
+import { UserRole, WalletApprovalStatus } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
 import { asyncHandler } from '../middleware/asyncHandler';
@@ -10,6 +10,11 @@ import { isMerchantAdmin, merchantScopeUserId } from '../lib/merchant-role';
 import { recordMerchantOperation } from '../services/merchant-operation-log.service';
 import { getGasNetworkPolicy, getHqTransactionFees, resolveTransactionFees, withNetworkGasFee } from '../services/transaction-fee.service';
 import { assertCustomerTradeAllowed } from '../services/customer-access.service';
+import {
+  changeMerchantWalletAddress,
+  registerMerchantWallet,
+  requestMerchantWalletDeletion,
+} from '../services/wallet-policy.service';
 
 const router = Router();
 
@@ -31,6 +36,8 @@ const createWalletSchema = z.object({
 
 const updateWalletSchema = z.object({
   label: z.string().optional(),
+  address: z.string().min(10).optional(),
+  network: z.string().optional(),
   isDefault: z.boolean().optional(),
   fxFeePercent: z.number().min(0).max(100).optional(),
   gasFeeAmount: z.number().min(0).optional(),
@@ -49,6 +56,7 @@ function serializeWallet(w: {
   isActive: boolean;
   hqRegistered?: boolean;
   approvalStatus?: WalletApprovalStatus;
+  deleteRequestedAt?: Date | null;
   fxFeePercent: unknown;
   gasFeeAmount: unknown;
   transferFeeAmount: unknown;
@@ -135,33 +143,18 @@ router.post(
     await assertCustomerTradeAllowed(req.user!);
     const data = createWalletSchema.parse(req.body);
     const ownerId = merchantScopeUserId(req.user!);
-
-    const wallet = await prisma.wallet.create({
-      data: {
-        userId: ownerId,
-        label: data.label,
-        address: data.address,
-        network: data.network,
-        isDefault: false,
-        hqRegistered: false,
-        approvalStatus: WalletApprovalStatus.PENDING,
+    const wallet = await registerMerchantWallet(ownerId, {
+      actorId: req.user!.id,
+      label: data.label,
+      address: data.address,
+      network: data.network,
+      fees: {
         fxFeePercent: data.fxFeePercent,
         gasFeeAmount: data.gasFeeAmount,
         transferFeeAmount: data.transferFeeAmount,
         otherFeeAmount: data.otherFeeAmount,
         platformFeeAmount: data.platformFeeAmount,
       },
-    });
-
-    await recordMerchantOperation({
-      actorId: req.user!.id,
-      merchantAdminUserId: ownerId,
-      action: 'WALLET_CREATE',
-      entityType: 'Wallet',
-      entityId: wallet.id,
-      summary: `Add wallet ${wallet.network} ${wallet.address.slice(0, 8)}… (pending HQ approval)`,
-      after: serializeWallet(wallet) as unknown as Prisma.InputJsonValue,
-      otpVerified: true,
       ipAddress: req.ip,
       userAgent: req.get('user-agent') ?? undefined,
     });
@@ -188,7 +181,23 @@ router.patch(
       throw new AppError(404, 'Wallet not found', 'NOT_FOUND');
     }
 
+    if (data.address) {
+      const wallet = await changeMerchantWalletAddress(ownerId, existing.id, {
+        actorId: req.user!.id,
+        address: data.address,
+        network: data.network || existing.network,
+        label: data.label,
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent') ?? undefined,
+      });
+      res.json(serializeWallet(wallet));
+      return;
+    }
+
     if (data.isDefault) {
+      if (existing.deleteRequestedAt) {
+        throw new AppError(400, '삭제 요청 중인 지갑은 기본으로 지정할 수 없습니다', 'WALLET_DELETE_PENDING');
+      }
       if (existing.approvalStatus !== WalletApprovalStatus.APPROVED) {
         throw new AppError(400, 'Only approved wallets can be set as default', 'VALIDATION');
       }
@@ -227,6 +236,23 @@ router.patch(
       userAgent: req.get('user-agent') ?? undefined,
     });
 
+    res.json(serializeWallet(wallet));
+  }),
+);
+
+router.post(
+  '/:id/delete-request',
+  requireSensitiveOtp,
+  asyncHandler(async (req, res) => {
+    if (!isMerchantAdmin(req.user!)) {
+      throw new AppError(403, 'Merchant admin only', 'FORBIDDEN');
+    }
+    const ownerId = merchantScopeUserId(req.user!);
+    const wallet = await requestMerchantWalletDeletion(ownerId, req.params.id, {
+      actorId: req.user!.id,
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent') ?? undefined,
+    });
     res.json(serializeWallet(wallet));
   }),
 );

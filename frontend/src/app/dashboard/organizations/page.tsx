@@ -31,6 +31,9 @@ export default function OrganizationsPage() {
   const [simulatorEnabled, setSimulatorEnabled] = useState(true);
   const [simulatorRateMode, setSimulatorRateMode] = useState<'LIVE' | 'SAND'>('LIVE');
   const [referralUserId, setReferralUserId] = useState('');
+  const [introducerRewardEnabled, setIntroducerRewardEnabled] = useState(false);
+  const [introducerRewardPercent, setIntroducerRewardPercent] = useState('0');
+  const [introducerRewardFixedUsdt, setIntroducerRewardFixedUsdt] = useState('0');
   const [orgStaff, setOrgStaff] = useState<Array<{ id: string; email: string; name: string }>>([]);
   const [deleting, setDeleting] = useState<Organization | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -92,6 +95,9 @@ export default function OrganizationsPage() {
     setSimulatorEnabled(org.simulatorEnabled !== false);
     setSimulatorRateMode(org.simulatorRateMode === 'SAND' ? 'SAND' : 'LIVE');
     setReferralUserId(org.referralUserId || '');
+    setIntroducerRewardEnabled(org.introducerRewardEnabled === true);
+    setIntroducerRewardPercent(String(org.introducerRewardPercent ?? 0));
+    setIntroducerRewardFixedUsdt(String(org.introducerRewardFixedUsdt ?? 0));
     setOrgStaff([]);
     setModal('edit');
     setMsg('');
@@ -137,6 +143,9 @@ export default function OrganizationsPage() {
         simulatorEnabled,
         simulatorRateMode,
         referralUserId: referralUserId || null,
+        introducerRewardEnabled,
+        introducerRewardPercent: Number(introducerRewardPercent) || 0,
+        introducerRewardFixedUsdt: Number(introducerRewardFixedUsdt) || 0,
       });
       setModal(null);
       setMsg(t('orgs.saved'));
@@ -372,6 +381,43 @@ export default function OrganizationsPage() {
                     )}
                 </select>
               </label>
+              <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3">
+                <p className="text-sm font-medium text-slate-800">{t('orgs.introducerReward')}</p>
+                <p className="pg-hint mt-1">{t('orgs.introducerRewardHint')}</p>
+                <label className="mt-3 flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={introducerRewardEnabled}
+                    onChange={(e) => setIntroducerRewardEnabled(e.target.checked)}
+                  />
+                  <span>{t('orgs.introducerRewardEnable')}</span>
+                </label>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <label className="pg-field block">
+                    <span className="pg-field-label">{t('orgs.introducerRewardPercent')}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step="0.01"
+                      className="pg-input mt-1 w-full"
+                      value={introducerRewardPercent}
+                      onChange={(e) => setIntroducerRewardPercent(e.target.value)}
+                    />
+                  </label>
+                  <label className="pg-field block">
+                    <span className="pg-field-label">{t('orgs.introducerRewardFixed')}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      className="pg-input mt-1 w-full"
+                      value={introducerRewardFixedUsdt}
+                      onChange={(e) => setIntroducerRewardFixedUsdt(e.target.value)}
+                    />
+                  </label>
+                </div>
+              </div>
             </div>
             {msg && <p className="pg-callout pg-callout-error mx-6 mb-0">{msg}</p>}
             <div className="pg-modal-foot">

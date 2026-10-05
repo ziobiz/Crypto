@@ -18,6 +18,7 @@ import { UsdtFeeBreakdownPanel } from '@/components/UsdtFeeBreakdown';
 import { FormattedAmountInput } from '@/components/FormattedAmountInput';
 import { ContentCard } from '@/components/layout/ContentCard';
 import { formatDate, formatFiatAmount, setCurrencyAmountDisplayPolicy } from '@/lib/format';
+import { formatUsdtRiskError } from '@/lib/usdt-risk-message';
 
 const FIAT_CURRENCIES = ['KRW', 'JPY', 'THB', 'CNY', 'USD', 'EUR'] as const;
 type FiatCurrency = (typeof FIAT_CURRENCIES)[number];
@@ -276,8 +277,8 @@ export default function UsdtSimulatorPage() {
       setPreview(null);
       const code = e instanceof ApiError ? e.code : undefined;
       if (code === 'NETWORK_REQUIRED') setError(t('simulator.networkRequired'));
-      else if (code === 'USDT_RISK_MIN' || code === 'USDT_RISK_MAX') {
-        setError(e instanceof Error ? e.message : t('usdt.riskLimitBlocked'));
+      else if (e instanceof ApiError && (code === 'USDT_RISK_MIN' || code === 'USDT_RISK_MAX')) {
+        setError(formatUsdtRiskError(e, t) ?? e.message);
       } else setError(e instanceof Error ? e.message : t('common.loadFailed'));
     } finally {
       setRunning(false);

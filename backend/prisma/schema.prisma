@@ -182,6 +182,13 @@ enum TradeReceiptEmailMode {
   HQ_ONLY
 }
 
+/// 고객별 크립토 매입 결제수단 — FOLLOW_HQ면 유형 기본(기업=이체+송금, 개인=송금만)
+enum UsdtPayMethodAccess {
+  FOLLOW_HQ
+  ENABLED
+  DISABLED
+}
+
 /// 거래명세 보기·PDF 노출 — FOLLOW_HQ면 본사 기본 UI 노출
 enum TradeReceiptUiMode {
   FOLLOW_HQ
@@ -243,6 +250,13 @@ model Organization {
   /// 개인가입 추천·가입링크에 쓸 조직 담당자(ORG_STAFF). 미설정 시 링크는 조직코드만
   referralUserId String?
   referralUser   User?   @relation("OrgReferralUser", fields: [referralUserId], references: [id], onDelete: SetNull)
+
+  /// 소개 가맹점 참고 정산. 플랫폼 지급이 아니며 가맹점 화면에는 나오지 않음
+  introducerRewardEnabled   Boolean @default(false)
+  /// 완료 거래 USDT에 곱하는 비율 (0~100)
+  introducerRewardPercent   Float   @default(0)
+  /// 완료 거래 1건당 더하는 USDT
+  introducerRewardFixedUsdt Float   @default(0)
 
   users            User[]
   customers        CustomerProfile[] @relation("RecruitingOrg")
@@ -315,7 +329,9 @@ model User {
 
   customerProfile CustomerProfile?
   referredCustomers CustomerProfile[] @relation("CustomerReferredBy")
+  introducedCustomers CustomerProfile[] @relation("CustomerIntroducedBy")
   wallets         Wallet[]
+  walletAddressApprovals WalletAddressApproval[]
   bankAccounts    BankAccount[]
   statusChanges   TicketStatusHistory[] @relation("StatusChangedBy")
   scheduleDelays  TicketScheduleDelay[] @relation("ScheduleDelayCreatedBy")
@@ -385,9 +401,13 @@ model CustomerProfile {
   recruitingOrgId String
   recruitingOrg   Organization @relation("RecruitingOrg", fields: [recruitingOrgId], references: [id])
 
-  /// 자기가입 시 확인한 추천자(사용자). 관리자 수동 등록은 null 가능
+  /// 자기가입 시 확인한 추천자(조직 직원). 관리자 수동 등록은 null 가능
   referredByUserId String?
   referredByUser   User?   @relation("CustomerReferredBy", fields: [referredByUserId], references: [id], onDelete: SetNull)
+
+  /// 이 고객을 소개한 가맹점. 수수료 체인이 아니며 조직 참고용
+  introducedByUserId String?
+  introducedByUser   User?   @relation("CustomerIntroducedBy", fields: [introducedByUserId], references: [id], onDelete: SetNull)
 
   /// 고객별 수수료 배분 (총본사 기본값을 복사 후 고객마다 수정)
   feeShare Json?
@@ -422,6 +442,12 @@ model CustomerProfile {
   expectedCompleteCardCustomDays Int?
   /// 입금 계좌 방식 — FOLLOW_HQ면 본사 기본(FIXED/VIRTUAL). VIRTUAL= TINPASS 가상계좌
   usdtCollectionMode UsdtCollectionMode @default(FOLLOW_HQ)
+  /// 계좌이체 결제수단 — FOLLOW_HQ면 기업=활성·개인=비활성
+  usdtPayBankMode UsdtPayMethodAccess @default(FOLLOW_HQ)
+  /// 송금거래 결제수단 — FOLLOW_HQ면 기업·개인 모두 활성
+  usdtPayRemittanceMode UsdtPayMethodAccess @default(FOLLOW_HQ)
+  /// 카드결제 결제수단 — FOLLOW_HQ면 본사 카드정책만 따름
+  usdtPayCardMode UsdtPayMethodAccess @default(FOLLOW_HQ)
   /// USDT 견적 응답 — FOLLOW_HQ면 본사 수수료 정책. AUTO/MANUAL/OFF는 고객 개별
   usdtQuoteResponseMode UsdtQuoteResponseMode @default(FOLLOW_HQ)
   /// 거래명세 이메일 — FOLLOW_HQ면 본사 기본. ENABLED/DISABLED는 가맹점 개별(본사보다 우선)
@@ -473,6 +499,7 @@ model CustomerProfile {
 
   @@index([recruitingOrgId])
   @@index([referredByUserId])
+  @@index([introducedByUserId])
   @@index([businessNumber])
   @@map("customer_profiles")
 }
@@ -596,9 +623,11 @@ model Wallet {
   network   String  @default("TRC20") // TRC20, ERC20 등
   isDefault Boolean @default(false)
   isActive  Boolean @default(true)
-  /// 본사 가맹점 등록 시 넣은 기본 지갑 (가맹점이 주소 변경 불가)
+  /// 본사 가맹점 등록 시 넣은 기본 지갑. 주소 변경은 OTP·재확인 후 가능하며 새 주소는 승인 이력이 없으면 다시 승인 대상이다.
   hqRegistered Boolean @default(false)
   approvalStatus WalletApprovalStatus @default(APPROVED)
+  /// 고객 삭제 요청 시각. 본사 승인 전에는 지갑이 유지된다.
+  deleteRequestedAt DateTime?
 
   // 거래 통화 수수료 (티켓 생성 시 스냅샷으로 복사)
   fxFeePercent      Decimal @default(0) @db.Decimal(5, 4)
@@ -616,6 +645,20 @@ model Wallet {
   @@unique([userId, address, network])
   @@index([userId])
   @@map("wallets")
+}
+
+/// 한 번 승인된 주소는 삭제·변경 후에도 같은 고객에게 재승인 없이 다시 쓸 수 있다.
+model WalletAddressApproval {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  address    String
+  network    String
+  approvedAt DateTime @default(now())
+
+  @@unique([userId, address, network])
+  @@index([userId])
+  @@map("wallet_address_approvals")
 }
 
 /// 고객 법정화폐 입금 통장
@@ -787,9 +830,11 @@ model UsdtPurchaseDetail {
   /// 최근 CURFEX 이벤트 스냅샷 (감사)
   curfexLastEventJson     Json?
 
-  // 수령 지갑
+  // 수령 지갑. 주소는 신청 시점 스냅샷이 기준이며 이후 지갑 주소 변경과 무관하다.
   walletId String?
   wallet   Wallet? @relation(fields: [walletId], references: [id])
+  walletAddressSnapshot String?
+  walletNetworkSnapshot String?
 
   // 완료 시 TXID
   usdtTxId        String?

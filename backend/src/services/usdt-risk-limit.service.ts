@@ -159,25 +159,35 @@ export async function validateUsdtRiskLimitAmount(input: {
     const rate = Number(input.exchangeRate) || 0;
     const cur = String(input.fiatCurrency || '').trim().toUpperCase();
     const countryHint = limit.limitCountry ? ` · ${limit.limitCountry}` : '';
+    const fiatApprox = rate > 0 && cur ? Math.round(limit.minUsdt * rate) : 0;
     const body =
-      rate > 0 && cur
-        ? `1회 최소 한도 기준은 ${limit.minUsdt.toLocaleString()} USDT 상당입니다 (약 ${(
-            Math.round(limit.minUsdt * rate)
-          ).toLocaleString()} ${cur} · ${limit.code}${countryHint})`
+      fiatApprox > 0
+        ? `1회 최소 한도 기준은 ${limit.minUsdt.toLocaleString()} USDT 상당입니다 (약 ${fiatApprox.toLocaleString()} ${cur} · ${limit.code}${countryHint})`
         : `1회 최소 한도 기준은 ${limit.minUsdt.toLocaleString()} USDT 상당의 통화 금액입니다 (${limit.code}${countryHint})`;
-    throw new AppError(400, body, 'USDT_RISK_MIN');
+    throw new AppError(400, body, 'USDT_RISK_MIN', {
+      minUsdt: limit.minUsdt,
+      fiatApprox,
+      currency: cur,
+      limitCode: limit.code,
+      country: countryHint,
+    });
   }
   if (limit.maxUsdt > 0 && amount - 1e-9 > limit.maxUsdt) {
     const rate = Number(input.exchangeRate) || 0;
     const cur = String(input.fiatCurrency || '').trim().toUpperCase();
     const countryHint = limit.limitCountry ? ` · ${limit.limitCountry}` : '';
+    const fiatApprox = rate > 0 && cur ? Math.round(limit.maxUsdt * rate) : 0;
     const body =
-      rate > 0 && cur
-        ? `1회 최대 한도 기준은 ${limit.maxUsdt.toLocaleString()} USDT 상당입니다 (약 ${(
-            Math.round(limit.maxUsdt * rate)
-          ).toLocaleString()} ${cur} · ${limit.code}${countryHint})`
+      fiatApprox > 0
+        ? `1회 최대 한도 기준은 ${limit.maxUsdt.toLocaleString()} USDT 상당입니다 (약 ${fiatApprox.toLocaleString()} ${cur} · ${limit.code}${countryHint})`
         : `1회 최대 한도 기준은 ${limit.maxUsdt.toLocaleString()} USDT 상당의 통화 금액입니다 (${limit.code}${countryHint})`;
-    throw new AppError(400, body, 'USDT_RISK_MAX');
+    throw new AppError(400, body, 'USDT_RISK_MAX', {
+      maxUsdt: limit.maxUsdt,
+      fiatApprox,
+      currency: cur,
+      limitCode: limit.code,
+      country: countryHint,
+    });
   }
   return limit;
 }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useT } from '@/context/LocaleProvider';
 import { api, AllExchangeRatesResponse } from '@/lib/api';
+import { formatFiatRate } from '@/lib/fiat-rate-format';
 
 const REFRESH_MS = 60_000;
 
@@ -59,7 +60,7 @@ export function UsdtRatePanel({ compact = false }: { compact?: boolean }) {
           <div key={item.key} className="rounded border border-blue-100 bg-blue-50/40 px-3 py-2">
             <p className="text-[10px] text-gray-500">USDT / {item.key}</p>
             <p className="text-sm font-bold text-blue-700 tabular-nums">
-              {item.rate.toLocaleString(undefined, { maximumFractionDigits: item.key === 'JPY' ? 2 : 0 })}
+              {formatFiatRate(item.key, item.rate)}
             </p>
             <p className="text-[9px] text-gray-400">{item.source}</p>
           </div>

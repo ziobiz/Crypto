@@ -134,6 +134,8 @@ export function finalizeFiatBreakdown(
   return {
     ...next,
     targetUsdt: want,
+    // 통화 절상으로 입금을 한 단계 올려도, 고객이 요청한 수령액만 지급한다.
+    netUsdt: want > 0 && next.netUsdt + 1e-8 >= want ? want : next.netUsdt,
     requiredFiat: fiat,
   };
 }

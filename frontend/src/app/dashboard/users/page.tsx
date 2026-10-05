@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthProvider';
 import { useLocale, useT } from '@/context/LocaleProvider';
+import { contactTakenMessageKey } from '@/lib/contact-taken';
 import {
   api,
   hqPolicyApi,
@@ -192,7 +193,8 @@ export default function UsersPage() {
       setMsg(t('users.created'));
       load();
     } catch (err) {
-      setMsg(err instanceof Error ? err.message : t('users.createFailed'));
+      const taken = contactTakenMessageKey(err);
+      setMsg(taken ? t(taken) : err instanceof Error ? err.message : t('users.createFailed'));
     }
   }
 

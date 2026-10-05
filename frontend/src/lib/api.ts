@@ -137,23 +137,46 @@ export const api = {
     name: string,
     opts?: { inviteOrgCode?: string; referrerUserId?: string },
   ) =>
-    request<{ ok: boolean; smtpConfigured?: boolean; maskedEmail?: string }>(
-      '/api/auth/register/send-code',
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          email,
-          name,
-          inviteOrgCode: opts?.inviteOrgCode,
-          referrerUserId: opts?.referrerUserId,
-        }),
-      },
-    ),
+    request<{
+      ok: boolean;
+      smtpConfigured?: boolean;
+      maskedEmail?: string;
+      expiresAt?: string;
+      expiresInSeconds?: number;
+    }>('/api/auth/register/send-code', {
+      method: 'POST',
+      body: JSON.stringify({
+        email,
+        name,
+        inviteOrgCode: opts?.inviteOrgCode,
+        referrerUserId: opts?.referrerUserId,
+      }),
+    }),
 
-  registerReferrerSearch: (q: string) =>
-    request<{ items: ReferrerSearchHit[] }>(
-      `/api/auth/register/referrer-search?q=${encodeURIComponent(q)}`,
-    ),
+  registerVerifyCode: (
+    email: string,
+    code: string,
+    opts?: { inviteOrgCode?: string; referrerUserId?: string },
+  ) =>
+    request<{ ok: boolean; emailProof: string }>('/api/auth/register/verify-code', {
+      method: 'POST',
+      body: JSON.stringify({
+        email,
+        code,
+        inviteOrgCode: opts?.inviteOrgCode,
+        referrerUserId: opts?.referrerUserId,
+      }),
+    }),
+
+  registerReferrerSearch: (q: { email?: string; phone?: string; phoneCountryCode?: string }) => {
+    const params = new URLSearchParams();
+    if (q.email) params.set('email', q.email);
+    if (q.phone) params.set('phone', q.phone);
+    if (q.phoneCountryCode) params.set('phoneCountryCode', q.phoneCountryCode);
+    return request<{ items: ReferrerSearchHit[] }>(
+      `/api/auth/register/referrer-search?${params.toString()}`,
+    );
+  },
 
   registerInviteInfo: (params: { org?: string; ref?: string }) => {
     const q = new URLSearchParams();
@@ -272,6 +295,11 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify({ status }),
       }),
+    reviewWalletDeletion: (userId: string, walletId: string, status: 'APPROVED' | 'REJECTED') =>
+      request<Wallet>(`/api/users/${userId}/wallets/${walletId}/deletion`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      }),
     reviewCustomerApproval: (userId: string, status: 'APPROVED' | 'REJECTED') =>
       request<ManagedUser>(`/api/users/${userId}/customer-approval`, {
         method: 'PATCH',
@@ -295,6 +323,8 @@ export const api = {
       request<Wallet>('/api/wallets', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Partial<WalletInput>) =>
       request<Wallet>(`/api/wallets/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    requestDelete: (id: string) =>
+      request<Wallet>(`/api/wallets/${id}/delete-request`, { method: 'POST', body: '{}' }),
   },
 
   merchant: {
@@ -861,6 +891,7 @@ export type FeeBillingPresentation = 'INTEGRATED' | 'ITEMIZED' | 'HYBRID';
 export type FeeBillingMethod = 'FOLLOW_HQ' | FeeBillingPresentation;
 export type TotalFeeVisibility = 'FOLLOW_HQ' | 'SHOW' | 'HIDE';
 export type UsdtCollectionMode = 'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL' | 'DIRECT';
+export type UsdtPayMethodAccess = 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED';
 export type TradeReceiptEmailMode = 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED' | 'HQ_ONLY';
 export type TradeReceiptUiMode = 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED';
 export type TradeReceiptSendStatus = 'SENT' | 'FAILED' | 'SKIPPED';
@@ -917,17 +948,22 @@ export interface ReferrerSearchHit {
   userId: string;
   email: string;
   displayName: string;
+  /** 가맹점 연락처로 찾은 경우. 화면에는 유치 조직만 보인다 */
+  introducedByUserId?: string;
+  /** 가맹점 검색 시 개인/기업 구분 */
+  customerType?: 'INDIVIDUAL' | 'CORPORATE';
 }
 
 export interface RegisterInput {
   limitCountry?: 'JP' | 'KR' | 'TH' | 'US' | 'CN';
   email: string;
-  emailCode: string;
+  emailProof: string;
   name: string;
   phone: string;
   phoneCountryCode: string;
   customerType: 'INDIVIDUAL';
   referrerUserId?: string;
+  introducedByUserId?: string;
   inviteOrgCode?: string;
   noReferrer?: boolean;
   businessName?: string;
@@ -965,6 +1001,9 @@ export interface Organization {
   simulatorRateMode?: 'LIVE' | 'SAND';
   referralUserId?: string | null;
   referralUser?: { id: string; email: string; name: string } | null;
+  introducerRewardEnabled?: boolean;
+  introducerRewardPercent?: number;
+  introducerRewardFixedUsdt?: number;
   deletedAt?: string | null;
   purgeAt?: string | null;
   createdAt?: string;
@@ -985,6 +1024,9 @@ export interface UpdateOrganizationInput {
   simulatorEnabled?: boolean;
   simulatorRateMode?: 'LIVE' | 'SAND';
   referralUserId?: string | null;
+  introducerRewardEnabled?: boolean;
+  introducerRewardPercent?: number;
+  introducerRewardFixedUsdt?: number;
 }
 
 export interface HqDeletionPolicy {
@@ -1104,6 +1146,16 @@ export interface ManagedUser {
   createdBy?: { id: string; email: string; name: string; role: string } | null;
   managementLogs?: UserManagementLogItem[];
   organization?: { id: string; code: string; name: string; type: string; path: string } | null;
+  /** 조직·본사만. 가맹점 API에는 내려가지 않음 */
+  introducerSettlement?: {
+    introducerName: string;
+    introducerEmail: string;
+    enabled: boolean;
+    percent: number;
+    fixedUsdt: number;
+    lines: { ticketNo: string; usdtAmount: number; rewardUsdt: number }[];
+    totalRewardUsdt: number;
+  } | null;
   customerProfile?: {
     id: string;
     customerType: string;
@@ -1122,19 +1174,22 @@ export interface ManagedUser {
     expectedCompleteCustomDays?: number | null;
     expectedCompleteCardTier?: ExpectedCompleteTier;
     expectedCompleteCardCustomDays?: number | null;
-    usdtCollectionMode?: UsdtCollectionMode;
-    usdtQuoteResponseMode?: UsdtQuoteResponseMode;
-    tradeReceiptEmailMode?: TradeReceiptEmailMode;
-    tradeReceiptAdminUiMode?: TradeReceiptUiMode;
-    tradeReceiptMerchantUiMode?: TradeReceiptUiMode;
-    usdtQuoteAutoDelayMinutes?: number | null;
-    usdtQuoteManualSlaHours?: number | null;
-    expressFeeMode?: ExpressFeeMode;
-    expressFeeConfig?: unknown;
-    memberGrade?: MemberGrade;
-    operatorsEnabled?: boolean;
-    walletFeesVisible?: boolean;
-    recruitingOrg?: { id: string; code: string; name: string };
+  usdtCollectionMode?: UsdtCollectionMode;
+  usdtPayBankMode?: UsdtPayMethodAccess;
+  usdtPayRemittanceMode?: UsdtPayMethodAccess;
+  usdtPayCardMode?: UsdtPayMethodAccess;
+  usdtQuoteResponseMode?: UsdtQuoteResponseMode;
+  tradeReceiptEmailMode?: TradeReceiptEmailMode;
+  tradeReceiptAdminUiMode?: TradeReceiptUiMode;
+  tradeReceiptMerchantUiMode?: TradeReceiptUiMode;
+  usdtQuoteAutoDelayMinutes?: number | null;
+  usdtQuoteManualSlaHours?: number | null;
+  expressFeeMode?: ExpressFeeMode;
+  expressFeeConfig?: unknown;
+  memberGrade?: MemberGrade;
+  operatorsEnabled?: boolean;
+  walletFeesVisible?: boolean;
+  recruitingOrg?: { id: string; code: string; name: string };
     feeShare?: CustomerFeeShare | null;
     feePolicies?: Array<{
       ticketKind: string;
@@ -1151,6 +1206,7 @@ export interface ManagedUser {
     isDefault: boolean;
     hqRegistered?: boolean;
     approvalStatus?: WalletApprovalStatus;
+    deleteRequestedAt?: string | null;
   }[];
   bankAccounts?: {
     id: string;
@@ -1257,6 +1313,9 @@ export interface UpdateUserInput {
   feeBillingMethod?: FeeBillingMethod;
   totalFeeVisibility?: TotalFeeVisibility;
   usdtCollectionMode?: UsdtCollectionMode;
+  usdtPayBankMode?: UsdtPayMethodAccess;
+  usdtPayRemittanceMode?: UsdtPayMethodAccess;
+  usdtPayCardMode?: UsdtPayMethodAccess;
   usdtQuoteResponseMode?: UsdtQuoteResponseMode;
   tradeReceiptEmailMode?: TradeReceiptEmailMode;
   tradeReceiptAdminUiMode?: TradeReceiptUiMode;
@@ -1275,6 +1334,7 @@ export interface UpdateUserInput {
   expectedCompleteCardCustomDays?: number | null;
   expressFeeMode?: ExpressFeeMode;
   expressFeeConfig?: unknown;
+  customerType?: 'INDIVIDUAL' | 'CORPORATE';
   memberGrade?: MemberGrade;
 }
 
@@ -1288,6 +1348,7 @@ export interface Wallet {
   isDefault: boolean;
   hqRegistered?: boolean;
   approvalStatus?: WalletApprovalStatus;
+  deleteRequestedAt?: string | null;
   feesVisible?: boolean;
   fxFeePercent?: number;
   gasFeeAmount?: number;
@@ -1427,7 +1488,14 @@ export interface UsdtDepositContext {
   /** 송금거래 결제수단 통화 (USD/EUR…) — 입력·한도 모두 해당 통화 */
   remittancePaymentCurrencies?: Array<'KRW' | 'JPY' | 'THB' | 'CNY' | 'USD' | 'EUR'>;
   remittancePaymentAvailable?: boolean;
+  bankPaymentAvailable?: boolean;
+  cardPaymentCustomerAllowed?: boolean;
+  usdtPayBankMode?: UsdtPayMethodAccess;
+  usdtPayRemittanceMode?: UsdtPayMethodAccess;
+  usdtPayCardMode?: UsdtPayMethodAccess;
   preferRemittancePayment?: boolean;
+  /** 개인 한도 국가·등록 통장에 맞춘 계좌이체 기본 통화 */
+  preferredBankCurrency?: string | null;
   /** 실제 매입 1회 USDT 한도 */
   usdtRiskLimit?: { code: string; minUsdt: number; maxUsdt: number } | null;
   /** 시뮬레이터 전용 1회 USDT 한도 */

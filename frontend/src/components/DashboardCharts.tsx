@@ -21,6 +21,7 @@ import {
   type ChartRange,
   type DashboardChartsResponse,
 } from '@/lib/api';
+import { formatFiatRate } from '@/lib/fiat-rate-format';
 import type { MessageKey } from '@/i18n/messages';
 
 const FIAT_CURRENCIES: ChartFiatCurrency[] = ['KRW', 'JPY', 'THB', 'CNY'];
@@ -40,9 +41,7 @@ const RANGE_LABEL_KEYS: Record<ChartRange, MessageKey> = {
 };
 
 function formatRate(currency: ChartFiatCurrency, rate: number) {
-  return rate.toLocaleString(undefined, {
-    maximumFractionDigits: currency === 'JPY' ? 2 : 0,
-  });
+  return formatFiatRate(currency, rate);
 }
 
 function formatVolume(value: number | null | undefined) {

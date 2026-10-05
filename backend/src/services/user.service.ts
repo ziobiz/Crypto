@@ -11,11 +11,13 @@ import {
 import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
 import { initialPasswordFromEmail, normalizeEmail } from '../lib/password-policy';
+import { canonicalizePhone, phoneLookupNeedles } from '../lib/phone-number';
 import { clearUserTotp } from './otp.service';
 import { getHqTransactionFees } from './transaction-fee.service';
 import type { AuthUser } from '../types/auth';
 import { logAdminChange, sanitizeUserSnapshot, type AuditContext } from './admin-change-log.service';
 import { isHqChiefAdmin, isHqRootAdminEmail, isStaffManagerRole } from '../constants/hq-admin';
+import { loadIntroducerSettlement } from './introducer-settlement.service';
 import {
   normalizeExpectedCompleteTier,
   normalizeUsdtRiskLimitBand,
@@ -139,6 +141,9 @@ const userSelect = {
       expectedCompleteCardTier: true,
       expectedCompleteCardCustomDays: true,
       usdtCollectionMode: true,
+      usdtPayBankMode: true,
+      usdtPayRemittanceMode: true,
+      usdtPayCardMode: true,
       usdtQuoteResponseMode: true,
       tradeReceiptEmailMode: true,
       tradeReceiptAdminUiMode: true,
@@ -374,6 +379,9 @@ export const userService = {
           { email: { contains: q, mode: 'insensitive' } },
           { name: { contains: q, mode: 'insensitive' } },
           { phone: { contains: q, mode: 'insensitive' } },
+          ...phoneLookupNeedles(q).map((needle) => ({
+            phone: { contains: needle },
+          })),
         ],
       });
     }
@@ -456,6 +464,7 @@ export const userService = {
             isDefault: true,
             hqRegistered: true,
             approvalStatus: true,
+            deleteRequestedAt: true,
           },
         },
         managementLogs: {
@@ -467,7 +476,9 @@ export const userService = {
     });
     if (!user || user.deletedAt) throw new AppError(404, '사용자를 찾을 수 없습니다', 'NOT_FOUND');
     assertTargetInScope(actor, user);
-    return user;
+    const introducerSettlement = await loadIntroducerSettlement(actor, user.customerProfile?.id);
+    if (!introducerSettlement) return user;
+    return { ...user, introducerSettlement };
   },
 
   async create(
@@ -526,12 +537,18 @@ export const userService = {
     const registerReason = assertReason(data.reason, '사용자 등록 사유가 필요합니다');
 
     const email = normalizeEmail(data.email);
+    const phoneCanon =
+      data.phone && data.phoneCountryCode
+        ? canonicalizePhone(data.phoneCountryCode, data.phone)
+        : null;
+    const phone = phoneCanon?.phone ?? data.phone?.trim();
+    const phoneCountryCode = phoneCanon?.phoneCountryCode ?? data.phoneCountryCode?.trim();
     if (data.role === UserRole.CUSTOMER) {
       const { assertCustomerContactAvailable } = await import('./register-contact.service');
       await assertCustomerContactAvailable({
         email,
-        phone: data.phone,
-        phoneCountryCode: data.phoneCountryCode,
+        phone,
+        phoneCountryCode,
         customerType: data.customerType ?? CustomerType.INDIVIDUAL,
       });
     } else {
@@ -602,8 +619,8 @@ export const userService = {
           email,
           passwordHash,
           name: data.name,
-          phone: data.phone,
-          phoneCountryCode: data.phoneCountryCode,
+          phone,
+          phoneCountryCode,
           role: UserRole.CUSTOMER,
           passwordMustChange: mustChangePassword,
           emailVerified: true,
@@ -686,6 +703,8 @@ export const userService = {
           },
         );
       }
+      const { rememberApprovedAddress } = await import('./wallet-policy.service');
+      await rememberApprovedAddress(created.id, network, data.walletAddress!.trim());
     } else {
       created = await prisma.user.create({
         data: {
@@ -760,6 +779,9 @@ export const userService = {
       feeBillingMethod?: 'FOLLOW_HQ' | 'INTEGRATED' | 'ITEMIZED' | 'HYBRID';
       totalFeeVisibility?: 'FOLLOW_HQ' | 'SHOW' | 'HIDE';
       usdtCollectionMode?: 'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL' | 'DIRECT';
+      usdtPayBankMode?: 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED';
+      usdtPayRemittanceMode?: 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED';
+      usdtPayCardMode?: 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED';
       usdtQuoteResponseMode?: 'FOLLOW_HQ' | 'AUTO' | 'MANUAL' | 'OFF';
       tradeReceiptEmailMode?: 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED' | 'HQ_ONLY';
       tradeReceiptAdminUiMode?: 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED';
@@ -768,6 +790,7 @@ export const userService = {
       usdtQuoteManualSlaHours?: number | null;
       expressFeeMode?: 'FOLLOW_HQ' | 'CUSTOM' | 'DISABLED';
       expressFeeConfig?: unknown;
+      customerType?: CustomerType;
       memberGrade?: 'STANDARD' | 'PREMIUM' | 'VIP' | 'VVIP' | 'PRESTIGE' | 'BLACK';
       operatorsEnabled?: boolean;
       walletFeesVisible?: boolean;
@@ -816,6 +839,30 @@ export const userService = {
     if (data.organizationId) await assertOrgInScope(actor, data.organizationId);
     if (data.recruitingOrgId) await assertOrgInScope(actor, data.recruitingOrgId);
 
+    if (existing.role === UserRole.CUSTOMER && existing.customerProfile) {
+      const nextType = data.customerType ?? existing.customerProfile.customerType;
+      const nextPhone =
+        data.phone !== undefined
+          ? data.phone && existing.phoneCountryCode
+            ? (canonicalizePhone(existing.phoneCountryCode, data.phone)?.phone ?? data.phone)
+            : data.phone
+          : existing.phone;
+      const phoneChanging =
+        data.phone !== undefined && String(nextPhone ?? '') !== String(existing.phone ?? '');
+      const typeChanging =
+        data.customerType !== undefined && data.customerType !== existing.customerProfile.customerType;
+      if (phoneChanging || typeChanging) {
+        const { assertCustomerContactAvailable } = await import('./register-contact.service');
+        await assertCustomerContactAvailable({
+          email: existing.email,
+          phone: nextPhone,
+          phoneCountryCode: existing.phoneCountryCode,
+          customerType: nextType,
+          excludeUserId: id,
+        });
+      }
+    }
+
     if (isHqRootAdminEmail(existing.email) && data.isActive === false) {
       throw new AppError(400, '총괄관리자 계정은 비활성화할 수 없습니다', 'VALIDATION');
     }
@@ -841,11 +888,15 @@ export const userService = {
 
     const customerProfileUpdate: {
       recruitingOrgId?: string;
+      customerType?: CustomerType;
       simulatorEnabled?: boolean;
       simulatorRateMode?: 'LIVE' | 'SAND';
       feeBillingMethod?: 'FOLLOW_HQ' | 'INTEGRATED' | 'ITEMIZED' | 'HYBRID';
       totalFeeVisibility?: 'FOLLOW_HQ' | 'SHOW' | 'HIDE';
       usdtCollectionMode?: 'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL' | 'DIRECT';
+      usdtPayBankMode?: 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED';
+      usdtPayRemittanceMode?: 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED';
+      usdtPayCardMode?: 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED';
       usdtQuoteResponseMode?: 'FOLLOW_HQ' | 'AUTO' | 'MANUAL' | 'OFF';
       tradeReceiptEmailMode?: 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED' | 'HQ_ONLY';
       tradeReceiptAdminUiMode?: 'FOLLOW_HQ' | 'ENABLED' | 'DISABLED';
@@ -869,6 +920,9 @@ export const userService = {
     if (data.recruitingOrgId && existing.customerProfile) {
       customerProfileUpdate.recruitingOrgId = data.recruitingOrgId;
     }
+    if (data.customerType !== undefined && existing.customerProfile) {
+      customerProfileUpdate.customerType = data.customerType;
+    }
     // feeShare 수정은 고객관리 > 수수료관리에서만 수행
     if (data.simulatorEnabled !== undefined && existing.customerProfile) {
       customerProfileUpdate.simulatorEnabled = data.simulatorEnabled;
@@ -884,6 +938,15 @@ export const userService = {
     }
     if (data.usdtCollectionMode !== undefined && existing.customerProfile) {
       customerProfileUpdate.usdtCollectionMode = data.usdtCollectionMode;
+    }
+    if (data.usdtPayBankMode !== undefined && existing.customerProfile) {
+      customerProfileUpdate.usdtPayBankMode = data.usdtPayBankMode;
+    }
+    if (data.usdtPayRemittanceMode !== undefined && existing.customerProfile) {
+      customerProfileUpdate.usdtPayRemittanceMode = data.usdtPayRemittanceMode;
+    }
+    if (data.usdtPayCardMode !== undefined && existing.customerProfile) {
+      customerProfileUpdate.usdtPayCardMode = data.usdtPayCardMode;
     }
     if (data.usdtQuoteResponseMode !== undefined && existing.customerProfile) {
       customerProfileUpdate.usdtQuoteResponseMode = data.usdtQuoteResponseMode;
@@ -994,7 +1057,10 @@ export const userService = {
       where: { id },
       data: {
         name: data.name,
-        phone: data.phone,
+        phone:
+          data.phone && existing.phoneCountryCode
+            ? (canonicalizePhone(existing.phoneCountryCode, data.phone)?.phone ?? data.phone)
+            : data.phone,
         role: data.role,
         organizationId: data.role === UserRole.CUSTOMER ? null : data.organizationId,
         isActive: data.isActive,
@@ -1265,9 +1331,6 @@ export const userService = {
       where: { id: walletId, userId: customerUserId, isActive: true },
     });
     if (!wallet) throw new AppError(404, '지갑을 찾을 수 없습니다', 'NOT_FOUND');
-    if (wallet.hqRegistered) {
-      throw new AppError(400, '본사 등록 기본 지갑은 승인 대상이 아닙니다', 'VALIDATION');
-    }
 
     const next = await prisma.wallet.update({
       where: { id: wallet.id },
@@ -1276,6 +1339,11 @@ export const userService = {
         ...(status === 'REJECTED' ? { isDefault: false } : {}),
       },
     });
+
+    if (status === 'APPROVED') {
+      const { rememberApprovedAddress } = await import('./wallet-policy.service');
+      await rememberApprovedAddress(customerUserId, next.network, next.address);
+    }
 
     const { recordMerchantOperation } = await import('./merchant-operation-log.service');
     await recordMerchantOperation({
@@ -1286,15 +1354,152 @@ export const userService = {
       entityId: next.id,
       summary:
         status === 'APPROVED'
-          ? `HQ approved wallet ${next.network} ${next.address.slice(0, 8)}…`
-          : `HQ rejected wallet ${next.network} ${next.address.slice(0, 8)}…`,
-      before: { approvalStatus: wallet.approvalStatus },
-      after: { approvalStatus: next.approvalStatus },
+          ? `HQ approved wallet ${next.network} ${next.address}`
+          : `HQ rejected wallet ${next.network} ${next.address}`,
+      before: { approvalStatus: wallet.approvalStatus, address: wallet.address, network: wallet.network },
+      after: { approvalStatus: next.approvalStatus, address: next.address, network: next.network },
       otpVerified: false,
       ipAddress: audit?.ipAddress,
       userAgent: audit?.userAgent,
     });
 
+    if (audit) {
+      await logAdminChange({
+        actor: audit.actor,
+        action: AdminChangeAction.UPDATE,
+        entityType: 'Wallet',
+        entityId: next.id,
+        entityLabel: customer.email,
+        summary:
+          status === 'APPROVED'
+            ? `지갑 승인: ${customer.email} ${next.network} ${next.address}`
+            : `지갑 반려: ${customer.email} ${next.network} ${next.address}`,
+        before: { approvalStatus: wallet.approvalStatus, address: wallet.address },
+        after: { approvalStatus: next.approvalStatus, address: next.address },
+        ipAddress: audit.ipAddress,
+        userAgent: audit.userAgent,
+      });
+    }
+
+    return next;
+  },
+
+  async reviewWalletDeletion(
+    actor: AuthUser,
+    customerUserId: string,
+    walletId: string,
+    status: 'APPROVED' | 'REJECTED',
+    audit?: AuditContext,
+  ) {
+    assertCanManageUsers(actor);
+    const customer = await prisma.user.findUnique({
+      where: { id: customerUserId },
+      select: { id: true, role: true, email: true, deletedAt: true },
+    });
+    if (!customer || customer.deletedAt || customer.role !== UserRole.CUSTOMER) {
+      throw new AppError(404, '가맹점을 찾을 수 없습니다', 'NOT_FOUND');
+    }
+
+    const wallet = await prisma.wallet.findFirst({
+      where: { id: walletId, userId: customerUserId, isActive: true },
+    });
+    if (!wallet) throw new AppError(404, '지갑을 찾을 수 없습니다', 'NOT_FOUND');
+    if (!wallet.deleteRequestedAt) {
+      throw new AppError(400, '삭제 요청이 없는 지갑입니다', 'VALIDATION');
+    }
+
+    const { recordMerchantOperation } = await import('./merchant-operation-log.service');
+
+    if (status === 'REJECTED') {
+      const next = await prisma.wallet.update({
+        where: { id: wallet.id },
+        data: { deleteRequestedAt: null },
+      });
+      await recordMerchantOperation({
+        actorId: actor.id,
+        merchantAdminUserId: customerUserId,
+        action: 'WALLET_DELETE_REJECT',
+        entityType: 'Wallet',
+        entityId: next.id,
+        summary: `HQ rejected wallet deletion ${next.network} ${next.address}`,
+        before: { deleteRequestedAt: wallet.deleteRequestedAt.toISOString() },
+        after: { deleteRequestedAt: null, address: next.address, network: next.network },
+        otpVerified: false,
+        ipAddress: audit?.ipAddress,
+        userAgent: audit?.userAgent,
+      });
+      if (audit) {
+        await logAdminChange({
+          actor: audit.actor,
+          action: AdminChangeAction.UPDATE,
+          entityType: 'Wallet',
+          entityId: next.id,
+          entityLabel: customer.email,
+          summary: `지갑 삭제 요청 반려: ${customer.email} ${next.network} ${next.address}`,
+          before: { deleteRequestedAt: wallet.deleteRequestedAt.toISOString() },
+          after: { deleteRequestedAt: null },
+          ipAddress: audit.ipAddress,
+          userAgent: audit.userAgent,
+        });
+      }
+      return next;
+    }
+
+    const { assertWalletNotInOpenTrade } = await import('./wallet-policy.service');
+    await assertWalletNotInOpenTrade(wallet.id);
+    const activeCount = await prisma.wallet.count({
+      where: { userId: customerUserId, isActive: true },
+    });
+    if (activeCount <= 1) {
+      throw new AppError(400, '마지막 지갑은 삭제할 수 없습니다', 'WALLET_LAST');
+    }
+
+    const next = await prisma.wallet.update({
+      where: { id: wallet.id },
+      data: { isActive: false, isDefault: false, deleteRequestedAt: null },
+    });
+    if (wallet.isDefault) {
+      const fallback = await prisma.wallet.findFirst({
+        where: {
+          userId: customerUserId,
+          isActive: true,
+          approvalStatus: 'APPROVED',
+          deleteRequestedAt: null,
+        },
+        orderBy: { createdAt: 'asc' },
+      });
+      if (fallback) {
+        await prisma.wallet.update({ where: { id: fallback.id }, data: { isDefault: true } });
+      }
+    }
+
+    await recordMerchantOperation({
+      actorId: actor.id,
+      merchantAdminUserId: customerUserId,
+      action: 'WALLET_DELETE_APPROVE',
+      entityType: 'Wallet',
+      entityId: next.id,
+      summary: `HQ deleted wallet ${next.network} ${next.address}`,
+      before: { isActive: true, address: wallet.address, network: wallet.network },
+      after: { isActive: false, address: next.address, network: next.network },
+      otpVerified: false,
+      ipAddress: audit?.ipAddress,
+      userAgent: audit?.userAgent,
+    });
+    if (audit) {
+      await logAdminChange({
+        actor: audit.actor,
+        action: AdminChangeAction.DELETE,
+        entityType: 'Wallet',
+        entityId: next.id,
+        entityLabel: customer.email,
+        summary: `지갑 삭제 승인: ${customer.email} ${next.network} ${next.address}`,
+        before: { isActive: true, address: wallet.address, network: wallet.network },
+        after: { isActive: false },
+        ipAddress: audit.ipAddress,
+        userAgent: audit.userAgent,
+      });
+    }
     return next;
   },
 

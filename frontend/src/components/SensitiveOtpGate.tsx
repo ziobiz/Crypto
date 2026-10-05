@@ -24,6 +24,7 @@ export type SensitiveOtpRunResult<T> = { cancelled: true } | { cancelled: false;
 
 type SensitiveOtpContextValue = {
   runWithOtp: <T>(fn: () => Promise<T>) => Promise<SensitiveOtpRunResult<T>>;
+  runWithFreshOtp: <T>(fn: () => Promise<T>) => Promise<SensitiveOtpRunResult<T>>;
 };
 
 const SensitiveOtpCtx = createContext<SensitiveOtpContextValue | null>(null);
@@ -50,8 +51,8 @@ export function SensitiveOtpGate({
   const pendingRef = useRef<{ resolve: (ok: boolean) => void } | null>(null);
   const submittingRef = useRef(false);
 
-  const promptOtp = useCallback(() => {
-    if (hasStoredToken()) {
+  const promptOtp = useCallback((force = false) => {
+    if (!force && hasStoredToken()) {
       setUnlocked(true);
       return Promise.resolve(true);
     }
@@ -65,7 +66,7 @@ export function SensitiveOtpGate({
 
   const runWithOtp = useCallback(
     async <T,>(fn: () => Promise<T>): Promise<SensitiveOtpRunResult<T>> => {
-      const ok = await promptOtp();
+      const ok = await promptOtp(false);
       if (!ok) return { cancelled: true };
       try {
         return { cancelled: false, value: await fn() };
@@ -73,10 +74,19 @@ export function SensitiveOtpGate({
         if (!isSensitiveOtpRequired(e)) throw e;
         clearStoredToken();
         setUnlocked(false);
-        const ok2 = await promptOtp();
+        const ok2 = await promptOtp(true);
         if (!ok2) return { cancelled: true };
         return { cancelled: false, value: await fn() };
       }
+    },
+    [promptOtp],
+  );
+
+  const runWithFreshOtp = useCallback(
+    async <T,>(fn: () => Promise<T>): Promise<SensitiveOtpRunResult<T>> => {
+      const ok = await promptOtp(true);
+      if (!ok) return { cancelled: true };
+      return { cancelled: false, value: await fn() };
     },
     [promptOtp],
   );
@@ -141,10 +151,10 @@ export function SensitiveOtpGate({
   );
 
   const showPageGate = lockContent && !unlocked;
-  const showModal = !lockContent && modalOpen;
+  const showModal = modalOpen && !showPageGate;
 
   return (
-    <SensitiveOtpCtx.Provider value={{ runWithOtp }}>
+    <SensitiveOtpCtx.Provider value={{ runWithOtp, runWithFreshOtp }}>
       {showPageGate ? <ContentCard title={t('cost.otpTitle')}>{form}</ContentCard> : children}
       {showModal ? (
         <div className="pg-modal-overlay" role="dialog" aria-modal="true">

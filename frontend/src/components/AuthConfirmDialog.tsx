@@ -8,6 +8,7 @@ export function AuthConfirmDialog({
   message,
   confirmLabel,
   busy,
+  hideCancel,
   onConfirm,
   onClose,
 }: {
@@ -15,6 +16,7 @@ export function AuthConfirmDialog({
   message: string;
   confirmLabel?: string;
   busy?: boolean;
+  hideCancel?: boolean;
   onConfirm: () => void | Promise<void>;
   onClose: () => void;
 }) {
@@ -30,14 +32,16 @@ export function AuthConfirmDialog({
           <p className="whitespace-pre-wrap text-[13px] text-gray-700">{message}</p>
         </div>
         <div className="pg-modal-foot">
-          <button
-            type="button"
-            onClick={onClose}
-            className="pg-btn pg-btn-secondary"
-            disabled={busy}
-          >
-            {t('common.cancel')}
-          </button>
+          {!hideCancel && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="pg-btn pg-btn-secondary"
+              disabled={busy}
+            >
+              {t('common.cancel')}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => void onConfirm()}

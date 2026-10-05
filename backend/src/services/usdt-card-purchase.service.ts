@@ -10,6 +10,7 @@ import { AppError } from '../lib/errors';
 import { buildFeeSnapshotFields } from '../lib/fee-component';
 import { AuthUser } from '../types/auth';
 import { isMerchantSide, merchantScopeUserId } from '../lib/merchant-role';
+import { isUsdtPayMethodAllowed } from '../lib/usdt-pay-method-access';
 import { WalletApprovalStatus } from '@prisma/client';
 import {
   calculateExpectedUsdtRange,
@@ -47,6 +48,23 @@ function generateTicketNo(): string {
   return `USDT-${date}-${rand}`;
 }
 
+async function assertCustomerCardPayAllowed(user: AuthUser) {
+  if (!user.customerProfileId) return;
+  const profile = await prisma.customerProfile.findUnique({
+    where: { id: user.customerProfileId },
+    select: { customerType: true, usdtPayCardMode: true },
+  });
+  if (
+    !isUsdtPayMethodAllowed({
+      mode: profile?.usdtPayCardMode,
+      method: 'CARD',
+      customerType: profile?.customerType,
+    })
+  ) {
+    throw new AppError(400, 'Card payment is disabled for this customer', 'CUSTOMER_CARD_DISABLED');
+  }
+}
+
 export async function getUsdtCardPaymentContext(user: AuthUser) {
   const [card, icopay, currencyTrade] = await Promise.all([
     getCardPaymentConfig(),
@@ -57,12 +75,28 @@ export async function getUsdtCardPaymentContext(user: AuthUser) {
     user.role === UserRole.CUSTOMER || user.role === UserRole.CUSTOMER_OPERATOR
       ? await prisma.user.findUnique({
           where: { id: merchantScopeUserId(user) },
-          select: { phone: true, phoneCountryCode: true, email: true, name: true },
+          select: {
+            phone: true,
+            phoneCountryCode: true,
+            email: true,
+            name: true,
+            customerProfile: {
+              select: {
+                customerType: true,
+                usdtPayCardMode: true,
+              },
+            },
+          },
         })
       : null;
+  const customerCardAllowed = isUsdtPayMethodAllowed({
+    mode: dbUser?.customerProfile?.usdtPayCardMode,
+    method: 'CARD',
+    customerType: dbUser?.customerProfile?.customerType,
+  });
   return {
-    cardPaymentEnabled: card.enabled,
-    enabled: card.enabled && icopay.enabled && Boolean(icopay.mid),
+    cardPaymentEnabled: card.enabled && customerCardAllowed,
+    enabled: card.enabled && customerCardAllowed && icopay.enabled && Boolean(icopay.mid),
     cardFeePercent: card.cardFeePercent,
     limits: card.limits,
     currencyTrade,
@@ -87,6 +121,7 @@ export async function previewUsdtCardFees(
   if (!cardConfig.enabled) {
     throw new AppError(503, 'Card payment is not enabled', 'CARD_DISABLED');
   }
+  await assertCustomerCardPayAllowed(user);
   const currencyForPolicy = input.fiatCurrency ?? 'JPY';
   await hqPolicyService.assertUsdtFiatMethodEnabled(currencyForPolicy, 'CARD');
 
@@ -166,6 +201,7 @@ export async function createUsdtCardPurchase(
     throw new AppError(403, 'Only customers can create purchase tickets', 'FORBIDDEN');
   }
   await assertCustomerKycApproved(merchantScopeUserId(user));
+  await assertCustomerCardPayAllowed(user);
   if (!input.cardWaiverAccepted) {
     throw new AppError(400, 'Card payment waiver must be accepted', 'WAIVER_REQUIRED');
   }
@@ -189,6 +225,7 @@ export async function createUsdtCardPurchase(
       userId: merchantScopeUserId(user),
       isActive: true,
       approvalStatus: WalletApprovalStatus.APPROVED,
+      deleteRequestedAt: null,
     },
   });
   if (!wallet) {
@@ -310,6 +347,8 @@ export async function createUsdtCardPurchase(
             cardWaiverAcceptedAt: waiverAt,
             icopayOrderId: orderId,
             walletId: wallet.id,
+            walletAddressSnapshot: wallet.address,
+            walletNetworkSnapshot: wallet.network,
           },
         },
       },

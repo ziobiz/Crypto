@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthProvider';
 import { useLocale, useT } from '@/context/LocaleProvider';
+import { contactTakenMessageKey } from '@/lib/contact-taken';
 import {
   api,
   customerFeesApi,
@@ -402,7 +403,8 @@ export default function CustomersPage() {
       setMsg(t('customers.created'));
       load();
     } catch (err) {
-      setMsg(err instanceof Error ? err.message : t('users.createFailed'));
+      const taken = contactTakenMessageKey(err);
+      setMsg(taken ? t(taken) : err instanceof Error ? err.message : t('users.createFailed'));
     }
   }
 

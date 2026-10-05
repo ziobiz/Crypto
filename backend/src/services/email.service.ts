@@ -22,8 +22,9 @@ export async function sendOtpEmail(
   to: string,
   code: string,
   userName: string,
+  expireMinutes?: number,
 ): Promise<void> {
-  const minutes = String(cfg.otpExpireMinutes || 5);
+  const minutes = String(expireMinutes ?? (cfg.otpExpireMinutes || 5));
   const subject = (cfg.otpEmailSubject || '[TINPASS] 인증번호 {code}').replace('{code}', code);
   const bodyTemplate =
     cfg.otpEmailBody ||

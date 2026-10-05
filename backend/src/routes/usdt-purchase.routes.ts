@@ -18,6 +18,7 @@ import {
   getUsdtPurchaseTicket,
   listUsdtPurchaseTickets,
   previewUsdtTransactionFees,
+  customerHasLocalBankCurrency,
   saveDepositProofMetadata,
   simulateHqUsdtQuote,
   transitionUsdtPurchaseStatus,
@@ -173,7 +174,7 @@ router.get(
           'DIRECT_REMIT_CURRENCY_ONLY',
         );
       }
-    } else {
+    } else if (!(await customerHasLocalBankCurrency(req.user!, currency))) {
       await hqPolicyService.assertUsdtFiatMethodEnabled(currency, 'TRANSFER');
     }
     const expressTier =

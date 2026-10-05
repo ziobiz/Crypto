@@ -30,6 +30,7 @@ import {
   verifyTotpCode,
 } from '../services/otp.service';
 import {
+  confirmRegisterEmailCode,
   createEmailVerificationChallenge,
   verifyEmailVerificationCode,
 } from '../services/email-verification.service';
@@ -38,7 +39,7 @@ import {
   isInitialPassword,
   normalizeEmail,
 } from '../lib/password-policy';
-import { signFlowToken, signOtpToken, signStepUpToken, signToken, verifyFlowToken, verifyOtpToken } from '../lib/jwt';
+import { signFlowToken, signOtpToken, signStepUpToken, signToken, verifyFlowToken, verifyOtpToken, verifyRegisterEmailProof } from '../lib/jwt';
 import { AppError } from '../lib/errors';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { authenticate } from '../middleware/auth';
@@ -55,6 +56,8 @@ import {
 } from '../services/individual-limit.service';
 import { canIssueSensitiveOtp } from '../constants/hq-admin';
 import { assertTurnstile, clientIp } from '../lib/turnstile';
+import { isAllowedRemittanceCountry } from '../constants/remittance-countries';
+import { canonicalizePhone } from '../lib/phone-number';
 
 const router = Router();
 
@@ -375,12 +378,42 @@ router.post(
     if (!isSmtpConfigured(cfg)) {
       throw new AppError(503, 'Email service is not configured', 'EMAIL_NOT_CONFIGURED');
     }
-    await createEmailVerificationChallenge(email, 'REGISTER', cfg, name.trim());
+    const issued = await createEmailVerificationChallenge(email, 'REGISTER', cfg, name.trim());
     res.json({
       ok: true,
       smtpConfigured: true,
       maskedEmail: maskEmail(email),
+      expiresAt: issued.expiresAt.toISOString(),
+      expiresInSeconds: issued.expiresInSeconds,
     });
+  }),
+);
+
+/** 신규 가입 — 발송된 인증번호 확인 (5분). 성공 시에만 나머지 가입 진행 */
+router.post(
+  '/register/verify-code',
+  asyncHandler(async (req, res) => {
+    const body = z
+      .object({
+        email: z.string().email().transform(normalizeEmail),
+        code: z.string().min(6),
+        inviteOrgCode: z.string().min(1).optional(),
+        referrerUserId: z.string().min(1).optional(),
+      })
+      .parse(req.body);
+    await assertIndividualRegisterAllowed({
+      inviteOrgCode: body.inviteOrgCode,
+      referrerUserId: body.referrerUserId,
+    });
+
+    const result = await confirmRegisterEmailCode(body.email, body.code);
+    if (!result.ok) {
+      if (result.reason === 'EXPIRED') {
+        throw new AppError(400, 'Verification code expired', 'EMAIL_CODE_EXPIRED');
+      }
+      throw new AppError(400, 'Invalid email verification code', 'INVALID_OTP_CODE');
+    }
+    res.json({ ok: true, emailProof: result.proof });
   }),
 );
 
@@ -668,7 +701,8 @@ const registerBankAccountSchema = z.object({
 const registerSchema = z
   .object({
     email: z.string().email(),
-    emailCode: z.string().min(6),
+    /** 인증번호 확인 API가 발급한 가입 진행 증명 */
+    emailProof: z.string().min(20),
     name: z.string().min(1),
     phone: z.string().min(6),
     phoneCountryCode: z.string().min(1),
@@ -677,6 +711,8 @@ const registerSchema = z
     /** 공개 가입은 개인만. 기업은 관리자 등록만 */
     customerType: z.literal(CustomerType.INDIVIDUAL).default(CustomerType.INDIVIDUAL),
     referrerUserId: z.string().min(1).optional(),
+    /** 가맹점 연락처로 찾은 경우 소개 가맹점. 추천자(수수료)가 아님 */
+    introducedByUserId: z.string().min(1).optional(),
     /** 조직 가입링크 코드 (?org=) */
     inviteOrgCode: z.string().min(1).optional(),
     noReferrer: z.boolean().optional(),
@@ -712,13 +748,13 @@ const registerSchema = z
   })
   .superRefine((d, ctx) => {
     if (d.noReferrer) {
-      if (d.referrerUserId || d.inviteOrgCode) {
+      if (d.referrerUserId || d.inviteOrgCode || d.introducedByUserId) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: 'noReferrer cannot be combined with referrer',
         });
       }
-    } else if (!d.referrerUserId && !d.inviteOrgCode) {
+    } else if (!d.referrerUserId && !d.inviteOrgCode && !d.introducedByUserId) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'referrerUserId or inviteOrgCode is required',
@@ -754,6 +790,16 @@ const registerSchema = z
           message: 'Remittance sender email is required',
         });
       }
+      const senderCountry = String(d.wiseSenderCountry || d.limitCountry || '')
+        .trim()
+        .toUpperCase();
+      if (!isAllowedRemittanceCountry(senderCountry)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['wiseSenderCountry'],
+          message: 'Remittance sender country is not allowed',
+        });
+      }
     }
   });
 
@@ -763,8 +809,13 @@ router.get(
     if (!(await hqPolicyService.isCustomerRegistrationEnabled())) {
       throw new AppError(403, 'Registration is disabled', 'REGISTRATION_DISABLED');
     }
-    const q = String(req.query.q ?? '');
-    res.json({ items: await searchReferrers(q) });
+    res.json({
+      items: await searchReferrers({
+        email: String(req.query.email ?? ''),
+        phone: String(req.query.phone ?? ''),
+        phoneCountryCode: String(req.query.phoneCountryCode ?? ''),
+      }),
+    });
   }),
 );
 
@@ -784,7 +835,16 @@ router.post(
   '/register',
   asyncHandler(async (req, res) => {
     const parsed = registerSchema.parse(req.body);
-    const data = { ...parsed, email: normalizeEmail(parsed.email) };
+    const phoneCanon = canonicalizePhone(parsed.phoneCountryCode, parsed.phone);
+    if (!phoneCanon) {
+      throw new AppError(400, 'Phone number is invalid', 'VALIDATION');
+    }
+    const data = {
+      ...parsed,
+      email: normalizeEmail(parsed.email),
+      phone: phoneCanon.phone,
+      phoneCountryCode: phoneCanon.phoneCountryCode,
+    };
     await assertIndividualRegisterAllowed({
       inviteOrgCode: data.inviteOrgCode,
       referrerUserId: data.referrerUserId,
@@ -802,15 +862,48 @@ router.post(
       customerType: CustomerType.INDIVIDUAL,
     });
 
-    const emailOk = await verifyEmailVerificationCode(data.email, 'REGISTER', data.emailCode);
-    if (!emailOk) {
-      throw new AppError(401, 'Invalid email verification code', 'INVALID_OTP_CODE');
+    const proof = verifyRegisterEmailProof(data.emailProof);
+    if (proof.email !== data.email) {
+      throw new AppError(401, 'Email verification is required', 'EMAIL_NOT_VERIFIED');
+    }
+    const challenge = await prisma.emailVerificationChallenge.findUnique({
+      where: { id: proof.challengeId },
+    });
+    if (
+      !challenge ||
+      challenge.purpose !== 'REGISTER' ||
+      normalizeEmail(challenge.email) !== data.email ||
+      !challenge.consumedAt
+    ) {
+      throw new AppError(401, 'Email verification is required', 'EMAIL_NOT_VERIFIED');
     }
 
     let recruitingOrgId: string;
     let referredByUserId: string | null = null;
+    let introducedByUserId: string | null = null;
     if (data.noReferrer) {
       recruitingOrgId = await getHeadOfficeOrgId();
+    } else if (data.introducedByUserId) {
+      const resolved = await resolveRecruitingFromReferrer(data.introducedByUserId);
+      if (!resolved.introducedByUserId) {
+        throw new AppError(400, 'Introducer must be a merchant', 'REFERRER_INVALID');
+      }
+      recruitingOrgId = resolved.recruitingOrgId;
+      introducedByUserId = resolved.introducedByUserId;
+      referredByUserId = resolved.referredByUserId;
+      if (data.referrerUserId && data.referrerUserId !== introducedByUserId) {
+        const staff = await prisma.user.findFirst({
+          where: {
+            id: data.referrerUserId,
+            role: UserRole.ORG_STAFF,
+            organizationId: recruitingOrgId,
+            isActive: true,
+            deletedAt: null,
+          },
+          select: { id: true },
+        });
+        if (staff) referredByUserId = staff.id;
+      }
     } else if (data.inviteOrgCode) {
       const resolved = await resolveRecruitingFromOrgCode(data.inviteOrgCode);
       recruitingOrgId = resolved.recruitingOrgId;
@@ -826,17 +919,29 @@ router.post(
           },
           select: { id: true },
         });
-        if (staff) referredByUserId = staff.id;
+        if (staff) {
+          referredByUserId = staff.id;
+        } else {
+          const asMerchant = await resolveRecruitingFromReferrer(data.referrerUserId).catch(() => null);
+          if (asMerchant?.introducedByUserId && asMerchant.recruitingOrgId === recruitingOrgId) {
+            introducedByUserId = asMerchant.introducedByUserId;
+          }
+        }
       }
     } else {
       const resolved = await resolveRecruitingFromReferrer(data.referrerUserId!);
       recruitingOrgId = resolved.recruitingOrgId;
       referredByUserId = resolved.referredByUserId;
-      const referrerEmail = await prisma.user.findUnique({
-        where: { id: referredByUserId },
+      introducedByUserId = resolved.introducedByUserId;
+    }
+
+    for (const linkedId of [referredByUserId, introducedByUserId]) {
+      if (!linkedId) continue;
+      const linked = await prisma.user.findUnique({
+        where: { id: linkedId },
         select: { email: true },
       });
-      if (referrerEmail && normalizeEmail(referrerEmail.email) === data.email) {
+      if (linked && normalizeEmail(linked.email) === data.email) {
         throw new AppError(400, 'Cannot refer yourself', 'REFERRER_INVALID');
       }
     }
@@ -881,6 +986,7 @@ router.post(
                 : CustomerApprovalStatus.APPROVED,
             recruitingOrgId,
             referredByUserId,
+            introducedByUserId,
             limitCountry,
             signupIp,
             signupCountry,
@@ -895,14 +1001,14 @@ router.post(
               data.remittanceProvider === 'OTHER'
                 ? data.remittanceProviderOther?.trim() || null
                 : null,
-            wiseSenderName: data.remittanceProvider
-              ? data.wiseSenderName?.trim() || null
-              : null,
+            wiseSenderName: data.remittanceProvider ? data.name.trim() : null,
             wiseSenderEmail: data.remittanceProvider
               ? data.wiseSenderEmail?.trim().toLowerCase() || null
               : null,
             wiseSenderCountry: data.remittanceProvider
-              ? data.wiseSenderCountry?.trim() || null
+              ? String(data.wiseSenderCountry || data.limitCountry || '')
+                  .trim()
+                  .toUpperCase() || null
               : null,
           },
         },
@@ -940,6 +1046,12 @@ router.post(
         created.id,
       );
     }
+    const { rememberApprovedAddress } = await import('../services/wallet-policy.service');
+    await rememberApprovedAddress(
+      created.id,
+      data.walletNetwork?.trim() || 'TRC20',
+      data.walletAddress.trim(),
+    );
 
     res.status(201).json({
       ok: true,

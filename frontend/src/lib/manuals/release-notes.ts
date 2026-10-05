@@ -3,6 +3,226 @@ import type { PlatformReleaseNote } from './version';
 /** 본사정책 → 검증관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
 export const PLATFORM_RELEASE_NOTES: PlatformReleaseNote[] = [
   {
+    version: '2.6.190',
+    kind: 'minor',
+    date: '2026-10-05',
+    items: {
+      KR: [
+        '고객 상세에 크립토 매입 결제수단(계좌이체·송금거래·카드) on/off를 둡니다. 본사설정따름 기본은 기업=이체+송금, 개인=송금만입니다.',
+      ],
+      US: [
+        'Customer detail has on/off for crypto purchase methods (bank transfer, remittance, card). Follow HQ defaults: corporate = transfer + remittance; individual = remittance only.',
+      ],
+      JP: [
+        '顧客詳細にクリプト購入の決済手段（口座振替・送金・カード）のON/OFFを追加。本社に従う既定は法人＝振替+送金、個人＝送金のみです。',
+      ],
+      CH: [
+        '客户详情可开关加密货币采购支付方式（转账、汇款、卡）。跟随总部默认：企业＝转账+汇款，个人＝仅汇款。',
+      ],
+      TH: [
+        'หน้ารายละเอียดลูกค้าเปิด/ปิดช่องทางซื้อคริปโตได้ (โอนบัญชี ธุรกรรมโอน บัตร) ค่าตาม HQ: นิติ=โอน+ธุรกรรมโอน บุคคล=ธุรกรรมโอนอย่างเดียว',
+      ],
+    },
+  },
+  {
+    version: '2.6.189',
+    kind: 'minor',
+    date: '2026-10-05',
+    items: {
+      KR: [
+        '이메일은 전역으로 한 번만 쓸 수 있고, 전화번호는 개인·기업에 각각 한 번까지 쓸 수 있습니다. 같은 전화로 검색되면 개인/기업 표시로 구분합니다.',
+      ],
+      US: [
+        'Email is unique globally. A phone number may be used once for individual and once for corporate. When the same phone appears in search, individual/corporate is shown.',
+      ],
+      JP: [
+        'メールは全体で1回のみ、電話番号は個人・法人に各1回まで使えます。同じ電話で検索された場合は個人/法人表示で区別します。',
+      ],
+      CH: [
+        '邮箱全局唯一；电话可在个人与企业各用一次。同一电话出现在搜索结果时会显示个人/企业。',
+      ],
+      TH: [
+        'อีเมลใช้ได้ครั้งเดียวทั้งระบบ เบอร์ใช้ได้บุคคลและนิติบุคคลอย่างละครั้ง หากค้นด้วยเบอร์เดียวกันจะแสดงประเภทบุคคล/นิติบุคคล',
+      ],
+    },
+  },
+  {
+    version: '2.6.188',
+    kind: 'minor',
+    date: '2026-10-05',
+    items: {
+      KR: [
+        '고객 상세에서 개인·기업 유형을 회원등급 위 드롭다운으로 변경·저장할 수 있습니다. 공개 가입은 개인만, 기업은 관리자 등록 또는 이 화면에서 지정합니다.',
+      ],
+      US: [
+        'On the customer detail page, individual or corporate type can be changed and saved with a dropdown above member grade. Public signup is individual only; corporate accounts are set by an admin or on this screen.',
+      ],
+      JP: [
+        '顧客詳細で個人・法人タイプを会員等級の上のドロップダウンから変更・保存できます。公開登録は個人のみで、法人は管理者登録またはこの画面で指定します。',
+      ],
+      CH: [
+        '客户详情页可在会员等级上方的下拉菜单中更改并保存个人/企业类型。公开注册仅限个人；企业由管理员注册或在此页面指定。',
+      ],
+      TH: [
+        'หน้ารายละเอียดลูกค้าเปลี่ยนและบันทึกประเภทบุคคล/นิติบุคคลได้ด้วยเมนูเหนือระดับสมาชิก สมัครสาธารณะได้เฉพาะบุคคล นิติบุคคลให้ผู้ดูแลลงทะเบียนหรือกำหนดที่หน้านี้',
+      ],
+    },
+  },
+  {
+    version: '2.6.187',
+    kind: 'minor',
+    date: '2026-10-05',
+    items: {
+      KR: [
+        '추천자는 영업점 이상 조직만 됩니다. 가맹점 연락처로 찾으면 그 가맹점의 유치 조직으로 연결되고, 조직 화면에는 소개 가맹점이 표시됩니다. 조직이 켜 두면 소개로 들어온 가맹점의 완료 거래에 대해 완료 USDT × 비율 + 고정 USDT를 조직만 계산해 봅니다. 플랫폼은 지급하지 않으며 가맹점 화면에는 실적과 금액이 나오지 않습니다.',
+      ],
+      US: [
+        'Only a sales office or higher can be a referrer. A merchant contact connects the signup to that merchant’s recruiting organization, and the organization can see the introducing merchant. If the organization turns it on, completed trades show completed USDT × percent + fixed USDT on the organization screen only. The platform does not pay it, and merchants never see the volume or the amount.',
+      ],
+      JP: [
+        '紹介者は営業所以上の組織だけです。加盟店の連絡先で探すと、その加盟店を獲得した組織へ接続され、組織画面に紹介加盟店が表示されます。組織がオンにすると、紹介で入った加盟店の完了取引について完了USDT × 割合 + 固定USDTを組織だけが計算します。プラットフォームは支払わず、加盟店画面に実績と金額は出ません。',
+      ],
+      CH: [
+        '只有营业点及以上组织可以成为推荐人。用商户联系方式查找时，会连接到招揽该商户的组织，组织画面会显示介绍商户。组织开启后，仅在组织画面按已完成USDT × 比例 + 固定USDT计算介绍商户的已完成交易。平台不支付，商户画面不会出现业绩和金额。',
+      ],
+      TH: [
+        'ผู้แนะนำได้เฉพาะองค์กรระดับสำนักงานขายขึ้นไป การค้นด้วยข้อมูลร้านค้าจะเชื่อมไปยังองค์กรที่รับร้านค้านั้น และองค์กรเห็นร้านค้าผู้แนะนำ หากองค์กรเปิดใช้ จะคำนวณ USDT ที่เสร็จ × เปอร์เซ็นต์ + USDT คงที่ เฉพาะหน้าองค์กร แพลตฟอร์มไม่จ่าย และร้านค้าไม่เห็นผลงานหรือจำนวนเงิน',
+      ],
+    },
+  },
+  {
+    version: '2.6.186',
+    kind: 'minor',
+    date: '2026-10-05',
+    items: {
+      KR: [
+        '한 번 등록된 이메일과 전화번호는 개인·기업을 가리지 않고 다시 가입할 수 없습니다. 둘 다 같으면 이미 등록된 이메일과 전화번호라는 경고를, 한쪽만 같으면 해당 항목 경고를 띄웁니다.',
+      ],
+      US: [
+        'An email or phone that is already registered cannot be used again, for either an individual or a business. If both match, a warning says the email and phone are already registered. If only one matches, the warning names that item.',
+      ],
+      JP: [
+        '一度登録されたメールと電話番号は、個人・法人を問わず再登録できません。両方が一致すると登録済みのメールと電話番号である警告を、片方だけならその項目の警告を出します。',
+      ],
+      CH: [
+        '已注册的邮箱和电话不能再次注册，个人和企业同样适用。两者都相同会提示邮箱和电话已注册，只有一项相同则提示该项。',
+      ],
+      TH: [
+        'อีเมลหรือเบอร์ที่ลงทะเบียนแล้วใช้สมัครซ้ำไม่ได้ ทั้งบุคคลและนิติบุคคล ถ้าตรงทั้งคู่จะเตือนว่าอีเมลและเบอร์ลงทะเบียนแล้ว ถ้าตรงอย่างเดียวจะเตือนรายการนั้น',
+      ],
+    },
+  },
+  {
+    version: '2.6.185',
+    kind: 'minor',
+    date: '2026-10-05',
+    items: {
+      KR: [
+        '추천자는 이메일 또는 국가번호+전화번호로만 검색합니다. 이름은 이*선처럼 가운데를 가립니다. 전화번호는 국제 표기(E.164)로 앞자리 0을 빼고 저장하며 +82010·+8210·+82(0)10은 같은 번호로 찾습니다.',
+      ],
+      US: [
+        'Referrers are found only by email or country code plus phone. Names show with the middle hidden, such as 이*선. Phones are stored in E.164 without the trunk 0, so +82010, +8210, and +82(0)10 match.',
+      ],
+      JP: [
+        '紹介者はメール、または国番号+電話番号でのみ検索します。氏名は中央を隠します。電話番号は国際形式(E.164)で先頭0を除いて保存し、+82010・+8210・+82(0)10は同一番号として検索します。',
+      ],
+      CH: [
+        '推荐人只能用邮箱或国家号加电话搜索。姓名中间会隐藏。电话按国际格式(E.164)去掉国内前缀0保存，+82010、+8210、+82(0)10视为同一号码。',
+      ],
+      TH: [
+        'ค้นผู้แนะนำได้เฉพาะอีเมล หรือรหัสประเทศกับเบอร์โทร ชื่อถูกปิดตรงกลาง เบอร์เก็บบนรูปแบบสากล (E.164) โดยตัด 0 นำหน้า และ +82010 +8210 +82(0)10 คือเบอร์เดียวกัน',
+      ],
+    },
+  },
+  {
+    version: '2.6.184',
+    kind: 'minor',
+    date: '2026-10-05',
+    items: {
+      KR: [
+        '빠른송금: 송금자 성명은 계정 이름을 쓰고, 국가·이메일은 계정 정보를 가져온 뒤 수정할 수 있습니다. 국가 목록은 한도 국가가 맨 위이고, 크립토 거래 불가 국가는 빠집니다.',
+      ],
+      US: [
+        'Fast remittance: sender name follows the account name. Country and email are copied from the account and can be edited. The limit country is listed first; countries where crypto trading is unavailable are omitted.',
+      ],
+      JP: [
+        'クイック送金: 送金者氏名はアカウント名を使います。国とメールはアカウント情報を取り込み、修正できます。限度国が先頭で、暗号資産取引ができない国は一覧から外れます。',
+      ],
+      CH: [
+        '快速汇款：汇款人姓名使用账户姓名。国家和邮箱从账户信息带入并可修改。限额国家排在最前，无法进行加密货币交易的国家不在列表中。',
+      ],
+      TH: [
+        'โอนด่วน: ชื่อผู้ส่งใช้ชื่อบัญชี ประเทศและอีเมลดึงจากบัญชีแล้วแก้ไขได้ ประเทศวงเงินอยู่บนสุด และประเทศที่ซื้อขายคริปโตไม่ได้จะไม่อยู่ในรายการ',
+      ],
+    },
+  },
+  {
+    version: '2.6.183',
+    kind: 'minor',
+    date: '2026-10-05',
+    items: {
+      KR: [
+        '지갑은 최대 5개. 등록·주소 변경·삭제 요청은 OTP와 두 번 확인. 삭제는 본사 승인 후. 새 주소는 본사 승인, 예전 승인 주소는 재승인 없음. 거래에는 신청 당시 주소만 남고 진행 중에는 그 지갑을 바꿀 수 없음.',
+      ],
+      US: [
+        'Up to 5 wallets. Register, address change, and deletion request need OTP and two confirmations. Deletion waits for HQ. New addresses need approval; previously approved addresses do not. A trade keeps the address chosen at apply time, and an in-progress trade blocks changing that wallet.',
+      ],
+      JP: [
+        'ウォレットは最大5件。登録・アドレス変更・削除依頼はOTPと2回確認。削除は本社承認後。新しいアドレスは本社承認、以前承認したアドレスは再承認不要。取引には申請時のアドレスだけが残り、進行中はそのウォレットを変更できません。',
+      ],
+      CH: [
+        '钱包最多 5 个。登记、改地址、申请删除需要 OTP 和两次确认。删除须总部批准。新地址需批准，曾批准的地址无需再批。交易只保留申请时的地址，进行中不能修改该钱包。',
+      ],
+      TH: [
+        'กระเป๋าสูงสุด 5 ใบ ลงทะเบียน เปลี่ยนที่อยู่ ขอลบ ต้อง OTP และยืนยันสองครั้ง การลบต้องให้ HQ อนุมัติ ที่อยู่ใหม่ต้องอนุมัติ ที่อยู่ที่เคยอนุมัติไม่ต้องซ้ำ รายการเก็บบันทึกที่อยู่ตอนสมัคร และรายการที่กำลังทำเปลี่ยนกระเป๋านั้นไม่ได้',
+      ],
+    },
+  },
+  {
+    version: '2.6.182',
+    kind: 'minor',
+    date: '2026-10-05',
+    items: {
+      KR: [
+        '개인 가입: 인증번호 발송 후 「이메일 인증 확인」에서 5분 안에 번호를 입력·확인해야 나머지 가입이 진행됩니다.',
+      ],
+      US: [
+        'Individual signup: after the code is sent, confirm it within 5 minutes on Email verification before the rest of the form opens.',
+      ],
+      JP: [
+        '個人登録: 認証番号送信後、「メール認証の確認」で5分以内に入力・確認すると残りの登録に進めます。',
+      ],
+      CH: [
+        '个人注册：发送验证码后，须在「确认邮箱验证」中于5分钟内输入并确认，才能继续填写其余资料。',
+      ],
+      TH: [
+        'สมัครบุคคล: หลังส่งรหัส ต้องยืนยันใน「ยืนยันรหัสอีเมล」ภายใน 5 นาที จึงกรอกข้อมูลที่เหลือต่อได้',
+      ],
+    },
+  },
+  {
+    version: '2.6.181',
+    kind: 'minor',
+    date: '2026-10-05',
+    items: {
+      KR: [
+        '개인 가입: 예금주 자동입력 저장, 빠른 송금 기본은 미사용. 신청은 등록 통장 통화 계좌이체가 기본이며 한도·이력 문구는 화면 언어를 따릅니다.',
+      ],
+      US: [
+        'Individual signup saves the prefilled account holder and leaves fast remittance off. Apply defaults to bank transfer in the registered currency; limit and history text follow the UI language.',
+      ],
+      JP: [
+        '個人登録: 自動入力の口座名義を保存し、高速送金は初期オフ。申請は登録口座の通貨の銀行振込が初期値。限度・履歴文言は画面言語に従います。',
+      ],
+      CH: [
+        '个人注册会保存自动填入的户名，快速汇款默认关闭。申请默认使用已登记账户币种的银行转账；限额与记录文字跟随界面语言。',
+      ],
+      TH: [
+        'สมัครบุคคล: บันทึกชื่อบัญชีที่เติมให้อัตโนมัติ และปิดการโอนด่วนเป็นค่าเริ่มต้น การสมัครเปิดที่โอนธนาคารตามสกุลที่ลงทะเบียน ข้อความวงเงินและประวัติตามภาษาหน้าจอ',
+      ],
+    },
+  },
+  {
     version: '2.6.180',
     kind: 'minor',
     date: '2026-10-05',

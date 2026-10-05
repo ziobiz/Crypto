@@ -1,8 +1,9 @@
-import { Prisma, TicketType, UsdtPaymentMethod, UsdtPurchaseStatus, UserRole, WalletApprovalStatus } from '@prisma/client';
+import { BankAccount, Prisma, TicketType, UsdtPaymentMethod, UsdtPurchaseStatus, UserRole, WalletApprovalStatus } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { AppError, isAppError } from '../lib/errors';
 import { AuthUser } from '../types/auth';
 import { isMerchantSide, merchantScopeUserId } from '../lib/merchant-role';
+import { isUsdtPayMethodAllowed } from '../lib/usdt-pay-method-access';
 import {
   calculateExpectedUsdtRange,
   fetchUsdtFiatRate,
@@ -142,8 +143,8 @@ const USDT_PURCHASE_INCLUDE = {
           name: true,
           email: true,
           bankAccounts: {
-            where: { isActive: true, isDefault: true },
-            take: 1,
+            where: { isActive: true },
+            orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
           },
         },
       },
@@ -162,6 +163,49 @@ const USDT_PURCHASE_INCLUDE = {
     include: { changedBy: { select: { id: true, name: true, role: true } } },
   },
 } satisfies Prisma.TransactionTicketInclude;
+
+const LOCAL_BANK_CURRENCIES = ['KRW', 'JPY', 'THB', 'CNY'] as const;
+
+/** 개인이 해당 현지 통화 통장을 등록했으면, 본사 이체 플래그가 꺼져 있어도 그 통화 계좌이체를 허용한다. */
+export async function customerHasLocalBankCurrency(user: AuthUser, currency: string): Promise<boolean> {
+  const cur = currency.trim().toUpperCase();
+  if (!LOCAL_BANK_CURRENCIES.includes(cur as (typeof LOCAL_BANK_CURRENCIES)[number])) return false;
+  const row = await prisma.bankAccount.findFirst({
+    where: {
+      userId: merchantScopeUserId(user),
+      isActive: true,
+      currency: cur as 'KRW' | 'JPY' | 'THB' | 'CNY',
+    },
+    select: { id: true },
+  });
+  return !!row;
+}
+
+function bankMatchingCurrency<T extends { currency: string; isDefault?: boolean }>(
+  accounts: T[] | null | undefined,
+  currency: string,
+): T | null {
+  if (!accounts?.length) return null;
+  const cur = currency.trim().toUpperCase();
+  return accounts.find((account) => account.currency === cur && account.isDefault)
+    ?? accounts.find((account) => account.currency === cur)
+    ?? null;
+}
+
+function usdtApplyHistoryNote(
+  useQuoteFlow: boolean,
+  useDirectRemit: boolean,
+  expressTier?: string | null,
+): string {
+  const base = useQuoteFlow
+    ? useDirectRemit
+      ? 'USDT_APPLY_QUOTE_REMIT'
+      : 'USDT_APPLY_QUOTE'
+    : useDirectRemit
+      ? 'USDT_APPLY_REMIT'
+      : 'USDT_APPLY';
+  return expressTier ? `${base}|${expressTier}` : base;
+}
 
 /** 운영자 전용 상태 전환 */
 const ADMIN_TRANSITIONS: Record<UsdtPurchaseStatus, UsdtPurchaseStatus[]> = {
@@ -412,6 +456,7 @@ export async function previewUsdtTransactionFees(
       userId: merchantScopeUserId(user),
       isActive: true,
       approvalStatus: WalletApprovalStatus.APPROVED,
+      deleteRequestedAt: null,
     },
   });
 
@@ -748,6 +793,7 @@ export async function createUsdtPurchaseTicket(
       userId: merchantScopeUserId(user),
       isActive: true,
       approvalStatus: WalletApprovalStatus.APPROVED,
+      deleteRequestedAt: null,
     },
   });
 
@@ -760,6 +806,9 @@ export async function createUsdtPurchaseTicket(
     select: {
       customerType: true,
       usdtCollectionMode: true,
+      usdtPayBankMode: true,
+      usdtPayRemittanceMode: true,
+      usdtPayCardMode: true,
       usdtQuoteResponseMode: true,
       usdtQuoteAutoDelayMinutes: true,
       usdtQuoteManualSlaHours: true,
@@ -806,6 +855,19 @@ export async function createUsdtPurchaseTicket(
       'DIRECT_REMIT_CURRENCY_ONLY',
     );
   }
+  if (
+    !isUsdtPayMethodAllowed({
+      mode: useDirectRemit ? customerProfile.usdtPayRemittanceMode : customerProfile.usdtPayBankMode,
+      method: useDirectRemit ? 'REMITTANCE' : 'BANK',
+      customerType: customerProfile.customerType,
+    })
+  ) {
+    throw new AppError(
+      400,
+      useDirectRemit ? 'Remittance payment is disabled for this customer' : 'Bank transfer is disabled for this customer',
+      useDirectRemit ? 'CUSTOMER_REMITTANCE_DISABLED' : 'CUSTOMER_BANK_DISABLED',
+    );
+  }
   if (useDirectRemit) {
     const accounts = await hqPolicyService.getDepositReceivingAccounts();
     const acct = accounts[currency as keyof typeof accounts];
@@ -813,8 +875,11 @@ export async function createUsdtPurchaseTicket(
       throw new AppError(400, `Remittance trade disabled for ${currency}`, 'FIAT_REMITTANCE_DISABLED');
     }
   } else {
-    /** 송금거래는 remittanceEnabled로 검증. 이체(transfer) 플래그와 독립 */
-    await hqPolicyService.assertUsdtFiatMethodEnabled(currency, 'TRANSFER');
+    /** 송금거래는 remittanceEnabled로 검증. 등록 현지 통장이 있으면 그 통화 이체는 본사 플래그보다 우선 */
+    const ownLocalBank = await customerHasLocalBankCurrency(user, currency);
+    if (!ownLocalBank) {
+      await hqPolicyService.assertUsdtFiatMethodEnabled(currency, 'TRANSFER');
+    }
   }
   const { rate, source, fetchedAt } = await fetchUsdtFiatRate(currency);
 
@@ -1024,6 +1089,8 @@ export async function createUsdtPurchaseTicket(
                 }
               : {}),
             walletId: wallet.id,
+            walletAddressSnapshot: wallet.address,
+            walletNetworkSnapshot: wallet.network,
             ...collectionFields,
           },
         },
@@ -1037,13 +1104,7 @@ export async function createUsdtPurchaseTicket(
         fromStatus: null,
         toStatus: initialStatus,
         changedById: user.id,
-        note: useQuoteFlow
-          ? useDirectRemit
-            ? `USDT 매입 신청 · 송금거래 (견적 대기)${expressSelection ? ` · EXPRESS ${expressSelection.tier}` : ''}`
-            : `USDT 매입 신청 (견적 대기)${expressSelection ? ` · EXPRESS ${expressSelection.tier}` : ''}`
-          : useDirectRemit
-            ? `USDT 매입 신청 · 송금거래${expressSelection ? ` · EXPRESS ${expressSelection.tier}` : ''}`
-            : `USDT 매입 신청${expressSelection ? ` · EXPRESS ${expressSelection.tier}` : ''}`,
+        note: usdtApplyHistoryNote(useQuoteFlow, useDirectRemit, expressSelection?.tier),
       },
     });
 
@@ -1059,7 +1120,7 @@ export async function createUsdtPurchaseTicket(
           fromStatus: UsdtPurchaseStatus.APPLICATION_COMPLETED,
           toStatus: UsdtPurchaseStatus.DEPOSIT_PROOF_PENDING,
           changedById: user.id,
-          note: `입금 증빙 대기 (기한: ${depositDeadlineAt!.toISOString()})`,
+          note: `USDT_DEPOSIT_PROOF|${depositDeadlineAt!.toISOString()}`,
         },
       });
     }
@@ -1327,7 +1388,10 @@ export async function saveDepositProofMetadata(
         include: {
           user: {
             include: {
-              bankAccounts: { where: { isActive: true, isDefault: true }, take: 1 },
+              bankAccounts: {
+                where: { isActive: true },
+                orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+              },
             },
           },
         },
@@ -1350,7 +1414,10 @@ export async function saveDepositProofMetadata(
     throw new AppError(400, 'Deposit window expired (2 hours)', 'DEPOSIT_EXPIRED');
   }
 
-  const registeredBank = ticket.customer?.user.bankAccounts[0];
+  const registeredBank = bankMatchingCurrency(
+    ticket.customer?.user.bankAccounts,
+    ticket.usdtPurchase.fiatCurrency,
+  );
   const bankMismatch = !checkBankMatch(
     input.depositorName,
     registeredBank?.accountHolder,
@@ -1601,14 +1668,15 @@ export async function transitionUsdtPurchaseStatus(
 }
 
 export async function getUsdtDepositContext(user: AuthUser) {
-  const [receivingAccounts, registeredBank, curfexCfg, currencyTrade, customerMode, hqQuote] =
+  const [receivingAccounts, customerBanks, curfexCfg, currencyTrade, customerMode, hqQuote] =
     await Promise.all([
     hqPolicyService.getDepositReceivingAccounts(),
     user.role === UserRole.CUSTOMER || user.role === UserRole.CUSTOMER_OPERATOR
-      ? prisma.bankAccount.findFirst({
-          where: { userId: merchantScopeUserId(user), isActive: true, isDefault: true },
+      ? prisma.bankAccount.findMany({
+          where: { userId: merchantScopeUserId(user), isActive: true },
+          orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
         })
-      : Promise.resolve(null),
+      : Promise.resolve([] as BankAccount[]),
     getCurfexConfig(),
     hqPolicyService.getUsdtCurrencyTradePolicy(),
     user.customerProfileId
@@ -1617,6 +1685,9 @@ export async function getUsdtDepositContext(user: AuthUser) {
           select: {
             customerType: true,
             usdtCollectionMode: true,
+            usdtPayBankMode: true,
+            usdtPayRemittanceMode: true,
+            usdtPayCardMode: true,
             usdtQuoteResponseMode: true,
             usdtQuoteAutoDelayMinutes: true,
             usdtQuoteManualSlaHours: true,
@@ -1668,24 +1739,38 @@ export async function getUsdtDepositContext(user: AuthUser) {
 
   /**
    * DIRECT(개인 송금계좌):
-   * - 계좌이체 = 송금통화가 아닌 통화 중 transfer on (예: JPY)
+   * - 계좌이체 = 송금통화가 아닌 통화 중 transfer on, 또는 고객이 등록한 현지 통장 통화
    * - 송금거래 = remittance on 통화 (USD/EUR) — transfer 플래그와 독립
-   * 이전: 송금통화에만 transfer를 켜고 remittance도 transfer를 요구 → 전부 비활성되는 버그
    */
-  const effectiveCurrencyTrade = useDirectRemit
-    ? Object.fromEntries(
-        (['KRW', 'JPY', 'THB', 'CNY', 'USD', 'EUR'] as const).map((c) => {
-          const isRemit = isDirectRemitCurrency(c, directCurrencies);
-          return [
-            c,
-            {
-              transfer: !isRemit && currencyTrade[c]?.transfer !== false,
-              card: currencyTrade[c]?.card !== false,
-            },
-          ];
-        }),
-      )
-    : currencyTrade;
+  const ownedLocalBanks = new Set(
+    customerBanks
+      .map((account) => account.currency)
+      .filter((currency) =>
+        LOCAL_BANK_CURRENCIES.includes(currency as (typeof LOCAL_BANK_CURRENCIES)[number]),
+      ),
+  );
+  const effectiveCurrencyTrade = Object.fromEntries(
+    (['KRW', 'JPY', 'THB', 'CNY', 'USD', 'EUR'] as const).map((c) => {
+      const isRemit = isDirectRemitCurrency(c, directCurrencies);
+      const ownLocal = ownedLocalBanks.has(c);
+      const hqOn = currencyTrade[c]?.transfer === true;
+      const hqOpen = currencyTrade[c]?.transfer !== false;
+      const transfer = isRemit
+        ? useDirectRemit
+          ? false
+          : Boolean(currencyTrade[c]?.transfer)
+        : useDirectRemit
+          ? hqOpen || ownLocal
+          : hqOn || ownLocal;
+      return [
+        c,
+        {
+          transfer,
+          card: currencyTrade[c]?.card !== false,
+        },
+      ];
+    }),
+  );
 
   const effectiveMode =
     effectiveProvider === 'DIRECT'
@@ -1734,16 +1819,50 @@ export async function getUsdtDepositContext(user: AuthUser) {
     directRemitCurrencies: directCurrencies,
     /** 송금거래 결제수단 통화 — remittanceEnabled 기준 (이체 on/off와 무관) */
     remittancePaymentCurrencies: [...directCurrencies],
-    /** 송금계좌 모드(개인 기본 등)면 신청 UI에서 송금거래 기본 선택 */
-    preferRemittancePayment: useDirectRemit,
-    remittancePaymentAvailable: directCurrencies.length > 0,
-    registeredBank: registeredBank
-      ? {
-          bankName: registeredBank.bankName,
-          accountNumber: registeredBank.accountNumber,
-          accountHolder: registeredBank.accountHolder,
-        }
-      : null,
+    usdtPayBankMode: customerMode?.usdtPayBankMode ?? 'FOLLOW_HQ',
+    usdtPayRemittanceMode: customerMode?.usdtPayRemittanceMode ?? 'FOLLOW_HQ',
+    usdtPayCardMode: customerMode?.usdtPayCardMode ?? 'FOLLOW_HQ',
+    bankPaymentAvailable: isUsdtPayMethodAllowed({
+      mode: customerMode?.usdtPayBankMode,
+      method: 'BANK',
+      customerType: customerMode?.customerType,
+    }),
+    cardPaymentCustomerAllowed: isUsdtPayMethodAllowed({
+      mode: customerMode?.usdtPayCardMode,
+      method: 'CARD',
+      customerType: customerMode?.customerType,
+    }),
+    /** 신청은 고객 한도 국가·등록 통장 통화의 계좌이체를 기본으로 연다 */
+    preferRemittancePayment: false,
+    preferredBankCurrency: (() => {
+      const home = individualLimitCtx?.band.homeCurrency ?? null;
+      const openLocal = LOCAL_BANK_CURRENCIES.filter(
+        (currency) => effectiveCurrencyTrade[currency]?.transfer,
+      );
+      if (home && openLocal.includes(home as (typeof LOCAL_BANK_CURRENCIES)[number]) && ownedLocalBanks.has(home)) {
+        return home;
+      }
+      return openLocal.find((currency) => ownedLocalBanks.has(currency)) ?? openLocal[0] ?? null;
+    })(),
+    remittancePaymentAvailable:
+      directCurrencies.length > 0 &&
+      isUsdtPayMethodAllowed({
+        mode: customerMode?.usdtPayRemittanceMode,
+        method: 'REMITTANCE',
+        customerType: customerMode?.customerType,
+      }),
+    registeredBank: (() => {
+      const home = individualLimitCtx?.band.homeCurrency ?? null;
+      const matched = (home ? bankMatchingCurrency(customerBanks, home) : null) ?? customerBanks[0] ?? null;
+      return matched
+        ? {
+            bankName: matched.bankName,
+            accountNumber: matched.accountNumber,
+            accountHolder: matched.accountHolder,
+            currency: matched.currency,
+          }
+        : null;
+    })(),
     depositWindowHours: 2,
     quoteValidMinutes: hqQuote.quoteValidMinutes,
     applyIdleMinutes: hqQuote.applyIdleMinutes,
@@ -1800,6 +1919,22 @@ export async function getUsdtDepositContext(user: AuthUser) {
   };
 }
 
+function settlementWallet(detail: {
+  walletAddressSnapshot: string | null;
+  walletNetworkSnapshot: string | null;
+  wallet: { id: string; label: string | null; address: string; network: string } | null;
+}) {
+  const address = detail.walletAddressSnapshot || detail.wallet?.address || '';
+  const network = detail.walletNetworkSnapshot || detail.wallet?.network || '';
+  if (!address) return null;
+  return {
+    id: detail.wallet?.id ?? '',
+    label: detail.wallet?.label ?? null,
+    address,
+    network: network || 'TRC20',
+  };
+}
+
 function serializeTicket(
   ticket: Prisma.TransactionTicketGetPayload<{
   include: typeof USDT_PURCHASE_INCLUDE;
@@ -1807,7 +1942,10 @@ function serializeTicket(
   sla: HqSlaConfig,
 ) {
   const detail = ticket.usdtPurchase!;
-  const registeredBank = ticket.customer?.user.bankAccounts?.[0] ?? null;
+  const registeredBank = bankMatchingCurrency(
+    ticket.customer?.user.bankAccounts,
+    detail.fiatCurrency,
+  );
   const channel =
     detail.paymentMethod === UsdtPaymentMethod.CARD ? 'CARD' : 'BANK_TRANSFER'; // REMITTANCE도 이체 채널 SLA
   const completionProfile = ticket.customer
@@ -1950,7 +2088,7 @@ function serializeTicket(
     brokerUsdtAmount: detail.brokerUsdtAmount != null ? Number(detail.brokerUsdtAmount) : null,
     adminNote: detail.adminNote,
     sandboxInvoice: detectUsdtSandboxTicket(detail),
-    wallet: detail.wallet,
+    wallet: settlementWallet(detail),
     registeredBank: registeredBank
       ? {
           bankName: registeredBank.bankName,

@@ -104,6 +104,9 @@ const updateSchema = z.object({
   feeBillingMethod: z.enum(['FOLLOW_HQ', 'INTEGRATED', 'ITEMIZED', 'HYBRID']).optional(),
   totalFeeVisibility: z.enum(['FOLLOW_HQ', 'SHOW', 'HIDE']).optional(),
   usdtCollectionMode: z.enum(['FOLLOW_HQ', 'FIXED', 'VIRTUAL', 'DIRECT']).optional(),
+  usdtPayBankMode: z.enum(['FOLLOW_HQ', 'ENABLED', 'DISABLED']).optional(),
+  usdtPayRemittanceMode: z.enum(['FOLLOW_HQ', 'ENABLED', 'DISABLED']).optional(),
+  usdtPayCardMode: z.enum(['FOLLOW_HQ', 'ENABLED', 'DISABLED']).optional(),
   usdtQuoteResponseMode: z.enum(['FOLLOW_HQ', 'AUTO', 'MANUAL', 'OFF']).optional(),
   tradeReceiptEmailMode: z.enum(['FOLLOW_HQ', 'ENABLED', 'DISABLED', 'HQ_ONLY']).optional(),
   tradeReceiptAdminUiMode: z.enum(['FOLLOW_HQ', 'ENABLED', 'DISABLED']).optional(),
@@ -112,6 +115,7 @@ const updateSchema = z.object({
   usdtQuoteManualSlaHours: z.number().int().nullable().optional(),
   expressFeeMode: z.enum(['FOLLOW_HQ', 'CUSTOM', 'DISABLED']).optional(),
   expressFeeConfig: z.unknown().optional(),
+  customerType: z.nativeEnum(CustomerType).optional(),
   memberGrade: z
     .enum(['STANDARD', 'PREMIUM', 'VIP', 'VVIP', 'PRESTIGE', 'BLACK'])
     .optional(),
@@ -174,6 +178,23 @@ router.patch(
     const body = updateSchema.parse(req.body);
     const audit = auditFromRequest(req.user!, req);
     res.json(await userService.update(req.user!, req.params.id, body, audit));
+  }),
+);
+
+router.patch(
+  '/:id/wallets/:walletId/deletion',
+  asyncHandler(async (req, res) => {
+    const body = walletApprovalSchema.parse(req.body);
+    const audit = auditFromRequest(req.user!, req);
+    res.json(
+      await userService.reviewWalletDeletion(
+        req.user!,
+        req.params.id,
+        req.params.walletId,
+        body.status,
+        audit,
+      ),
+    );
   }),
 );
 

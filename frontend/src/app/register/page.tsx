@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api, ApiError, type ReferrerSearchHit } from '@/lib/api';
+import { contactTakenMessageKey } from '@/lib/contact-taken';
 import { useLocale, useT } from '@/context/LocaleProvider';
 import { AuthChrome } from '@/components/layout/AuthChrome';
 import { AuthConfirmDialog } from '@/components/AuthConfirmDialog';
@@ -19,6 +20,10 @@ import { PHONE_COUNTRY_CODES } from '@/constants/phone-country-codes';
 import { LIMIT_COUNTRIES, limitCountryFromPhone, type LimitCountryCode } from '@/constants/limit-countries';
 import { defaultPhoneCountryCode } from '@/constants/locale-phone';
 import { REMITTANCE_PROVIDERS } from '@/constants/remittance-providers';
+import {
+  isAllowedRemittanceCountry,
+  remittanceCountryGroups,
+} from '@/constants/remittance-countries';
 import { WALLET_NETWORKS } from '@/constants/wallet-networks';
 
 export default function RegisterPage() {
@@ -57,17 +62,29 @@ function RegisterForm() {
   const [loading, setLoading] = useState(false);
   const [sendingCode, setSendingCode] = useState(false);
   const [confirmSendOpen, setConfirmSendOpen] = useState(false);
+  const [contactAlert, setContactAlert] = useState('');
   const [codeSent, setCodeSent] = useState(false);
-  const [referrerQuery, setReferrerQuery] = useState('');
+  const [emailCode, setEmailCode] = useState('');
+  const [codeExpiresAt, setCodeExpiresAt] = useState<number | null>(null);
+  const [remainSec, setRemainSec] = useState(0);
+  const [verifying, setVerifying] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [emailProof, setEmailProof] = useState('');
+  const [sentEmail, setSentEmail] = useState('');
+  const [referrerBy, setReferrerBy] = useState<'email' | 'phone'>('email');
+  const [referrerEmail, setReferrerEmail] = useState('');
+  const [referrerPhone, setReferrerPhone] = useState('');
+  const [referrerPhoneCc, setReferrerPhoneCc] = useState(defaultPhoneCountryCode(locale));
   const [referrerHits, setReferrerHits] = useState<ReferrerSearchHit[]>([]);
   const [referrerSearching, setReferrerSearching] = useState(false);
   const [selectedReferrer, setSelectedReferrer] = useState<ReferrerSearchHit | null>(null);
   /** 기본: 추천자 없음 → 본사 직속 */
   const [noReferrer, setNoReferrer] = useState(true);
+  /** 빠른송금 국가·이메일을 계정 정보와 같이 유지 */
+  const [senderSameAsAccount, setSenderSameAsAccount] = useState(true);
   const [inviteLabel, setInviteLabel] = useState('');
   const [form, setForm] = useState({
     email: '',
-    emailCode: '',
     name: '',
     phone: '',
     phoneCountryCode: defaultPhoneCountryCode(locale),
@@ -76,7 +93,7 @@ function RegisterForm() {
     walletAddress: '',
     walletNetwork: 'TRC20',
     walletLabel: '',
-    remittanceEnabled: true,
+    remittanceEnabled: false,
     remittanceProvider: '',
     remittanceProviderOther: '',
     wiseSenderName: '',
@@ -85,7 +102,18 @@ function RegisterForm() {
   });
 
   useEffect(() => {
+    if (!codeExpiresAt || emailVerified) return;
+    const tick = () => {
+      setRemainSec(Math.max(0, Math.ceil((codeExpiresAt - Date.now()) / 1000)));
+    };
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [codeExpiresAt, emailVerified]);
+
+  useEffect(() => {
     const phone = defaultPhoneCountryCode(locale);
+    setReferrerPhoneCc(phone);
     setForm((prev) => ({
       ...prev,
       phoneCountryCode: phone,
@@ -95,18 +123,33 @@ function RegisterForm() {
 
   useEffect(() => {
     setForm((prev) => {
-      if (!prev.remittanceEnabled) return prev;
-      const nextName = prev.wiseSenderName || prev.name;
-      const nextEmail = prev.wiseSenderEmail || prev.email;
-      if (nextName === prev.wiseSenderName && nextEmail === prev.wiseSenderEmail) return prev;
-      return { ...prev, wiseSenderName: nextName, wiseSenderEmail: nextEmail };
+      const wiseSenderName = prev.name;
+      if (!senderSameAsAccount) {
+        if (prev.wiseSenderName === wiseSenderName) return prev;
+        return { ...prev, wiseSenderName };
+      }
+      const wiseSenderEmail = prev.email;
+      const wiseSenderCountry = prev.limitCountry;
+      if (
+        prev.wiseSenderName === wiseSenderName &&
+        prev.wiseSenderEmail === wiseSenderEmail &&
+        prev.wiseSenderCountry === wiseSenderCountry
+      ) {
+        return prev;
+      }
+      return { ...prev, wiseSenderName, wiseSenderEmail, wiseSenderCountry };
     });
-  }, [form.name, form.email, form.remittanceEnabled]);
+  }, [form.name, form.email, form.limitCountry, senderSameAsAccount]);
 
   const inviteHint = useMemo(() => {
     if (!inviteLabel) return '';
     return t('auth.inviteLocked', { name: inviteLabel });
   }, [inviteLabel, t]);
+
+  const senderCountries = useMemo(
+    () => remittanceCountryGroups(form.limitCountry),
+    [form.limitCountry],
+  );
 
   useEffect(() => {
     api
@@ -136,15 +179,25 @@ function RegisterForm() {
 
   const searchReferrer = async () => {
     setError('');
-    const q = referrerQuery.trim();
-    if (q.length < 2) {
-      setError(t('auth.referrerQueryShort'));
+    const email = referrerEmail.trim().toLowerCase();
+    const phone = referrerPhone.trim();
+    if (referrerBy === 'email') {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        setError(t('auth.referrerEmailInvalid'));
+        return;
+      }
+    } else if (!referrerPhoneCc.trim() || phone.replace(/\D/g, '').length < 8) {
+      setError(t('auth.referrerPhoneRequired'));
       return;
     }
     setReferrerSearching(true);
     setReferrerHits([]);
     try {
-      const res = await api.registerReferrerSearch(q);
+      const res = await api.registerReferrerSearch(
+        referrerBy === 'email'
+          ? { email }
+          : { phone, phoneCountryCode: referrerPhoneCc },
+      );
       setReferrerHits(res.items);
       if (res.items.length === 0) setError(t('auth.referrerNotFound'));
     } catch (err) {
@@ -182,6 +235,14 @@ function RegisterForm() {
       });
       setForm((prev) => ({ ...prev, email }));
       setCodeSent(true);
+      setEmailVerified(false);
+      setEmailProof('');
+      setEmailCode('');
+      setSentEmail(email);
+      const expMs = res.expiresAt
+        ? new Date(res.expiresAt).getTime()
+        : Date.now() + (res.expiresInSeconds ?? 300) * 1000;
+      setCodeExpiresAt(Number.isFinite(expMs) ? expMs : Date.now() + 300_000);
       setInfo(
         t('auth.registerCodeSent', {
           email: res.maskedEmail || email,
@@ -189,13 +250,10 @@ function RegisterForm() {
       );
       setConfirmSendOpen(false);
     } catch (err) {
-      if (
-        err instanceof ApiError &&
-        (err.code === 'CONFLICT' || err.code === 'EMAIL_TAKEN')
-      ) {
-        setError(t('auth.registerEmailTaken'));
-      } else if (err instanceof ApiError && err.code === 'PHONE_TAKEN') {
-        setError(t('auth.registerPhoneTaken'));
+      const taken = contactTakenMessageKey(err);
+      if (taken) {
+        setContactAlert(t(taken));
+        setError(t(taken));
       } else if (
         err instanceof ApiError &&
         (err.code === 'EMAIL_SEND_FAILED' || err.code === 'EMAIL_NOT_CONFIGURED')
@@ -212,9 +270,62 @@ function RegisterForm() {
     }
   };
 
+  const resetEmailVerification = () => {
+    setCodeSent(false);
+    setEmailVerified(false);
+    setEmailProof('');
+    setEmailCode('');
+    setSentEmail('');
+    setCodeExpiresAt(null);
+    setRemainSec(0);
+  };
+
+  const confirmEmailCode = async () => {
+    setError('');
+    const email = form.email.trim().toLowerCase();
+    if (!codeSent || email !== sentEmail) {
+      setError(t('auth.registerVerifyRequired'));
+      return;
+    }
+    if (remainSec <= 0) {
+      setError(t('auth.registerCodeExpired'));
+      return;
+    }
+    const digits = emailCode.replace(/\D/g, '');
+    if (digits.length !== 6) {
+      setError(t('auth.registerCodeInvalid'));
+      return;
+    }
+    setVerifying(true);
+    try {
+      const res = await api.registerVerifyCode(email, digits, {
+        inviteOrgCode: inviteOrg || undefined,
+        referrerUserId: inviteRef || undefined,
+      });
+      setEmailProof(res.emailProof);
+      setEmailVerified(true);
+      setInfo(t('auth.registerVerifyDone'));
+    } catch (err) {
+      setEmailVerified(false);
+      setEmailProof('');
+      if (err instanceof ApiError && err.code === 'EMAIL_CODE_EXPIRED') {
+        setRemainSec(0);
+        setError(t('auth.registerCodeExpired'));
+      } else {
+        setError(t('auth.registerCodeInvalid'));
+      }
+    } finally {
+      setVerifying(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (!emailVerified || !emailProof) {
+      setError(t('auth.registerVerifyRequired'));
+      return;
+    }
     if (!inviteLocked && !noReferrer && !selectedReferrer) {
       setError(t('auth.referrerRequired'));
       return;
@@ -223,7 +334,13 @@ function RegisterForm() {
       setError(t('auth.inviteInvalid'));
       return;
     }
-    const banks = filledBankAccounts(form.bankAccounts);
+    const holderFallback = form.name.trim();
+    const banks = filledBankAccounts(
+      form.bankAccounts.map((account) => ({
+        ...account,
+        accountHolder: account.accountHolder.trim() || holderFallback,
+      })),
+    );
     if (banks.length === 0) {
       setError(t('register.bankRequired'));
       return;
@@ -245,8 +362,13 @@ function RegisterForm() {
         setError(t('register.remittanceOtherRequired'));
         return;
       }
-      if (!form.wiseSenderName.trim() || !form.wiseSenderEmail.trim()) {
+      if (!form.name.trim() || !form.wiseSenderEmail.trim()) {
         setError(t('register.wiseRequired'));
+        return;
+      }
+      const senderCountry = (form.wiseSenderCountry || form.limitCountry).trim().toUpperCase();
+      if (!isAllowedRemittanceCountry(senderCountry)) {
+        setError(t('register.senderCountryBlocked'));
         return;
       }
     }
@@ -254,7 +376,7 @@ function RegisterForm() {
     try {
       await api.register({
         email: form.email,
-        emailCode: form.emailCode,
+        emailProof,
         name: form.name,
         phone: form.phone,
         phoneCountryCode: form.phoneCountryCode,
@@ -265,7 +387,12 @@ function RegisterForm() {
           ? inviteRef || undefined
           : noReferrer
             ? undefined
-            : selectedReferrer!.userId,
+            : selectedReferrer!.introducedByUserId &&
+                selectedReferrer!.userId === selectedReferrer!.introducedByUserId
+              ? undefined
+              : selectedReferrer!.userId,
+        introducedByUserId:
+          inviteLocked || noReferrer ? undefined : selectedReferrer!.introducedByUserId,
         noReferrer: !inviteLocked && noReferrer ? true : undefined,
         bankAccounts: banks,
         walletAddress: form.walletAddress.trim(),
@@ -277,19 +404,19 @@ function RegisterForm() {
           form.remittanceEnabled && form.remittanceProvider === 'OTHER'
             ? form.remittanceProviderOther.trim()
             : undefined,
-        wiseSenderName: form.remittanceEnabled ? form.wiseSenderName.trim() : undefined,
+        wiseSenderName: form.remittanceEnabled ? form.name.trim() : undefined,
         wiseSenderEmail: form.remittanceEnabled ? form.wiseSenderEmail.trim() : undefined,
         wiseSenderCountry: form.remittanceEnabled
-          ? form.wiseSenderCountry.trim() || undefined
+          ? (form.wiseSenderCountry || form.limitCountry).trim().toUpperCase()
           : undefined,
       });
       setInfo(t('auth.registerPendingApproval'));
       setTimeout(() => router.push('/login'), 2500);
     } catch (err) {
-      if (err instanceof ApiError && (err.code === 'EMAIL_TAKEN' || err.code === 'CONFLICT')) {
-        setError(t('auth.registerEmailTaken'));
-      } else if (err instanceof ApiError && err.code === 'PHONE_TAKEN') {
-        setError(t('auth.registerPhoneTaken'));
+      const taken = contactTakenMessageKey(err);
+      if (taken) {
+        setContactAlert(t(taken));
+        setError(t(taken));
       } else {
         setError(err instanceof Error ? err.message : t('auth.registerFailed'));
       }
@@ -330,31 +457,92 @@ function RegisterForm() {
               <Field
                 label={t('auth.email')}
                 value={form.email}
-                onChange={(v) => setForm({ ...form, email: v })}
+                onChange={(v) => {
+                  setForm((prev) => ({ ...prev, email: v }));
+                  if (sentEmail && v.trim().toLowerCase() !== sentEmail) resetEmailVerification();
+                }}
                 type="email"
               />
-              <Field
-                label={t('auth.name')}
-                value={form.name}
-                onChange={(v) => setForm({ ...form, name: v })}
-              />
-              <div className="flex gap-2 sm:col-span-2 lg:col-span-1">
+              <div className="flex gap-2">
                 <div className="min-w-0 flex-1">
                   <Field
-                    label={t('auth.registerEmailCode')}
-                    value={form.emailCode}
-                    onChange={(v) => setForm({ ...form, emailCode: v })}
+                    label={t('auth.name')}
+                    value={form.name}
+                    onChange={(v) => setForm((prev) => ({ ...prev, name: v }))}
                   />
                 </div>
                 <button
                   type="button"
                   onClick={requestSendCode}
-                  disabled={loading || sendingCode}
+                  disabled={loading || sendingCode || verifying}
                   className="mt-6 min-h-11 shrink-0 rounded-lg border border-blue-200 px-3 py-2 text-sm text-blue-700 hover:bg-blue-50 disabled:opacity-50"
                 >
                   {sendingCode ? t('common.loading') : t('auth.sendEmailCode')}
                 </button>
               </div>
+            </div>
+          </section>
+
+          {codeSent && (
+            <section className="rounded-xl border border-blue-200 bg-blue-50/60 p-4">
+              <p className="text-sm font-semibold text-slate-800">{t('auth.registerVerifyTitle')}</p>
+              <p className="mt-1 text-xs text-slate-600">{t('auth.registerVerifyHint')}</p>
+              {emailVerified ? (
+                <p className="mt-3 text-sm font-medium text-green-700">{t('auth.registerVerifyDone')}</p>
+              ) : (
+                <>
+                  <p
+                    className={`mt-3 text-sm font-semibold ${
+                      remainSec > 0 ? 'text-blue-800' : 'text-red-600'
+                    }`}
+                  >
+                    {remainSec > 0
+                      ? t('auth.registerCodeRemain', {
+                          time: `${Math.floor(remainSec / 60)}:${String(remainSec % 60).padStart(2, '0')}`,
+                        })
+                      : t('auth.registerCodeExpired')}
+                  </p>
+                  <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
+                    <div className="min-w-0 flex-1">
+                      <Field
+                        label={t('auth.registerEmailCode')}
+                        value={emailCode}
+                        onChange={(v) => setEmailCode(v.replace(/\D/g, '').slice(0, 6))}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void confirmEmailCode()}
+                      disabled={verifying || sendingCode || remainSec <= 0 || emailCode.length !== 6}
+                      className="min-h-11 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                    >
+                      {verifying ? t('common.loading') : t('auth.registerVerifyConfirm')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={requestSendCode}
+                      disabled={sendingCode || verifying}
+                      className="min-h-11 rounded-lg border border-blue-200 px-3 py-2 text-sm text-blue-700 hover:bg-blue-50 disabled:opacity-50"
+                    >
+                      {t('auth.registerResendCode')}
+                    </button>
+                  </div>
+                </>
+              )}
+              {info && <p className="mt-2 text-sm text-green-700">{info}</p>}
+            </section>
+          )}
+
+          {!emailVerified && (
+            <p className="text-sm text-amber-800">{t('auth.registerVerifyRequired')}</p>
+          )}
+
+          <fieldset
+            disabled={!emailVerified}
+            className="m-0 min-w-0 space-y-5 border-0 p-0 disabled:opacity-60"
+          >
+          <section className="rounded-xl border border-slate-200 bg-slate-50/40 p-4">
+            <div className="grid gap-3 sm:grid-cols-2">
               <div className="grid grid-cols-[7rem_1fr] gap-2">
                 <div>
                   <label className="block text-sm font-medium">{t('usdt.phoneCountryCode')}</label>
@@ -403,12 +591,6 @@ function RegisterForm() {
                 <p className="mt-1 text-xs text-slate-500">{t('auth.limitCountryHint')}</p>
               </div>
             </div>
-            {error && (
-              <p className="mt-2 text-sm text-red-600">{error}</p>
-            )}
-            {codeSent && info && (
-              <p className="mt-2 text-sm text-green-700">{info}</p>
-            )}
           </section>
 
           {inviteLocked ? (
@@ -429,7 +611,8 @@ function RegisterForm() {
                       setNoReferrer(true);
                       setSelectedReferrer(null);
                       setReferrerHits([]);
-                      setReferrerQuery('');
+                      setReferrerEmail('');
+                      setReferrerPhone('');
                     }}
                   />
                   {t('auth.referrerNone')}
@@ -446,13 +629,64 @@ function RegisterForm() {
               </div>
               {!noReferrer && (
                 <>
+                  <div className="flex flex-wrap gap-4 text-sm text-slate-700">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="referrerBy"
+                        checked={referrerBy === 'email'}
+                        onChange={() => {
+                          setReferrerBy('email');
+                          setReferrerHits([]);
+                        }}
+                      />
+                      {t('auth.referrerByEmail')}
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="referrerBy"
+                        checked={referrerBy === 'phone'}
+                        onChange={() => {
+                          setReferrerBy('phone');
+                          setReferrerHits([]);
+                        }}
+                      />
+                      {t('auth.referrerByPhone')}
+                    </label>
+                  </div>
                   <div className="flex flex-col gap-2 sm:flex-row">
-                    <input
-                      value={referrerQuery}
-                      onChange={(e) => setReferrerQuery(e.target.value)}
-                      placeholder={t('auth.referrerQueryPlaceholder')}
-                      className="auth-field mt-0 w-full rounded-lg border border-gray-300 px-3 py-3 text-base"
-                    />
+                    {referrerBy === 'email' ? (
+                      <input
+                        value={referrerEmail}
+                        onChange={(e) => setReferrerEmail(e.target.value)}
+                        placeholder={t('auth.referrerEmailPlaceholder')}
+                        type="email"
+                        className="auth-field mt-0 w-full rounded-lg border border-gray-300 px-3 py-3 text-base"
+                      />
+                    ) : (
+                      <div className="grid min-w-0 flex-1 grid-cols-[7rem_1fr] gap-2">
+                        <select
+                          value={referrerPhoneCc}
+                          onChange={(e) => setReferrerPhoneCc(e.target.value)}
+                          className="auth-field mt-0 w-full rounded-lg border border-gray-300 px-3 py-3 text-base"
+                          aria-label={t('usdt.phoneCountryCode')}
+                        >
+                          {PHONE_COUNTRY_CODES.map((c) => (
+                            <option key={c.code} value={c.code}>
+                              {c.label}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          value={referrerPhone}
+                          onChange={(e) => setReferrerPhone(e.target.value)}
+                          placeholder={t('auth.referrerPhonePlaceholder')}
+                          inputMode="tel"
+                          className="auth-field mt-0 w-full rounded-lg border border-gray-300 px-3 py-3 text-base"
+                        />
+                      </div>
+                    )}
                     <button
                       type="button"
                       onClick={() => void searchReferrer()}
@@ -465,9 +699,11 @@ function RegisterForm() {
                   {referrerHits.length > 0 && (
                     <ul className="grid max-h-48 gap-1 overflow-auto rounded-lg border border-gray-200 bg-white p-1 sm:grid-cols-2">
                       {referrerHits.map((hit) => {
-                        const selected = selectedReferrer?.userId === hit.userId;
+                        const hitKey = hit.introducedByUserId || hit.userId;
+                        const selected =
+                          (selectedReferrer?.introducedByUserId || selectedReferrer?.userId) === hitKey;
                         return (
-                          <li key={hit.userId}>
+                          <li key={hitKey}>
                             <button
                               type="button"
                               onClick={() => setSelectedReferrer(hit)}
@@ -478,7 +714,21 @@ function RegisterForm() {
                               }`}
                             >
                               <span className="font-medium">{hit.displayName}</span>
-                              <span className="mt-0.5 block text-xs text-slate-500">{hit.email}</span>
+                              {hit.customerType ? (
+                                <span className="mt-0.5 block text-xs text-slate-600">
+                                  {hit.customerType === 'CORPORATE'
+                                    ? t('auth.corporate')
+                                    : t('auth.individual')}
+                                </span>
+                              ) : null}
+                              {hit.email ? (
+                                <span className="mt-0.5 block text-xs text-slate-500">{hit.email}</span>
+                              ) : null}
+                              {hit.introducedByUserId ? (
+                                <span className="mt-0.5 block text-xs text-slate-500">
+                                  {t('auth.referrerRouted')}
+                                </span>
+                              ) : null}
                             </button>
                           </li>
                         );
@@ -487,10 +737,20 @@ function RegisterForm() {
                   )}
                   {selectedReferrer && (
                     <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
-                      {t('auth.referrerSelected', {
-                        name: selectedReferrer.displayName,
-                        email: selectedReferrer.email,
-                      })}
+                      {selectedReferrer.email
+                        ? t('auth.referrerSelected', {
+                            name: selectedReferrer.displayName,
+                            email: selectedReferrer.email,
+                          })
+                        : selectedReferrer.displayName}
+                      {selectedReferrer.customerType
+                        ? ` · ${
+                            selectedReferrer.customerType === 'CORPORATE'
+                              ? t('auth.corporate')
+                              : t('auth.individual')
+                          }`
+                        : ''}
+                      {selectedReferrer.introducedByUserId ? ` · ${t('auth.referrerRouted')}` : ''}
                     </p>
                   )}
                 </>
@@ -507,14 +767,15 @@ function RegisterForm() {
                   type="radio"
                   name="remittanceEnabled"
                   checked={!form.remittanceEnabled}
-                  onChange={() =>
+                  onChange={() => {
+                    setSenderSameAsAccount(true);
                     setForm({
                       ...form,
                       remittanceEnabled: false,
                       remittanceProvider: '',
                       remittanceProviderOther: '',
-                    })
-                  }
+                    });
+                  }}
                 />
                 {t('register.remittanceNo')}
               </label>
@@ -523,14 +784,16 @@ function RegisterForm() {
                   type="radio"
                   name="remittanceEnabled"
                   checked={form.remittanceEnabled}
-                  onChange={() =>
+                  onChange={() => {
+                    setSenderSameAsAccount(true);
                     setForm({
                       ...form,
                       remittanceEnabled: true,
-                      wiseSenderName: form.wiseSenderName || form.name,
-                      wiseSenderEmail: form.wiseSenderEmail || form.email,
-                    })
-                  }
+                      wiseSenderName: form.name,
+                      wiseSenderEmail: form.email,
+                      wiseSenderCountry: form.limitCountry,
+                    });
+                  }}
                 />
                 {t('register.remittanceYes')}
               </label>
@@ -567,23 +830,58 @@ function RegisterForm() {
                     onChange={(v) => setForm({ ...form, remittanceProviderOther: v })}
                   />
                 )}
+                <label className="sm:col-span-2 flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={senderSameAsAccount}
+                    onChange={(e) => setSenderSameAsAccount(e.target.checked)}
+                  />
+                  {t('register.sameAsAccount')}
+                </label>
                 <Field
                   label={t('register.wiseSenderName')}
-                  value={form.wiseSenderName}
-                  onChange={(v) => setForm({ ...form, wiseSenderName: v })}
+                  value={form.name}
+                  onChange={() => {}}
+                  readOnly
+                  hint={t('register.senderNameLocked')}
                 />
                 <Field
                   label={t('register.wiseSenderEmail')}
                   value={form.wiseSenderEmail}
-                  onChange={(v) => setForm({ ...form, wiseSenderEmail: v })}
+                  onChange={(v) => {
+                    setSenderSameAsAccount(false);
+                    setForm({ ...form, wiseSenderEmail: v });
+                  }}
                   type="email"
                 />
-                <Field
-                  label={t('register.wiseSenderCountry')}
-                  value={form.wiseSenderCountry}
-                  onChange={(v) => setForm({ ...form, wiseSenderCountry: v })}
-                  optional
-                />
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium">{t('register.wiseSenderCountry')}</label>
+                  <select
+                    value={form.wiseSenderCountry || form.limitCountry}
+                    onChange={(e) => {
+                      setSenderSameAsAccount(false);
+                      setForm({ ...form, wiseSenderCountry: e.target.value });
+                    }}
+                    className="auth-field mt-1 w-full rounded-lg border border-gray-300 px-3 py-3 text-base"
+                    required
+                  >
+                    <optgroup label={t('register.countryPrimary')}>
+                      {senderCountries.priority.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label={t('register.countryOthers')}>
+                      {senderCountries.others.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  </select>
+                  <p className="mt-1 text-xs text-slate-500">{t('register.senderCountryHint')}</p>
+                </div>
               </div>
             )}
           </section>
@@ -591,7 +889,7 @@ function RegisterForm() {
           <CustomerBankAccountsForm
             accounts={form.bankAccounts}
             accountHolderDefault={form.name}
-            onChange={(bankAccounts) => setForm({ ...form, bankAccounts })}
+            onChange={(bankAccounts) => setForm((prev) => ({ ...prev, bankAccounts }))}
           />
 
           <section className="space-y-3 rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
@@ -627,6 +925,7 @@ function RegisterForm() {
               </div>
             </div>
           </section>
+          </fieldset>
 
           {error && !confirmSendOpen && (
             <p className="text-sm text-red-600">{error}</p>
@@ -639,7 +938,7 @@ function RegisterForm() {
             </Link>
             <button
               type="submit"
-              disabled={loading || sendingCode}
+              disabled={loading || sendingCode || verifying || !emailVerified}
               className="min-h-12 rounded-lg bg-blue-600 px-8 py-3 text-base font-semibold text-white disabled:opacity-50 sm:min-w-[220px]"
             >
               {loading ? t('auth.registering') : t('auth.registerSubmit')}
@@ -647,6 +946,16 @@ function RegisterForm() {
           </div>
         </form>
       </div>
+      {contactAlert && (
+        <AuthConfirmDialog
+          title={t('auth.registerContactTakenTitle')}
+          message={contactAlert}
+          confirmLabel={t('common.confirm')}
+          hideCancel
+          onConfirm={() => setContactAlert('')}
+          onClose={() => setContactAlert('')}
+        />
+      )}
       {confirmSendOpen && (
         <AuthConfirmDialog
           title={t('auth.sendEmailCodeConfirmTitle')}
@@ -671,12 +980,16 @@ function Field({
   onChange,
   type = 'text',
   optional,
+  readOnly,
+  hint,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   type?: string;
   optional?: boolean;
+  readOnly?: boolean;
+  hint?: string;
 }) {
   return (
     <div>
@@ -685,9 +998,13 @@ function Field({
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="auth-field mt-1 w-full rounded-lg border border-gray-300 px-3 py-3 text-base"
+        readOnly={readOnly}
+        className={`auth-field mt-1 w-full rounded-lg border border-gray-300 px-3 py-3 text-base ${
+          readOnly ? 'bg-slate-100 text-slate-700' : ''
+        }`}
         required={!optional}
       />
+      {hint ? <p className="mt-1 text-xs text-slate-500">{hint}</p> : null}
     </div>
   );
 }

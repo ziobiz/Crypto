@@ -24,6 +24,7 @@ import { CopyButton, CopyableMono } from '@/components/CopyButton';
 import { UsdtWalletSettlementPanel } from '@/components/UsdtWalletSettlementPanel';
 import { ScheduleDelayPanel } from '@/components/ScheduleDelayPanel';
 import { buildTicketStatusTimeline } from '@/lib/ticket-status-timeline';
+import { formatUsdtHistoryNote } from '@/lib/usdt-history-note';
 import {
   buildTradeReceiptDocumentHtml,
   downloadTradeReceiptPdf,
@@ -800,6 +801,19 @@ export default function UsdtDetailPage() {
         </div>
       )}
 
+      {ticket.paymentMethod !== 'CARD' &&
+        ticket.paymentMethod !== 'REMITTANCE' &&
+        !ticket.registeredBank && (
+        <div className="pg-card">
+          <div className="pg-card-body text-xs">
+            <p className="font-semibold">{t('usdt.registeredBank')}</p>
+            <p className="mt-1 pg-hint">
+              {t('usdt.registeredBankMissing', { currency: ticket.fiatCurrency })}
+            </p>
+          </div>
+        </div>
+      )}
+
       {ticket.registeredBank && (
         <div className="pg-card">
           <div className="pg-card-body text-xs space-y-1.5">
@@ -1074,6 +1088,7 @@ export default function UsdtDetailPage() {
               />
             )}
             <p className="pg-hint text-[10px]">{t('usdt.walletQrHint')}</p>
+            <p className="pg-hint text-[10px]">{t('usdt.walletSnapshotHint')}</p>
           </div>
         </div>
       )}
@@ -1394,7 +1409,7 @@ export default function UsdtDetailPage() {
           {statusTimeline.map((h) => (
             <li key={h.id} className="border-l-2 pl-4 text-xs" style={{ borderColor: 'var(--shell-card-border)' }}>
               <StatusBadge status={h.toStatus} kind="usdt" usdtContext={usdtCtx} />
-              {h.note && <p className="mt-0.5">{h.note}</p>}
+              {h.note && <p className="mt-0.5">{formatUsdtHistoryNote(h.note, t)}</p>}
               <p className="mt-1 pg-hint">
                 {h.changedBy.name ? `${h.changedBy.name} · ` : ''}
                 {formatDate(h.createdAt)}

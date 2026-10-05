@@ -24,6 +24,9 @@ const orgSelect = {
   simulatorEnabled: true,
   simulatorRateMode: true,
   referralUserId: true,
+  introducerRewardEnabled: true,
+  introducerRewardPercent: true,
+  introducerRewardFixedUsdt: true,
   deletedAt: true,
   purgeAt: true,
   createdAt: true,
@@ -183,6 +186,9 @@ export const organizationService = {
       simulatorEnabled?: boolean;
       simulatorRateMode?: 'LIVE' | 'SAND';
       referralUserId?: string | null;
+      introducerRewardEnabled?: boolean;
+      introducerRewardPercent?: number;
+      introducerRewardFixedUsdt?: number;
     },
   ) {
     assertCanManageOrgs(actor);
@@ -224,6 +230,15 @@ export const organizationService = {
         ...(data.simulatorEnabled !== undefined ? { simulatorEnabled: data.simulatorEnabled } : {}),
         ...(data.simulatorRateMode !== undefined ? { simulatorRateMode: data.simulatorRateMode } : {}),
         ...(data.referralUserId !== undefined ? { referralUserId: data.referralUserId } : {}),
+        ...(data.introducerRewardEnabled !== undefined
+          ? { introducerRewardEnabled: data.introducerRewardEnabled }
+          : {}),
+        ...(data.introducerRewardPercent !== undefined
+          ? { introducerRewardPercent: data.introducerRewardPercent }
+          : {}),
+        ...(data.introducerRewardFixedUsdt !== undefined
+          ? { introducerRewardFixedUsdt: data.introducerRewardFixedUsdt }
+          : {}),
       },
       select: orgSelect,
     });
