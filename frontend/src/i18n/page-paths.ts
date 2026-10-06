@@ -24,6 +24,7 @@ export const HQ_PAGE_PATH_KEYS: Record<string, MessageKey> = {
   '/dashboard/hq-policy/commission': 'hq.page.commission',
   '/dashboard/hq-policy/risk': 'hq.page.risk',
   '/dashboard/hq-policy/accounts': 'hq.page.accounts',
+  '/dashboard/hq-policy/services': 'hq.page.services',
   '/dashboard/hq-policy/platform': 'hq.page.platform',
   '/dashboard/hq-policy/ops': 'hq.page.ops',
   '/dashboard/hq-policy/ops/workflow': 'hq.page.workflow',

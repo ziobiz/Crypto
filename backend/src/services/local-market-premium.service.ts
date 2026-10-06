@@ -3,7 +3,7 @@ import {
   fetchFromBinanceCross,
   fetchFromBinanceTh,
   fetchFromCoinGecko,
-  fetchFromExchangeRateApi,
+  fetchUsdFiatForex,
   fetchFromKrakenBook,
 } from './exchange-rate-sources';
 import {
@@ -40,7 +40,7 @@ async function fetchFairUsdtFiat(currency: SymbolFeeCurrency): Promise<{
   usdtUsdRate: number;
 }> {
   const [forex, usdtUsd] = await Promise.all([
-    fetchFromExchangeRateApi(currency),
+    fetchUsdFiatForex(currency),
     fetchFromCoinGecko('USD'),
   ]);
   if (!forex?.rate) {

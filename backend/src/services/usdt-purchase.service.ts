@@ -69,7 +69,6 @@ import {
 import {
   computeExpectedCompleteAt,
   isDirectRemitCurrency,
-  remittanceCurrenciesFromAccounts,
   resolveExpectedCompletionDays,
   type HqSlaConfig,
 } from '../constants/hq-policy';
@@ -895,11 +894,16 @@ export async function createUsdtPurchaseTicket(
       'DIRECT_REMIT_CURRENCY_ONLY',
     );
   }
+  const hqMethodOk = await hqPolicyService.hqServiceMethodEnabled(
+    useDirectRemit ? 'REMITTANCE' : 'BANK',
+    customerProfile.customerType,
+  );
   if (
     !isUsdtPayMethodAllowed({
       mode: useDirectRemit ? customerProfile.usdtPayRemittanceMode : customerProfile.usdtPayBankMode,
       method: useDirectRemit ? 'REMITTANCE' : 'BANK',
       customerType: customerProfile.customerType,
+      hqMethodAllowed: hqMethodOk,
     })
   ) {
     throw new AppError(
@@ -909,16 +913,20 @@ export async function createUsdtPurchaseTicket(
     );
   }
   if (useDirectRemit) {
-    const accounts = await hqPolicyService.getDepositReceivingAccounts();
-    const acct = accounts[currency as keyof typeof accounts];
-    if (acct?.remittanceEnabled === false) {
-      throw new AppError(400, `Remittance trade disabled for ${currency}`, 'FIAT_REMITTANCE_DISABLED');
-    }
+    await hqPolicyService.assertUsdtFiatMethodEnabled(
+      currency,
+      'REMITTANCE',
+      customerProfile.customerType,
+    );
   } else {
-    /** 송금거래는 remittanceEnabled로 검증. 등록 현지 통장이 있으면 그 통화 이체는 본사 플래그보다 우선 */
+    /** 등록 현지 통장이 있으면 그 통화 이체는 본사 플래그보다 우선 */
     const ownLocalBank = await customerHasLocalBankCurrency(user, currency);
     if (!ownLocalBank) {
-      await hqPolicyService.assertUsdtFiatMethodEnabled(currency, 'TRANSFER');
+      await hqPolicyService.assertUsdtFiatMethodEnabled(
+        currency,
+        'TRANSFER',
+        customerProfile.customerType,
+      );
     }
   }
   const { rate, source, fetchedAt } = await fetchUsdtFiatRate(currency);
@@ -1725,7 +1733,7 @@ export async function transitionUsdtPurchaseStatus(
 }
 
 export async function getUsdtDepositContext(user: AuthUser) {
-  const [receivingAccounts, customerBanks, curfexCfg, currencyTrade, customerMode, hqQuote] =
+  const [receivingAccounts, customerBanks, curfexCfg, customerMode, hqQuote] =
     await Promise.all([
     hqPolicyService.getDepositReceivingAccounts(),
     user.role === UserRole.CUSTOMER || user.role === UserRole.CUSTOMER_OPERATOR
@@ -1735,7 +1743,6 @@ export async function getUsdtDepositContext(user: AuthUser) {
         })
       : Promise.resolve([] as BankAccount[]),
     getCurfexConfig(),
-    hqPolicyService.getUsdtCurrencyTradePolicy(),
     user.customerProfileId
       ? prisma.customerProfile.findUnique({
           where: { id: user.customerProfileId },
@@ -1756,9 +1763,16 @@ export async function getUsdtDepositContext(user: AuthUser) {
       : Promise.resolve(null),
     getUsdtQuoteResponsePolicy(),
   ]);
+  const customerType = customerMode?.customerType ?? null;
+  const [currencyTrade, directCurrencies, hqBank, hqRemit, hqCard] = await Promise.all([
+    hqPolicyService.getUsdtCurrencyTradePolicy(customerType),
+    hqPolicyService.getRemittanceTradeCurrencies(customerType),
+    hqPolicyService.hqServiceMethodEnabled('BANK', customerType),
+    hqPolicyService.hqServiceMethodEnabled('REMITTANCE', customerType),
+    hqPolicyService.hqServiceMethodEnabled('CARD', customerType),
+  ]);
   const expressSelection = await resolveExpressSelectionForCustomer(customerMode, 'BASIC');
   const mode = customerMode?.usdtCollectionMode ?? 'FOLLOW_HQ';
-  const directCurrencies = remittanceCurrenciesFromAccounts(receivingAccounts);
   const sampleCurrency = directCurrencies[0] ?? 'USD';
   const effectiveProvider = resolveUsdtCollectionProvider({
     customerMode: mode,
@@ -1883,11 +1897,13 @@ export async function getUsdtDepositContext(user: AuthUser) {
       mode: customerMode?.usdtPayBankMode,
       method: 'BANK',
       customerType: customerMode?.customerType,
+      hqMethodAllowed: hqBank,
     }),
     cardPaymentCustomerAllowed: isUsdtPayMethodAllowed({
       mode: customerMode?.usdtPayCardMode,
       method: 'CARD',
       customerType: customerMode?.customerType,
+      hqMethodAllowed: hqCard,
     }),
     /** 신청은 고객 한도 국가·등록 통장 통화의 계좌이체를 기본으로 연다 */
     preferRemittancePayment: false,
@@ -1907,6 +1923,7 @@ export async function getUsdtDepositContext(user: AuthUser) {
         mode: customerMode?.usdtPayRemittanceMode,
         method: 'REMITTANCE',
         customerType: customerMode?.customerType,
+        hqMethodAllowed: hqRemit,
       }),
     registeredBank: (() => {
       const home = individualLimitCtx?.band.homeCurrency ?? null;

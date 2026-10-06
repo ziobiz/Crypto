@@ -1,4 +1,4 @@
-import { fetchFromCoinGecko, fetchFromExchangeRateApi } from './exchange-rate-sources';
+import { fetchFromCoinGecko, fetchUsdFiatForex } from './exchange-rate-sources';
 
 export type KimchiPremiumAnalysis = {
   domesticRate: number;
@@ -57,7 +57,7 @@ export async function fetchDomesticUsdtKrw(): Promise<{
 /** 환율(USD/KRW) × USDT/USD — 김프 제외 이론가 */
 export async function fetchFairUsdtKrw(): Promise<{ fairRate: number; usdKrwRate: number; usdtUsdRate: number }> {
   const [forex, usdtUsd] = await Promise.all([
-    fetchFromExchangeRateApi('KRW'),
+    fetchUsdFiatForex('KRW'),
     fetchFromCoinGecko('USD'),
   ]);
   if (!forex?.rate) {

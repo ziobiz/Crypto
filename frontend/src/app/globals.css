@@ -469,6 +469,24 @@
     font-size: 9px;
   }
 
+  /* 고객관리: 목차(헤더) 한 줄 유지 — 글자·패딩 축소 */
+  .pg-table.pg-table-customers {
+    font-size: 10px;
+  }
+
+  .pg-table.pg-table-customers th,
+  .pg-table.pg-table-customers th button {
+    @apply whitespace-nowrap px-1.5 py-1.5;
+    font-size: 10px;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+
+  .pg-table.pg-table-customers td {
+    @apply px-1.5 py-1.5;
+    font-size: 10px;
+  }
+
   .pg-table thead {
     background-color: var(--shell-table-head-bg);
   }

@@ -1497,6 +1497,19 @@ export interface UsdtCurrencyTradeFlags {
   card: boolean;
 }
 
+export type UsdtServiceFlags = {
+  transfer: boolean;
+  card: boolean;
+  remittance: boolean;
+};
+
+export type UsdtServiceCustomerType = 'INDIVIDUAL' | 'CORPORATE';
+
+export type HqUsdtServiceMatrix = Record<
+  UsdtServiceCustomerType,
+  Record<'KRW' | 'JPY' | 'THB' | 'CNY' | 'USD' | 'EUR', UsdtServiceFlags>
+>;
+
 export interface UsdtExpressOption {
   tier: string;
   feeUsdt: number;
@@ -2304,6 +2317,13 @@ export const hqPolicyApi = {
       body: form,
     });
   },
+  getUsdtServices: () =>
+    request<{ config: HqUsdtServiceMatrix }>('/api/hq-policy/usdt-services'),
+  saveUsdtServices: (config: HqUsdtServiceMatrix) =>
+    request<{ config: HqUsdtServiceMatrix }>('/api/hq-policy/usdt-services', {
+      method: 'PUT',
+      body: JSON.stringify({ config }),
+    }),
   getCardPayment: () => request<{ config: HqCardPaymentConfig }>('/api/hq-policy/payment/card'),
   saveCardPayment: (config: HqCardPaymentConfig) =>
     request<{ config: HqCardPaymentConfig }>('/api/hq-policy/payment/card', {

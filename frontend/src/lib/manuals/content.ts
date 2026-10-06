@@ -1,4 +1,4 @@
-﻿import type { ManualLocale } from './version';
+import type { ManualLocale } from './version';
 import { CUSTOMER_INDIVIDUAL_MANUAL } from './customer-individual';
 import { CUSTOMER_CORPORATE_MANUAL } from './customer-corporate';
 import type { ManualDoc } from './manual-types';
@@ -638,7 +638,9 @@ export const HQ_OPS_MANUAL: ManualDoc = {
       id: 's4',
       title: L('결제관리 · ICOPAY · 가상계좌서비스(CURFEX)', 'Payment · ICOPAY · Virtual Account Service (CURFEX)', '決済・ICOPAY・バーチャル口座サービス(CURFEX)', '支付·ICOPAY·虚拟账户服务(CURFEX)', 'การชำระเงิน·ICOPAY·บริการบัญชีเสมือน(CURFEX)'),
       bodyHtml: L(
-        `<span class="menu-path">본사정책 → 검증관리 → 결제관리</span>
+        `<span class="menu-path">본사정책 → 서비스관리</span>
+        <p>한 화면에서 왼쪽 <strong>개인</strong>·오른쪽 <strong>법인</strong> 표로 통화별 <strong>이용 가능 서비스</strong>(이체→송금→카드)를 활성/비활성 드롭다운으로 설정합니다. 활성은 파스텔 빨강으로 표시됩니다. 고객 FOLLOW_HQ는 이 표를 따릅니다. 초기값: 개인=송금만(USD·EUR), 법인=로컬 이체+송금(USD·EUR), 카드=끔. 송금은 USD·EUR만. 수취 계좌는 계좌관리.</p>
+        <span class="menu-path">본사정책 → 검증관리 → 결제관리</span>
         <p><strong>ICOPAY (카드)</strong></p>
         <ol>
           <li>카드 결제 정책: 사용 on/off, 카드 수수료 %</li>
@@ -669,7 +671,9 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li>고정 수취계좌(가상계좌서비스(CURFEX) OFF)는 기존처럼 수동 증빙</li>
         </ul>
         <div class="warn-box">가상계좌서비스(CURFEX)는 JPY 이체 수취용입니다. 카드결제는 ICOPAY, KRW/THB/CNY 전용계좌는 기존 방식을 그대로 씁니다.</div>`,
-        `<span class="menu-path">HQ Policy → Verification Mgmt → Payment</span>
+        `<span class="menu-path">HQ Policy → Service management</span>
+        <p>One page shows <strong>Individual</strong> (left) and <strong>Corporate</strong> (right). Set <strong>Available services</strong> (transfer → remittance → card) with Active/Inactive dropdowns; Active is pastel red. Customer FOLLOW_HQ follows this table. Defaults: individual = remittance only (USD/EUR); corporate = local transfer + remittance (USD/EUR); card off. Remittance USD/EUR only. Accounts stay under Account management.</p>
+        <span class="menu-path">HQ Policy → Verification Mgmt → Payment</span>
         <p><strong>ICOPAY (card)</strong></p>
         <ol>
           <li>Card payment policy: on/off and card fee %</li>
@@ -700,7 +704,9 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li>Fixed accounts (Virtual Account Service (CURFEX) OFF) still require manual proof</li>
         </ul>
         <div class="warn-box">Virtual Account Service (CURFEX) is for JPY collection only. Cards stay on ICOPAY; other fiat fixed accounts are unchanged.</div>`,
-        `<span class="menu-path">本社ポリシー → 検証管理 → 決済管理</span>
+        `<span class="menu-path">本社ポリシー → サービス管理</span>
+        <p>同一画面で左<strong>個人</strong>・右<strong>法人</strong>。<strong>利用可能サービス</strong>（振込→送金→カード）を有効/無効ドロップダウンで設定。有効はパステル赤。顧客FOLLOW_HQはこの表。初期値: 個人=送金のみ(USD/EUR)、法人=現地振込+送金(USD/EUR)、カード=OFF。送金はUSD/EURのみ。受取口座は口座管理。</p>
+        <span class="menu-path">本社ポリシー → 検証管理 → 決済管理</span>
         <p><strong>ICOPAY（カード）</strong></p>
         <ol>
           <li>カード決済ポリシー: 使用 ON/OFF、カード手数料%</li>
@@ -729,7 +735,9 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li>固定受取口座（バーチャル口座サービス(CURFEX) OFF）は従来どおり手動証憑</li>
         </ul>
         <div class="warn-box">バーチャル口座サービス(CURFEX)はJPY振込受取用です。カードはICOPAY、KRW/THB/CNY固定口座は従来どおりです。</div>`,
-        `<span class="menu-path">总部策略 → 验证管理 → 支付管理</span>
+        `<span class="menu-path">总部策略 → 服务管理</span>
+        <p>同屏左<strong>个人</strong>、右<strong>企业</strong>。<strong>可用服务</strong>（转账→汇款→卡）用启用/停用下拉；启用为粉红底。客户 FOLLOW_HQ 遵循此表。默认：个人=仅汇款(USD/EUR)；企业=本地转账+汇款(USD/EUR)；卡=关。汇款仅 USD/EUR。收款账号在账户管理。</p>
+        <span class="menu-path">总部策略 → 验证管理 → 支付管理</span>
         <p><strong>ICOPAY（卡）</strong></p>
         <ol>
           <li>卡支付策略：开关与卡手续费 %</li>
@@ -758,7 +766,9 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li>固定收款账户（虚拟账户服务(CURFEX) 关闭）仍需手动凭证</li>
         </ul>
         <div class="warn-box">虚拟账户服务(CURFEX) 仅用于 JPY 转账收款。卡支付走 ICOPAY；KRW/THB/CNY 固定账户方式不变。</div>`,
-        `<span class="menu-path">HQ Policy → Verification Mgmt → Payment</span>
+        `<span class="menu-path">HQ Policy → จัดการบริการ</span>
+        <p>หน้าเดียว ซ้าย<strong>บุคคล</strong> ขวา<strong>นิติ</strong> ตั้ง<strong>บริการที่ใช้ได้</strong> (โอน→โอนเงิน→บัตร) ด้วยดรอปดาวน์เปิด/ปิด สีแดงพาสเทลเมื่อเปิด FOLLOW_HQ ตามตาราง ค่าเริ่มต้น: บุคคล=โอนเงินอย่างเดียว(USD/EUR) นิติ=โอนท้องถิ่น+โอนเงิน(USD/EUR) บัตร=ปิด โอนเงินเฉพาะ USD/EUR บัญชีรับอยู่จัดการบัญชี</p>
+        <span class="menu-path">HQ Policy → Verification Mgmt → Payment</span>
         <p><strong>ICOPAY (บัตร)</strong></p>
         <ol>
           <li>นโยบายชำระบัตร: เปิด/ปิด และ % ค่าธรรมเนียมบัตร</li>

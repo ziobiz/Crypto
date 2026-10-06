@@ -49,6 +49,7 @@ export const HQ_PAGE_CATALOG = [
   { path: '/dashboard/hq-policy/commission', label: '수수료관리', group: 'hqPolicy' },
   { path: '/dashboard/hq-policy/risk', label: '리스크관리', group: 'hqPolicy' },
   { path: '/dashboard/hq-policy/accounts', label: '계좌관리', group: 'hqPolicy' },
+  { path: '/dashboard/hq-policy/services', label: '서비스관리', group: 'hqPolicy' },
   { path: '/dashboard/hq-policy/platform', label: '플랫폼', group: 'hqPolicy' },
   { path: '/dashboard/hq-policy/ops', label: '운영관리', group: 'hqPolicy' },
   { path: '/dashboard/hq-policy/ops/workflow', label: '진행상태·처리시한', group: 'hqPolicy' },
@@ -106,6 +107,8 @@ export const HQ_CONFIG_KEYS = {
   emailOtp: 'hq.platform.email_otp',
   icopay: 'hq.platform.icopay',
   cardPayment: 'hq.payment.card',
+  /** 개인/법인 × 통화별 이체·카드·송금 서비스 매트릭스 (SSOT) */
+  usdtServiceMatrix: 'hq.usdt.service_matrix',
   /** Fukugu/CURFEX 일본 이체 Collection (고정계좌 대체 옵션) */
   curfex: 'hq.payment.curfex',
   deletion: 'hq.deletion.policy',
@@ -1294,6 +1297,107 @@ export function remittanceCurrenciesFromAccounts(
   return list.length ? list : [...DEFAULT_DIRECT_REMIT_CURRENCIES];
 }
 
+export type UsdtCurrencyTradeFlags = { transfer: boolean; card: boolean };
+export type UsdtCurrencyTradePolicy = Record<UsdtFiatCurrency, UsdtCurrencyTradeFlags>;
+
+/** 서비스관리 — 통화별 제공 서비스 */
+export type UsdtServiceFlags = {
+  transfer: boolean;
+  card: boolean;
+  remittance: boolean;
+};
+
+export type UsdtServiceCustomerType = 'INDIVIDUAL' | 'CORPORATE';
+
+export type HqUsdtServiceMatrix = Record<
+  UsdtServiceCustomerType,
+  Record<UsdtFiatCurrency, UsdtServiceFlags>
+>;
+
+export function emptyServiceFlags(): UsdtServiceFlags {
+  return { transfer: false, card: false, remittance: false };
+}
+
+/** 초기값: 개인=송금만(USD/EUR), 법인=이체(로컬)+송금(USD/EUR), 카드는 끔. 송금은 USD/EUR만 허용 */
+export function DEFAULT_USDT_SERVICE_MATRIX(): HqUsdtServiceMatrix {
+  const individual = {} as Record<UsdtFiatCurrency, UsdtServiceFlags>;
+  const corporate = {} as Record<UsdtFiatCurrency, UsdtServiceFlags>;
+  for (const cur of USDT_FIAT_CURRENCIES) {
+    const remit = defaultRemittanceEnabled(cur);
+    individual[cur] = { transfer: false, card: false, remittance: remit };
+    corporate[cur] = {
+      transfer: !remit,
+      card: false,
+      remittance: remit,
+    };
+  }
+  return { INDIVIDUAL: individual, CORPORATE: corporate };
+}
+
+export function normalizeUsdtServiceMatrix(raw?: Partial<HqUsdtServiceMatrix> | null): HqUsdtServiceMatrix {
+  const base = DEFAULT_USDT_SERVICE_MATRIX();
+  const out = DEFAULT_USDT_SERVICE_MATRIX();
+  for (const type of ['INDIVIDUAL', 'CORPORATE'] as const) {
+    for (const cur of USDT_FIAT_CURRENCIES) {
+      const src = raw?.[type]?.[cur] ?? base[type][cur];
+      const remitAllowed = defaultRemittanceEnabled(cur);
+      out[type][cur] = {
+        transfer: src?.transfer === true,
+        card: src?.card === true,
+        /** 송금은 USD/EUR만 — 그 외 통화는 강제 off */
+        remittance: remitAllowed && src?.remittance === true,
+      };
+    }
+  }
+  return out;
+}
+
+export function toServiceCustomerType(customerType?: string | null): UsdtServiceCustomerType {
+  return String(customerType).toUpperCase() === 'CORPORATE' ? 'CORPORATE' : 'INDIVIDUAL';
+}
+
+export function resolveUsdtCurrencyTradeFromMatrix(
+  matrix: HqUsdtServiceMatrix,
+  customerType?: string | null,
+): UsdtCurrencyTradePolicy {
+  const type = toServiceCustomerType(customerType);
+  const row = matrix[type];
+  return {
+    KRW: { transfer: row.KRW.transfer, card: row.KRW.card },
+    JPY: { transfer: row.JPY.transfer, card: row.JPY.card },
+    THB: { transfer: row.THB.transfer, card: row.THB.card },
+    CNY: { transfer: row.CNY.transfer, card: row.CNY.card },
+    USD: { transfer: row.USD.transfer, card: row.USD.card },
+    EUR: { transfer: row.EUR.transfer, card: row.EUR.card },
+  };
+}
+
+export function remittanceCurrenciesFromMatrix(
+  matrix: HqUsdtServiceMatrix,
+  customerType?: string | null,
+): UsdtFiatCurrency[] {
+  const type = toServiceCustomerType(customerType);
+  const list = USDT_FIAT_CURRENCIES.filter(
+    (c) => defaultRemittanceEnabled(c) && matrix[type][c].remittance === true,
+  );
+  return list.length ? list : [];
+}
+
+/** FOLLOW_HQ: 해당 유형에서 수단이 한 통화라도 on이면 true */
+export function hqServiceMethodEnabled(
+  matrix: HqUsdtServiceMatrix,
+  customerType: string | null | undefined,
+  method: 'BANK' | 'REMITTANCE' | 'CARD',
+): boolean {
+  const type = toServiceCustomerType(customerType);
+  return USDT_FIAT_CURRENCIES.some((c) => {
+    const f = matrix[type][c];
+    if (method === 'BANK') return f.transfer;
+    if (method === 'REMITTANCE') return f.remittance;
+    return f.card;
+  });
+}
+
 export function resolveDepositNotice(
   account: Pick<DepositReceivingAccount, 'notice' | 'noticeI18n'> | null | undefined,
   locale: string,
@@ -1305,9 +1409,6 @@ export function resolveDepositNotice(
   if (account?.notice?.trim()) return account.notice.trim();
   return fallback;
 }
-
-export type UsdtCurrencyTradeFlags = { transfer: boolean; card: boolean };
-export type UsdtCurrencyTradePolicy = Record<UsdtFiatCurrency, UsdtCurrencyTradeFlags>;
 
 export type HqPlatformConfig = {
   primaryDomain: string;

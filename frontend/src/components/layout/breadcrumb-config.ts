@@ -160,6 +160,10 @@ const RULES: RouteRule[] = [
     meta: { titleKey: 'hq.hub.accounts', trail: [{ labelKey: 'nav.hqPolicy', href: D.hq }] },
   },
   {
+    test: (p) => p.startsWith('/dashboard/hq-policy/services'),
+    meta: { titleKey: 'hq.hub.services', trail: [{ labelKey: 'nav.hqPolicy', href: D.hq }] },
+  },
+  {
     test: (p) => p.startsWith('/dashboard/hq-policy/platform'),
     meta: { titleKey: 'hq.hub.platform', trail: [{ labelKey: 'nav.hqPolicy', href: D.hq }] },
   },

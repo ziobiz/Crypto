@@ -17,7 +17,12 @@ import { UsdtRatePanel } from '@/components/UsdtRatePanel';
 import { UsdtFeeBreakdownPanel } from '@/components/UsdtFeeBreakdown';
 import { FormattedAmountInput } from '@/components/FormattedAmountInput';
 import { ContentCard } from '@/components/layout/ContentCard';
-import { CardPaymentForm, emptyCardForm, type CardFormState } from '@/components/CardPaymentForm';
+import {
+  CardPaymentForm,
+  emptyCardForm,
+  isEnglishName,
+  type CardFormState,
+} from '@/components/CardPaymentForm';
 import { LocalizedFileInput } from '@/components/LocalizedFileInput';
 import { ReferenceClocks } from '@/components/ReferenceClocks';
 import { CopyableMono } from '@/components/CopyButton';
@@ -132,7 +137,10 @@ export default function UsdtNewPage() {
           email: ctx.userEmail ?? '',
           phone: ctx.userPhone ?? '',
           phoneCountryCode: ctx.userPhoneCountryCode ?? '+82',
-          cardholderName: ctx.userName ?? '',
+          // ICOPAY는 영문 성/이름 필수 — 한글 프로필명은 자동 채우지 않음
+          firstName: '',
+          lastName: '',
+          cardholderName: '',
         }),
       );
     }).catch(() => setCardContext({
@@ -436,7 +444,15 @@ export default function UsdtNewPage() {
       }
 
       if (isCard) {
-        if (!cardForm.email.trim() || !cardForm.phone.trim()) {
+        const firstName = (cardForm.firstName ?? '').trim();
+        const lastName = (cardForm.lastName ?? '').trim();
+        if (
+          !cardForm.email.trim() ||
+          !cardForm.phone.trim() ||
+          !cardForm.phoneCountryCode.trim() ||
+          !isEnglishName(firstName) ||
+          !isEnglishName(lastName)
+        ) {
           setError(t('usdt.cardBuyerRequired'));
           setLoading(false);
           return;
@@ -449,10 +465,12 @@ export default function UsdtNewPage() {
           targetUsdtAmount: inputMode === 'target' ? usdtAmount : undefined,
           cardChargeFiat: inputMode === 'cardCharge' ? cardChargeFiat : undefined,
           card: {
-            cardholderName: cardForm.cardholderName || cardContext?.userName || 'TINPASS',
-            email: cardForm.email,
-            phone: cardForm.phone,
-            phoneCountryCode: cardForm.phoneCountryCode,
+            firstName,
+            lastName,
+            cardholderName: `${firstName} ${lastName}`,
+            email: cardForm.email.trim(),
+            phone: cardForm.phone.trim(),
+            phoneCountryCode: cardForm.phoneCountryCode.trim(),
           },
         });
         const payUrl = ticket.icopayCheckout?.payUrl;
@@ -733,7 +751,9 @@ export default function UsdtNewPage() {
                   className={`pg-choice ${inputMode === 'target' ? 'pg-choice-active' : ''}`}
                 >
                   <span className="block font-semibold">{t('usdt.inputModeTarget')}</span>
-                  <span className="mt-0.5 block text-[10px] opacity-80 sm:text-xs">{t('usdt.targetUsdtDesc')}</span>
+                  <span className="mt-0.5 block text-[10px] opacity-80 sm:text-xs">
+                    {t(isCard ? 'usdt.targetUsdtDescCard' : 'usdt.targetUsdtDesc')}
+                  </span>
                 </button>
                 {isCard ? (
                   <button

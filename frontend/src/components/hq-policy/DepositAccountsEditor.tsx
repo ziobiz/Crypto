@@ -46,6 +46,7 @@ export function DepositAccountsEditor({ config, setConfig }: Props) {
   return (
     <div className="space-y-4">
       <p className="pg-hint">{t('hq.platform.depositAccountsDesc')}</p>
+      <p className="pg-hint font-medium text-sky-900">{t('hq.accounts.servicesMovedHint')}</p>
       <p className="pg-hint font-medium text-amber-800">{t('hq.accounts.depositWhere')}</p>
       <div className="grid gap-4 lg:grid-cols-2">
         {(['KRW', 'JPY', 'THB', 'CNY', 'USD', 'EUR'] as const).map((cur) => {
@@ -129,10 +130,6 @@ export function DepositAccountsEditor({ config, setConfig }: Props) {
               noticeI18n: { ...(acct.noticeI18n ?? {}), [depositNoticeLocale]: value },
               notice: depositNoticeLocale === 'KR' ? value : acct.notice,
             });
-          const remitChecked =
-            acct.remittanceEnabled !== undefined
-              ? acct.remittanceEnabled === true
-              : cur === 'USD' || cur === 'EUR';
 
           return (
             <div key={cur} className="rounded border border-slate-200 bg-white p-3 space-y-2">
@@ -173,30 +170,6 @@ export function DepositAccountsEditor({ config, setConfig }: Props) {
                       {t('hq.platform.depositFillEurSepa')}
                     </button>
                   )}
-                  <label className="inline-flex items-center gap-1.5">
-                    <input
-                      type="checkbox"
-                      checked={acct.transferEnabled !== false}
-                      onChange={(e) => patchAcct({ ...acct, transferEnabled: e.target.checked })}
-                    />
-                    {t('hq.platform.depositTransferEnabled')}
-                  </label>
-                  <label className="inline-flex items-center gap-1.5">
-                    <input
-                      type="checkbox"
-                      checked={acct.cardEnabled !== false}
-                      onChange={(e) => patchAcct({ ...acct, cardEnabled: e.target.checked })}
-                    />
-                    {t('hq.platform.depositCardEnabled')}
-                  </label>
-                  <label className="inline-flex items-center gap-1.5">
-                    <input
-                      type="checkbox"
-                      checked={remitChecked}
-                      onChange={(e) => patchAcct({ ...acct, remittanceEnabled: e.target.checked })}
-                    />
-                    {t('hq.accounts.depositRemittanceEnabled')}
-                  </label>
                 </div>
               </div>
               {isWesternRail ? (

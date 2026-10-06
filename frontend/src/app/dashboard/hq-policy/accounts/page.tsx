@@ -166,7 +166,6 @@ export default function HqAccountsPage() {
         <div className="pg-section-head">{t('hq.platform.depositAccounts')}</div>
         <div className="pg-section-pad space-y-4">
           <DepositAccountsEditor config={config} setConfig={setConfig} />
-          <p className="text-[11px] text-sky-900">{t('hq.accounts.remittanceToggleHint')}</p>
           <p className="text-[11px] text-amber-900">{t('hq.accounts.remittanceLimitHint')}</p>
           <PolicyTableActions>
             <button

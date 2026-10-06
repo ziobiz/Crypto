@@ -508,7 +508,7 @@ export default function CustomersPage() {
       {msg && !modal && <p className="pg-callout pg-callout-success">{msg}</p>}
 
       <div className="pg-card pg-table-wrap">
-        <table className="pg-table pg-table-ops">
+        <table className="pg-table pg-table-ops pg-table-customers">
           <thead>
             <tr>
               <th>{t('users.col.email')}</th>

@@ -47,6 +47,11 @@ import {
   USDT_FIAT_CURRENCIES,
   defaultRemittanceEnabled,
   remittanceCurrenciesFromAccounts,
+  remittanceCurrenciesFromMatrix,
+  resolveUsdtCurrencyTradeFromMatrix,
+  hqServiceMethodEnabled,
+  toServiceCustomerType,
+  type HqUsdtServiceMatrix,
   type HqUsdtQuoteResponsePolicy,
   normalizeUsdtQuoteResponsePolicy,
   normalizeExpressPolicy,
@@ -67,6 +72,10 @@ import {
   saveCardPaymentConfig,
   saveIcopayConfig,
 } from './card-payment-policy.service';
+import {
+  getUsdtServiceMatrix,
+  saveUsdtServiceMatrix,
+} from './usdt-service-matrix.service';
 import {
   getCurfexConfig,
   getCurfexConfigMasked,
@@ -1157,29 +1166,115 @@ export const hqPolicyService = {
     return config.depositReceivingAccounts ?? {};
   },
 
-  async getUsdtCurrencyTradePolicy() {
-    return resolveUsdtCurrencyTradePolicy(await this.getDepositReceivingAccounts());
+  async getUsdtServiceMatrix() {
+    return getUsdtServiceMatrix();
   },
 
-  /** 송금계좌(DIRECT) 모드에서 사용 가능한 통화 (송금거래 on ∩ 계좌 등록) */
-  async getRemittanceTradeCurrencies() {
+  async saveUsdtServiceMatrix(audit: AuditContext, config: HqUsdtServiceMatrix) {
+    const before = await getUsdtServiceMatrix();
+    const after = await saveUsdtServiceMatrix(config);
+    /** 레거시 계좌 플래그 동기화 (OR) — 서비스관리가 SSOT */
+    try {
+      const platform = await this.getDepositReceivingAccounts();
+      const nextAccounts = { ...platform };
+      for (const cur of USDT_FIAT_CURRENCIES) {
+        const prev = nextAccounts[cur] ?? {
+          bankName: '',
+          accountNumber: '',
+          accountHolder: '',
+          notice: '',
+        };
+        nextAccounts[cur] = {
+          ...prev,
+          transferEnabled:
+            after.INDIVIDUAL[cur].transfer || after.CORPORATE[cur].transfer,
+          cardEnabled: after.INDIVIDUAL[cur].card || after.CORPORATE[cur].card,
+          remittanceEnabled:
+            after.INDIVIDUAL[cur].remittance || after.CORPORATE[cur].remittance,
+        };
+      }
+      const existing = await getConfig(HQ_CONFIG_KEYS.platform, defaultPlatform());
+      await prisma.systemConfig.upsert({
+        where: { key: HQ_CONFIG_KEYS.platform },
+        create: {
+          key: HQ_CONFIG_KEYS.platform,
+          value: { ...existing, depositReceivingAccounts: nextAccounts } as object,
+          description: '플랫폼 도메인·SSL',
+        },
+        update: {
+          value: { ...existing, depositReceivingAccounts: nextAccounts } as object,
+        },
+      });
+    } catch {
+      /* sync best-effort */
+    }
+    await logAdminChange({
+      actor: audit.actor,
+      action: AdminChangeAction.UPDATE,
+      entityType: 'HQ_USDT_SERVICE_MATRIX',
+      entityId: HQ_CONFIG_KEYS.usdtServiceMatrix,
+      entityLabel: '서비스관리',
+      summary: `USDT 서비스관리 저장 (관리자: ${audit.actor.email})`,
+      before,
+      after,
+      ipAddress: audit.ipAddress,
+      userAgent: audit.userAgent,
+    });
+    return { config: after };
+  },
+
+  async getUsdtCurrencyTradePolicy(customerType?: string | null) {
+    const matrix = await getUsdtServiceMatrix();
+    return resolveUsdtCurrencyTradeFromMatrix(matrix, customerType);
+  },
+
+  /** 송금계좌(DIRECT) 모드에서 사용 가능한 통화 — 서비스관리 송금 on (USD/EUR만) */
+  async getRemittanceTradeCurrencies(customerType?: string | null) {
+    const matrix = await getUsdtServiceMatrix();
+    const fromMatrix = remittanceCurrenciesFromMatrix(matrix, customerType);
+    if (fromMatrix.length) return fromMatrix;
+    /** 레거시 폴백: 계좌 플래그 (매트릭스 전부 off일 때) */
     return remittanceCurrenciesFromAccounts(await this.getDepositReceivingAccounts());
   },
 
-  async assertUsdtFiatMethodEnabled(currency: string, method: 'TRANSFER' | 'CARD') {
-    const policy = await this.getUsdtCurrencyTradePolicy();
-    const flags = policy[currency as keyof typeof policy];
+  async assertUsdtFiatMethodEnabled(
+    currency: string,
+    method: 'TRANSFER' | 'CARD' | 'REMITTANCE',
+    customerType?: string | null,
+  ) {
+    const matrix = await getUsdtServiceMatrix();
+    const type = toServiceCustomerType(customerType);
+    const flags = matrix[type][currency as keyof (typeof matrix)['INDIVIDUAL']];
     if (!flags) return;
-    const ok = method === 'CARD' ? flags.card : flags.transfer;
+    const ok =
+      method === 'CARD'
+        ? flags.card
+        : method === 'REMITTANCE'
+          ? flags.remittance
+          : flags.transfer;
     if (!ok) {
       throw new AppError(
         400,
         method === 'CARD'
           ? `Card payment is disabled for ${currency}`
-          : `Bank transfer is disabled for ${currency}`,
-        method === 'CARD' ? 'FIAT_CARD_DISABLED' : 'FIAT_TRANSFER_DISABLED',
+          : method === 'REMITTANCE'
+            ? `Remittance is disabled for ${currency}`
+            : `Bank transfer is disabled for ${currency}`,
+        method === 'CARD'
+          ? 'FIAT_CARD_DISABLED'
+          : method === 'REMITTANCE'
+            ? 'FIAT_REMITTANCE_DISABLED'
+            : 'FIAT_TRANSFER_DISABLED',
       );
     }
+  },
+
+  async hqServiceMethodEnabled(
+    method: 'BANK' | 'REMITTANCE' | 'CARD',
+    customerType?: string | null,
+  ) {
+    const matrix = await getUsdtServiceMatrix();
+    return hqServiceMethodEnabled(matrix, customerType, method);
   },
 
   async saveCardPayment(audit: AuditContext, config: HqCardPaymentConfig) {

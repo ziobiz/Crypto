@@ -33,7 +33,11 @@ export async function fetchFromCoinGecko(currency: SymbolFeeCurrency): Promise<E
   return { rate, source: 'coingecko', fetchedAt: new Date() };
 }
 
-export async function fetchFromExchangeRateApi(currency: SymbolFeeCurrency): Promise<ExchangeRateFetchResult | null> {
+/**
+ * USD→법정통화 FX만 (1 USD당 fiat). 프리미엄 이론가 계산용.
+ * 매입 기준가로는 쓰지 말 것 — USDT/USD 보정이 빠진 값이다.
+ */
+export async function fetchUsdFiatForex(currency: SymbolFeeCurrency): Promise<ExchangeRateFetchResult | null> {
   if (currency === 'USD') {
     return { rate: 1, source: 'exchangerate_api', fetchedAt: new Date() };
   }
@@ -41,6 +45,22 @@ export async function fetchFromExchangeRateApi(currency: SymbolFeeCurrency): Pro
   const data = await fetchJson<{ rates?: Record<string, number> }>(apiUrl);
   const rate = data?.rates?.[currency];
   if (!rate || rate <= 0) return null;
+  return { rate, source: 'exchangerate_api', fetchedAt: new Date() };
+}
+
+/**
+ * 매입용 1 USDT당 법정통화.
+ * FX(USD→fiat) × USDT/USD — USDT가 $1에서 벗어나도 과지급/손실이 나지 않도록 보정.
+ */
+export async function fetchFromExchangeRateApi(currency: SymbolFeeCurrency): Promise<ExchangeRateFetchResult | null> {
+  const [forex, usdtUsd] = await Promise.all([
+    fetchUsdFiatForex(currency),
+    fetchFromCoinGecko('USD'),
+  ]);
+  if (!forex?.rate || forex.rate <= 0) return null;
+  const usdtUsdRate = usdtUsd?.rate && usdtUsd.rate > 0 ? usdtUsd.rate : 1;
+  const rate = forex.rate * usdtUsdRate;
+  if (!Number.isFinite(rate) || rate <= 0) return null;
   return { rate, source: 'exchangerate_api', fetchedAt: new Date() };
 }
 

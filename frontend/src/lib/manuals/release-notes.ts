@@ -3,6 +3,150 @@ import type { PlatformReleaseNote } from './version';
 /** 본사정책 → 검증관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
 export const PLATFORM_RELEASE_NOTES: PlatformReleaseNote[] = [
   {
+    version: '2.6.205',
+    kind: 'minor',
+    date: '2026-10-06',
+    items: {
+      KR: [
+        '카드결제: 희망 USDT=시볼+카드수수료 역산 안내 강화. 구매자 영문 성/이름 분리·파스텔 블루 카드. 전화번호는 폼 입력 우선(프로필 미등록 오류 수정). 카드번호는 ICOPAY에서 입력.',
+      ],
+      US: [
+        'Card pay: clearer target-USDT reverse quote (symbol+card fees). English first/last name, pastel-blue buyer card. Phone from form (fixes profile-missing error). PAN on ICOPAY only.',
+      ],
+      JP: [
+        'カード決済: 希望USDTはシンボル+カード手数料を逆算と明示。英字名・姓分離・パステル青カード。電話はフォーム優先。カード番号はICOPAYのみ。',
+      ],
+      CH: [
+        '卡支付：希望到账 USDT 明确含交易对+卡费反算。英文名/姓分栏、淡蓝信息卡。电话优先表单。卡号仅在 ICOPAY 输入。',
+      ],
+      TH: [
+        'ชำระบัตร: เป้าหมาย USDT รวมค่าสัญลักษณ์+ค่าบัตร แยกชื่อ·นามสกุลอังกฤษ การ์ดฟ้าพาสเทล โทรจากฟอร์ม เลขบัตรที่ ICOPAY เท่านั้น',
+      ],
+    },
+  },
+  {
+    version: '2.6.204',
+    kind: 'minor',
+    date: '2026-10-06',
+    items: {
+      KR: [
+        '기준가 exchangerate_api: USD→법정통화 × USDT/USD로 보정. EUR·CNY·USD에서 USDT 디페그 시 과지급(손실) 방지. 김프/로컬 프리미엄 이론가는 FX 원본 유지.',
+      ],
+      US: [
+        'exchangerate_api base rate: FX × USDT/USD. Prevents over-delivering USDT on EUR/CNY/USD when USDT depegs. Local-premium fair rate still uses raw FX.',
+      ],
+      JP: [
+        '基準価 exchangerate_api: FX×USDT/USDで補正。EUR・CNY・USDでUSDT乖離時の過交付(損失)を防止。ローカルプレミアム理論値はFX原値を維持。',
+      ],
+      CH: [
+        '基准价 exchangerate_api：FX×USDT/USD 校正。EUR/CNY/USD 在 USDT 脱锚时防过量交付。本地溢价理论价仍用原始 FX。',
+      ],
+      TH: [
+        'อัตรา exchangerate_api: FX×USDT/USD กันจ่าย USDT เกินเมื่อหลุดเป็ก EUR/CNY/USD ทฤษฎีพรีเมียมท้องถิ่นยังใช้ FX ดิบ',
+      ],
+    },
+  },
+  {
+    version: '2.6.203',
+    kind: 'minor',
+    date: '2026-10-06',
+    items: {
+      KR: [
+        '서비스관리: 「이용 가능 서비스」 그룹 헤더 제거. 통화·이체·송금·카드를 한 줄 헤더로 정리.',
+      ],
+      US: [
+        'Service management: Removed “Available services” group header. Single header row: Currency · Transfer · Remittance · Card.',
+      ],
+      JP: [
+        'サービス管理: 「利用可能サービス」グループ見出しを削除。通貨・振込・送金・カードを1行ヘッダーに整理。',
+      ],
+      CH: [
+        '服务管理：移除「可用服务」分组表头。币种·转账·汇款·卡单行表头。',
+      ],
+      TH: [
+        'จัดการบริการ: ลบหัวกลุ่ม「บริการที่ใช้ได้」 หัวแถวเดียว: สกุลเงิน·โอน·โอนเงิน·บัตร',
+      ],
+    },
+  },
+  {
+    version: '2.6.202',
+    kind: 'minor',
+    date: '2026-10-06',
+    items: {
+      KR: [
+        '서비스관리 UI: 개인/법인 제목을 테이블 밖 왼쪽에 표시(배경 없음). 표준 pg-table 칸선·교차 행 배경. 헤더 굵기 통일.',
+      ],
+      US: [
+        'Service management UI: Individual/Corporate titles outside the table (no background). Standard pg-table cell borders and zebra rows. Unified header weight.',
+      ],
+      JP: [
+        'サービス管理UI: 個人/法人タイトルを表外左に表示（背景なし）。標準pg-tableの罫線・交互行。ヘッダー太さ統一。',
+      ],
+      CH: [
+        '服务管理 UI：个人/企业标题在表外左侧（无底色）。标准 pg-table 格线与斑马行。表头字重统一。',
+      ],
+      TH: [
+        'UI จัดการบริการ: หัวข้อบุคคล/นิตินอกตารางซ้าย (ไม่มีพื้น) เส้นช่อง·แถวสลับแบบ pg-table น้ำหนักหัวตารางเท่ากัน',
+      ],
+    },
+  },
+  {
+    version: '2.6.201',
+    kind: 'minor',
+    date: '2026-10-06',
+    items: {
+      KR: [
+        '서비스관리: 개인·법인을 한 화면 좌우 배치. 활성/비활성 드롭다운, 활성=파스텔 빨강. 「이용 가능 서비스」·열 순서 이체→송금→카드.',
+      ],
+      US: [
+        'Service management: Individual and Corporate side by side. Active/Inactive dropdowns; Active = pastel red. “Available services”; order transfer → remittance → card.',
+      ],
+      JP: [
+        'サービス管理: 個人・法人を同一画面左右配置。有効/無効ドロップダウン、有効=パステル赤。「利用可能サービス」、列順は振込→送金→カード。',
+      ],
+      CH: [
+        '服务管理：个人与企业同屏左右排列。启用/停用下拉，启用=粉红底。「可用服务」；列序为转账→汇款→卡。',
+      ],
+      TH: [
+        'จัดการบริการ: บุคคล·นิติซ้ายขวาในหน้าเดียว ดรอปดาวน์เปิด/ปิด เปิดใช้=แดงพาสเทล 「บริการที่ใช้ได้」 ลำดับโอน→โอนเงิน→บัตร',
+      ],
+    },
+  },
+  {
+    version: '2.6.200',
+    kind: 'minor',
+    date: '2026-10-06',
+    items: {
+      KR: ['고객관리 목록 테이블 헤더를 축소해 한 줄로 표시합니다.'],
+      US: ['Customer list table headers are compacted to stay on one line.'],
+      JP: ['顧客管理一覧のヘッダーを縮小し1行表示にします。'],
+      CH: ['客户管理列表表头缩小为单行显示。'],
+      TH: ['ย่อหัวตารางรายชื่อลูกค้าให้แสดงบรรทัดเดียว'],
+    },
+  },
+  {
+    version: '2.6.199',
+    kind: 'minor',
+    date: '2026-10-06',
+    items: {
+      KR: [
+        '본사정책 「서비스관리」 추가: 개인/법인 탭 × 통화별 이체·카드·송금. 계좌관리에서 서비스 체크 분리. FOLLOW_HQ는 이 표 기준. 송금은 USD·EUR만.',
+      ],
+      US: [
+        'HQ Policy “Service management”: Individual/Corporate tabs × transfer/card/remittance by currency. Removed service toggles from Accounts. FOLLOW_HQ uses this table. Remittance USD/EUR only.',
+      ],
+      JP: [
+        '本社ポリシー「サービス管理」追加: 個人/法人タブ×通貨別振込・カード・送金。口座管理からサービス切替を分離。FOLLOW_HQはこの表。送金はUSD/EURのみ。',
+      ],
+      CH: [
+        '总部策略新增「服务管理」：个人/企业页签×按币种转账·卡·汇款。账户管理去掉服务开关。FOLLOW_HQ 按此表。汇款仅 USD/EUR。',
+      ],
+      TH: [
+        'เพิ่ม「จัดการบริการ」ใน HQ: แท็บบุคคล/นิติ × โอน·บัตร·โอนเงินรายสกุล แยกจากจัดการบัญชี FOLLOW_HQ ตามตาราง โอนเงินเฉพาะ USD/EUR',
+      ],
+    },
+  },
+  {
     version: '2.6.198',
     kind: 'minor',
     date: '2026-10-05',

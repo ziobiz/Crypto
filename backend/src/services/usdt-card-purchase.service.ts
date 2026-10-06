@@ -62,11 +62,13 @@ async function assertCustomerCardPayAllowed(user: AuthUser) {
     where: { id: user.customerProfileId },
     select: { customerType: true, usdtPayCardMode: true },
   });
+  const hqCard = await hqPolicyService.hqServiceMethodEnabled('CARD', profile?.customerType);
   if (
     !isUsdtPayMethodAllowed({
       mode: profile?.usdtPayCardMode,
       method: 'CARD',
       customerType: profile?.customerType,
+      hqMethodAllowed: hqCard,
     })
   ) {
     throw new AppError(400, 'Card payment is disabled for this customer', 'CUSTOMER_CARD_DISABLED');
@@ -74,11 +76,6 @@ async function assertCustomerCardPayAllowed(user: AuthUser) {
 }
 
 export async function getUsdtCardPaymentContext(user: AuthUser) {
-  const [card, icopay, currencyTrade] = await Promise.all([
-    getCardPaymentConfig(),
-    import('./card-payment-policy.service').then((m) => m.getIcopayConfigMasked()),
-    hqPolicyService.getUsdtCurrencyTradePolicy(),
-  ]);
   const dbUser =
     user.role === UserRole.CUSTOMER || user.role === UserRole.CUSTOMER_OPERATOR
       ? await prisma.user.findUnique({
@@ -97,10 +94,18 @@ export async function getUsdtCardPaymentContext(user: AuthUser) {
           },
         })
       : null;
+  const customerType = dbUser?.customerProfile?.customerType ?? null;
+  const [card, icopay, currencyTrade, hqCard] = await Promise.all([
+    getCardPaymentConfig(),
+    import('./card-payment-policy.service').then((m) => m.getIcopayConfigMasked()),
+    hqPolicyService.getUsdtCurrencyTradePolicy(customerType),
+    hqPolicyService.hqServiceMethodEnabled('CARD', customerType),
+  ]);
   const customerCardAllowed = isUsdtPayMethodAllowed({
     mode: dbUser?.customerProfile?.usdtPayCardMode,
     method: 'CARD',
-    customerType: dbUser?.customerProfile?.customerType,
+    customerType,
+    hqMethodAllowed: hqCard,
   });
   return {
     cardPaymentEnabled: card.enabled && customerCardAllowed,
@@ -137,7 +142,15 @@ export async function previewUsdtCardFees(
   }
   await assertCustomerCardPayAllowed(user);
   const currency = input.fiatCurrency ?? 'JPY';
-  await hqPolicyService.assertUsdtFiatMethodEnabled(currency, 'CARD');
+  const profileType = user.customerProfileId
+    ? (
+        await prisma.customerProfile.findUnique({
+          where: { id: user.customerProfileId },
+          select: { customerType: true },
+        })
+      )?.customerType
+    : null;
+  await hqPolicyService.assertUsdtFiatMethodEnabled(currency, 'CARD', profileType);
 
   if (input.cardChargeFiat != null && input.cardChargeFiat > 0) {
     const { cardFeeFiat, fiatForConversion } = splitCardCharge(
@@ -235,8 +248,21 @@ export async function createUsdtCardPurchase(
     where: { id: user.id },
     select: { phone: true, phoneCountryCode: true, email: true, name: true },
   });
-  if (!dbUser?.phone?.trim() || !dbUser.phoneCountryCode?.trim()) {
+  const buyerPhone = input.card.phone?.trim() || dbUser?.phone?.trim() || '';
+  const buyerPhoneCc =
+    input.card.phoneCountryCode?.trim() || dbUser?.phoneCountryCode?.trim() || '';
+  if (!buyerPhone || !buyerPhoneCc) {
     throw new AppError(400, 'Phone number with country code is required', 'PHONE_REQUIRED');
+  }
+  const englishNameRe = /^[A-Za-z][A-Za-z .'-]*$/;
+  const firstName = String(input.card.firstName ?? '').trim();
+  const lastName = String(input.card.lastName ?? '').trim();
+  if (!englishNameRe.test(firstName) || !englishNameRe.test(lastName)) {
+    throw new AppError(
+      400,
+      'Buyer first and last name must be in English letters',
+      'CARD_BUYER_NAME_ENGLISH',
+    );
   }
 
   const wallet = await prisma.wallet.findFirst({
@@ -254,7 +280,15 @@ export async function createUsdtCardPurchase(
 
   const sessionPolicy = await hqPolicyService.getSessionPolicy();
   const currency = input.fiatCurrency ?? sessionPolicy.defaultUsdtFiatCurrency ?? 'JPY';
-  await hqPolicyService.assertUsdtFiatMethodEnabled(currency, 'CARD');
+  const createProfile = await prisma.customerProfile.findUnique({
+    where: { id: user.customerProfileId },
+    select: { customerType: true },
+  });
+  await hqPolicyService.assertUsdtFiatMethodEnabled(
+    currency,
+    'CARD',
+    createProfile?.customerType,
+  );
   const { rate, source, fetchedAt } = await fetchUsdtFiatRate(currency);
 
   let fiatAmount: number;
@@ -402,12 +436,12 @@ export async function createUsdtCardPurchase(
       productName: `TINPASS USDT ${orderId}`,
       lang: input.lang,
       buyer: {
-        email: input.card.email || dbUser.email,
-        phone: input.card.phone || dbUser.phone!,
-        phoneCountryCode: input.card.phoneCountryCode || dbUser.phoneCountryCode!,
-        cardholderName: input.card.cardholderName || dbUser.name || 'TINPASS Buyer',
-        firstName: input.card.firstName,
-        lastName: input.card.lastName,
+        email: input.card.email || dbUser?.email || '',
+        phone: buyerPhone,
+        phoneCountryCode: buyerPhoneCc,
+        cardholderName: `${firstName} ${lastName}`.trim(),
+        firstName,
+        lastName,
       },
     });
 

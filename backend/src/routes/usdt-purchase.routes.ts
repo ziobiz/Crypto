@@ -166,17 +166,28 @@ router.get(
       );
       return;
     }
-    if (paymentMethod === 'REMITTANCE') {
-      const remit = await hqPolicyService.getRemittanceTradeCurrencies();
-      if (!remit.includes(currency as (typeof remit)[number])) {
-        throw new AppError(
-          400,
-          `Remittance trade allows only: ${remit.join(', ')}`,
-          'DIRECT_REMIT_CURRENCY_ONLY',
-        );
+    {
+      const customerType = req.user!.customerProfileId
+        ? (
+            await prisma.customerProfile.findUnique({
+              where: { id: req.user!.customerProfileId },
+              select: { customerType: true },
+            })
+          )?.customerType
+        : null;
+      if (paymentMethod === 'REMITTANCE') {
+        const remit = await hqPolicyService.getRemittanceTradeCurrencies(customerType);
+        if (!remit.includes(currency as (typeof remit)[number])) {
+          throw new AppError(
+            400,
+            `Remittance trade allows only: ${remit.join(', ') || 'USD, EUR'}`,
+            'DIRECT_REMIT_CURRENCY_ONLY',
+          );
+        }
+        await hqPolicyService.assertUsdtFiatMethodEnabled(currency, 'REMITTANCE', customerType);
+      } else if (!(await customerHasLocalBankCurrency(req.user!, currency))) {
+        await hqPolicyService.assertUsdtFiatMethodEnabled(currency, 'TRANSFER', customerType);
       }
-    } else if (!(await customerHasLocalBankCurrency(req.user!, currency))) {
-      await hqPolicyService.assertUsdtFiatMethodEnabled(currency, 'TRANSFER');
     }
     const expressTier =
       req.query.expressTier != null ? String(req.query.expressTier) : undefined;
@@ -232,13 +243,19 @@ router.post(
 );
 
 /** ICOPAY hosted checkout — card PAN is entered on ICOPAY page */
+const englishNameSchema = z
+  .string()
+  .min(1)
+  .max(60)
+  .regex(/^[A-Za-z][A-Za-z .'-]*$/, 'English letters only');
+
 const cardSchema = z.object({
   email: z.string().email(),
   phone: z.string().min(6),
   phoneCountryCode: z.string().min(1),
+  firstName: englishNameSchema,
+  lastName: englishNameSchema,
   cardholderName: z.string().min(1).optional(),
-  firstName: z.string().min(1).optional(),
-  lastName: z.string().min(1).optional(),
 });
 
 const createSchema = z

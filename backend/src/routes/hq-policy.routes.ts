@@ -7,7 +7,7 @@ import { authenticate, requireRoles } from '../middleware/auth';
 import { auditFromRequest, listAdminChangeLogs, logAdminChange } from '../services/admin-change-log.service';
 import { hqPolicyService } from '../services/hq-policy.service';
 import { createPlatformRelease, listPlatformReleases } from '../services/platform-release.service';
-import type { HqAccessMatrix, HqCommissionRiskConfig, HqExchangeRateSourcePolicy, HqOrgColumnConfig, HqPlatformConfig, HqEmailOtpConfig, HqCardPaymentConfig, HqIcopayConfig, HqCurfexConfig, SymbolFeeTierPolicy, HqDeletionPolicy, HqOrgSharePolicy, HqWorkflowDisplayConfig, HqGasNetworkPolicy } from '../constants/hq-policy';
+import type { HqAccessMatrix, HqCommissionRiskConfig, HqExchangeRateSourcePolicy, HqOrgColumnConfig, HqPlatformConfig, HqEmailOtpConfig, HqCardPaymentConfig, HqIcopayConfig, HqCurfexConfig, SymbolFeeTierPolicy, HqDeletionPolicy, HqOrgSharePolicy, HqWorkflowDisplayConfig, HqGasNetworkPolicy, HqUsdtServiceMatrix } from '../constants/hq-policy';
 import {
   getDeletionPolicy,
   hardDeleteOrganization,
@@ -530,6 +530,26 @@ router.post(
   asyncHandler(async (req, res) => {
     const body = createReleaseSchema.parse(req.body);
     res.status(201).json(await createPlatformRelease(req.user!, body));
+  }),
+);
+
+router.get(
+  '/usdt-services',
+  asyncHandler(async (_req, res) => {
+    res.json({ config: await hqPolicyService.getUsdtServiceMatrix() });
+  }),
+);
+
+router.put(
+  '/usdt-services',
+  asyncHandler(async (req, res) => {
+    const body = req.body as { config?: HqUsdtServiceMatrix };
+    if (!body.config) {
+      res.status(400).json({ error: 'config required' });
+      return;
+    }
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await hqPolicyService.saveUsdtServiceMatrix(audit, body.config));
   }),
 );
 
