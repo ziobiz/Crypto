@@ -25,6 +25,7 @@ import { UsdtWalletSettlementPanel } from '@/components/UsdtWalletSettlementPane
 import { ScheduleDelayPanel } from '@/components/ScheduleDelayPanel';
 import { buildTicketStatusTimeline } from '@/lib/ticket-status-timeline';
 import { formatUsdtHistoryNote } from '@/lib/usdt-history-note';
+import { resolveHistoryActorName } from '@/lib/session-display';
 import {
   buildTradeReceiptDocumentHtml,
   downloadTradeReceiptPdf,
@@ -821,16 +822,14 @@ export default function UsdtDetailPage() {
                 </>
               )}
             </dl>
-            {(receiving.noticeI18n?.[locale] ||
-              receiving.noticeI18n?.KR ||
-              receiving.notice ||
+            {(receiving.noticeI18n?.[locale]?.trim() ||
+              (locale === 'KR' ? receiving.notice?.trim() : '') ||
               !isWesternRail) && (
               <div className="rounded border border-red-300 bg-red-50 px-3 py-2 text-xs font-semibold text-red-800 space-y-1">
                 <p>
-                  {(receiving.noticeI18n?.[locale] ||
-                    receiving.noticeI18n?.KR ||
-                    receiving.notice ||
-                    t('usdt.deposit.holderCopyWarning')) as string}
+                  {receiving.noticeI18n?.[locale]?.trim() ||
+                    (locale === 'KR' ? receiving.notice?.trim() : '') ||
+                    t('usdt.deposit.holderCopyWarning')}
                 </p>
                 {!isWesternRail ? (
                   <p className="font-medium text-red-700/90">{t('usdt.deposit.holderNameStayJp')}</p>
@@ -1188,7 +1187,10 @@ export default function UsdtDetailPage() {
           }
           trailingRows={
             ticket.cancelReason ? (
-              <DetailRow label={t('usdt.cancelReason')} value={ticket.cancelReason} />
+              <DetailRow
+                label={t('usdt.cancelReason')}
+                value={formatUsdtHistoryNote(ticket.cancelReason, t, locale) || ticket.cancelReason}
+              />
             ) : null
           }
         />
@@ -1462,9 +1464,9 @@ export default function UsdtDetailPage() {
           {statusTimeline.map((h) => (
             <li key={h.id} className="border-l-2 pl-4 text-xs" style={{ borderColor: 'var(--shell-card-border)' }}>
               <StatusBadge status={h.toStatus} kind="usdt" usdtContext={usdtCtx} />
-              {h.note && <p className="mt-0.5">{formatUsdtHistoryNote(h.note, t)}</p>}
+              {h.note && <p className="mt-0.5">{formatUsdtHistoryNote(h.note, t, locale)}</p>}
               <p className="mt-1 pg-hint">
-                {h.changedBy.name ? `${h.changedBy.name} · ` : ''}
+                {h.changedBy.name ? `${resolveHistoryActorName(h.changedBy.name, t)} · ` : ''}
                 {formatDate(h.createdAt)}
               </p>
             </li>

@@ -330,11 +330,9 @@ async function expireDepositWindowIfNeeded(
   const fromStatus = detail.status;
   const fromQuote = !!detail.quoteConfirmedAt || fromStatus === UsdtPurchaseStatus.QUOTE_CONFIRMED;
   const cancelReason = fromQuote
-    ? `${QUOTE_VALIDITY_EXPIRED_REASON}: 견적 유효시간 초과 — 일일 거래 1회 소진`
-    : '입금 기한(2시간) 초과';
-  const note = fromQuote
-    ? '견적 유효시간 초과 — 자동 종료(일일 1회 소진)'
-    : '입금 기한(2시간) 초과 — 자동 취소';
+    ? `${QUOTE_VALIDITY_EXPIRED_REASON}: USDT_QUOTE_EXPIRED`
+    : 'USDT_DEPOSIT_EXPIRED';
+  const note = fromQuote ? 'USDT_QUOTE_EXPIRED' : 'USDT_DEPOSIT_EXPIRED';
 
   await prisma.$transaction(async (tx) => {
     await tx.usdtPurchaseDetail.update({
@@ -1365,11 +1363,11 @@ export async function confirmUsdtQuote(
         changedById: actorId,
         note: opts?.system
           ? curfexIssue
-            ? '견적 자동 확정 · CURFEX 계좌 발급'
-            : '견적 자동 확정'
+            ? 'USDT_QUOTE_AUTO_CURFEX'
+            : 'USDT_QUOTE_AUTO'
           : curfexIssue
-            ? `견적 확정 · CURFEX 계좌 발급 (입금 ${confirmedFiat} / ${confirmedUsdt} USDT)`
-            : `견적 확정 (입금 ${confirmedFiat} / ${confirmedUsdt} USDT)`,
+            ? `USDT_QUOTE_CONFIRM_CURFEX|${confirmedFiat}|${confirmedUsdt}`
+            : `USDT_QUOTE_CONFIRM|${confirmedFiat}|${confirmedUsdt}`,
       },
     });
     return tx.transactionTicket.findUniqueOrThrow({
@@ -1659,7 +1657,7 @@ export async function transitionUsdtPurchaseStatus(
         fromStatus,
         toStatus,
         changedById: user.id,
-        note: extra?.adminNote || extra?.cancelReason || `입금 증빙 대기 (기한: ${deadline.toISOString()})`,
+        note: extra?.adminNote || extra?.cancelReason || `USDT_DEPOSIT_PROOF|${deadline.toISOString()}`,
       },
     });
     const refreshed = await prisma.transactionTicket.findUniqueOrThrow({
@@ -1733,7 +1731,7 @@ export async function transitionUsdtPurchaseStatus(
         }),
         ...(extra?.adminNote != null && { adminNote: extra.adminNote }),
         ...(toStatus === UsdtPurchaseStatus.CANCELLED && {
-          cancelReason: extra?.cancelReason ?? extra?.adminNote ?? '관리자 취소',
+          cancelReason: extra?.cancelReason ?? extra?.adminNote ?? 'USDT_ADMIN_CANCEL',
         }),
         ...(expressSettlement
           ? {

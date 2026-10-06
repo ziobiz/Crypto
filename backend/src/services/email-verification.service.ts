@@ -18,6 +18,7 @@ export async function createEmailVerificationChallenge(
   purpose: EmailVerifyPurpose,
   cfg: HqEmailOtpConfig,
   userName: string,
+  localeHint?: string | null,
 ): Promise<{ expiresAt: Date; expiresInSeconds: number }> {
   const minutes =
     purpose === 'REGISTER'
@@ -36,7 +37,7 @@ export async function createEmailVerificationChallenge(
     data: { email, purpose, codeHash, expiresAt },
   });
 
-  await sendOtpEmail(cfg, email, code, userName, minutes);
+  await sendOtpEmail(cfg, email, code, userName, minutes, localeHint);
   return { expiresAt, expiresInSeconds: minutes * 60 };
 }
 

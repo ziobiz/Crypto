@@ -27,6 +27,8 @@ import {
 } from '@/lib/inactive-notice-presets';
 import { type OrgTypeCode } from '@/lib/org-types';
 import { detailRowProps } from '@/lib/table-row-detail';
+import { formatDate } from '@/lib/format';
+import { resolveHistoryActorName } from '@/lib/session-display';
 
 const emptyCreate: CreateUserInput = {
   email: '',
@@ -331,7 +333,7 @@ export default function UsersPage() {
 
   function adminLabel(admin?: { name: string; email: string } | null) {
     if (!admin) return '—';
-    return `${admin.name} (${admin.email})`;
+    return `${resolveHistoryActorName(admin.name, t)} (${admin.email})`;
   }
 
   function mgmtActionLabel(action: string) {
@@ -425,7 +427,7 @@ export default function UsersPage() {
               users.map((u) => (
                 <tr key={u.id} {...detailRowProps(t('table.dblclickHint'), () => void openEdit(u))}>
                   <td>{u.email}</td>
-                  <td>{u.name}</td>
+                  <td>{resolveHistoryActorName(u.name, t)}</td>
                   <td>{roleLabel(u.role)}</td>
                   <td>{orgLabel(u)}</td>
                   <td>
@@ -435,7 +437,7 @@ export default function UsersPage() {
                   </td>
                   <td className="pg-muted text-[11px]">{adminLabel(u.createdBy)}</td>
                   <td className="pg-muted">
-                    {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString('ko-KR') : '—'}
+                    {u.lastLoginAt ? formatDate(u.lastLoginAt) : '—'}
                   </td>
                   <td>
                     <div className="pg-table-actions">

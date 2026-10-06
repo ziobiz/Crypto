@@ -1,12 +1,16 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useT } from '@/context/LocaleProvider';
+import { useLocale, useT } from '@/context/LocaleProvider';
 import { api, type TradeReceiptEmailLogDetail, type TradeReceiptEmailLogSummary, type TradeReceiptSendStatus } from '@/lib/api';
 import type { MessageKey } from '@/i18n/messages';
+import { formatDate } from '@/lib/format';
+import { displayTradeReceiptSubject } from '@/lib/trade-receipt-subject';
+import { resolveHistoryActorName } from '@/lib/session-display';
 
 export default function TradeReceiptsPage() {
   const t = useT();
+  const { locale } = useLocale();
   const [rows, setRows] = useState<TradeReceiptEmailLogSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -136,7 +140,7 @@ export default function TradeReceiptsPage() {
               rows.map((row) => (
                 <tr key={row.id}>
                   <td className="whitespace-nowrap text-xs">
-                    {new Date(row.createdAt).toLocaleString()}
+                    {formatDate(row.createdAt)}
                   </td>
                   <td className="font-mono text-xs">{row.ticketNo}</td>
                   <td className="text-xs">
@@ -145,12 +149,15 @@ export default function TradeReceiptsPage() {
                       : t('receipt.type.usdt')}
                   </td>
                   <td className="text-xs">
-                    <div>{row.toName || '—'}</div>
+                    <div>{resolveHistoryActorName(row.toName || '', t) || row.toName || '—'}</div>
                     <div className="text-[11px] text-slate-500">{row.toEmail}</div>
                   </td>
                   <td>{statusChip(row.status)}</td>
-                  <td className="max-w-[16rem] truncate text-left text-xs" title={row.subject}>
-                    {row.subject}
+                  <td
+                    className="max-w-[16rem] truncate text-left text-xs"
+                    title={displayTradeReceiptSubject(row.subject, row.ticketNo, locale)}
+                  >
+                    {displayTradeReceiptSubject(row.subject, row.ticketNo, locale)}
                   </td>
                   <td>
                     <button
@@ -201,8 +208,7 @@ export default function TradeReceiptsPage() {
               <div>
                 <h2 className="text-base font-semibold">{t('receipt.detailTitle')}</h2>
                 <p className="pg-hint text-xs">
-                  {detail.ticketNo} · {statusLabel(detail.status)} ·{' '}
-                  {new Date(detail.createdAt).toLocaleString()}
+                  {detail.ticketNo} · {statusLabel(detail.status)} · {formatDate(detail.createdAt)}
                 </p>
               </div>
               <button type="button" className="pg-btn pg-btn-secondary" onClick={() => setDetail(null)}>
@@ -213,12 +219,13 @@ export default function TradeReceiptsPage() {
               <div>
                 <dt className="pg-hint text-xs">{t('receipt.col.to')}</dt>
                 <dd>
-                  {detail.toName || '—'} / {detail.toEmail}
+                  {resolveHistoryActorName(detail.toName || '', t) || detail.toName || '—'} /{' '}
+                  {detail.toEmail}
                 </dd>
               </div>
               <div>
                 <dt className="pg-hint text-xs">{t('receipt.col.subject')}</dt>
-                <dd>{detail.subject}</dd>
+                <dd>{displayTradeReceiptSubject(detail.subject, detail.ticketNo, locale)}</dd>
               </div>
               {detail.skipReason && (
                 <div>

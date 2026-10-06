@@ -1419,9 +1419,12 @@ export function resolveDepositNotice(
   fallback: string,
 ): string {
   const loc = (String(locale || 'KR').toUpperCase() === 'EN' ? 'US' : String(locale || 'KR').toUpperCase()) as DepositNoticeLocale;
-  const fromI18n = account?.noticeI18n?.[loc] || account?.noticeI18n?.KR;
-  if (fromI18n?.trim()) return fromI18n.trim();
-  if (account?.notice?.trim()) return account.notice.trim();
+  const fromLocale = account?.noticeI18n?.[loc]?.trim();
+  if (fromLocale) return fromLocale;
+  // Legacy single-language notice only applies to KR — never show KR text under JP/US/etc.
+  if (loc === 'KR' && account?.notice?.trim()) return account.notice.trim();
+  const defaults = DEFAULT_DEPOSIT_NOTICE_I18N();
+  if (defaults[loc]?.trim()) return defaults[loc].trim();
   return fallback;
 }
 

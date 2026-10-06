@@ -61,6 +61,14 @@ import { canonicalizePhone } from '../lib/phone-number';
 
 const router = Router();
 
+function localeHintFromReq(req: { headers: Record<string, unknown> }): string {
+  return (
+    String(req.headers['x-locale'] ?? '').trim() ||
+    String(req.headers['accept-language'] ?? '').trim() ||
+    ''
+  );
+}
+
 const loginSchema = z.object({
   email: z.string().email().transform(normalizeEmail),
   password: z.string().min(1).transform((s) => s.trim()),
@@ -247,7 +255,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const { enrollToken } = z.object({ enrollToken: z.string().min(1) }).parse(req.body);
     const payload = verifyFlowToken(enrollToken, 'otp_enroll');
-    await sendOtpEnrollEmail(payload.sub);
+    await sendOtpEnrollEmail(payload.sub, localeHintFromReq(req));
     const user = await prisma.user.findUnique({ where: { id: payload.sub } });
     res.json({
       ok: true,
@@ -378,7 +386,13 @@ router.post(
     if (!isSmtpConfigured(cfg)) {
       throw new AppError(503, 'Email service is not configured', 'EMAIL_NOT_CONFIGURED');
     }
-    const issued = await createEmailVerificationChallenge(email, 'REGISTER', cfg, name.trim());
+    const issued = await createEmailVerificationChallenge(
+      email,
+      'REGISTER',
+      cfg,
+      name.trim(),
+      localeHintFromReq(req),
+    );
     res.json({
       ok: true,
       smtpConfigured: true,
@@ -439,7 +453,13 @@ router.post(
     const user = await findUserByLoginEmail(email);
     const cfg = await getEmailOtpConfig();
     if (user?.isActive) {
-      await createEmailVerificationChallenge(user.email, 'PASSWORD_RESET', cfg, user.name);
+      await createEmailVerificationChallenge(
+        user.email,
+        'PASSWORD_RESET',
+        cfg,
+        user.name,
+        localeHintFromReq(req),
+      );
     }
     res.json({
       ok: true,
@@ -508,7 +528,13 @@ router.post(
     const user = await findUserByLoginEmail(email);
     const cfg = await getEmailOtpConfig();
     if (user?.isActive && user.totpEnabled) {
-      await createEmailVerificationChallenge(user.email, 'OTP_RESET', cfg, user.name);
+      await createEmailVerificationChallenge(
+        user.email,
+        'OTP_RESET',
+        cfg,
+        user.name,
+        localeHintFromReq(req),
+      );
     }
     res.json({
       ok: true,

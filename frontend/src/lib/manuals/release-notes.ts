@@ -3,6 +3,72 @@ import type { PlatformReleaseNote } from './version';
 /** 본사정책 → 검증관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
 export const PLATFORM_RELEASE_NOTES: PlatformReleaseNote[] = [
   {
+    version: '2.6.227',
+    kind: 'minor',
+    date: '2026-10-07',
+    items: {
+      KR: [
+        '사용자관리: 시스템 표시명·최종로그인 일시 로케일 반영. 명세서관리: 제목·일시 UI 언어 표시. 로그인/가입 OTP 메일을 UI 언어(기본 영어)로 발송. 변경이력 요약은 건수가 많아 한국어 유지. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'Users: localize system display names and last-login timestamps. Trade receipts: subject/time follow UI locale. Login/register OTP emails follow UI language (English default). Change-history summaries stay Korean (too many variants). KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        'ユーザー管理: システム表示名・最終ログインをロケール表示。明細書: 件名・日時をUI言語で表示。ログイン/登録OTPメールをUI言語（既定は英語）で送信。変更履歴の要約は件数が多く韓国語のまま。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        '用户管理：系统显示名与最后登录按界面语言。明细管理：主题与时间按 UI 语言。登录/注册 OTP 邮件按界面语言发送（默认英语）。变更历史摘要条目过多仍保留韩文。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'จัดการผู้ใช้: แสดงชื่อระบบและเวลาเข้าสู่ระบบตามโลแคล ใบเสร็จ: หัวเรื่อง/เวลาตามภาษา UI อีเมล OTP เข้าสู่ระบบ/สมัครตามภาษา UI (ค่าเริ่มต้นอังกฤษ) สรุปประวัติการเปลี่ยนแปลงยังเป็นเกาหลี (จำนวนมาก) KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.226',
+    kind: 'minor',
+    date: '2026-10-07',
+    items: {
+      KR: [
+        'USDT 매입 입력방식을 CARD / FIAT / USDT로 통일 표기. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'USDT purchase input modes labeled CARD / FIAT / USDT across locales. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        'USDT買付の入力方式を CARD / FIAT / USDT に統一表示。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        'USDT 申购输入方式统一为 CARD / FIAT / USDT。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'โหมดกรอกซื้อ USDT แสดงเป็น CARD / FIAT / USDT ทุกภาษา KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.225',
+    kind: 'minor',
+    date: '2026-10-07',
+    items: {
+      KR: [
+        'USDT·에스크로 상태 이력 메모를 UI 언어로 표시(견적 확정·입금 증빙·지갑 변경·카드/ICOPAY 등). 기존 한국어 이력도 번역. 입금 안내 문구는 로케일별(KR 폴백 제거). 총본사 관리자 등 시스템 표시명 다국어. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'USDT/escrow status history notes follow the UI language (quote confirm, deposit proof, wallet change, card/ICOPAY, etc.). Legacy Korean notes are translated. Deposit notices are locale-specific (no KR fallback). System actor names like HQ admin are localized. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        'USDT・エスクロー状態履歴メモをUI言語で表示（見積確定・入金証憑・ウォレット変更・カード/ICOPAYなど）。既存の韓国語履歴も翻訳。入金案内はロケール別（KRフォールバック廃止）。総本社管理者などのシステム表示名を多言語化。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        'USDT/托管状态历史备注按界面语言显示（报价确认、入金凭证、钱包变更、卡片/ICOPAY等）。既有韩文记录也会翻译。入金提示按语言（取消 KR 回退）。总部管理员等系统显示名多语言。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'บันทึกประวัติสถานะ USDT/เอสโครว์ ตามภาษา UI (ยืนยันใบเสนอราคา หลักฐานฝาก เปลี่ยนกระเป๋า บัตร/ICOPAY ฯลฯ) แปลบันทึกเกาหลีเดิม คำแนะนำฝากเงินตามโลแคล (ไม่ fallback KR) ชื่อระบบเช่น ผู้ดูแล HQ เป็นพหุภาษา KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
     version: '2.6.224',
     kind: 'minor',
     date: '2026-10-07',

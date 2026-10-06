@@ -535,7 +535,7 @@ export async function createUsdtCardPurchase(
         fromStatus: null,
         toStatus: UsdtPurchaseStatus.CARD_PAYMENT_PENDING,
         changedById: user.id,
-        note: `카드 결제 처리 중 (${currency})`,
+        note: `USDT_CARD_PENDING|${currency}`,
       },
     });
 
@@ -805,7 +805,7 @@ export async function handleIcopayWebhook(body: unknown) {
       paid: true,
       transactionId: parsed.transactionId,
       last4: parsed.last4,
-      note: `ICOPAY webhook 승인 (${parsed.transactionId || status})`,
+      note: `USDT_ICOPAY_WEBHOOK_PAID|${parsed.transactionId || status}`,
     });
     return { success: true, orderNo: parsed.orderNo, paymentStatus: 'APPROVED' };
   }
@@ -817,8 +817,8 @@ export async function handleIcopayWebhook(body: unknown) {
       orderNo: parsed.orderNo,
       paid: false,
       note: cancelled
-        ? `ICOPAY webhook 거래 취소 (${status})`
-        : `ICOPAY webhook 거래 실패 (${status})`,
+        ? `USDT_ICOPAY_WEBHOOK_CANCEL|${status}`
+        : `USDT_ICOPAY_WEBHOOK_FAIL|${status}`,
     });
     return {
       success: true,
@@ -938,7 +938,7 @@ export async function syncUsdtCardPayment(user: AuthUser, ticketId: string) {
       paid: true,
       transactionId: status.transactionId,
       last4: status.last4,
-      note: `ICOPAY status 승인 (${status.transactionId || status.paymentStatus})`,
+      note: `USDT_ICOPAY_STATUS_PAID|${status.transactionId || status.paymentStatus}`,
       actorUserId: user.id,
     });
     if (updated) return serializeTicket(updated, (await getWorkflowDisplay()).sla);
@@ -951,8 +951,8 @@ export async function syncUsdtCardPayment(user: AuthUser, ticketId: string) {
       orderNo,
       paid: false,
       note: cancelled
-        ? `ICOPAY status 거래 취소 (${status.paymentStatus})`
-        : `ICOPAY status 거래 실패 (${status.paymentStatus})`,
+        ? `USDT_ICOPAY_STATUS_CANCEL|${status.paymentStatus}`
+        : `USDT_ICOPAY_STATUS_FAIL|${status.paymentStatus}`,
       actorUserId: user.id,
     });
     if (updated) return serializeTicket(updated, (await getWorkflowDisplay()).sla);
@@ -968,7 +968,7 @@ export async function syncUsdtCardPayment(user: AuthUser, ticketId: string) {
       ticketId: ticket.id,
       orderNo,
       paid: false,
-      note: `ICOPAY status 거래 실패 (${status.paymentStatus})`,
+      note: `USDT_ICOPAY_STATUS_FAIL|${status.paymentStatus}`,
       actorUserId: user.id,
     });
     if (updated) return serializeTicket(updated, (await getWorkflowDisplay()).sla);

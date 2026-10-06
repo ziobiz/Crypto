@@ -18,6 +18,8 @@ const SYSTEM_USER_NAMES: Record<string, MessageKey> = {
   '총본사 관리자': 'role.SUPER_ADMIN',
   '총괄관리자': 'role.SUPER_ADMIN',
   '영업점 직원': 'role.ORG_STAFF',
+  '데모/샌드박스': 'receipt.demoSandboxName',
+  '샌드박스 명세서 데모': 'receipt.demoSandboxName',
 };
 
 function roleKey(role: string): MessageKey {
@@ -49,4 +51,12 @@ export function resolveUserDisplayName(user: SessionUserRef, t: TFn): string {
   if (systemKey) return t(systemKey);
   if (user.role === 'SUPER_ADMIN') return t(roleKey(user.role));
   return user.name;
+}
+
+/** Ticket / escrow status history actor — translate seeded HQ names. */
+export function resolveHistoryActorName(name: string | null | undefined, t: TFn): string {
+  if (!name) return '';
+  const systemKey = SYSTEM_USER_NAMES[name];
+  if (systemKey) return t(systemKey);
+  return name;
 }

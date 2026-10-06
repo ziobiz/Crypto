@@ -34,7 +34,7 @@ export async function voidExpiredEscrowAcceptances(): Promise<number> {
           fromStatus: row.status,
           toStatus: TradeEscrowStatus.VOIDED,
           changedById: row.buyerId,
-          note: '수락 기한 경과 자동 파기',
+          note: 'ESCROW_ACCEPT_EXPIRED',
         },
       });
     });
@@ -72,7 +72,7 @@ export async function processScheduledEscrowPayouts(): Promise<number> {
           fromStatus: TradeEscrowStatus.PAYOUT_SCHEDULED,
           toStatus: TradeEscrowStatus.ESCROW_COMPLETED,
           changedById: detail.seller.id,
-          note: '일괄 USDT 송금 처리',
+          note: 'ESCROW_BATCH_USDT',
         },
       });
       if (!detail.ticket.commissionSettled) {

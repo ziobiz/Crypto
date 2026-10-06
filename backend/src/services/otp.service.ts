@@ -23,9 +23,9 @@ export function defaultEmailOtpConfig(): HqEmailOtpConfig {
     otpForMasterDistributor: true,
     otpExpireMinutes: 5,
     sensitiveOtpExpireMinutes: 10,
-    otpEmailSubject: '[Crypto Workflow] 인증번호 {code}',
+    otpEmailSubject: '[Crypto Trading by Tinpass.com] Login verification code {code}',
     otpEmailBody:
-      '안녕하세요 {name}님,\n\n인증번호: {code}\n유효시간: {minutes}분\n\n본인이 요청하지 않았다면 무시하세요.',
+      'Hello {name},\n\nLogin verification code: {code}\nValid for: {minutes} minutes\n\nIf you did not request this, please ignore this email.',
     smtpHost: process.env.SMTP_HOST ?? 'smtp.gmail.com',
     smtpPort: Number(process.env.SMTP_PORT ?? 587),
     smtpSecure: process.env.SMTP_SECURE === 'true',
@@ -98,11 +98,11 @@ export function generateTotpSecret(email: string): { secret: string; otpauthUrl:
   };
 }
 
-export async function sendOtpEnrollEmail(userId: string): Promise<void> {
+export async function sendOtpEnrollEmail(userId: string, localeHint?: string | null): Promise<void> {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new Error('User not found');
   const cfg = await getEmailOtpConfig();
-  await createEmailVerificationChallenge(user.email, 'OTP_ENROLL', cfg, user.name);
+  await createEmailVerificationChallenge(user.email, 'OTP_ENROLL', cfg, user.name, localeHint);
 }
 
 export async function verifyOtpEnrollEmail(userId: string, code: string): Promise<boolean> {

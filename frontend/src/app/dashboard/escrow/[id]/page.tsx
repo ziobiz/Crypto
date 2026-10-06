@@ -14,6 +14,8 @@ import { LocalizedFileInput } from '@/components/LocalizedFileInput';
 import { ScheduleDelayPanel } from '@/components/ScheduleDelayPanel';
 import { useReferenceTimeState } from '@/components/ReferenceClocks';
 import { buildTicketStatusTimeline } from '@/lib/ticket-status-timeline';
+import { formatEscrowHistoryNote } from '@/lib/usdt-history-note';
+import { resolveHistoryActorName } from '@/lib/session-display';
 
 const PENDING = ['ESCROW_CREATED', 'SELLER_ACCEPTED'];
 
@@ -372,9 +374,11 @@ export default function EscrowDetailPage() {
             {statusTimeline.map((h) => (
               <li key={h.id} className="border-l-2 border-blue-200 pl-4 text-sm">
                 <StatusBadge status={h.toStatus} kind="escrow" />
-                {h.note && <p className="mt-0.5 text-xs text-gray-700">{h.note}</p>}
+                {h.note && (
+                  <p className="mt-0.5 text-xs text-gray-700">{formatEscrowHistoryNote(h.note, t)}</p>
+                )}
                 <p className="mt-1 text-gray-500">
-                  {h.changedBy.name ? `${h.changedBy.name} · ` : ''}
+                  {h.changedBy.name ? `${resolveHistoryActorName(h.changedBy.name, t)} · ` : ''}
                   {formatDate(h.createdAt)}
                 </p>
               </li>

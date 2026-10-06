@@ -251,7 +251,7 @@ export async function applyCurfexDepositDetected(input: {
           fromStatus: UsdtPurchaseStatus.ADMIN_REVIEWING,
           toStatus: UsdtPurchaseStatus.ADMIN_REVIEWING,
           changedById: systemUserId,
-          note: `CURFEX decision APPROVE 실패 — 운영 확인 필요: ${
+          note: `USDT_CURFEX_APPROVE_FAIL|${
             err instanceof Error ? err.message : String(err)
           }`,
         },

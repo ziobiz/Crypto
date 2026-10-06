@@ -1,6 +1,11 @@
 import nodemailer from 'nodemailer';
 import type { HqEmailOtpConfig } from '../constants/hq-policy';
 import { AppError } from '../lib/errors';
+import {
+  renderOtpMail,
+  resolveOtpMailLocale,
+  type OtpMailLocale,
+} from '../constants/otp-mail-i18n';
 
 function buildTransport(cfg: HqEmailOtpConfig) {
   const host = (cfg.smtpHost || process.env.SMTP_HOST || '').trim();
@@ -23,25 +28,31 @@ export async function sendOtpEmail(
   code: string,
   userName: string,
   expireMinutes?: number,
+  localeHint?: string | null,
 ): Promise<void> {
   const minutes = String(expireMinutes ?? (cfg.otpExpireMinutes || 5));
-  const subject = (cfg.otpEmailSubject || '[TINPASS] 인증번호 {code}').replace('{code}', code);
-  const bodyTemplate =
-    cfg.otpEmailBody ||
-    '안녕하세요 {name}님,\n\n인증번호: {code}\n유효시간: {minutes}분\n\n본인이 요청하지 않았다면 무시하세요.';
+  const locale: OtpMailLocale = resolveOtpMailLocale(localeHint);
+  const rendered = renderOtpMail(locale, {
+    name: userName,
+    code,
+    minutes,
+  });
 
-  const text = bodyTemplate
-    .replace(/\{name\}/g, userName)
-    .replace(/\{code\}/g, code)
-    .replace(/\{minutes\}/g, minutes);
-
-  const html = `<div style="font-family:sans-serif;line-height:1.6">
-<p>${userName}님,</p>
-<p>인증번호:</p>
-<p style="font-size:28px;font-weight:bold;letter-spacing:4px">${code}</p>
-<p>유효시간 ${minutes}분</p>
-<p style="color:#666;font-size:12px">본인이 요청하지 않았다면 이 메일을 무시하세요.</p>
-</div>`;
+  // HQ custom templates are Korean-centric — only apply for KR; other locales use built-in i18n.
+  let subject = rendered.subject;
+  let text = rendered.text;
+  let html = rendered.html;
+  if (locale === 'KR') {
+    if (cfg.otpEmailSubject?.trim()) {
+      subject = cfg.otpEmailSubject.replace(/\{code\}/g, code).replace(/\{name\}/g, userName);
+    }
+    if (cfg.otpEmailBody?.trim()) {
+      text = cfg.otpEmailBody
+        .replace(/\{name\}/g, userName)
+        .replace(/\{code\}/g, code)
+        .replace(/\{minutes\}/g, minutes);
+    }
+  }
 
   const from = cfg.fromAddress || process.env.SMTP_FROM || 'noreply@tinpass.com';
   const fromName = cfg.fromName || 'TINPASS';
@@ -60,7 +71,7 @@ export async function sendOtpEmail(
       text,
       html,
     });
-    console.log(`[OTP/email] sent to ${to} messageId=${info.messageId || '-'}`);
+    console.log(`[OTP/email] sent to ${to} locale=${locale} messageId=${info.messageId || '-'}`);
   } catch (err) {
     console.error('[OTP/email] send failed:', err);
     throw new AppError(502, 'Failed to send verification email', 'EMAIL_SEND_FAILED');
@@ -68,7 +79,7 @@ export async function sendOtpEmail(
 }
 
 export async function sendTestEmail(cfg: HqEmailOtpConfig, to: string): Promise<void> {
-  await sendOtpEmail(cfg, to, '123456', 'Test User');
+  await sendOtpEmail(cfg, to, '123456', 'Test User', undefined, 'US');
 }
 
 export async function sendGenericEmail(

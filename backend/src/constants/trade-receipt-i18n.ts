@@ -134,7 +134,8 @@ export function buildMultilingualTradeReceipt(
   data: TradeReceiptContent,
   langs: TradeReceiptLang[] = DEFAULT_TRADE_RECEIPT_LANGS,
 ): { subject: string; text: string; html: string } {
-  const subject = `[Crypto Workflow] ${STRINGS.ko.subject} / ${STRINGS.en.subject} / ${STRINGS.ja.subject} / ${STRINGS.zh.subject} / ${STRINGS.th.subject} — ${data.ticketNo}`;
+  /** Subject: English primary (shared archive), with ticket no. Body stays multilingual. */
+  const subject = `[Crypto Workflow] ${STRINGS.en.subject} — ${data.ticketNo}`;
 
   const sections = langs.map((lang) => buildSection(lang, data));
   const text = sections.map((s) => s.text).join('\n\n');
@@ -143,4 +144,14 @@ ${sections.map((s) => s.html).join('')}
 </div>`;
 
   return { subject, text, html };
+}
+
+/** UI list subject by current locale (legacy multi-lang subjects still map). */
+export function tradeReceiptSubjectForLocale(
+  ticketNo: string,
+  locale: 'KR' | 'US' | 'JP' | 'CH' | 'TH',
+): string {
+  const lang: TradeReceiptLang =
+    locale === 'KR' ? 'ko' : locale === 'JP' ? 'ja' : locale === 'CH' ? 'zh' : locale === 'TH' ? 'th' : 'en';
+  return `[Crypto Workflow] ${STRINGS[lang].subject} — ${ticketNo}`;
 }

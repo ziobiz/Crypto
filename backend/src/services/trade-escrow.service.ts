@@ -181,7 +181,7 @@ async function activateEscrowIfReady(
       fromStatus,
       toStatus: TradeEscrowStatus.BUYER_DEPOSIT_PROOF,
       changedById: userId,
-      note: '양측 수락 완료 — 에스크로 활성화·입금 대기',
+      note: 'ESCROW_BOTH_ACCEPTED',
     },
   });
   return tx.tradeEscrowDetail.findFirstOrThrow({ where: { ticketId } });
@@ -343,7 +343,7 @@ export async function createTradeEscrowTicket(
         fromStatus: null,
         toStatus: TradeEscrowStatus.ESCROW_CREATED,
         changedById: user.id,
-        note: '에스크로 신청 — 상대방 수락 대기',
+        note: 'ESCROW_APPLIED',
       },
     });
 
@@ -410,7 +410,7 @@ export async function acceptEscrowParty(
         fromStatus: detail.status,
         toStatus: detail.status,
         changedById: user.id,
-        note: isBuyer ? '구매자 수락·면책 동의' : '판매자 수락·면책 동의',
+        note: isBuyer ? 'ESCROW_BUYER_ACCEPT' : 'ESCROW_SELLER_ACCEPT',
       },
     });
     await activateEscrowIfReady(tx, ticketId, user.id, detail.status);
@@ -448,7 +448,7 @@ export async function rejectEscrowParty(user: AuthUser, ticketId: string, reason
         fromStatus: detail.status,
         toStatus: TradeEscrowStatus.CANCELLED,
         changedById: user.id,
-        note: reason ?? '거래 거절',
+        note: reason ? `ESCROW_DECLINED|${reason}` : 'ESCROW_DECLINED',
       },
     });
     return tx.transactionTicket.findUniqueOrThrow({
@@ -484,7 +484,7 @@ export async function openEscrowDeposit(user: AuthUser, ticketId: string) {
         fromStatus: TradeEscrowStatus.CONTRACT_CONFIRMED,
         toStatus: TradeEscrowStatus.BUYER_DEPOSIT_PROOF,
         changedById: user.id,
-        note: '구매자 입금 단계 시작',
+        note: 'ESCROW_BUYER_DEPOSIT_START',
       },
     });
     return tx.transactionTicket.findUniqueOrThrow({
@@ -531,7 +531,7 @@ export async function startEscrowShipping(user: AuthUser, ticketId: string) {
         fromStatus: detail.status,
         toStatus: TradeEscrowStatus.SHIPPING_STARTED,
         changedById: user.id,
-        note: '판매자 배송 시작',
+        note: 'ESCROW_SELLER_SHIP',
       },
     });
     return tx.transactionTicket.findUniqueOrThrow({
@@ -575,7 +575,10 @@ export async function approveEscrowReceipt(
         fromStatus: detail.status,
         toStatus: TradeEscrowStatus.PAYOUT_SCHEDULED,
         changedById: user.id,
-        note: detail.tradeTier === 'PREMIUM' ? '구매자 승인 — 당일 USDT 송금 예약' : '구매자 승인 — 익일 13시 일괄 송금 예약',
+        note:
+          detail.tradeTier === 'PREMIUM'
+            ? 'ESCROW_BUYER_APPROVED_SAME_DAY'
+            : 'ESCROW_BUYER_APPROVED_NEXT_DAY',
       },
     });
     return tx.transactionTicket.findUniqueOrThrow({
