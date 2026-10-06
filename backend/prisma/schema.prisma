@@ -288,7 +288,12 @@ model User {
   /// 기업·개인 각각 동일 이메일 허용 — 유형별 중복은 앱에서 검사
   email        String
   passwordHash String
+  /// 닉네임·표시명 (변경 가능)
   name         String
+  /// 법적 영문 이름(First) — 카드결제 buyer. 고객 변경 불가
+  legalFirstName String? @map("legal_first_name")
+  /// 법적 영문 성(Last) — 카드결제 buyer. 고객 변경 불가
+  legalLastName  String? @map("legal_last_name")
   phone        String?
   phoneCountryCode String?
   role         UserRole

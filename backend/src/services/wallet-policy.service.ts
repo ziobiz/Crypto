@@ -92,6 +92,15 @@ type AuditBits = {
   userAgent?: string;
 };
 
+const WALLET_NICKNAME_MAX = 40;
+
+export function normalizeWalletNickname(raw: string | undefined | null): string {
+  return String(raw ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .slice(0, WALLET_NICKNAME_MAX);
+}
+
 export async function registerMerchantWallet(
   ownerId: string,
   input: {
@@ -105,6 +114,14 @@ export async function registerMerchantWallet(
   const address = normalizeWalletAddress(network, input.address);
   if (address.length < 10) {
     throw new AppError(400, '지갑 주소가 너무 짧습니다', 'VALIDATION');
+  }
+  const label = normalizeWalletNickname(input.label);
+  if (!label) {
+    throw new AppError(
+      400,
+      'Wallet nickname is required (e.g. Binance, Upbit, MetaMask)',
+      'WALLET_NICKNAME_REQUIRED',
+    );
   }
 
   const activeCount = await prisma.wallet.count({ where: { userId: ownerId, isActive: true } });
@@ -127,7 +144,7 @@ export async function registerMerchantWallet(
     ? await prisma.wallet.update({
         where: { id: existing.id },
         data: {
-          label: input.label?.trim() || existing.label,
+          label,
           isActive: true,
           isDefault: false,
           approvalStatus,
@@ -137,7 +154,7 @@ export async function registerMerchantWallet(
     : await prisma.wallet.create({
         data: {
           userId: ownerId,
-          label: input.label?.trim() || null,
+          label,
           address,
           network,
           isDefault: false,
@@ -199,9 +216,13 @@ export async function changeMerchantWalletAddress(
     normalizeWalletNetwork(existing.network) === network;
   if (same) {
     if (input.label === undefined) return existing;
+    const nick = normalizeWalletNickname(input.label);
+    if (!nick) {
+      throw new AppError(400, 'Wallet nickname is required', 'WALLET_NICKNAME_REQUIRED');
+    }
     return prisma.wallet.update({
       where: { id: existing.id },
-      data: { label: input.label.trim() || null },
+      data: { label: nick },
     });
   }
 
@@ -264,6 +285,48 @@ export async function changeMerchantWalletAddress(
     otpVerified: true,
     ipAddress: input.ipAddress,
     userAgent: input.userAgent,
+  });
+
+  return wallet;
+}
+
+/** 닉네임만 변경 — 주소·승인 상태 불변, OTP 불필요 */
+export async function renameMerchantWalletNickname(
+  ownerId: string,
+  walletId: string,
+  labelRaw: string,
+  audit: AuditBits,
+) {
+  const existing = await prisma.wallet.findFirst({
+    where: { id: walletId, userId: ownerId, isActive: true },
+  });
+  if (!existing) throw new AppError(404, '지갑을 찾을 수 없습니다', 'NOT_FOUND');
+  if (existing.deleteRequestedAt) {
+    throw new AppError(400, '삭제 요청 중인 지갑은 닉네임을 바꿀 수 없습니다', 'WALLET_DELETE_PENDING');
+  }
+  const label = normalizeWalletNickname(labelRaw);
+  if (!label) {
+    throw new AppError(400, 'Wallet nickname is required', 'WALLET_NICKNAME_REQUIRED');
+  }
+  if (existing.label === label) return existing;
+
+  const wallet = await prisma.wallet.update({
+    where: { id: existing.id },
+    data: { label },
+  });
+
+  await recordMerchantOperation({
+    actorId: audit.actorId,
+    merchantAdminUserId: ownerId,
+    action: 'WALLET_NICKNAME_UPDATE',
+    entityType: 'Wallet',
+    entityId: wallet.id,
+    summary: `Rename wallet nickname ${existing.label ?? '—'} → ${label}`,
+    before: { label: existing.label },
+    after: { label: wallet.label },
+    otpVerified: false,
+    ipAddress: audit.ipAddress,
+    userAgent: audit.userAgent,
   });
 
   return wallet;

@@ -31,15 +31,18 @@ function networkStyle(network: string) {
   );
 }
 
-/** 고객관리·인증 화면용 지갑 카드 (QR + 주소 COPY + 네트워크) */
+/** 고객관리·인증 화면용 지갑 카드 (닉네임 + QR + 주소 COPY + 네트워크) */
 export function CustomerWalletQrCard({
   address,
   network,
+  nickname,
   meta,
   qrSize = 112,
 }: {
   address: string;
   network: string;
+  /** 지갑 닉네임 (예: MEXC ERC) */
+  nickname?: string | null;
   meta?: string;
   qrSize?: number;
 }) {
@@ -48,6 +51,7 @@ export function CustomerWalletQrCard({
   const clean = useMemo(() => walletAddressForQr(address), [address]);
   const qrUrl = useMemo(() => walletQrImageUrl(clean, qrSize), [clean, qrSize]);
   const badge = networkStyle(network);
+  const nick = String(nickname || '').trim();
 
   async function copy() {
     if (!clean) return;
@@ -70,6 +74,12 @@ export function CustomerWalletQrCard({
         </div>
       )}
       <div className="min-w-0 flex-1 space-y-1.5">
+        {nick ? (
+          <p className="text-sm font-semibold text-slate-900">
+            {nick}
+            <span className="ml-1.5 text-[11px] font-medium text-slate-500">· {network}</span>
+          </p>
+        ) : null}
         <div className="flex flex-wrap items-center gap-2">
           <span className="break-all font-mono text-xs font-medium">{clean}</span>
           <button type="button" className="pg-copy-icon-btn" onClick={() => void copy()}>

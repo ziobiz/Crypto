@@ -22,13 +22,16 @@ import {
   assertCardPaymentAvailable,
   getCardPaymentConfig,
   getIcopayConfig,
+  resolveCardFeePercent,
   validateCardChargeAmount,
 } from './card-payment-policy.service';
 import { quoteCardFromTarget, splitCardCharge } from './card-fee.service';
 import {
+  completeIcopaySandboxCheckout,
   getIcopayCheckoutStatus,
-  isIcopayFailedStatus,
+  ICOPAY_BROWSER_RESULT_URL,
   isIcopayPaidStatus,
+  isIcopayTerminalFailedStatus,
   parseIcopayWebhookBody,
   prepareIcopayCheckout,
   type IcopayBuyerInput,
@@ -38,7 +41,10 @@ import {
   resolveFeesForPurchase,
   type ResolvedTransactionFees,
 } from './usdt-fee-breakdown.service';
-import { validateCustomerTransactionAmount } from './transaction-limit.service';
+import {
+  getCustomerTransactionLimitSummary,
+  validateCustomerTransactionAmount,
+} from './transaction-limit.service';
 import { validateUsdtRiskLimitAmount } from './usdt-risk-limit.service';
 import {
   previewUsdtTransactionFees,
@@ -48,12 +54,21 @@ import {
 import { getWorkflowDisplay } from './workflow-display.service';
 import { assertCustomerKycApproved } from './kyc.service';
 
+/** ICOPAY orderNo: digits only (no USDT/USD/crypto terms or letters) */
 function generateTicketNo(): string {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  const rand = Math.floor(Math.random() * 10000)
+  const rand = Math.floor(Math.random() * 1e10)
     .toString()
-    .padStart(4, '0');
-  return `USDT-${date}-${rand}`;
+    .padStart(10, '0');
+  return `${date}${rand}`;
+}
+
+const ENGLISH_LEGAL_NAME_RE = /^[A-Za-z][A-Za-z .'-]*$/;
+
+function normalizeLegalNamePart(value: string | null | undefined): string {
+  return String(value ?? '')
+    .trim()
+    .replace(/\s+/g, ' ');
 }
 
 async function assertCustomerCardPayAllowed(user: AuthUser) {
@@ -85,6 +100,8 @@ export async function getUsdtCardPaymentContext(user: AuthUser) {
             phoneCountryCode: true,
             email: true,
             name: true,
+            legalFirstName: true,
+            legalLastName: true,
             customerProfile: {
               select: {
                 customerType: true,
@@ -107,6 +124,20 @@ export async function getUsdtCardPaymentContext(user: AuthUser) {
     customerType,
     hqMethodAllowed: hqCard,
   });
+  const risk = await import('./transaction-fee.service').then((m) => m.getCommissionRiskConfig());
+  const typeKey = customerType === 'CORPORATE' ? 'CORPORATE' : 'INDIVIDUAL';
+  const cardRisk =
+    risk.methodTransactionLimits?.CARD?.[typeKey] ?? risk.transactionLimits[typeKey];
+  const limitsFromRisk = Object.fromEntries(
+    (['KRW', 'JPY', 'THB', 'CNY', 'USD', 'EUR'] as const).map((c) => [
+      c,
+      {
+        min: Number(cardRisk[c]?.perTransactionMin) || 0,
+        max: Number(cardRisk[c]?.perTransactionMax) || 0,
+      },
+    ]),
+  ) as typeof card.limits;
+
   return {
     cardPaymentEnabled: card.enabled && customerCardAllowed,
     enabled:
@@ -115,15 +146,23 @@ export async function getUsdtCardPaymentContext(user: AuthUser) {
       icopay.enabled &&
       Boolean(String(icopay.compId || icopay.mid || '').trim()),
     cardFeePercent: card.cardFeePercent,
-    limits: card.limits,
+    cardFeeMode: card.cardFeeMode,
+    cardFeeByBrand: card.cardFeeByBrand,
+    limits: limitsFromRisk,
     currencyTrade,
     icopayConfigured: Boolean(String(icopay.compId || icopay.mid || '').trim()),
     webhookUrl: 'https://api.tinpass.com/api/webhooks/icopay',
-    resultUrl: 'https://tinpass.com/dashboard/usdt',
+    resultUrl: ICOPAY_BROWSER_RESULT_URL,
     userPhone: dbUser?.phone ?? null,
     userPhoneCountryCode: dbUser?.phoneCountryCode ?? null,
     userEmail: dbUser?.email ?? null,
     userName: dbUser?.name ?? null,
+    legalFirstName: dbUser?.legalFirstName ?? null,
+    legalLastName: dbUser?.legalLastName ?? null,
+    legalNameLocked: Boolean(
+      normalizeLegalNamePart(dbUser?.legalFirstName) &&
+        normalizeLegalNamePart(dbUser?.legalLastName),
+    ),
   };
 }
 
@@ -134,6 +173,7 @@ export async function previewUsdtCardFees(
     fiatCurrency?: FiatCurrency;
     targetUsdtAmount?: number;
     cardChargeFiat?: number;
+    cardBrand?: string | null;
   },
 ) {
   const cardConfig = await getCardPaymentConfig();
@@ -142,6 +182,7 @@ export async function previewUsdtCardFees(
   }
   await assertCustomerCardPayAllowed(user);
   const currency = input.fiatCurrency ?? 'JPY';
+  const feePercent = resolveCardFeePercent(cardConfig, input.cardBrand);
   const profileType = user.customerProfileId
     ? (
         await prisma.customerProfile.findUnique({
@@ -155,18 +196,23 @@ export async function previewUsdtCardFees(
   if (input.cardChargeFiat != null && input.cardChargeFiat > 0) {
     const { cardFeeFiat, fiatForConversion } = splitCardCharge(
       input.cardChargeFiat,
-      cardConfig.cardFeePercent,
+      feePercent,
     );
+    await validateCardChargeAmount(currency, input.cardChargeFiat, profileType);
     const base = await previewUsdtTransactionFees(user, {
       walletId: input.walletId,
       fiatCurrency: input.fiatCurrency,
       fiatAmount: fiatForConversion,
+      paymentMethod: 'CARD',
+      /** 한도는 카드 결제액 기준 (수수료 차감 전) */
+      limitFiatAmount: input.cardChargeFiat,
     });
-    validateCardChargeAmount(cardConfig, currency, input.cardChargeFiat);
     return {
       ...base,
       paymentMethod: 'CARD' as const,
-      cardFeePercent: cardConfig.cardFeePercent,
+      cardFeePercent: feePercent,
+      cardFeeMode: cardConfig.cardFeeMode,
+      cardBrand: input.cardBrand ?? null,
       cardFeeFiat,
       cardChargeFiat: input.cardChargeFiat,
       fiatForConversion,
@@ -180,12 +226,17 @@ export async function previewUsdtCardFees(
     walletId: input.walletId,
     fiatCurrency: input.fiatCurrency,
     targetUsdtAmount: input.targetUsdtAmount,
+    paymentMethod: 'CARD',
+    /** 결제액(수수료 포함) 산출 후 카드 한도로 검증 */
+    skipLimitValidation: true,
   });
   if (!base.breakdown) {
     return {
       ...base,
       paymentMethod: 'CARD' as const,
-      cardFeePercent: cardConfig.cardFeePercent,
+      cardFeePercent: feePercent,
+      cardFeeMode: cardConfig.cardFeeMode,
+      cardBrand: input.cardBrand ?? null,
       cardFeeFiat: 0,
       cardChargeFiat: 0,
       fiatForConversion: base.fiatAmount,
@@ -203,13 +254,50 @@ export async function previewUsdtCardFees(
       transferFeeUsdt: base.breakdown.transferFeeUsdt,
       otherFeeUsdt: base.breakdown.otherFeeUsdt,
     },
-    cardConfig.cardFeePercent,
+    feePercent,
   );
-  validateCardChargeAmount(cardConfig, currency, cardQuote.cardChargeFiat);
+  await validateCardChargeAmount(currency, cardQuote.cardChargeFiat, profileType);
+  /** 희망 USDT 경로: 카드 결제액으로 카드 한도 검증 */
+  let transactionLimits = base.transactionLimits;
+  if (user.customerProfileId) {
+    const { rate } = await fetchUsdtFiatRate(currency);
+    if (rate > 0) {
+      await validateUsdtRiskLimitAmount({
+        customerProfileId: user.customerProfileId,
+        usdtAmount: cardQuote.fiatForConversion / rate,
+        fiatCurrency: currency,
+        exchangeRate: rate,
+        fiatAmount: cardQuote.cardChargeFiat,
+        paymentMethod: 'CARD',
+      });
+    }
+    const profile = await prisma.customerProfile.findUnique({
+      where: { id: user.customerProfileId },
+      select: { customerType: true },
+    });
+    if (profile) {
+      await validateCustomerTransactionAmount({
+        customerId: user.customerProfileId,
+        customerType: profile.customerType,
+        currency,
+        fiatAmount: cardQuote.cardChargeFiat,
+        paymentMethod: 'CARD',
+      });
+      transactionLimits = await getCustomerTransactionLimitSummary(
+        user.customerProfileId,
+        profile.customerType,
+        currency,
+        'CARD',
+      );
+    }
+  }
   return {
     ...base,
+    transactionLimits,
     paymentMethod: 'CARD' as const,
     cardFeePercent: cardQuote.cardFeePercent,
+    cardFeeMode: cardConfig.cardFeeMode,
+    cardBrand: input.cardBrand ?? null,
     cardFeeFiat: cardQuote.cardFeeFiat,
     cardChargeFiat: cardQuote.cardChargeFiat,
     fiatForConversion: cardQuote.fiatForConversion,
@@ -225,6 +313,7 @@ export async function createUsdtCardPurchase(
     fiatCurrency?: FiatCurrency;
     targetUsdtAmount?: number;
     cardChargeFiat?: number;
+    cardBrand?: string | null;
     card: IcopayBuyerInput;
     cardWaiverAccepted: boolean;
     lang?: string;
@@ -243,10 +332,18 @@ export async function createUsdtCardPurchase(
   }
 
   const { card: cardPolicy, icopay } = await assertCardPaymentAvailable();
+  const feePercent = resolveCardFeePercent(cardPolicy, input.cardBrand);
 
   const dbUser = await prisma.user.findUnique({
     where: { id: user.id },
-    select: { phone: true, phoneCountryCode: true, email: true, name: true },
+    select: {
+      phone: true,
+      phoneCountryCode: true,
+      email: true,
+      name: true,
+      legalFirstName: true,
+      legalLastName: true,
+    },
   });
   const buyerPhone = input.card.phone?.trim() || dbUser?.phone?.trim() || '';
   const buyerPhoneCc =
@@ -254,13 +351,20 @@ export async function createUsdtCardPurchase(
   if (!buyerPhone || !buyerPhoneCc) {
     throw new AppError(400, 'Phone number with country code is required', 'PHONE_REQUIRED');
   }
-  const englishNameRe = /^[A-Za-z][A-Za-z .'-]*$/;
-  const firstName = String(input.card.firstName ?? '').trim();
-  const lastName = String(input.card.lastName ?? '').trim();
-  if (!englishNameRe.test(firstName) || !englishNameRe.test(lastName)) {
+  /** 카드 buyer 성명은 프로필 법적 성명만 사용 — 클라이언트가 보낸 이름은 무시 (사기 방지) */
+  const firstName = normalizeLegalNamePart(dbUser?.legalFirstName);
+  const lastName = normalizeLegalNamePart(dbUser?.legalLastName);
+  if (!firstName || !lastName) {
     throw new AppError(
       400,
-      'Buyer first and last name must be in English letters',
+      'Legal English first and last name are required on your TINPASS profile for card payment',
+      'LEGAL_NAME_REQUIRED',
+    );
+  }
+  if (!ENGLISH_LEGAL_NAME_RE.test(firstName) || !ENGLISH_LEGAL_NAME_RE.test(lastName)) {
+    throw new AppError(
+      400,
+      'Legal first and last name must be in English letters',
       'CARD_BUYER_NAME_ENGLISH',
     );
   }
@@ -302,17 +406,23 @@ export async function createUsdtCardPurchase(
   let feeBreakdown: ReturnType<typeof breakdownFromFiat> | null = null;
 
   if (input.cardChargeFiat != null && input.cardChargeFiat > 0) {
-    const split = splitCardCharge(input.cardChargeFiat, cardPolicy.cardFeePercent);
+    const split = splitCardCharge(input.cardChargeFiat, feePercent);
     cardChargeFiat = input.cardChargeFiat;
     cardFeeFiat = split.cardFeeFiat;
     fiatAmount = split.fiatForConversion;
-    validateCardChargeAmount(cardPolicy, currency, cardChargeFiat);
+    await validateCardChargeAmount(
+      currency,
+      cardChargeFiat,
+      createProfile?.customerType,
+    );
     if (rate > 0) {
       await validateUsdtRiskLimitAmount({
         customerProfileId: user.customerProfileId,
         usdtAmount: fiatAmount / rate,
         fiatCurrency: currency,
         exchangeRate: rate,
+        fiatAmount: cardChargeFiat,
+        paymentMethod: 'CARD',
       });
     }
     fees = await resolveFeesForPurchase(wallet, currency, fiatAmount, rate, {
@@ -324,16 +434,11 @@ export async function createUsdtCardPurchase(
     min = range.min;
     max = range.max;
   } else {
-    await validateUsdtRiskLimitAmount({
-      customerProfileId: user.customerProfileId,
-      usdtAmount: Number(input.targetUsdtAmount),
-      fiatCurrency: currency,
-      exchangeRate: rate,
-    });
     const preview = await previewUsdtCardFees(user, {
       walletId: input.walletId,
       fiatCurrency: currency,
       targetUsdtAmount: input.targetUsdtAmount,
+      cardBrand: input.cardBrand,
     });
     if (!preview.breakdown || preview.cardChargeFiat == null) {
       throw new AppError(400, 'Unable to quote card payment', 'VALIDATION');
@@ -345,6 +450,14 @@ export async function createUsdtCardPurchase(
     targetUsdt = preview.breakdown.netUsdt;
     fees = preview.fees;
     feeBreakdown = preview.breakdown;
+    await validateUsdtRiskLimitAmount({
+      customerProfileId: user.customerProfileId,
+      usdtAmount: Number(input.targetUsdtAmount),
+      fiatCurrency: currency,
+      exchangeRate: rate,
+      fiatAmount: cardChargeFiat,
+      paymentMethod: 'CARD',
+    });
     const range = calculateExpectedUsdtRange(fiatAmount, rate, fees);
     min = range.min;
     max = range.max;
@@ -362,7 +475,8 @@ export async function createUsdtCardPurchase(
     customerId: user.customerProfileId,
     customerType: customerProfile.customerType,
     currency,
-    fiatAmount,
+    fiatAmount: cardChargeFiat,
+    paymentMethod: 'CARD',
   });
 
   const orderId = generateTicketNo();
@@ -395,7 +509,7 @@ export async function createUsdtCardPurchase(
             targetUsdtAmount: targetUsdt,
             depositDeadlineAt: null,
             ...feeSnapshots,
-            cardFeePercentSnapshot: cardPolicy.cardFeePercent,
+            cardFeePercentSnapshot: feePercent,
             cardFeeFiatSnapshot: cardFeeFiat,
             cardChargeFiat,
             /** ICOPAY charge = display currency/amount (JPY stays JPY) */
@@ -433,8 +547,9 @@ export async function createUsdtCardPurchase(
       orderNo: orderId,
       amount: cardChargeFiat,
       currency,
-      productName: `TINPASS USDT ${orderId}`,
+      productName: `TINPASS ${orderId}`,
       lang: input.lang,
+      resultUrl: `${ICOPAY_BROWSER_RESULT_URL}?orderNo=${encodeURIComponent(orderId)}&ticketId=${encodeURIComponent(ticket.id)}`,
       buyer: {
         email: input.card.email || dbUser?.email || '',
         phone: buyerPhone,
@@ -445,25 +560,30 @@ export async function createUsdtCardPurchase(
       },
     });
 
-    await prisma.usdtPurchaseDetail.update({
-      where: { ticketId: ticket.id },
-      data: {
-        icopayTransactionId: checkout.sessionId || checkout.sessionToken || null,
-      },
-    });
 
-    if (checkout.sandbox || checkout.integrationMode === 'SANDBOX') {
-      const approved = await applyCardPaymentOutcome({
+    // ICOPAY merchant sandbox: prepare has no payUrl — complete simulates approval (no EP)
+    if (checkout.sandbox || String(checkout.integrationMode || '').toUpperCase() === 'SANDBOX') {
+      const done = await completeIcopaySandboxCheckout(icopay, {
+        orderNo: checkout.orderNo || orderId,
+        sessionToken: checkout.sessionToken,
+      });
+      const paid = isIcopayPaidStatus(done.status) || done.status === 'APPROVED';
+      const updated = await applyCardPaymentOutcome({
         ticketId: ticket.id,
-        orderNo: orderId,
-        paid: true,
-        transactionId: checkout.sessionToken || checkout.sessionId || orderId,
-        note: 'ICOPAY sandbox complete (no live acquirer)',
+        orderNo: checkout.orderNo || orderId,
+        paid,
+        transactionId: checkout.sessionId || checkout.sessionToken || orderId,
+        note: paid
+          ? 'ICOPAY sandbox complete (no live acquirer)'
+          : `ICOPAY sandbox result: ${done.status}`,
         actorUserId: user.id,
       });
-      const serialized = serializeTicket(approved || ticket, (await getWorkflowDisplay()).sla);
+      const serializedSb = serializeTicket(
+        updated || ticket,
+        (await getWorkflowDisplay()).sla,
+      );
       return {
-        ...serialized,
+        ...serializedSb,
         icopayCheckout: {
           payUrl: '',
           sessionId: checkout.sessionId,
@@ -471,12 +591,20 @@ export async function createUsdtCardPurchase(
           embedScriptUrl: checkout.embedScriptUrl,
           expiresAt: checkout.expiresAt,
           integrationMode: 'SANDBOX',
+          sandbox: true,
           orderNo: checkout.orderNo,
           payCurrency: currency,
           payAmount: cardChargeFiat,
         },
       };
     }
+
+    await prisma.usdtPurchaseDetail.update({
+      where: { ticketId: ticket.id },
+      data: {
+        icopayTransactionId: checkout.sessionId || checkout.sessionToken || null,
+      },
+    });
 
     const serialized = serializeTicket(ticket, (await getWorkflowDisplay()).sla);
     return {
@@ -488,6 +616,7 @@ export async function createUsdtCardPurchase(
         embedScriptUrl: checkout.embedScriptUrl,
         expiresAt: checkout.expiresAt,
         integrationMode: checkout.integrationMode,
+        sandbox: false,
         orderNo: checkout.orderNo,
         payCurrency: currency,
         payAmount: cardChargeFiat,
@@ -617,6 +746,12 @@ async function applyCardPaymentOutcome(opts: {
 /** ICOPAY → merchant webhook */
 export async function handleIcopayWebhook(body: unknown) {
   const parsed = parseIcopayWebhookBody(body);
+  console.info('[icopay-webhook]', {
+    orderNo: parsed.orderNo || '',
+    paymentStatus: parsed.paymentStatus || '',
+    amount: parsed.amount ?? null,
+    currency: parsed.currency || '',
+  });
   if (!parsed.orderNo) {
     return { success: false, error: 'orderNo missing' };
   }
@@ -643,7 +778,14 @@ export async function handleIcopayWebhook(body: unknown) {
       : ticket.usdtPurchase.cardChargeFiat
         ? Number(ticket.usdtPurchase.cardChargeFiat)
         : null;
+    const expectedCcy = String(
+      ticket.usdtPurchase.cardPayCurrency || ticket.usdtPurchase.fiatCurrency || '',
+    ).toUpperCase();
+    const webhookCcy = String(parsed.currency || '').toUpperCase();
+    /** ICOPAY는 JPY 청구를 THB 등 정산 통화로 통지 — 통화가 다르면 금액 비교를 건너뛴다 */
+    const sameCurrency = !webhookCcy || !expectedCcy || webhookCcy === expectedCcy;
     if (
+      sameCurrency &&
       expectedPay != null &&
       parsed.amount != null &&
       Number.isFinite(parsed.amount) &&
@@ -654,7 +796,7 @@ export async function handleIcopayWebhook(body: unknown) {
         pending: true,
         orderNo: parsed.orderNo,
         paymentStatus: status,
-        reason: `amount mismatch webhook=${parsed.amount} expected=${expectedPay} ${ticket.usdtPurchase.cardPayCurrency || ticket.usdtPurchase.fiatCurrency}`,
+        reason: `amount mismatch webhook=${parsed.amount} expected=${expectedPay} ${expectedCcy}`,
       };
     }
     await applyCardPaymentOutcome({
@@ -667,19 +809,99 @@ export async function handleIcopayWebhook(body: unknown) {
     });
     return { success: true, orderNo: parsed.orderNo, paymentStatus: 'APPROVED' };
   }
-  if (isIcopayFailedStatus(status) && status !== 'NOT_FOUND') {
+  if (isIcopayTerminalFailedStatus(status)) {
+    const u = String(status).toUpperCase();
+    const cancelled = u === 'CANCELLED' || u === 'CANCELED';
     await applyCardPaymentOutcome({
       ticketId: ticket.id,
       orderNo: parsed.orderNo,
       paid: false,
-      note: `ICOPAY webhook 거절 (${status})`,
+      note: cancelled
+        ? `ICOPAY webhook 거래 취소 (${status})`
+        : `ICOPAY webhook 거래 실패 (${status})`,
     });
-    return { success: true, orderNo: parsed.orderNo, paymentStatus: 'DECLINED' };
+    return {
+      success: true,
+      orderNo: parsed.orderNo,
+      paymentStatus: cancelled ? 'CANCELLED' : 'DECLINED',
+    };
   }
   return { success: true, pending: true, orderNo: parsed.orderNo, paymentStatus: status };
 }
 
 /** Status API 폴링 — 브라우저 복귀 후 결제 확정 */
+/**
+ * ICOPAY 브라우저 복귀 — orderNo/ticketId로 티켓을 찾아 상태 동기화 후 상세로 안내.
+ */
+export async function resolveUsdtCardPaymentReturn(
+  user: AuthUser,
+  input: { orderNo?: string | null; ticketId?: string | null },
+) {
+  const orderNo = String(input.orderNo || '')
+    .trim()
+    .replace(/\D/g, '');
+  const ticketIdHint = String(input.ticketId || '').trim();
+
+  let ticket =
+    ticketIdHint.length > 0
+      ? await prisma.transactionTicket.findFirst({
+          where: { id: ticketIdHint },
+          include: USDT_PURCHASE_INCLUDE,
+        })
+      : null;
+
+  if (!ticket?.usdtPurchase && orderNo) {
+    ticket = await prisma.transactionTicket.findFirst({
+      where: {
+        OR: [{ ticketNo: orderNo }, { usdtPurchase: { icopayOrderId: orderNo } }],
+      },
+      include: USDT_PURCHASE_INCLUDE,
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /** 쿼리에 번호가 없으면 최근 카드 결제 대기 건으로 복구 (가맹 Result URL이 목록만 가리킬 때) */
+  if (!ticket?.usdtPurchase && isMerchantSide(user) && user.customerProfileId) {
+    ticket = await prisma.transactionTicket.findFirst({
+      where: {
+        customerId: user.customerProfileId,
+        usdtPurchase: {
+          paymentMethod: UsdtPaymentMethod.CARD,
+          status: UsdtPurchaseStatus.CARD_PAYMENT_PENDING,
+        },
+      },
+      include: USDT_PURCHASE_INCLUDE,
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  if (!ticket?.usdtPurchase) {
+    throw new AppError(404, 'Card payment ticket not found', 'NOT_FOUND');
+  }
+  if (isMerchantSide(user) && ticket.customerId !== user.customerProfileId) {
+    throw new AppError(403, 'Forbidden', 'FORBIDDEN');
+  }
+
+  const synced = await syncUsdtCardPayment(user, ticket.id);
+  const paid =
+    synced.cardPaymentStatus === 'APPROVED' ||
+    synced.status === 'ADMIN_REVIEWING' ||
+    synced.status === 'COMPLETED' ||
+    synced.status === 'TRANSFER_IN_PROGRESS' ||
+    synced.status === 'DEPOSIT_PROOF_PENDING';
+  const declined =
+    synced.cardPaymentStatus === 'DECLINED' || synced.status === 'CANCELLED';
+
+  return {
+    ticketId: synced.id,
+    ticketNo: synced.ticketNo,
+    status: synced.status,
+    cardPaymentStatus: synced.cardPaymentStatus ?? null,
+    outcome: paid ? ('PAID' as const) : declined ? ('DECLINED' as const) : ('PENDING' as const),
+    ticket: synced,
+  };
+}
+
 export async function syncUsdtCardPayment(user: AuthUser, ticketId: string) {
   const ticket = await prisma.transactionTicket.findFirst({
     where: { id: ticketId },
@@ -721,15 +943,54 @@ export async function syncUsdtCardPayment(user: AuthUser, ticketId: string) {
     });
     if (updated) return serializeTicket(updated, (await getWorkflowDisplay()).sla);
   }
-  if (isIcopayFailedStatus(status.paymentStatus) && status.paymentStatus !== 'NOT_FOUND') {
+  if (isIcopayTerminalFailedStatus(status.paymentStatus)) {
+    const u = String(status.paymentStatus).toUpperCase();
+    const cancelled = u === 'CANCELLED' || u === 'CANCELED';
     const updated = await applyCardPaymentOutcome({
       ticketId: ticket.id,
       orderNo,
       paid: false,
-      note: `ICOPAY status 거절 (${status.paymentStatus})`,
+      note: cancelled
+        ? `ICOPAY status 거래 취소 (${status.paymentStatus})`
+        : `ICOPAY status 거래 실패 (${status.paymentStatus})`,
+      actorUserId: user.id,
+    });
+    if (updated) return serializeTicket(updated, (await getWorkflowDisplay()).sla);
+  }
+  /** 오래된 NOT_FOUND·미응답 — 결제 창 이탈·만료로 거래 실패 처리 */
+  const ageMs = Date.now() - new Date(ticket.createdAt).getTime();
+  const abandonedMs = 30 * 60 * 1000;
+  if (
+    (status.paymentStatus === 'NOT_FOUND' || status.paymentStatus === 'UNKNOWN') &&
+    ageMs >= abandonedMs
+  ) {
+    const updated = await applyCardPaymentOutcome({
+      ticketId: ticket.id,
+      orderNo,
+      paid: false,
+      note: `ICOPAY status 거래 실패 (${status.paymentStatus})`,
       actorUserId: user.id,
     });
     if (updated) return serializeTicket(updated, (await getWorkflowDisplay()).sla);
   }
   return serializeTicket(ticket, (await getWorkflowDisplay()).sla);
+}
+
+/**
+ * 목록 조회 시 카드결제중 건을 ICOPAY status와 맞춰 승인/거래실패로 반영.
+ * 최대 limit건만 처리해 목록 응답을 과도하게 지연시키지 않는다.
+ */
+export async function reconcilePendingCardPayments(
+  user: AuthUser,
+  ticketIds: string[],
+  limit = 8,
+) {
+  const ids = ticketIds.filter(Boolean).slice(0, limit);
+  for (const id of ids) {
+    try {
+      await syncUsdtCardPayment(user, id);
+    } catch (e) {
+      console.warn('[icopay-reconcile]', id, e instanceof Error ? e.message : e);
+    }
+  }
 }

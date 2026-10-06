@@ -21,8 +21,12 @@ import {
 import { mergeLiveFeesWithSandboxBasic, sandboxBasicDeltas, applySandboxGasDelta } from '../lib/sandbox-fee-merge';
 import { computeFeeAmounts, normalizeTransactionFees } from '../lib/fee-component';
 import { prisma } from '../lib/prisma';
-import { normalizeTransactionLimits } from '../lib/transaction-limit-policy';
+import {
+  cardChargeLimitsFromPolicy,
+  normalizeMethodTransactionLimits,
+} from '../lib/transaction-limit-policy';
 import { CustomerType } from '@prisma/client';
+import type { SymbolFeeCurrency as FeeCur } from '../constants/hq-policy';
 
 export function defaultTransactionFees(): TransactionFees {
   return normalizeTransactionFees();
@@ -164,15 +168,34 @@ export function normalizeFeeDiagramDisplay(
   };
 }
 
-/** 저장된 본사정책 + 구 필드 마이그레이션 */
-export function normalizeCommissionRisk(raw: Partial<HqCommissionRiskConfig>): HqCommissionRiskConfig {
-  const defaults = defaultTransactionFees();
-  const transfer =
-    raw.defaultTransferFeeUsdt ??
-    raw.defaultPlatformFeeUsdt ??
-    defaults.transferFeeUsdt;
-  const showTotalFee = raw.showTotalFee !== false;
+function buildNormalizedRisk(
+  raw: Partial<HqCommissionRiskConfig>,
+  cardSeed?: Partial<Record<FeeCur, { min?: number; max?: number }>>,
+): HqCommissionRiskConfig {
+  const maxTicket = raw.maxTicketAmountKrw ?? 100_000_000;
+  const methodLimits = normalizeMethodTransactionLimits(
+    raw.methodTransactionLimits,
+    raw.transactionLimits,
+    maxTicket,
+    cardSeed,
+  );
+  return normalizeCommissionRiskCore(raw, methodLimits);
+}
 
+/** 동기 정규화 — CARD 시드 없이 legacy/method raw만 사용 */
+export function normalizeCommissionRisk(
+  raw: Partial<HqCommissionRiskConfig>,
+): HqCommissionRiskConfig {
+  return buildNormalizedRisk(raw);
+}
+
+function normalizeCommissionRiskCore(
+  raw: Partial<HqCommissionRiskConfig>,
+  methodLimits: ReturnType<typeof normalizeMethodTransactionLimits>,
+): HqCommissionRiskConfig {
+  const defaults = defaultTransactionFees();
+  const transfer = raw.defaultTransferFeeUsdt ?? raw.defaultPlatformFeeUsdt ?? defaults.transferFeeUsdt;
+  const showTotalFee = raw.showTotalFee !== false;
   return {
     defaultFxFeePercent: raw.defaultFxFeePercent ?? defaults.fxFeePercent,
     defaultFxFeeUsdt: raw.defaultFxFeeUsdt ?? defaults.fxFeeUsdt,
@@ -203,10 +226,8 @@ export function normalizeCommissionRisk(raw: Partial<HqCommissionRiskConfig>): H
     maxTicketAmountKrw: raw.maxTicketAmountKrw ?? 100_000_000,
     riskEnabled: raw.riskEnabled ?? true,
     maxDailyTicketsPerCustomer: raw.maxDailyTicketsPerCustomer ?? 10,
-    transactionLimits: normalizeTransactionLimits(
-      raw.transactionLimits,
-      raw.maxTicketAmountKrw ?? 100_000_000,
-    ),
+    transactionLimits: methodLimits.BANK_TRANSFER,
+    methodTransactionLimits: methodLimits,
     usdtRiskLimitTiers: normalizeHqUsdtRiskLimitTiers(raw.usdtRiskLimitTiers),
     notes: raw.notes ?? '',
   };
@@ -216,6 +237,7 @@ export async function getCommissionRiskConfig(): Promise<HqCommissionRiskConfig>
   const row = await prisma.systemConfig.findUnique({
     where: { key: HQ_CONFIG_KEYS.commissionRisk },
   });
+  /** HQ 리스크 화면과 동일 정규화. 구 결제관리 card.limits 시드는 쓰지 않음. */
   return normalizeCommissionRisk((row?.value ?? {}) as Partial<HqCommissionRiskConfig>);
 }
 

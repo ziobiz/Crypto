@@ -1,20 +1,16 @@
-import { CustomerType, UsdtPurchaseStatus } from '@prisma/client';
+import { CustomerType, UsdtPaymentMethod, UsdtPurchaseStatus } from '@prisma/client';
 import {
-  SYMBOL_FEE_CURRENCIES,
   type CurrencyTransactionLimits,
-  type CustomerTransactionLimitsPolicy,
-  type CustomerTypeLimitKey,
   type HqCommissionRiskConfig,
+  type LimitPaymentMethod,
   type SymbolFeeCurrency,
 } from '../constants/hq-policy';
-import { HQ_CONFIG_KEYS } from '../constants/hq-policy';
 import { AppError } from '../lib/errors';
 import { prisma } from '../lib/prisma';
 import {
   defaultCurrencyLimits,
-  normalizeTransactionLimits,
+  resolveLimitPaymentMethod,
 } from '../lib/transaction-limit-policy';
-import { normalizeCommissionRisk } from './transaction-fee.service';
 
 const ACTIVE_STATUSES: UsdtPurchaseStatus[] = [
   UsdtPurchaseStatus.QUOTE_PENDING,
@@ -49,13 +45,11 @@ export async function countDailyTicketsForCustomer(
 }
 
 async function loadRiskConfig(): Promise<HqCommissionRiskConfig> {
-  const row = await prisma.systemConfig.findUnique({
-    where: { key: HQ_CONFIG_KEYS.commissionRisk },
-  });
-  return normalizeCommissionRisk((row?.value ?? {}) as Partial<HqCommissionRiskConfig>);
+  const { getCommissionRiskConfig } = await import('./transaction-fee.service');
+  return getCommissionRiskConfig();
 }
 
-export function toCustomerTypeKey(customerType: CustomerType): CustomerTypeLimitKey {
+export function toCustomerTypeKey(customerType: CustomerType): 'INDIVIDUAL' | 'CORPORATE' {
   return customerType === CustomerType.CORPORATE ? 'CORPORATE' : 'INDIVIDUAL';
 }
 
@@ -67,13 +61,21 @@ function startOfUtcMonth(date = new Date()): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
 }
 
+function toPrismaPaymentMethod(method: LimitPaymentMethod): UsdtPaymentMethod {
+  if (method === 'CARD') return UsdtPaymentMethod.CARD;
+  if (method === 'REMITTANCE') return UsdtPaymentMethod.REMITTANCE;
+  return UsdtPaymentMethod.BANK_TRANSFER;
+}
+
 export async function getCustomerFiatTotals(
   customerId: string,
   currency: SymbolFeeCurrency,
   now = new Date(),
+  paymentMethod?: LimitPaymentMethod | string | null,
 ): Promise<{ dailyTotal: number; monthlyTotal: number }> {
   const dayStart = startOfUtcDay(now);
   const monthStart = startOfUtcMonth(now);
+  const method = paymentMethod ? resolveLimitPaymentMethod(paymentMethod) : null;
 
   const rows = await prisma.usdtPurchaseDetail.findMany({
     where: {
@@ -81,6 +83,7 @@ export async function getCustomerFiatTotals(
       status: { in: ACTIVE_STATUSES },
       ticket: { customerId },
       createdAt: { gte: monthStart },
+      ...(method ? { paymentMethod: toPrismaPaymentMethod(method) } : {}),
     },
     select: { fiatAmount: true, createdAt: true },
   });
@@ -106,6 +109,7 @@ export type TransactionLimitCheck = {
   dailyTotal: number;
   monthlyTotal: number;
   limits: CurrencyTransactionLimits;
+  paymentMethod: LimitPaymentMethod;
 };
 
 export function checkTransactionAmount(
@@ -113,7 +117,7 @@ export function checkTransactionAmount(
   amount: number,
   dailyTotal: number,
   monthlyTotal: number,
-): TransactionLimitCheck {
+): Omit<TransactionLimitCheck, 'paymentMethod'> {
   const minCandidates = [
     limits.perTransactionMin,
     limits.dailyMin,
@@ -134,7 +138,7 @@ export function checkTransactionAmount(
 
   const allowed =
     amount > 0 &&
-    (minAmount <= 0 || amount >= minAmount) &&
+    (minAmount <= 0 || amount + 1e-9 >= minAmount) &&
     (maxAmount == null || amount <= maxAmount + 1e-9);
 
   return {
@@ -152,9 +156,11 @@ export async function validateCustomerTransactionAmount(input: {
   customerType: CustomerType;
   currency: SymbolFeeCurrency;
   fiatAmount: number;
+  paymentMethod?: LimitPaymentMethod | string | null;
   risk?: HqCommissionRiskConfig;
 }): Promise<TransactionLimitCheck> {
   const risk = input.risk ?? (await loadRiskConfig());
+  const paymentMethod = resolveLimitPaymentMethod(input.paymentMethod);
   if (!risk.riskEnabled) {
     return {
       allowed: true,
@@ -163,14 +169,19 @@ export async function validateCustomerTransactionAmount(input: {
       dailyTotal: 0,
       monthlyTotal: 0,
       limits: defaultCurrencyLimits(),
+      paymentMethod,
     };
   }
 
   const typeKey = toCustomerTypeKey(input.customerType);
-  const limits = risk.transactionLimits[typeKey][input.currency];
+  const methodLimits =
+    risk.methodTransactionLimits?.[paymentMethod] ?? risk.transactionLimits;
+  const limits = methodLimits[typeKey][input.currency];
   const { dailyTotal, monthlyTotal } = await getCustomerFiatTotals(
     input.customerId,
     input.currency,
+    new Date(),
+    paymentMethod,
   );
 
   const dailyTicketCount = await countDailyTicketsForCustomer(input.customerId);
@@ -194,7 +205,7 @@ export async function validateCustomerTransactionAmount(input: {
   );
 
   if (!check.allowed) {
-    if (check.minAmount > 0 && input.fiatAmount < check.minAmount) {
+    if (check.minAmount > 0 && input.fiatAmount + 1e-9 < check.minAmount) {
       throw new AppError(
         400,
         `최소 거래 금액은 ${check.minAmount.toLocaleString()} ${input.currency} 입니다`,
@@ -220,23 +231,28 @@ export async function validateCustomerTransactionAmount(input: {
     throw new AppError(400, '거래 금액이 한도 정책에 맞지 않습니다', 'TRANSACTION_LIMIT');
   }
 
-  return check;
+  return { ...check, paymentMethod };
 }
 
 export async function getCustomerTransactionLimitSummary(
   customerId: string,
   customerType: CustomerType,
   currency: SymbolFeeCurrency,
+  paymentMethod?: LimitPaymentMethod | string | null,
 ) {
   const risk = await loadRiskConfig();
+  const method = resolveLimitPaymentMethod(paymentMethod);
   const typeKey = toCustomerTypeKey(customerType);
-  const limits = risk.transactionLimits[typeKey][currency];
-  const totals = await getCustomerFiatTotals(customerId, currency);
+  const methodLimits =
+    risk.methodTransactionLimits?.[method] ?? risk.transactionLimits;
+  const limits = methodLimits[typeKey][currency];
+  const totals = await getCustomerFiatTotals(customerId, currency, new Date(), method);
   const check = checkTransactionAmount(limits, 0, totals.dailyTotal, totals.monthlyTotal);
   const dailyTicketCount = await countDailyTicketsForCustomer(customerId);
   return {
     enabled: risk.riskEnabled,
     limits,
+    paymentMethod: method,
     dailyTotal: totals.dailyTotal,
     monthlyTotal: totals.monthlyTotal,
     remainingDaily:

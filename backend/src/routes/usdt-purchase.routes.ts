@@ -37,6 +37,7 @@ import {
   createUsdtCardPurchase,
   getUsdtCardPaymentContext,
   previewUsdtCardFees,
+  resolveUsdtCardPaymentReturn,
   syncUsdtCardPayment,
 } from '../services/usdt-card-purchase.service';
 import { assertTicketAccess, canOperateUsdtTicket } from '../services/ticket-access.service';
@@ -140,6 +141,24 @@ router.get(
   }),
 );
 
+/** ICOPAY 결제 후 브라우저 복귀 — orderNo/ticketId로 티켓 찾아 동기화 */
+router.get(
+  '/card-return',
+  requireRoles(...MERCHANT_TRADE_ROLES),
+  asyncHandler(async (req, res) => {
+    const orderNo = String(
+      req.query.orderNo ?? req.query.order_no ?? req.query.ordNo ?? '',
+    ).trim();
+    const ticketId = String(req.query.ticketId ?? req.query.ticket_id ?? '').trim();
+    res.json(
+      await resolveUsdtCardPaymentReturn(req.user!, {
+        orderNo: orderNo || null,
+        ticketId: ticketId || null,
+      }),
+    );
+  }),
+);
+
 router.get(
   '/fees',
   requireRoles(...MERCHANT_TRADE_ROLES),
@@ -151,6 +170,8 @@ router.get(
       req.query.targetUsdtAmount != null ? Number(req.query.targetUsdtAmount) : undefined;
     const cardChargeFiat =
       req.query.cardChargeFiat != null ? Number(req.query.cardChargeFiat) : undefined;
+    const cardBrand =
+      req.query.cardBrand != null ? String(req.query.cardBrand) : undefined;
     const paymentMethod = String(req.query.paymentMethod ?? 'BANK');
     if (!walletId) {
       throw new AppError(400, 'walletId required', 'VALIDATION_ERROR');
@@ -162,6 +183,7 @@ router.get(
           fiatCurrency: currency,
           targetUsdtAmount,
           cardChargeFiat,
+          cardBrand,
         }),
       );
       return;
@@ -198,6 +220,7 @@ router.get(
         fiatAmount,
         targetUsdtAmount,
         expressTier,
+        paymentMethod: paymentMethod === 'REMITTANCE' ? 'REMITTANCE' : 'BANK_TRANSFER',
       }),
     );
   }),
@@ -271,6 +294,10 @@ const createSchema = z
       .optional()
       .nullable(),
     cardWaiverAccepted: z.literal(true).optional(),
+    cardBrand: z
+      .enum(['VISA', 'MASTERCARD', 'AMEX', 'JCB', 'UNIONPAY', 'OTHER'])
+      .optional()
+      .nullable(),
     card: cardSchema.optional(),
   })
   .refine((d) => d.fiatAmount != null || d.targetUsdtAmount != null || d.cardChargeFiat != null, {
@@ -292,6 +319,7 @@ router.post(
         fiatCurrency: body.fiatCurrency as FiatCurrency | undefined,
         targetUsdtAmount: body.targetUsdtAmount,
         cardChargeFiat: body.cardChargeFiat,
+        cardBrand: body.cardBrand,
         card: body.card,
         cardWaiverAccepted: true,
         lang: typeof req.headers['accept-language'] === 'string' ? req.headers['accept-language'] : undefined,

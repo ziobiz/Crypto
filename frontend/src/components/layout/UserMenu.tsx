@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/context/AuthProvider';
 import { useLocale, useT } from '@/context/LocaleProvider';
 import { useBranding } from '@/hooks/useBranding';
@@ -56,6 +57,8 @@ export function UserMenu({ compact = false }: { compact?: boolean }) {
   const identityLine = `${orgLine} | ${t(sessionRoleKey(user.role))}`;
   const identityKind = resolveSessionIdentityKind(user);
   const identityTitle = t(sessionIdentityAriaKey(identityKind));
+  const showMyInfo =
+    user.role === 'CUSTOMER' || user.role === 'CUSTOMER_OPERATOR';
 
   function handleLogout() {
     setOpen(false);
@@ -99,6 +102,17 @@ export function UserMenu({ compact = false }: { compact?: boolean }) {
             <p className="mt-1 text-[11px] text-gray-600">{t(roleKey(user.role))}</p>
             {orgLine && <p className="mt-0.5 truncate text-[11px] text-gray-500">{orgLine}</p>}
           </div>
+
+          {showMyInfo && !confirmLogout && (
+            <Link
+              href="/dashboard/account"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className="block w-full px-3 py-2 text-left text-xs font-semibold text-teal-700 hover:bg-teal-50"
+            >
+              {t('nav.myInfo')}
+            </Link>
+          )}
 
           {!confirmLogout ? (
             <button

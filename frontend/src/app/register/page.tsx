@@ -86,6 +86,8 @@ function RegisterForm() {
   const [form, setForm] = useState({
     email: '',
     name: '',
+    legalFirstName: '',
+    legalLastName: '',
     phone: '',
     phoneCountryCode: defaultPhoneCountryCode(locale),
     limitCountry: limitCountryFromPhone(defaultPhoneCountryCode(locale)) as LimitCountryCode,
@@ -123,7 +125,7 @@ function RegisterForm() {
 
   useEffect(() => {
     setForm((prev) => {
-      const wiseSenderName = prev.name;
+      const wiseSenderName = `${prev.legalFirstName} ${prev.legalLastName}`.trim() || prev.name;
       if (!senderSameAsAccount) {
         if (prev.wiseSenderName === wiseSenderName) return prev;
         return { ...prev, wiseSenderName };
@@ -139,7 +141,14 @@ function RegisterForm() {
       }
       return { ...prev, wiseSenderName, wiseSenderEmail, wiseSenderCountry };
     });
-  }, [form.name, form.email, form.limitCountry, senderSameAsAccount]);
+  }, [
+    form.name,
+    form.legalFirstName,
+    form.legalLastName,
+    form.email,
+    form.limitCountry,
+    senderSameAsAccount,
+  ]);
 
   const inviteHint = useMemo(() => {
     if (!inviteLabel) return '';
@@ -326,6 +335,13 @@ function RegisterForm() {
       setError(t('auth.registerVerifyRequired'));
       return;
     }
+    const legalFirst = form.legalFirstName.trim();
+    const legalLast = form.legalLastName.trim();
+    const englishNameRe = /^[A-Za-z][A-Za-z .'-]*$/;
+    if (!legalFirst || !legalLast || !englishNameRe.test(legalFirst) || !englishNameRe.test(legalLast)) {
+      setError(t('auth.legalNameRequired'));
+      return;
+    }
     if (!inviteLocked && !noReferrer && !selectedReferrer) {
       setError(t('auth.referrerRequired'));
       return;
@@ -334,7 +350,7 @@ function RegisterForm() {
       setError(t('auth.inviteInvalid'));
       return;
     }
-    const holderFallback = form.name.trim();
+    const holderFallback = `${legalFirst} ${legalLast}`.trim() || form.name.trim();
     const banks = filledBankAccounts(
       form.bankAccounts.map((account) => ({
         ...account,
@@ -351,6 +367,10 @@ function RegisterForm() {
     }
     if (!form.walletAddress.trim()) {
       setError(t('register.walletRequired'));
+      return;
+    }
+    if (!form.walletLabel.trim()) {
+      setError(t('wallets.err.nicknameRequired'));
       return;
     }
     if (form.remittanceEnabled) {
@@ -378,6 +398,8 @@ function RegisterForm() {
         email: form.email,
         emailProof,
         name: form.name,
+        legalFirstName: legalFirst,
+        legalLastName: legalLast,
         phone: form.phone,
         phoneCountryCode: form.phoneCountryCode,
         limitCountry: form.limitCountry,
@@ -397,14 +419,16 @@ function RegisterForm() {
         bankAccounts: banks,
         walletAddress: form.walletAddress.trim(),
         walletNetwork: form.walletNetwork,
-        walletLabel: form.walletLabel || undefined,
+        walletLabel: form.walletLabel.trim(),
         wiseEnabled: form.remittanceEnabled,
         remittanceProvider: form.remittanceEnabled ? form.remittanceProvider || undefined : undefined,
         remittanceProviderOther:
           form.remittanceEnabled && form.remittanceProvider === 'OTHER'
             ? form.remittanceProviderOther.trim()
             : undefined,
-        wiseSenderName: form.remittanceEnabled ? form.name.trim() : undefined,
+        wiseSenderName: form.remittanceEnabled
+          ? `${legalFirst} ${legalLast}`.trim()
+          : undefined,
         wiseSenderEmail: form.remittanceEnabled ? form.wiseSenderEmail.trim() : undefined,
         wiseSenderCountry: form.remittanceEnabled
           ? (form.wiseSenderCountry || form.limitCountry).trim().toUpperCase()
@@ -466,7 +490,7 @@ function RegisterForm() {
               <div className="flex gap-2">
                 <div className="min-w-0 flex-1">
                   <Field
-                    label={t('auth.name')}
+                    label={t('auth.nickname')}
                     value={form.name}
                     onChange={(v) => setForm((prev) => ({ ...prev, name: v }))}
                   />
@@ -479,6 +503,34 @@ function RegisterForm() {
                 >
                   {sendingCode ? t('common.loading') : t('auth.sendEmailCode')}
                 </button>
+              </div>
+            </div>
+            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50/80 p-3">
+              <p className="text-xs font-semibold text-amber-950">{t('auth.legalNameSection')}</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-amber-900/90">
+                {t('auth.legalNameWarning')}
+              </p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <Field
+                  label={t('auth.legalFirstName')}
+                  value={form.legalFirstName}
+                  onChange={(v) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      legalFirstName: v.replace(/[^A-Za-z .'-]/g, ''),
+                    }))
+                  }
+                />
+                <Field
+                  label={t('auth.legalLastName')}
+                  value={form.legalLastName}
+                  onChange={(v) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      legalLastName: v.replace(/[^A-Za-z .'-]/g, ''),
+                    }))
+                  }
+                />
               </div>
             </div>
           </section>
@@ -899,7 +951,7 @@ function RegisterForm() {
                 label={t('wallets.label')}
                 value={form.walletLabel}
                 onChange={(v) => setForm({ ...form, walletLabel: v })}
-                optional
+                hint={t('wallets.labelHint')}
               />
               <div>
                 <label className="block text-sm font-medium">{t('users.walletNetwork')}</label>

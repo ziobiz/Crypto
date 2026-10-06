@@ -12,6 +12,7 @@ export const HQ_PAGE_PATH_KEYS: Record<string, MessageKey> = {
   '/dashboard/invoices/official': 'nav.invoicesOfficial',
   '/dashboard/invoices/simulator': 'nav.invoicesSimulator',
   '/dashboard/wallets': 'hq.page.wallets',
+  '/dashboard/account': 'nav.account',
   '/dashboard/merchant-users': 'nav.merchantUsers',
   '/dashboard/operation-history': 'nav.operationHistory',
   '/dashboard/users': 'hq.page.users',

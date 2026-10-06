@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthProvider';
 import { useT, useLocale } from '@/context/LocaleProvider';
 import { api, UsdtDepositContext, UsdtTicket, ApiError } from '@/lib/api';
@@ -99,6 +99,8 @@ function useCountdown(deadline: string | null | undefined) {
 
 export default function UsdtDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const search = useSearchParams();
+  const cardReturn = search.get('cardReturn');
   const { user } = useAuth();
   const t = useT();
   const { locale } = useLocale();
@@ -611,6 +613,31 @@ export default function UsdtDetailPage() {
                     hours: String(depositCtx?.depositWindowHours ?? 2),
                   })}
             </p>
+          </div>
+        </div>
+      )}
+
+      {cardReturn === 'paid' && (
+        <div className="pg-card">
+          <div className="pg-card-body pg-callout pg-callout-success">
+            <p className="font-semibold text-emerald-800">{t('usdt.cardResult.paidTitle')}</p>
+            <p className="mt-1 text-sm text-emerald-900/90">{t('usdt.cardResult.paidBody')}</p>
+          </div>
+        </div>
+      )}
+      {cardReturn === 'declined' && (
+        <div className="pg-card">
+          <div className="pg-card-body pg-callout pg-callout-error">
+            <p className="font-semibold">{t('usdt.cardResult.declinedTitle')}</p>
+            <p className="mt-1 text-sm">{t('usdt.detail.cardDeclined')}</p>
+          </div>
+        </div>
+      )}
+      {cardReturn === 'pending' && (
+        <div className="pg-card">
+          <div className="pg-card-body pg-callout pg-callout-warn">
+            <p className="font-semibold">{t('usdt.cardResult.pendingTitle')}</p>
+            <p className="mt-1 text-sm">{t('usdt.detail.cardPendingHint')}</p>
           </div>
         </div>
       )}

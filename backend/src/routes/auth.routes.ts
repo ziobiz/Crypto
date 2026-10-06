@@ -667,6 +667,8 @@ router.get(
       id: user.id,
       email: user.email,
       name: user.name,
+      legalFirstName: user.legalFirstName ?? null,
+      legalLastName: user.legalLastName ?? null,
       role: user.role,
       organization: user.organization,
       customerProfile,
@@ -690,6 +692,174 @@ router.get(
   }),
 );
 
+/** 고객·운영자: 나의 가입 정보 (조회) */
+router.get(
+  '/account',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const auth = req.user!;
+    if (auth.role !== UserRole.CUSTOMER && auth.role !== UserRole.CUSTOMER_OPERATOR) {
+      throw new AppError(403, 'Customer account only', 'FORBIDDEN');
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: auth.id },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        legalFirstName: true,
+        legalLastName: true,
+        phone: true,
+        phoneCountryCode: true,
+        role: true,
+        totpEnabled: true,
+        createdAt: true,
+        bankAccounts: {
+          where: { isActive: true },
+          orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+          select: {
+            id: true,
+            currency: true,
+            bankName: true,
+            accountNumber: true,
+            accountHolder: true,
+            branchName: true,
+            isDefault: true,
+          },
+        },
+        wallets: {
+          where: { isActive: true },
+          orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+          select: {
+            id: true,
+            label: true,
+            address: true,
+            network: true,
+            isDefault: true,
+            approvalStatus: true,
+          },
+        },
+        customerProfile: {
+          select: {
+            customerType: true,
+            approvalStatus: true,
+            limitCountry: true,
+            businessName: true,
+            recruitingOrg: { select: { id: true, name: true, code: true } },
+          },
+        },
+        kyc: { select: { status: true } },
+      },
+    });
+    if (!user) throw new AppError(404, 'User not found', 'NOT_FOUND');
+
+    let profile = user.customerProfile;
+    let kycStatus = user.kyc?.status ?? 'NOT_SUBMITTED';
+    let bankAccounts = user.bankAccounts;
+    let wallets = user.wallets;
+
+    if (auth.role === UserRole.CUSTOMER_OPERATOR && auth.merchantAdminUserId) {
+      const admin = await prisma.user.findUnique({
+        where: { id: auth.merchantAdminUserId },
+        select: {
+          bankAccounts: {
+            where: { isActive: true },
+            orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+            select: {
+              id: true,
+              currency: true,
+              bankName: true,
+              accountNumber: true,
+              accountHolder: true,
+              branchName: true,
+              isDefault: true,
+            },
+          },
+          wallets: {
+            where: {
+              isActive: true,
+              approvalStatus: 'APPROVED',
+            },
+            orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+            select: {
+              id: true,
+              label: true,
+              address: true,
+              network: true,
+              isDefault: true,
+              approvalStatus: true,
+            },
+          },
+          customerProfile: {
+            select: {
+              customerType: true,
+              approvalStatus: true,
+              limitCountry: true,
+              businessName: true,
+              recruitingOrg: { select: { id: true, name: true, code: true } },
+            },
+          },
+          kyc: { select: { status: true } },
+        },
+      });
+      profile = admin?.customerProfile ?? null;
+      kycStatus = admin?.kyc?.status ?? 'NOT_SUBMITTED';
+      bankAccounts = admin?.bankAccounts ?? [];
+      wallets = admin?.wallets ?? [];
+    }
+
+    res.json({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      legalFirstName: user.legalFirstName ?? null,
+      legalLastName: user.legalLastName ?? null,
+      phone: user.phone ?? null,
+      phoneCountryCode: user.phoneCountryCode ?? null,
+      role: user.role,
+      totpEnabled: user.totpEnabled,
+      createdAt: user.createdAt,
+      kycStatus,
+      customerType: profile?.customerType ?? null,
+      approvalStatus: profile?.approvalStatus ?? null,
+      limitCountry: profile?.limitCountry ?? null,
+      businessName: profile?.businessName ?? null,
+      recruitingOrg: profile?.recruitingOrg ?? null,
+      bankAccounts,
+      wallets,
+      canEditNickname: true,
+      canChangePassword: true,
+      canEditLegalName: false,
+      canResetOtp: false,
+    });
+  }),
+);
+
+/** 고객·운영자: 닉네임만 변경 (법적 성명·연락처 등은 불가) */
+router.patch(
+  '/account',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const auth = req.user!;
+    if (auth.role !== UserRole.CUSTOMER && auth.role !== UserRole.CUSTOMER_OPERATOR) {
+      throw new AppError(403, 'Customer account only', 'FORBIDDEN');
+    }
+    const body = z
+      .object({
+        name: z.string().trim().min(1).max(80),
+      })
+      .parse(req.body);
+
+    const updated = await prisma.user.update({
+      where: { id: auth.id },
+      data: { name: body.name.trim() },
+      select: { id: true, name: true, email: true },
+    });
+    res.json({ ok: true, name: updated.name, email: updated.email });
+  }),
+);
+
 const registerBankAccountSchema = z.object({
   currency: z.enum(['KRW', 'JPY', 'THB', 'CNY']),
   bankName: z.string().min(1),
@@ -703,7 +873,17 @@ const registerSchema = z
     email: z.string().email(),
     /** 인증번호 확인 API가 발급한 가입 진행 증명 */
     emailProof: z.string().min(20),
+    /** 닉네임·표시명 */
     name: z.string().min(1),
+    /** 법적 영문 First / Last — 카드결제용, 가입 후 고객 변경 불가 */
+    legalFirstName: z
+      .string()
+      .min(1)
+      .regex(/^[A-Za-z][A-Za-z .'-]*$/, 'Legal first name must be English letters'),
+    legalLastName: z
+      .string()
+      .min(1)
+      .regex(/^[A-Za-z][A-Za-z .'-]*$/, 'Legal last name must be English letters'),
     phone: z.string().min(6),
     phoneCountryCode: z.string().min(1),
     /** 개인 한도 산정 국가 (JP/KR/TH/US/CN). 미입력 시 전화·IP로 추정 */
@@ -724,7 +904,7 @@ const registerSchema = z
     bankAccounts: z.array(registerBankAccountSchema).min(1),
     walletAddress: z.string().min(1),
     walletNetwork: z.string().optional(),
-    walletLabel: z.string().optional(),
+    walletLabel: z.string().trim().min(1).max(40),
     wiseEnabled: z.boolean().optional(),
     remittanceProvider: z
       .enum([
@@ -966,11 +1146,17 @@ router.post(
       signupCountry,
     });
 
+    const legalFirst = data.legalFirstName.trim().replace(/\s+/g, ' ');
+    const legalLast = data.legalLastName.trim().replace(/\s+/g, ' ');
+    const legalFull = `${legalFirst} ${legalLast}`.trim();
+
     const created = await prisma.user.create({
       data: {
         email: data.email,
         passwordHash,
         name: data.name,
+        legalFirstName: legalFirst,
+        legalLastName: legalLast,
         phone: data.phone,
         phoneCountryCode: data.phoneCountryCode,
         role: UserRole.CUSTOMER,
@@ -1001,7 +1187,7 @@ router.post(
               data.remittanceProvider === 'OTHER'
                 ? data.remittanceProviderOther?.trim() || null
                 : null,
-            wiseSenderName: data.remittanceProvider ? data.name.trim() : null,
+            wiseSenderName: data.remittanceProvider ? legalFull : null,
             wiseSenderEmail: data.remittanceProvider
               ? data.wiseSenderEmail?.trim().toLowerCase() || null
               : null,
@@ -1024,7 +1210,7 @@ router.post(
         },
         wallets: {
           create: {
-            label: data.walletLabel?.trim() || '메인 USDT 지갑',
+            label: data.walletLabel.trim().slice(0, 40),
             address: data.walletAddress.trim(),
             network: data.walletNetwork?.trim() || 'TRC20',
             isDefault: true,

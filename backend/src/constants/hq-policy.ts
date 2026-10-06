@@ -60,6 +60,7 @@ export const HQ_PAGE_CATALOG = [
   { path: '/dashboard/hq-policy/profit-analysis', label: '수익분석', group: 'hqPolicy' },
   { path: '/dashboard/kyc', label: '인증센터', group: 'merchant' },
   { path: '/dashboard/wallets', label: '내 지갑', group: 'merchant' },
+  { path: '/dashboard/account', label: '내 가입 정보', group: 'merchant' },
   { path: '/dashboard/merchant-users', label: '가맹점 사용자관리', group: 'merchant' },
 ] as const;
 
@@ -438,6 +439,15 @@ export type CustomerTransactionLimitsPolicy = Record<
   Record<SymbolFeeCurrency, CurrencyTransactionLimits>
 >;
 
+/** 리스크 한도 — 결제수단별 (이체 / 송금 / 카드) */
+export const LIMIT_PAYMENT_METHODS = ['BANK_TRANSFER', 'REMITTANCE', 'CARD'] as const;
+export type LimitPaymentMethod = (typeof LIMIT_PAYMENT_METHODS)[number];
+
+export type MethodTransactionLimitsPolicy = Record<
+  LimitPaymentMethod,
+  CustomerTransactionLimitsPolicy
+>;
+
 /** USDT 기준 1회 한도 리스크 타입 (MAX RISK = XR) */
 export const USDT_RISK_LIMIT_TIERS = ['LR', 'MR', 'HR', 'XR', 'SR'] as const;
 export type UsdtRiskLimitTier = (typeof USDT_RISK_LIMIT_TIERS)[number];
@@ -527,8 +537,13 @@ export type HqCommissionRiskConfig = {
   maxTicketAmountKrw: number;
   riskEnabled: boolean;
   maxDailyTicketsPerCustomer: number;
-  /** 개인·법인별 통화 거래 한도 */
+  /**
+   * @deprecated methodTransactionLimits.BANK_TRANSFER 와 동일(하위호환).
+   * 신규 코드는 methodTransactionLimits 사용.
+   */
   transactionLimits: CustomerTransactionLimitsPolicy;
+  /** 이체 / 송금 / 카드 결제수단별 한도 */
+  methodTransactionLimits: MethodTransactionLimitsPolicy;
   notes?: string;
   /** @deprecated — defaultTransferFeeUsdt 로 이전 */
   defaultPlatformFeeUsdt?: number;
@@ -1488,37 +1503,92 @@ export type HqPlatformConfig = {
   serviceTimezone?: string;
 };
 
-/** ICOPAY Unified Checkout (api.icopay.co.kr) — DEALMAI / TINPASS */
+/** ICOPAY Broker 활성 환경 — bracketSecret 에 반영되는 슬롯 */
+export type IcopayBrokerEnv = 'LIVE' | 'SANDBOX' | 'LOCAL_MOCK';
+
+/** ICOPAY Unified Checkout (api.icopay.co.kr) — DEALMAI SERVICE (TINPASS) */
 export type HqIcopayConfig = {
   enabled: boolean;
   /** PG binding MID (UUID) — 표시·참조용 */
   mid: string;
-  /** 가맹 업체코드 (prepare compId) e.g. 6000000035 */
+  /** 가맹 업체코드 (prepare compId) e.g. 6000000064 */
   compId?: string;
-  /** Broker secret (X-Icopay-Merchant-Broker-Secret). DB 키명 호환으로 bracketSecret 유지 */
+  /** 현재 API에 쓰는 Broker secret (activeBrokerEnv 슬롯과 동기) */
   bracketSecret: string;
+  /** LIVE Broker Secret 저장 슬롯 */
+  brokerSecretLive?: string;
+  /** ICOPAY 공식 SANDBOX Broker Secret 저장 슬롯 */
+  brokerSecretSandbox?: string;
+  /** 마스킹 응답 전용 — LIVE 키 끝 3자리 */
+  brokerSecretLiveTail?: string;
+  /** 마스킹 응답 전용 — SANDBOX 키 끝 3자리 */
+  brokerSecretSandboxTail?: string;
+  /** 마스킹 응답 전용 — 활성 bracketSecret 끝 3자리 */
+  bracketSecretTail?: string;
+  /** 드롭다운으로 선택한 활성 환경 */
+  activeBrokerEnv?: IcopayBrokerEnv;
   apiBaseUrl?: string;
   sandbox?: boolean;
-  /** IN=INLINE · RE=REDIRECT */
+  /** IN=INLINE · RE=REDIRECT · WO=WordPress */
   channel?: 'IN' | 'RE';
 };
+
+/** LIVE merchant defaults — DEALMAI SERVICE (TINPASS), base currency THB, channel IN */
+export const ICOPAY_LIVE_MERCHANT = {
+  name: 'DEALMAI SERVICE (TINPASS)',
+  compId: '6000000064',
+  mid: '5f681081-2466-4c1c-9505-5ff960715ec3',
+  apiBaseUrl: 'https://api.icopay.co.kr',
+  channel: 'IN' as const,
+  baseCurrency: 'THB',
+  webhookUrl: 'https://api.tinpass.com/api/webhooks/icopay',
+  docsUrl:
+    'https://api.icopay.co.kr/merchant-api-samples/docs/unified-checkout-api-parameters.html',
+} as const;
 
 export type CardCurrencyLimits = {
   min: number;
   max: number;
 };
 
-/** 운영관리 — 카드 결제 정책 */
+/** 카드 수수료 브랜드 (전체 일괄은 mode=UNIFORM) */
+export const CARD_FEE_BRANDS = ['VISA', 'MASTERCARD', 'AMEX', 'JCB', 'UNIONPAY', 'OTHER'] as const;
+export type CardFeeBrand = (typeof CARD_FEE_BRANDS)[number];
+export type CardFeeMode = 'UNIFORM' | 'BY_BRAND';
+
+export type CardFeeByBrand = Record<CardFeeBrand, number>;
+
+/** 운영관리 — 카드 결제 정책 (+ 수수료관리 「카드수수료」) */
 export type HqCardPaymentConfig = {
   enabled: boolean;
+  /**
+   * UNIFORM = 전체 일괄(동일 %).
+   * BY_BRAND = VISA/MASTER 등 브랜드별 %.
+   */
+  cardFeeMode: CardFeeMode;
+  /** UNIFORM 일괄 요율 · BY_BRAND 시 미선택/OTHER 폴백에도 사용 */
   cardFeePercent: number;
+  cardFeeByBrand: CardFeeByBrand;
   limits: Record<SymbolFeeCurrency, CardCurrencyLimits>;
 };
 
+export function defaultCardFeeByBrand(percent = 3.5): CardFeeByBrand {
+  return {
+    VISA: percent,
+    MASTERCARD: percent,
+    AMEX: percent,
+    JCB: percent,
+    UNIONPAY: percent,
+    OTHER: percent,
+  };
+}
+
 export const DEFAULT_CARD_PAYMENT_CONFIG = (): HqCardPaymentConfig => ({
   enabled: false,
+  cardFeeMode: 'UNIFORM',
   /** Card acquiring surcharge only (symbol FX/gas/transfer fees apply separately) */
   cardFeePercent: 3.5,
+  cardFeeByBrand: defaultCardFeeByBrand(3.5),
   limits: {
     KRW: { min: 10_000, max: 5_000_000 },
     JPY: { min: 1_000, max: 500_000 },
@@ -1529,14 +1599,44 @@ export const DEFAULT_CARD_PAYMENT_CONFIG = (): HqCardPaymentConfig => ({
   },
 });
 
+/** 견적·청구에 쓸 카드 수수료 % */
+export function resolveCardFeePercent(
+  config: Pick<HqCardPaymentConfig, 'cardFeeMode' | 'cardFeePercent' | 'cardFeeByBrand'>,
+  brand?: string | null,
+): number {
+  if (config.cardFeeMode !== 'BY_BRAND') {
+    return Number(config.cardFeePercent) || 0;
+  }
+  const key = String(brand || 'OTHER').toUpperCase().replace(/\s+/g, '');
+  const normalized =
+    key === 'MASTER' || key === 'MC' || key === 'MASTERCARD'
+      ? 'MASTERCARD'
+      : key === 'AMERICANEXPRESS' || key === 'AMEX'
+        ? 'AMEX'
+        : key === 'UP' || key === 'UNION' || key === 'UNIONPAY'
+          ? 'UNIONPAY'
+          : key === 'VISA'
+            ? 'VISA'
+            : key === 'JCB'
+              ? 'JCB'
+              : 'OTHER';
+  const byBrand = config.cardFeeByBrand ?? defaultCardFeeByBrand(config.cardFeePercent);
+  const pct = byBrand[normalized as CardFeeBrand];
+  if (pct != null && Number.isFinite(Number(pct))) return Number(pct);
+  return Number(config.cardFeePercent) || 0;
+}
+
 export const DEFAULT_ICOPAY_CONFIG = (): HqIcopayConfig => ({
   enabled: false,
-  mid: '',
-  compId: '',
+  mid: ICOPAY_LIVE_MERCHANT.mid,
+  compId: ICOPAY_LIVE_MERCHANT.compId,
   bracketSecret: '',
-  apiBaseUrl: 'https://api.icopay.co.kr',
+  brokerSecretLive: '',
+  brokerSecretSandbox: '',
+  activeBrokerEnv: 'LIVE',
+  apiBaseUrl: ICOPAY_LIVE_MERCHANT.apiBaseUrl,
   sandbox: false,
-  channel: 'IN',
+  channel: ICOPAY_LIVE_MERCHANT.channel,
 });
 
 /**

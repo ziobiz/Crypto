@@ -13,6 +13,7 @@ import { assertCustomerTradeAllowed } from '../services/customer-access.service'
 import {
   changeMerchantWalletAddress,
   registerMerchantWallet,
+  renameMerchantWalletNickname,
   requestMerchantWalletDeletion,
 } from '../services/wallet-policy.service';
 
@@ -27,15 +28,19 @@ const feeFields = {
 };
 
 const createWalletSchema = z.object({
-  label: z.string().optional(),
+  label: z.string().trim().min(1).max(40),
   address: z.string().min(10),
   network: z.string().default('TRC20'),
   isDefault: z.boolean().optional(),
   ...feeFields,
 });
 
+const nicknameSchema = z.object({
+  label: z.string().trim().min(1).max(40),
+});
+
 const updateWalletSchema = z.object({
-  label: z.string().optional(),
+  label: z.string().trim().min(1).max(40).optional(),
   address: z.string().min(10).optional(),
   network: z.string().optional(),
   isDefault: z.boolean().optional(),
@@ -163,6 +168,24 @@ router.post(
   }),
 );
 
+/** 닉네임만 변경 (OTP 없음) */
+router.patch(
+  '/:id/nickname',
+  asyncHandler(async (req, res) => {
+    if (!isMerchantAdmin(req.user!)) {
+      throw new AppError(403, 'Merchant admin only', 'FORBIDDEN');
+    }
+    const data = nicknameSchema.parse(req.body);
+    const ownerId = merchantScopeUserId(req.user!);
+    const wallet = await renameMerchantWalletNickname(ownerId, req.params.id, data.label, {
+      actorId: req.user!.id,
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent') ?? undefined,
+    });
+    res.json(serializeWallet(wallet));
+  }),
+);
+
 router.patch(
   '/:id',
   requireSensitiveOtp,
@@ -210,7 +233,7 @@ router.patch(
     const wallet = await prisma.wallet.update({
       where: { id: existing.id },
       data: {
-        label: data.label,
+        ...(data.label !== undefined ? { label: data.label } : {}),
         isDefault: data.isDefault,
         fxFeePercent: data.fxFeePercent,
         gasFeeAmount: data.gasFeeAmount,
@@ -229,8 +252,8 @@ router.patch(
       summary: data.isDefault
         ? `Switch default wallet to ${wallet.network} ${wallet.address.slice(0, 8)}…`
         : `Update wallet ${wallet.id}`,
-      before: { isDefault: existing.isDefault },
-      after: { isDefault: wallet.isDefault },
+      before: { isDefault: existing.isDefault, label: existing.label },
+      after: { isDefault: wallet.isDefault, label: wallet.label },
       otpVerified: true,
       ipAddress: req.ip,
       userAgent: req.get('user-agent') ?? undefined,

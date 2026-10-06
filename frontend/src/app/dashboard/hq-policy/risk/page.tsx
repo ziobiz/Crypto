@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { useT } from '@/context/LocaleProvider';
 import { useDoubleConfirm } from '@/hooks/useDoubleConfirm';
 import {
@@ -28,12 +27,20 @@ import {
   USDT_RISK_LIMIT_TIERS,
   FEE_CURRENCIES,
   AMOUNT_CURRENCIES,
+  LIMIT_PAYMENT_METHODS,
   withRiskDefaults,
   saveRisk,
 } from '@/lib/hq-commission-shared';
+import type { LimitPaymentMethod } from '@/lib/api';
 
 const LIMIT_CUSTOMER_TYPES = ['INDIVIDUAL', 'CORPORATE'] as const;
 type LimitCustomerType = (typeof LIMIT_CUSTOMER_TYPES)[number];
+
+const LIMIT_METHOD_LABEL: Record<LimitPaymentMethod, MessageKey> = {
+  BANK_TRANSFER: 'hq.risk.limitMethod.BANK_TRANSFER',
+  REMITTANCE: 'hq.risk.limitMethod.REMITTANCE',
+  CARD: 'hq.risk.limitMethod.CARD',
+};
 
 const RATE_SOURCES: ExchangeRateSourceId[] = [
   'coingecko',
@@ -95,6 +102,8 @@ export default function HqRiskPage() {
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
   const [limitCustomerType, setLimitCustomerType] = useState<LimitCustomerType>('INDIVIDUAL');
+  const [limitPaymentMethod, setLimitPaymentMethod] =
+    useState<LimitPaymentMethod>('BANK_TRANSFER');
 
   const rateSourceLabel = (source: ExchangeRateSourceId | string) =>
     t(`hq.commission.rateSource.${source}` as MessageKey);
@@ -234,8 +243,9 @@ export default function HqRiskPage() {
 
   function startLimitEdit(currency: SymbolFeeCurrency) {
     if (!risk || hasPolicyEditInProgress()) return;
+    const methods = withRiskDefaults(risk).methodTransactionLimits!;
     setEditingLimitCurrency(currency);
-    setLimitDraft({ ...risk.transactionLimits[limitCustomerType][currency] });
+    setLimitDraft({ ...methods[limitPaymentMethod][limitCustomerType][currency] });
     setMsg('');
   }
 
@@ -247,18 +257,24 @@ export default function HqRiskPage() {
     if (!risk || !editingLimitCurrency || !limitDraft) return;
     setRisk((prev) => {
       if (!prev) return prev;
-      const nextLimits = {
-        ...prev.transactionLimits,
+      const base = withRiskDefaults(prev);
+      const methods = { ...base.methodTransactionLimits! };
+      const methodPolicy = {
+        ...methods[limitPaymentMethod],
         [limitCustomerType]: {
-          ...prev.transactionLimits[limitCustomerType],
+          ...methods[limitPaymentMethod][limitCustomerType],
           [editingLimitCurrency]: { ...limitDraft },
         },
       };
+      methods[limitPaymentMethod] = methodPolicy;
       return {
         ...prev,
-        transactionLimits: nextLimits,
+        methodTransactionLimits: methods,
+        transactionLimits: methods.BANK_TRANSFER,
         maxTicketAmountKrw:
-          limitCustomerType === 'INDIVIDUAL' && editingLimitCurrency === 'KRW'
+          limitPaymentMethod === 'BANK_TRANSFER' &&
+          limitCustomerType === 'INDIVIDUAL' &&
+          editingLimitCurrency === 'KRW'
             ? limitDraft.perTransactionMax
             : prev.maxTicketAmountKrw,
       };
@@ -698,9 +714,25 @@ export default function HqRiskPage() {
           <div className="pg-card">
             <div className="pg-card-body space-y-4">
               <p className="pg-hint text-xs">{t('hq.commission.limitsDesc')}</p>
-              <p className="pg-hint text-xs text-sky-800">{t('hq.commission.limitsApplyLink')}</p>
-              <p className="pg-hint text-xs text-sky-800">{t('hq.commission.limitsRemittanceNote')}</p>
+              <p className="pg-hint text-xs text-sky-800">{t('hq.risk.limitsMethodHint')}</p>
               <p className="pg-callout pg-callout-muted">{t('hq.commission.tierEditHint')}</p>
+              <div className="flex flex-wrap gap-2">
+                {LIMIT_PAYMENT_METHODS.map((method) => (
+                  <button
+                    key={method}
+                    type="button"
+                    onClick={() => {
+                      if (limitPaymentMethod !== method) cancelLimitEdit();
+                      setLimitPaymentMethod(method);
+                    }}
+                    className={`pg-btn text-xs ${
+                      limitPaymentMethod === method ? 'pg-btn-primary' : 'pg-btn-secondary'
+                    }`}
+                  >
+                    {t(LIMIT_METHOD_LABEL[method])}
+                  </button>
+                ))}
+              </div>
               <div className="flex flex-wrap gap-2">
                 {LIMIT_CUSTOMER_TYPES.map((type) => (
                   <button
@@ -720,6 +752,13 @@ export default function HqRiskPage() {
                   </button>
                 ))}
               </div>
+              <p className="pg-hint text-[11px] text-slate-600">
+                {limitPaymentMethod === 'BANK_TRANSFER'
+                  ? t('hq.risk.limitsBankNote')
+                  : limitPaymentMethod === 'REMITTANCE'
+                    ? t('hq.risk.limitsRemitNote')
+                    : t('hq.risk.limitsCardNote')}
+              </p>
               <div className="pg-card pg-table-wrap">
                 <table className="pg-table">
                   <thead>
@@ -735,9 +774,11 @@ export default function HqRiskPage() {
                     {FEE_CURRENCIES.map((currency) => {
                       const isEditing = editingLimitCurrency === currency;
                       const rowLocked = editingLimitCurrency !== null && !isEditing;
+                      const methodLimits =
+                        withRiskDefaults(risk).methodTransactionLimits![limitPaymentMethod];
                       const limits = isEditing && limitDraft
                         ? limitDraft
-                        : risk.transactionLimits[limitCustomerType][currency];
+                        : methodLimits[limitCustomerType][currency];
                       return (
                         <tr
                           key={currency}
@@ -951,15 +992,6 @@ export default function HqRiskPage() {
                   rows={2}
                 />
               </label>
-              <div className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-[12px] text-slate-700">
-                <p>{t('hq.risk.cardLimitsNote')}</p>
-                <Link
-                  href="/dashboard/hq-policy/ops/payment"
-                  className="mt-1 inline-block text-xs font-medium text-blue-600 hover:underline"
-                >
-                  {t('hq.risk.cardLimitsLink')}
-                </Link>
-              </div>
               <button
                 type="button"
                 onClick={saveRiskConfig}

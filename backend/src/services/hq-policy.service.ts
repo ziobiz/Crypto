@@ -119,7 +119,10 @@ import {
   mergeInactiveLoginNoticeI18n,
   mergeInactiveNoticePresets,
 } from '../constants/inactive-login-notice-i18n';
-import { defaultTransactionLimitsPolicy } from '../lib/transaction-limit-policy';
+import {
+  cardChargeLimitsFromPolicy,
+  defaultMethodTransactionLimitsPolicy,
+} from '../lib/transaction-limit-policy';
 import {
   logAdminChange,
   type AuditContext,
@@ -181,6 +184,7 @@ const CUSTOMER_DEFAULT_VIEW_PATHS = new Set([
   '/dashboard/escrow',
   '/dashboard/wallets',
   '/dashboard/kyc',
+  '/dashboard/account',
   '/dashboard/merchant-users',
   '/dashboard/operation-history',
 ]);
@@ -222,6 +226,7 @@ function defaultOrgColumns(): HqOrgColumnConfig {
 
 function defaultCommissionRisk(): HqCommissionRiskConfig {
   const fees = defaultTransactionFees();
+  const methodTransactionLimits = defaultMethodTransactionLimitsPolicy(100_000_000);
   return {
     defaultFxFeePercent: fees.fxFeePercent,
     defaultGasFeeUsdt: fees.gasFeeUsdt,
@@ -231,7 +236,8 @@ function defaultCommissionRisk(): HqCommissionRiskConfig {
     maxTicketAmountKrw: 100_000_000,
     riskEnabled: true,
     maxDailyTicketsPerCustomer: 10,
-    transactionLimits: defaultTransactionLimitsPolicy(100_000_000),
+    transactionLimits: methodTransactionLimits.BANK_TRANSFER,
+    methodTransactionLimits,
     notes: '',
   };
 }
@@ -754,7 +760,18 @@ export const hqPolicyService = {
   },
 
   async saveCommissionRisk(audit: AuditContext, risk: HqCommissionRiskConfig) {
-    const normalized = normalizeCommissionRisk(risk);
+    const methods =
+      risk.methodTransactionLimits ??
+      ({
+        BANK_TRANSFER: risk.transactionLimits,
+        REMITTANCE: risk.transactionLimits,
+        CARD: risk.transactionLimits,
+      } as NonNullable<HqCommissionRiskConfig['methodTransactionLimits']>);
+    const normalized = normalizeCommissionRisk({
+      ...risk,
+      methodTransactionLimits: methods,
+      transactionLimits: methods.BANK_TRANSFER ?? risk.transactionLimits,
+    });
     await putConfigWithAudit(audit, {
       key: HQ_CONFIG_KEYS.commissionRisk,
       value: normalized,
@@ -762,6 +779,17 @@ export const hqPolicyService = {
       entityType: 'HQ_COMMISSION_RISK',
       summary: '수수료·리스크 정책 저장',
     });
+    /** 카드 한도 → 결제관리 limits 동기화 (하위호환·ICOPAY 선검증) */
+    try {
+      const card = await getCardPaymentConfig();
+      const syncedLimits = cardChargeLimitsFromPolicy(normalized.methodTransactionLimits.CARD);
+      await saveCardPaymentConfig({
+        ...card,
+        limits: { ...card.limits, ...syncedLimits },
+      });
+    } catch {
+      /* 카드 설정 없으면 스킵 */
+    }
     return this.getCommissionPayload();
   },
 
@@ -1299,13 +1327,14 @@ export const hqPolicyService = {
     const before = await getIcopayConfigMasked();
     const current = await getIcopayConfig();
     const after = await saveIcopayConfig(config, current.bracketSecret);
+    const env = after.activeBrokerEnv ?? 'LIVE';
     await logAdminChange({
       actor: audit.actor,
       action: AdminChangeAction.UPDATE,
       entityType: 'HQ_ICOPAY',
       entityId: HQ_CONFIG_KEYS.icopay,
       entityLabel: 'ICOPAY 연동',
-      summary: `ICOPAY 연동 설정 저장 (관리자: ${audit.actor.email})`,
+      summary: `ICOPAY 연동 설정 저장 · 활성 ${env} (관리자: ${audit.actor.email})`,
       before,
       after,
       ipAddress: audit.ipAddress,
@@ -1485,6 +1514,12 @@ export const hqPolicyService = {
     // HQ 「기록 시뮬레이터」(/dashboard/simulator-logs)는 고객 플래그와 무관
     if ((user.role === 'CUSTOMER' || user.role === 'CUSTOMER_OPERATOR') && user.simulatorEnabled === false) {
       levels['/dashboard/simulator'] = 'NONE';
+    }
+    // 내 가입 정보: 고객·운영자 기본 노출 (닉네임·비밀번호)
+    if (user.role === 'CUSTOMER' || user.role === 'CUSTOMER_OPERATOR') {
+      if (!levels['/dashboard/account'] || levels['/dashboard/account'] === 'NONE') {
+        levels['/dashboard/account'] = 'VIEW';
+      }
     }
     if (user.role === 'CUSTOMER_OPERATOR') {
       levels['/dashboard/wallets'] = 'NONE';

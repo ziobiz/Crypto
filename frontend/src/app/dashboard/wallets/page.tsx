@@ -7,7 +7,7 @@ import { api, ApiError, Wallet } from '@/lib/api';
 import { WALLET_NETWORKS } from '@/constants/wallet-networks';
 import { ContentCard } from '@/components/layout/ContentCard';
 import { CopyButton } from '@/components/CopyButton';
-import { displayWalletLabel } from '@/lib/wallet-label';
+import { displayWalletLabel, displayWalletTitle } from '@/lib/wallet-label';
 import { SensitiveOtpGate, useSensitiveOtp } from '@/components/SensitiveOtpGate';
 import { useDoubleConfirm } from '@/hooks/useDoubleConfirm';
 import {
@@ -24,13 +24,26 @@ const emptyForm = {
   network: 'TRC20',
 };
 
-function walletErrorMessage(err: unknown, t: (key: 'wallets.err.limit' | 'wallets.err.duplicate' | 'wallets.err.inProgress' | 'wallets.err.last' | 'wallets.err.deletePending' | 'common.saveFailed') => string) {
+function walletErrorMessage(
+  err: unknown,
+  t: (
+    key:
+      | 'wallets.err.limit'
+      | 'wallets.err.duplicate'
+      | 'wallets.err.inProgress'
+      | 'wallets.err.last'
+      | 'wallets.err.deletePending'
+      | 'wallets.err.nicknameRequired'
+      | 'common.saveFailed',
+  ) => string,
+) {
   if (err instanceof ApiError) {
     if (err.code === 'WALLET_LIMIT') return t('wallets.err.limit');
     if (err.code === 'WALLET_DUPLICATE') return t('wallets.err.duplicate');
     if (err.code === 'WALLET_IN_PROGRESS') return t('wallets.err.inProgress');
     if (err.code === 'WALLET_LAST') return t('wallets.err.last');
     if (err.code === 'WALLET_DELETE_PENDING') return t('wallets.err.deletePending');
+    if (err.code === 'WALLET_NICKNAME_REQUIRED') return t('wallets.err.nicknameRequired');
     return err.message;
   }
   return t('common.saveFailed');
@@ -43,7 +56,10 @@ function WalletsBody() {
   const { requestConfirm, dialog: doubleConfirmDialog } = useDoubleConfirm();
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [form, setForm] = useState(emptyForm);
-  const [editing, setEditing] = useState<{ id: string; address: string; network: string } | null>(null);
+  const [editing, setEditing] = useState<{ id: string; address: string; network: string } | null>(
+    null,
+  );
+  const [editingNick, setEditingNick] = useState<{ id: string; label: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -63,6 +79,11 @@ function WalletsBody() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    const nick = form.label.trim();
+    if (!nick) {
+      setError(t('wallets.err.nicknameRequired'));
+      return;
+    }
     requestConfirm({
       title: t('wallets.confirmRegisterTitle'),
       step1: t('wallets.confirmRegister1'),
@@ -73,7 +94,7 @@ function WalletsBody() {
         try {
           const result = await runWithFreshOtp(() =>
             api.wallets.create({
-              label: form.label || undefined,
+              label: nick,
               address: form.address,
               network: form.network,
               isDefault: false,
@@ -118,6 +139,26 @@ function WalletsBody() {
     });
   }
 
+  async function submitNicknameChange() {
+    if (!editingNick) return;
+    const nick = editingNick.label.trim();
+    if (!nick) {
+      setError(t('wallets.err.nicknameRequired'));
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      await api.wallets.updateNickname(editingNick.id, nick);
+      setEditingNick(null);
+      await load();
+    } catch (err) {
+      setError(walletErrorMessage(err, t));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function submitDeleteRequest(id: string) {
     setError('');
     requestConfirm({
@@ -156,6 +197,18 @@ function WalletsBody() {
   function renderWalletActions(w: Wallet) {
     return (
       <div className="mt-2 flex flex-col items-start gap-1">
+        {!w.deleteRequestedAt ? (
+          <button
+            type="button"
+            className="pg-btn pg-btn-secondary text-[11px]"
+            disabled={loading}
+            onClick={() =>
+              setEditingNick({ id: w.id, label: displayWalletLabel(w.label, t) === t('wallets.systemDefaultLabel') ? '' : (w.label ?? '') })
+            }
+          >
+            {t('wallets.editNickname')}
+          </button>
+        ) : null}
         {!w.isDefault && w.approvalStatus === 'APPROVED' && !w.deleteRequestedAt ? (
           <button
             type="button"
@@ -186,6 +239,34 @@ function WalletsBody() {
             {t('wallets.requestDelete')}
           </button>
         ) : null}
+        {editingNick?.id === w.id ? (
+          <div className="mt-1 w-full space-y-1">
+            <input
+              value={editingNick.label}
+              onChange={(e) => setEditingNick({ ...editingNick, label: e.target.value })}
+              className="pg-input w-full text-xs"
+              maxLength={40}
+              placeholder={t('wallets.labelPlaceholder')}
+            />
+            <div className="flex gap-1">
+              <button
+                type="button"
+                className="pg-btn pg-btn-primary text-[11px]"
+                disabled={loading}
+                onClick={() => void submitNicknameChange()}
+              >
+                {t('common.save')}
+              </button>
+              <button
+                type="button"
+                className="pg-btn pg-btn-secondary text-[11px]"
+                onClick={() => setEditingNick(null)}
+              >
+                {t('common.cancel')}
+              </button>
+            </div>
+          </div>
+        ) : null}
         {editing?.id === w.id ? (
           <div className="mt-1 w-full space-y-1">
             <input
@@ -205,10 +286,19 @@ function WalletsBody() {
               ))}
             </select>
             <div className="flex gap-1">
-              <button type="button" className="pg-btn pg-btn-primary text-[11px]" disabled={loading} onClick={submitAddressChange}>
+              <button
+                type="button"
+                className="pg-btn pg-btn-primary text-[11px]"
+                disabled={loading}
+                onClick={submitAddressChange}
+              >
                 {t('common.save')}
               </button>
-              <button type="button" className="pg-btn pg-btn-secondary text-[11px]" onClick={() => setEditing(null)}>
+              <button
+                type="button"
+                className="pg-btn pg-btn-secondary text-[11px]"
+                onClick={() => setEditing(null)}
+              >
                 {t('common.cancel')}
               </button>
             </div>
@@ -242,6 +332,7 @@ function WalletsBody() {
     <>
       <div className="pg-stack">
         <p className="pg-hint">{t('wallets.subtitle')}</p>
+        <p className="pg-hint">{t('wallets.nicknameHint')}</p>
         <p className="pg-hint">{t('wallets.rulesHint')}</p>
         {error ? <p className="pg-error">{error}</p> : null}
 
@@ -249,7 +340,10 @@ function WalletsBody() {
           {wallets.map((w) => (
             <MobileStackCard key={w.id}>
               <div className="flex items-start justify-between gap-2">
-                <p className="text-left text-sm font-semibold">{displayWalletLabel(w.label, t)}</p>
+                <div className="min-w-0 text-left">
+                  <p className="text-sm font-semibold">{displayWalletTitle(w, t)}</p>
+                  <p className="pg-muted text-[11px]">{t('wallets.col.network')}: {w.network}</p>
+                </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">
                   {w.isDefault ? (
                     <span className="pg-badge pg-badge-info">{t('wallets.default')}</span>
@@ -260,7 +354,7 @@ function WalletsBody() {
               <MobileStackFields>
                 <MobileStackField label={t('wallets.address')} wide>
                   <span className="inline-flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-xs break-all">{w.address}</span>
+                    <span className="break-all font-mono text-xs">{w.address}</span>
                     <CopyButton
                       text={w.address}
                       label={t('wallets.copyAddress')}
@@ -283,6 +377,7 @@ function WalletsBody() {
             <thead>
               <tr>
                 <th>{t('wallets.label')}</th>
+                <th>{t('wallets.col.network')}</th>
                 <th>{t('wallets.address')}</th>
                 <th>{t('wallets.col.fees')}</th>
                 <th>{t('wallets.col.status')}</th>
@@ -293,6 +388,7 @@ function WalletsBody() {
               {wallets.map((w) => (
                 <tr key={w.id}>
                   <td className="font-medium">{displayWalletLabel(w.label, t)}</td>
+                  <td className="whitespace-nowrap text-xs font-semibold">{w.network}</td>
                   <td className="font-mono text-xs sm:text-sm">
                     <span className="inline-flex flex-wrap items-center gap-2">
                       <span className="break-all">{w.address}</span>
@@ -317,7 +413,7 @@ function WalletsBody() {
               ))}
               {wallets.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="pg-empty">
+                  <td colSpan={6} className="pg-empty">
                     {t('wallets.empty')}
                   </td>
                 </tr>
@@ -329,49 +425,54 @@ function WalletsBody() {
         {wallets.length >= 5 ? (
           <p className="pg-hint">{t('wallets.limitReached')}</p>
         ) : (
-        <ContentCard title={t('wallets.addTitle')}>
-          <p className="pg-hint mb-4">{t('wallets.extraHint')}</p>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block">
-                <span className="pg-label">{t('wallets.label')}</span>
-                <input
-                  placeholder={t('wallets.label')}
-                  value={form.label}
-                  onChange={(e) => setForm({ ...form, label: e.target.value })}
-                  className="pg-input mt-1 w-full"
-                />
-              </label>
-              <label className="block sm:col-span-2">
-                <span className="pg-label">{t('wallets.address')}</span>
-                <input
-                  placeholder={t('wallets.address')}
-                  value={form.address}
-                  onChange={(e) => setForm({ ...form, address: e.target.value })}
-                  className="pg-input mt-1 w-full font-mono text-sm"
-                  required
-                />
-              </label>
-              <label className="block">
-                <span className="pg-label">{t('wallets.col.network')}</span>
-                <select
-                  value={form.network}
-                  onChange={(e) => setForm({ ...form, network: e.target.value })}
-                  className="pg-input mt-1 w-full"
-                >
-                  {WALLET_NETWORKS.map((n) => (
-                    <option key={n.value} value={n.value}>
-                      {n.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <button type="submit" disabled={loading} className="pg-btn pg-btn-primary disabled:opacity-50">
-              {t('common.register')}
-            </button>
-          </form>
-        </ContentCard>
+          <ContentCard title={t('wallets.addTitle')}>
+            <p className="pg-hint mb-4">{t('wallets.extraHint')}</p>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block sm:col-span-2">
+                  <span className="pg-label">
+                    {t('wallets.label')} <span className="text-red-600">*</span>
+                  </span>
+                  <input
+                    placeholder={t('wallets.labelPlaceholder')}
+                    value={form.label}
+                    onChange={(e) => setForm({ ...form, label: e.target.value })}
+                    className="pg-input mt-1 w-full"
+                    maxLength={40}
+                    required
+                  />
+                  <p className="pg-hint mt-1 text-[11px]">{t('wallets.labelHint')}</p>
+                </label>
+                <label className="block sm:col-span-2">
+                  <span className="pg-label">{t('wallets.address')}</span>
+                  <input
+                    placeholder={t('wallets.address')}
+                    value={form.address}
+                    onChange={(e) => setForm({ ...form, address: e.target.value })}
+                    className="pg-input mt-1 w-full font-mono text-sm"
+                    required
+                  />
+                </label>
+                <label className="block">
+                  <span className="pg-label">{t('wallets.col.network')}</span>
+                  <select
+                    value={form.network}
+                    onChange={(e) => setForm({ ...form, network: e.target.value })}
+                    className="pg-input mt-1 w-full"
+                  >
+                    {WALLET_NETWORKS.map((n) => (
+                      <option key={n.value} value={n.value}>
+                        {n.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <button type="submit" disabled={loading} className="pg-btn pg-btn-primary disabled:opacity-50">
+                {t('common.register')}
+              </button>
+            </form>
+          </ContentCard>
         )}
       </div>
       {doubleConfirmDialog}

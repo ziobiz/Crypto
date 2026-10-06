@@ -645,7 +645,8 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <ol>
           <li>카드 결제 정책: 사용 on/off, 카드 수수료 %</li>
           <li><strong>카드 결제 한도</strong> 카드: 통화별 최소·최대 (이체·송금 한도와 별도, 개인·법인 공통)</li>
-          <li>ICOPAY 연동: compId, Broker Secret, MID, API Base URL</li>
+          <li>ICOPAY 연동: DEALMAI SERVICE (TINPASS) — compId <code>6000000064</code>, MID, Broker Secret, API <code>https://api.icopay.co.kr</code>, 채널 IN(INLINE), 가맹 기준통화 THB</li>
+          <li>Webhook: <code>https://api.tinpass.com/api/webhooks/icopay</code> 를 ICOPAY merchantNotifyUrls에 등록. 결제 확정은 Status·Webhook</li>
           <li>TINPASS 한도는 ICOPAY 가맹 한도와 같거나 더 좁게. TINPASS가 먼저 검증하고 ICOPAY가 최종 승인합니다.</li>
         </ol>
         <div class="info-box"><strong>카드 수수료 구조</strong> — 계좌이체는 시볼(FX·가스·송금·기타) 수수료만 적용합니다. 카드 결제는 <strong>이체와 동일한 시볼 수수료</strong>에 <strong>카드 수수료(%)</strong>를 결제수단 할증으로 별도 가산합니다. 고객 미리보기에 받을 USDT·시볼·카드 수수료·카드 결제 총액이 각각 표시되며, ICOPAY 청구 금액은 카드 결제 총액과 동일(표시 통화)합니다. HQ 「카드 수수료 %」는 시볼을 덮는 번들이 아니라 카드 원가+마진만 설정합니다.</div>
@@ -678,7 +679,8 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <ol>
           <li>Card payment policy: on/off and card fee %</li>
           <li><strong>Card payment limits</strong> card: per-currency min/max (separate from bank/remittance; same for individual and corporate)</li>
-          <li>ICOPAY: compId, Broker Secret, MID, API Base URL</li>
+          <li>ICOPAY: DEALMAI SERVICE (TINPASS) — compId <code>6000000064</code>, MID, Broker Secret, API <code>https://api.icopay.co.kr</code>, channel IN, merchant base THB</li>
+          <li>Webhook: register <code>https://api.tinpass.com/api/webhooks/icopay</code> in merchantNotifyUrls; confirm via Status/Webhook</li>
           <li>Keep TINPASS limits equal to or tighter than ICOPAY. TINPASS validates first; ICOPAY is final.</li>
         </ol>
         <div class="info-box"><strong>Card fee structure</strong> — Bank transfer applies symbol fees only (FX/gas/transfer/other). Card payment uses the <strong>same symbol fees as bank transfer</strong>, plus a separate <strong>card fee %</strong> as a payment-method surcharge. The customer preview shows USDT received, symbol fees, card fee, and card total; the ICOPAY charge equals that card total in the display currency. HQ “Card fee %” covers acquiring cost + margin only — it is not a bundle that replaces symbol fees.</div>

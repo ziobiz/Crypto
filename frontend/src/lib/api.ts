@@ -231,6 +231,20 @@ export const api = {
 
   me: () => request<MeResponse>('/api/auth/me'),
 
+  account: {
+    get: () => request<CustomerAccountProfile>('/api/auth/account'),
+    updateNickname: (name: string) =>
+      request<{ ok: boolean; name: string; email: string }>('/api/auth/account', {
+        method: 'PATCH',
+        body: JSON.stringify({ name }),
+      }),
+    changePassword: (currentPassword: string, newPassword: string, confirmPassword: string) =>
+      request<{ ok: boolean }>('/api/auth/password/change-authenticated', {
+        method: 'POST',
+        body: JSON.stringify({ currentPassword, newPassword, confirmPassword }),
+      }),
+  },
+
   dashboard: () => request<DashboardResponse>('/api/auth/dashboard'),
 
   dashboardCharts: (range: ChartRange = '30d') =>
@@ -323,6 +337,11 @@ export const api = {
       request<Wallet>('/api/wallets', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Partial<WalletInput>) =>
       request<Wallet>(`/api/wallets/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    updateNickname: (id: string, label: string) =>
+      request<Wallet>(`/api/wallets/${id}/nickname`, {
+        method: 'PATCH',
+        body: JSON.stringify({ label }),
+      }),
     requestDelete: (id: string) =>
       request<Wallet>(`/api/wallets/${id}/delete-request`, { method: 'POST', body: '{}' }),
   },
@@ -424,6 +443,7 @@ export const api = {
       fiatAmount?: number;
       targetUsdtAmount?: number;
       cardChargeFiat?: number;
+      cardBrand?: CardFeeBrand | string | null;
       paymentMethod?: 'BANK' | 'CARD' | 'REMITTANCE' | 'BANK_TRANSFER';
       expressTier?: ExpressTier | string | null;
     }) => {
@@ -436,6 +456,7 @@ export const api = {
       if (params.fiatAmount != null) q.set('fiatAmount', String(params.fiatAmount));
       if (params.targetUsdtAmount != null) q.set('targetUsdtAmount', String(params.targetUsdtAmount));
       if (params.cardChargeFiat != null) q.set('cardChargeFiat', String(params.cardChargeFiat));
+      if (params.cardBrand) q.set('cardBrand', String(params.cardBrand));
       if (params.expressTier) q.set('expressTier', String(params.expressTier));
       return request<UsdtFeePreview>(`/api/tickets/usdt-purchase/fees?${q}`);
     },
@@ -457,6 +478,7 @@ export const api = {
       fiatAmount?: number;
       targetUsdtAmount?: number;
       cardChargeFiat?: number;
+      cardBrand?: CardFeeBrand | string | null;
       walletId: string;
       fiatCurrency?: string;
       paymentMethod?: 'BANK_TRANSFER' | 'CARD' | 'REMITTANCE';
@@ -472,6 +494,21 @@ export const api = {
       request<UsdtTicket>(`/api/tickets/usdt-purchase/${id}/sync-card-payment`, {
         method: 'POST',
       }),
+    /** ICOPAY 결제 후 복귀 — orderNo/ticketId로 티켓 동기화 */
+    cardReturn: (params?: { orderNo?: string; ticketId?: string }) => {
+      const q = new URLSearchParams();
+      if (params?.orderNo) q.set('orderNo', params.orderNo);
+      if (params?.ticketId) q.set('ticketId', params.ticketId);
+      const qs = q.toString();
+      return request<{
+        ticketId: string;
+        ticketNo: string;
+        status: string;
+        cardPaymentStatus: string | null;
+        outcome: 'PAID' | 'DECLINED' | 'PENDING';
+        ticket: UsdtTicket;
+      }>(`/api/tickets/usdt-purchase/card-return${qs ? `?${qs}` : ''}`);
+    },
     updateStatus: (
       id: string,
       data: {
@@ -821,6 +858,8 @@ export interface MeResponse extends User {
   wallets: Wallet[];
   operatorsEnabled?: boolean;
   merchantAdminUserId?: string | null;
+  legalFirstName?: string | null;
+  legalLastName?: string | null;
   customerProfile?: {
     id: string;
     customerType: string;
@@ -830,6 +869,50 @@ export interface MeResponse extends User {
     simulatorRateMode?: 'LIVE' | 'SAND';
     operatorsEnabled?: boolean;
   };
+}
+
+export interface CustomerAccountBank {
+  id: string;
+  currency: string;
+  bankName: string;
+  accountNumber: string;
+  accountHolder: string;
+  branchName?: string | null;
+  isDefault: boolean;
+}
+
+export interface CustomerAccountWallet {
+  id: string;
+  label: string | null;
+  address: string;
+  network: string;
+  isDefault: boolean;
+  approvalStatus: string;
+}
+
+export interface CustomerAccountProfile {
+  id: string;
+  email: string;
+  name: string;
+  legalFirstName: string | null;
+  legalLastName: string | null;
+  phone: string | null;
+  phoneCountryCode: string | null;
+  role: string;
+  totpEnabled: boolean;
+  createdAt: string;
+  kycStatus: string;
+  customerType: string | null;
+  approvalStatus: CustomerApprovalStatus | null;
+  limitCountry: string | null;
+  businessName: string | null;
+  recruitingOrg: { id: string; name: string; code: string } | null;
+  bankAccounts: CustomerAccountBank[];
+  wallets: CustomerAccountWallet[];
+  canEditNickname: boolean;
+  canChangePassword: boolean;
+  canEditLegalName: boolean;
+  canResetOtp: boolean;
 }
 
 export interface SessionPolicy {
@@ -987,7 +1070,10 @@ export interface RegisterInput {
   limitCountry?: 'JP' | 'KR' | 'TH' | 'US' | 'CN';
   email: string;
   emailProof: string;
+  /** Nickname / display name */
   name: string;
+  legalFirstName: string;
+  legalLastName: string;
   phone: string;
   phoneCountryCode: string;
   customerType: 'INDIVIDUAL';
@@ -1165,6 +1251,8 @@ export interface ManagedUser {
   id: string;
   email: string;
   name: string;
+  legalFirstName?: string | null;
+  legalLastName?: string | null;
   phone?: string | null;
   role: UserRoleType;
   isActive: boolean;
@@ -1328,6 +1416,8 @@ export interface CreateUserInput {
 
 export interface UpdateUserInput {
   name?: string;
+  legalFirstName?: string | null;
+  legalLastName?: string | null;
   phone?: string | null;
   role?: UserRoleType;
   organizationId?: string | null;
@@ -1393,7 +1483,7 @@ export interface Wallet {
 }
 
 export interface WalletInput {
-  label?: string;
+  label: string;
   address: string;
   network?: string;
   isDefault?: boolean;
@@ -1567,6 +1657,22 @@ export interface UsdtDepositContext {
         monthlyMax: number;
       }
     >;
+    byMethod?: Partial<
+      Record<
+        'BANK_TRANSFER' | 'REMITTANCE' | 'CARD',
+        Record<
+          'KRW' | 'JPY' | 'THB' | 'CNY' | 'USD' | 'EUR',
+          {
+            perTransactionMin: number;
+            perTransactionMax: number;
+            dailyMin: number;
+            dailyMax: number;
+            monthlyMin: number;
+            monthlyMax: number;
+          }
+        >
+      >
+    >;
   } | null;
   registeredBank: { bankName: string; accountNumber: string; accountHolder: string } | null;
   depositWindowHours: number;
@@ -1712,6 +1818,8 @@ export interface UsdtCardPaymentContext {
   cardPaymentEnabled: boolean;
   enabled: boolean;
   cardFeePercent: number;
+  cardFeeMode?: CardFeeMode;
+  cardFeeByBrand?: Record<CardFeeBrand, number>;
   limits: Record<SymbolFeeCurrency, { min: number; max: number }>;
   currencyTrade?: Record<'KRW' | 'JPY' | 'THB' | 'CNY' | 'USD' | 'EUR', UsdtCurrencyTradeFlags>;
   icopayConfigured: boolean;
@@ -1721,6 +1829,9 @@ export interface UsdtCardPaymentContext {
   userPhoneCountryCode: string | null;
   userEmail: string | null;
   userName: string | null;
+  legalFirstName?: string | null;
+  legalLastName?: string | null;
+  legalNameLocked?: boolean;
 }
 
 /** Buyer prefill for ICOPAY hosted checkout (no PAN on TINPASS). */
@@ -2573,10 +2684,20 @@ export interface HqCommissionRiskConfig {
   maxTicketAmountKrw: number;
   riskEnabled: boolean;
   maxDailyTicketsPerCustomer: number;
+  /** @deprecated methodTransactionLimits.BANK_TRANSFER */
   transactionLimits: CustomerTransactionLimitsPolicy;
+  /** 이체 / 송금 / 카드 결제수단별 한도 */
+  methodTransactionLimits?: MethodTransactionLimitsPolicy;
   notes?: string;
   defaultPlatformFeeUsdt?: number;
 }
+
+export type LimitPaymentMethod = 'BANK_TRANSFER' | 'REMITTANCE' | 'CARD';
+
+export type MethodTransactionLimitsPolicy = Record<
+  LimitPaymentMethod,
+  CustomerTransactionLimitsPolicy
+>;
 
 export type SymbolFeeCurrency = 'KRW' | 'JPY' | 'THB' | 'CNY' | 'USD' | 'EUR';
 
@@ -2998,11 +3119,22 @@ export interface HqEmailOtpConfig {
   tradeReceiptMerchantUiEnabled?: boolean;
 }
 
+export type IcopayBrokerEnv = 'LIVE' | 'SANDBOX' | 'LOCAL_MOCK';
+
 export interface HqIcopayConfig {
   enabled: boolean;
   mid: string;
   compId?: string;
+  /** Active broker secret used by API (synced from selected env slot) */
   bracketSecret: string;
+  brokerSecretLive?: string;
+  brokerSecretSandbox?: string;
+  /** masked response only — last 3 of LIVE secret */
+  brokerSecretLiveTail?: string;
+  /** masked response only — last 3 of SANDBOX secret */
+  brokerSecretSandboxTail?: string;
+  bracketSecretTail?: string;
+  activeBrokerEnv?: IcopayBrokerEnv;
   apiBaseUrl?: string;
   sandbox?: boolean;
   channel?: 'IN' | 'RE';
@@ -3031,8 +3163,13 @@ export interface HqCurfexConfig {
 
 export type CardCurrencyLimits = { min: number; max: number };
 
+export type CardFeeBrand = 'VISA' | 'MASTERCARD' | 'AMEX' | 'JCB' | 'UNIONPAY' | 'OTHER';
+export type CardFeeMode = 'UNIFORM' | 'BY_BRAND';
+
 export interface HqCardPaymentConfig {
   enabled: boolean;
+  cardFeeMode?: CardFeeMode;
   cardFeePercent: number;
+  cardFeeByBrand?: Record<CardFeeBrand, number>;
   limits: Record<SymbolFeeCurrency, CardCurrencyLimits>;
 }

@@ -7,6 +7,8 @@ import type { MessageKey } from '@/i18n/messages';
 export type UsdtStatusContext = {
   paymentMethod?: string | null;
   collectionProvider?: string | null;
+  cancelReason?: string | null;
+  cardPaymentStatus?: string | null;
 };
 
 const STATUS_KEYS: Record<string, MessageKey> = {
@@ -62,17 +64,49 @@ const STATUS_BADGE: Record<string, string> = {
 export function buildUsdtStatusContext(ticket: {
   paymentMethod?: string | null;
   collectionProvider?: string | null;
+  cancelReason?: string | null;
+  cardPaymentStatus?: string | null;
 }): UsdtStatusContext {
   return {
     paymentMethod: ticket.paymentMethod,
     collectionProvider: ticket.collectionProvider,
+    cancelReason: ticket.cancelReason,
+    cardPaymentStatus: ticket.cardPaymentStatus,
   };
 }
 
+/** ICOPAY 취소 vs 실패 구분 — cancelReason / note 에 CANCELLED·CANCELED 포함 시 거래취소 */
+function isCardCancelReason(reason?: string | null): boolean {
+  const u = String(reason || '').toUpperCase();
+  if (!u) return false;
+  if (/\bCANCEL+ED?\b/.test(u) || u.includes('CANCELED') || u.includes('CANCELLED')) return true;
+  if (u.includes('거래 취소') || u.includes('결제 취소')) return true;
+  return false;
+}
+
 function usdtContextualKey(status: string, ctx?: UsdtStatusContext): MessageKey | null {
-  if (status !== 'ADMIN_REVIEWING' || !ctx) return null;
-  if (ctx.paymentMethod === 'CARD') return 'status.PAYMENT_VERIFYING';
-  return 'status.DEPOSIT_VERIFYING';
+  if (!ctx || ctx.paymentMethod !== 'CARD') {
+    if (status === 'ADMIN_REVIEWING' && ctx) return 'status.DEPOSIT_VERIFYING';
+    return null;
+  }
+  /** 요청(결제 대기) → 결제확인중 */
+  if (status === 'CARD_PAYMENT_PENDING') return 'status.CARD_PAYMENT_REQUESTING';
+  /** 성공 → 카드성공 (본사 다음 단계 진행 가능) */
+  if (status === 'ADMIN_REVIEWING') return 'status.CARD_PAYMENT_SUCCESS';
+  if (status === 'CANCELLED') {
+    return isCardCancelReason(ctx.cancelReason)
+      ? 'status.CARD_TRADE_CANCELLED'
+      : 'status.CARD_TRADE_FAILED';
+  }
+  return null;
+}
+
+function contextualTone(key: MessageKey | null, status: string): string {
+  if (key === 'status.CARD_PAYMENT_SUCCESS') return 'pg-badge-success';
+  if (key === 'status.CARD_TRADE_FAILED') return 'pg-badge-error';
+  if (key === 'status.CARD_TRADE_CANCELLED') return 'pg-badge-muted';
+  if (key === 'status.CARD_PAYMENT_REQUESTING') return 'pg-badge-warn';
+  return STATUS_BADGE[status] ?? 'pg-badge-muted';
 }
 
 export function StatusBadge({
@@ -94,9 +128,13 @@ export function StatusBadge({
       : kind === 'usdt'
         ? wf?.usdtStatusLabels[status]?.[locale]
         : wf?.usdtStatusLabels[status]?.[locale] ?? wf?.escrowStatusLabels[status]?.[locale];
+  /** 카드 맥락 라벨은 HQ 커스텀보다 우선 (요청/성공/실패/취소 구분) */
   const key = contextualKey ?? STATUS_KEYS[status];
-  const label = (contextualKey && t(contextualKey)) || (fromHq && fromHq.trim()) || (key ? t(key) : status);
-  const tone = STATUS_BADGE[status] ?? 'pg-badge-muted';
+  const label =
+    (contextualKey && t(contextualKey)) ||
+    (!contextualKey && fromHq && fromHq.trim()) ||
+    (key ? t(key) : status);
+  const tone = contextualTone(contextualKey, status);
 
   return <span className={`pg-badge ${tone}`}>{label}</span>;
 }

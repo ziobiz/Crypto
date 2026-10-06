@@ -110,6 +110,8 @@ export default function CustomerKycDetailPage() {
   const [limitCountry, setLimitCountry] = useState<LimitCountryCode | ''>('');
   const [customerType, setCustomerType] = useState<'INDIVIDUAL' | 'CORPORATE'>('INDIVIDUAL');
   const [memberGrade, setMemberGrade] = useState<MemberGrade>('STANDARD');
+  const [legalFirstName, setLegalFirstName] = useState('');
+  const [legalLastName, setLegalLastName] = useState('');
 
   const load = () => {
     api.kyc.getByUser(userId).then(setKyc).catch(console.error);
@@ -126,6 +128,12 @@ export default function CustomerKycDetailPage() {
       .then((p) => setInactivePresets(mergeInactiveNoticePresets(p.config.inactiveLoginNoticePresets)))
       .catch(console.error);
   }, []);
+
+  useEffect(() => {
+    if (!profile) return;
+    setLegalFirstName(profile.legalFirstName ?? '');
+    setLegalLastName(profile.legalLastName ?? '');
+  }, [profile?.id, profile?.legalFirstName, profile?.legalLastName]);
 
   useEffect(() => {
     if (!profile?.customerProfile) return;
@@ -581,6 +589,7 @@ export default function CustomerKycDetailPage() {
         msg !== t('memberGrade.customer.saved') &&
         msg !== t('customers.customerType.saved') &&
         msg !== t('customers.approval.saved') &&
+        msg !== t('customers.legalName.saved') &&
         msg !== t('kyc.reviewSaved') &&
         msg !== t('users.saved') && (
           <p className="text-xs text-red-600">{msg}</p>
@@ -594,11 +603,66 @@ export default function CustomerKycDetailPage() {
       {msg === t('customers.approval.saved') && (
         <p className="text-xs text-emerald-700">{msg}</p>
       )}
+      {msg === t('customers.legalName.saved') && (
+        <p className="text-xs text-emerald-700">{msg}</p>
+      )}
       <div className="pg-card">
         <div className="pg-card-body space-y-1.5 text-xs">
           <p>
             <strong>{kyc.user?.name ?? profile?.name}</strong> ({kyc.user?.email ?? profile?.email})
           </p>
+          {profile && (
+            <div className="mt-2 rounded border border-amber-200 bg-amber-50/70 p-2 space-y-2">
+              <p className="font-medium text-amber-950">{t('customers.legalName.title')}</p>
+              <p className="text-[11px] text-amber-900/90">{t('customers.legalName.hint')}</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <label className="block">
+                  <span className="text-[11px] text-slate-600">{t('auth.legalFirstName')}</span>
+                  <input
+                    className="pg-input mt-0.5 w-full"
+                    value={legalFirstName}
+                    onChange={(e) =>
+                      setLegalFirstName(e.target.value.replace(/[^A-Za-z .'-]/g, ''))
+                    }
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-[11px] text-slate-600">{t('auth.legalLastName')}</span>
+                  <input
+                    className="pg-input mt-0.5 w-full"
+                    value={legalLastName}
+                    onChange={(e) =>
+                      setLegalLastName(e.target.value.replace(/[^A-Za-z .'-]/g, ''))
+                    }
+                  />
+                </label>
+              </div>
+              <button
+                type="button"
+                className="pg-btn pg-btn-secondary text-xs"
+                disabled={loading}
+                onClick={async () => {
+                  if (!profile) return;
+                  setLoading(true);
+                  setMsg('');
+                  try {
+                    const next = await api.users.update(profile.id, {
+                      legalFirstName: legalFirstName.trim() || null,
+                      legalLastName: legalLastName.trim() || null,
+                    });
+                    setProfile(next);
+                    setMsg(t('customers.legalName.saved'));
+                  } catch (e) {
+                    setMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+              >
+                {t('customers.legalName.save')}
+              </button>
+            </div>
+          )}
           <p>
             {(profile?.customerProfile?.customerType ?? kyc.user?.customerType) === 'CORPORATE'
               ? t('auth.corporate')
@@ -1391,6 +1455,7 @@ export default function CustomerKycDetailPage() {
                   <CustomerWalletQrCard
                     address={w.address}
                     network={w.network}
+                    nickname={w.label}
                     meta={[
                       w.isDefault ? t('wallets.default') : '',
                       w.hqRegistered ? t('wallets.hqRegistered') : '',

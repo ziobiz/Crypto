@@ -3,6 +3,424 @@ import type { PlatformReleaseNote } from './version';
 /** 본사정책 → 검증관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
 export const PLATFORM_RELEASE_NOTES: PlatformReleaseNote[] = [
   {
+    version: '2.6.224',
+    kind: 'minor',
+    date: '2026-10-07',
+    items: {
+      KR: [
+        '본사 고객관리 상세 지갑 카드에 닉네임(지갑 이름)을 표시. 네트워크·주소와 함께 구분. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'HQ customer detail wallet cards now show the nickname (wallet name) with network and address. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        '本社の顧客詳細ウォレットカードにニックネーム（ウォレット名）を表示。ネットワーク・アドレスと併せて区別。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        '总部客户详情钱包卡片显示昵称（钱包名称），与网络、地址一并区分。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'การ์ดกระเป๋าในหน้ารายละเอียดลูกค้า HQ แสดงชื่อเล่น (ชื่อกระเป๋า) พร้อมเครือข่ายและที่อยู่ KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.223',
+    kind: 'minor',
+    date: '2026-10-07',
+    items: {
+      KR: [
+        '지갑 닉네임(지갑 이름) 필수·수정 지원. Binance·Upbit·MetaMask 등으로 같은 네트워크·여러 발급사 지갑을 구분. 목록·매입 선택에 「닉네임 · 네트워크」 표시. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'Wallet nickname (wallet name) is required and editable. Use names like Binance/Upbit/MetaMask to tell same-network or multi-issuer wallets apart. Lists and purchase picker show Nickname · Network. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        'ウォレットのニックネーム（ウォレット名）を必須・編集可能に。Binance・Upbit・MetaMaskなどで同一ネットワーク・複数発行元を区別。一覧・買付選択は「ニックネーム · ネットワーク」。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        '钱包昵称（钱包名称）必填且可修改。可用 Binance/Upbit/MetaMask 等区分同网络或多发卡方钱包。列表与购买选择显示「昵称 · 网络」。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'บังคับชื่อเล่นกระเป๋า (ชื่อกระเป๋า) และแก้ไขได้ ใช้ชื่อเช่น Binance/Upbit/MetaMask แยกเครือข่ายเดียวกันหรือหลายแพลตฟอร์ม รายการและหน้าซื้อแสดง「ชื่อเล่น · เครือข่าย」 KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.222',
+    kind: 'minor',
+    date: '2026-10-06',
+    items: {
+      KR: [
+        'ICOPAY LIVE·SANDBOX Broker Secret 끝자리 3글자 표시로 키 구분. 카드 상태: 요청=결제확인중, 성공=카드성공, 실패=거래실패, 취소=거래취소. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'ICOPAY LIVE/SANDBOX broker secrets show last 3 characters for identification. Card statuses: requesting=Payment verifying, success=Card success, fail=Trade failed, cancel=Trade cancelled. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        'ICOPAY LIVE・SANDBOX Broker Secretの末尾3文字を表示。カード状態: 要求=決済確認中、成功=カード成功、失敗=取引失敗、取消=取引キャンセル。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        'ICOPAY LIVE/SANDBOX Broker Secret 显示末三位以便识别。卡状态：请求=支付确认中、成功=卡支付成功、失败=交易失败、取消=交易取消。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'แสดง 3 ตัวท้ายของ LIVE/SANDBOX Broker Secret เพื่อแยกคีย์ สถานะบัตร: ขอ=กำลังยืนยัน, สำเร็จ=ชำระบัตรสำเร็จ, ล้มเหลว=ธุรกรรมล้มเหลว, ยกเลิก=ยกเลิกธุรกรรม KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.221',
+    kind: 'minor',
+    date: '2026-10-06',
+    items: {
+      KR: [
+        'ICOPAY 카드 결제 실패·거절·미완료 건을 「거래 실패」로 표시. 목록 조회 시 카드결제중 상태를 ICOPAY와 자동 동기화해 실패는 취소로 확정. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'ICOPAY card declines/failures/abandoned checkouts now show as Trade failed. Listing auto-syncs pending card tickets with ICOPAY and cancels failures. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        'ICOPAYカードの失敗・拒否・未完了を「取引失敗」と表示。一覧表示時にカード決済中をICOPAYと自動同期し失敗はキャンセル確定。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        'ICOPAY 卡支付失败/拒绝/未完成显示为「交易失败」。列表加载时自动与 ICOPAY 同步并将失败单置为取消。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'การชำระบัตร ICOPAY ที่ล้มเหลว/ปฏิเสธ/ค้างแสดงเป็น「ธุรกรรมล้มเหลว」 ซิงก์สถานะอัตโนมัติตอนเปิดรายการ KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.220',
+    kind: 'minor',
+    date: '2026-10-06',
+    items: {
+      KR: [
+        'ICOPAY 결제 성공인데 TINPASS가 카드결제중에 머물던 문제 수정. 웹훅 주문번호·성공코드(Succeeded/00) 인식, JPY 청구 vs THB 정산 금액 비교 제외. 브라우저 복귀 파라미터(orderid 등)로 결과 페이지 연결. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'Fixed ICOPAY-paid tickets stuck in card-pending. Webhook now reads order aliases and Succeeded/00, skips JPY vs THB amount compare, and maps return query params to the result page. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        'ICOPAY成功なのにカード決済中のまま止まる不具合を修正。Webhookの注文番号・Succeeded/00認識、JPY請求とTHB清算額の比較除外、復帰パラメータで結果ページへ。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        '修复 ICOPAY 已成功但 TINPASS 仍停在卡支付中的问题。Webhook 识别订单号别名与 Succeeded/00，跳过 JPY 与 THB 金额比对，浏览器回跳进入结果页。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'แก้เคส ICOPAY สำเร็จแต่ TINPASS ค้างสถานะกำลังชำระบัตร อ่านเลขคำสั่ง/รหัส Succeeded/00, ไม่เทียบยอด JPY กับ THB, นำพารามิเตอร์กลับไปหน้าผลลัพธ์ KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.219',
+    kind: 'minor',
+    date: '2026-10-06',
+    items: {
+      KR: [
+        'ICOPAY 카드 결제 성공 후 대시보드·거래 목록으로만 돌아가던 문제를 수정. 결제 결과 페이지(/dashboard/usdt/card-result)를 거쳐 성공 안내 후 거래 상세로 이동합니다. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'Fixed post-ICOPAY return landing on dashboard/list instead of success. Flow now opens the card-result page, shows the outcome, then continues to trade detail. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        'ICOPAY決済後にダッシュボード・一覧へ戻ってしまう不具合を修正。決済結果ページを表示してから取引詳細へ進みます。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        '修复 ICOPAY 支付成功后只回到仪表盘/列表的问题。现经卡支付结果页展示结果后再进入交易详情。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'แก้หลังชำระ ICOPAY สำเร็จแล้วกลับไปแดชบอร์ด/รายการอย่างเดียว ตอนนี้เปิดหน้ารผลชำระบัตรแล้วไปหน้ารายละเอียดธุรกรรม KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.218',
+    kind: 'minor',
+    date: '2026-10-06',
+    items: {
+      KR: [
+        '카드 결제 1회 한도를 리스크관리 「카드결제」 탭과 동일하게 적용. 구 결제관리 한도(예: JPY 60,000~330,000)가 배너·검증에 섞이던 오류 수정. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'Card per-tx min/max now follow the Risk Card tab only. Old Payment-page limits (e.g. JPY 60,000–330,000) no longer override the banner or validation. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        'カード1回限度をリスク管理「カード決済」タブと同一に適用。旧決済管理限度（例: JPY 60,000〜330,000）がバナー・検証に混入していた不具合を修正。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        '卡支付单笔限额改与风险管理「卡支付」标签一致。旧支付管理限额（如 JPY 60,000–330,000）不再覆盖横幅与校验。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'วงเงินต่อครั้งของบัตรใช้แท็บ「ชำระด้วยบัตร」ในความเสี่ยงเท่านั้น แก้บั๊กวงเงินเก่าจากจัดการชำระเงิน (เช่น JPY 60,000–330,000) ไปโผล่ที่แบนเนอร์ KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.217',
+    kind: 'minor',
+    date: '2026-10-06',
+    items: {
+      KR: [
+        '「나의 정보 보기」메뉴 문구·청록 강조색 적용. 가입 프로필(이메일·법적 성명·연락처 등)을 칸선·교차 행 색 표로 표시. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'Renamed menu to View my info with teal accent. Profile fields (email, legal name, contact, etc.) shown as a bordered zebra-striped table. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        'メニューを「マイ情報を見る」に変更しティール色で強調。登録プロフィールを罫線・交互行の表で表示。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        '菜单改为「查看我的信息」并以青绿强调。注册资料以带格线与斑马行的表格展示。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'เปลี่ยนเมนูเป็น「ดูข้อมูลของฉัน」เน้นสีเขียวอมฟ้า และแสดงโปรไฟล์เป็นตารางมีเส้นช่อง·แถวสลับสี KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.216',
+    kind: 'minor',
+    date: '2026-10-06',
+    items: {
+      KR: [
+        '카드결제 한도: 결제액 기준·카드 탭 최소/최대만 적용(USDT 티어 MR 등과 혼동 제거). 「나의 정보」는 사이드 메뉴에서 제거하고 우측 상단 이름 메뉴로 이동. 내 지갑은 분리 유지. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'Card limits use charge amount and Risk Card tab only (no USDT tier MR mix-up). My info moved from sidebar to the top-right name menu; wallets stay separate. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        'カード限度は決済額とリスク「カード」タブのみ適用（USDTティアMR等との混同を解消）。「マイ情報」はサイドメニューから右上名メニューへ。ウォレットは分離維持。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        '卡支付限额按支付金额与风险管理「卡」标签执行（不再与 USDT 档位 MR 混淆）。「我的信息」从侧栏移至右上角姓名菜单；钱包仍独立。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'วงเงินบัตรใช้ยอดชำระกับแท็บบัตรในความเสี่ยงเท่านั้น (ไม่ปนกับระดับ USDT เช่น MR) ย้าย「ข้อมูลของฉัน」จากเมนูข้างไปเมนูชื่อมุมขวาบน กระเป๋ายังแยก KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.215',
+    kind: 'minor',
+    date: '2026-10-06',
+    items: {
+      KR: [
+        '리스크관리 한도를 이체·송금·카드 3탭으로 분리. 카드 한도는 결제관리에서 이전·통합(결제관리에는 안내 링크만). 매입 금액 검증도 결제수단별 한도 적용. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'Risk limits split into Bank / Remittance / Card tabs. Card limits moved from Payment (link only there). Purchase validation uses method-specific limits. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        'リスク管理の限度を振込・送金・カードの3タブに分離。カード限度は決済管理から移行（決済管理は案内リンクのみ）。買付検証も決済手段別限度を適用。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        '风险管理限额分为转账 / 汇款 / 卡三个标签。卡限额从支付管理迁入（支付管理仅保留指引链接）。申购校验按支付方式限额。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'แยกวงเงินจัดการความเสี่ยงเป็น 3 แท็บ: โอนธนาคาร / โอนเงิน / บัตร ย้ายวงเงินบัตรจากจัดการชำระเงิน (เหลือแค่ลิงก์) และตรวจยอดสมัครตามวิธีชำระ KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.214',
+    kind: 'minor',
+    date: '2026-10-06',
+    items: {
+      KR: [
+        '고객 「내 가입 정보」 메뉴 추가: 닉네임·로그인 비밀번호만 변경, 법적 성명·연락처·계좌·지갑·OTP는 조회 전용. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'Added customer My account page: edit nickname and login password only; legal name, contact, banks, wallets, and OTP are view-only. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        '顧客「登録情報」メニュー追加: ニックネームとログインパスワードのみ変更可。法的氏名・連絡先・口座・ウォレット・OTPは閲覧専用。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        '新增客户「我的注册信息」：仅可改昵称与登录密码；法定姓名、联系方式、账户、钱包、OTP 只读。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'เพิ่มเมนูข้อมูลสมัครของลูกค้า: แก้ได้เฉพาะชื่อเล่นกับรหัสผ่าน ชื่อตามกฎหมาย เบอร์ บัญชี กระเป๋า OTP ดูอย่างเดียว KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.213',
+    kind: 'minor',
+    date: '2026-10-06',
+    items: {
+      KR: [
+        'ICOPAY orderNo를 숫자만 사용(USDT·USD 등 크립토 용어 제거). 카드 결제 금액 입력 전에 통화별 1회 최소·최대 한도를 파스텔 배너로 사전 노출.',
+      ],
+      US: [
+        'ICOPAY orderNo is digits-only (no USDT/USD/crypto terms). Card per-tx min/max for the selected currency is shown in a pastel banner above the charge field before amount entry.',
+      ],
+      JP: [
+        'ICOPAY orderNoを数字のみに（USDT/USD等の暗号用語を排除）。カード決済金額の入力前に、通貨別の1回最小・最大限度をパステル帯で事前表示。',
+      ],
+      CH: [
+        'ICOPAY orderNo 仅用数字（去除 USDT/USD 等加密术语）。在输入卡支付金额前，以柔和色条预先显示该币种单笔最小/最大限额。',
+      ],
+      TH: [
+        'orderNo ของ ICOPAY ใช้ตัวเลขเท่านั้น (ตัดคำคริปโต USDT/USD) และแสดงวงเงินขั้นต่ำ·สูงสุดต่อครั้งของสกุลที่เลือกเป็นแบนเนอร์พาสเทลเหนือช่องยอดชำระก่อนกรอกจำนวน',
+      ],
+    },
+  },
+  {
+    version: '2.6.212',
+    kind: 'minor',
+    date: '2026-10-06',
+    items: {
+      KR: [
+        '개인고객 가입 안내 문구 갱신: 기업은 영업·관리자 등록, 직접송금거래 한도 / 카드결제 한도(진행 시 자동 명시) 구분. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'Updated individual signup notice: corporate via sales/admin; separate direct remittance vs card limits (card limits shown at checkout). KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        '個人顧客登録案内を更新: 法人は営業・管理者経由、直接送金限度とカード決済限度（決済時に自動表示）を分離。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        '更新个人客户注册须知：企业经销售/管理员登记；区分直接汇款限额与卡支付限额（支付时自动显示）。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'อัปเดตประกาศสมัครลูกค้าบุคคล: องค์กรผ่านฝ่ายขาย/แอดมิน แยกวงเงินโอนตรงกับชำระบัตร (แสดงอัตโนมัติตอนชำระ) KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.211',
+    kind: 'minor',
+    date: '2026-10-06',
+    items: {
+      KR: [
+        'ICOPAY orderNo 영숫자만 허용(하이픈 제거)으로 샌드박스「order is not Alphanumeric」오류 수정. 가입 시 법적 영문 성·이름 분리 입력·변경 불가 안내. 카드결제 성명은 프로필 고정(클라이언트 변조 무시).',
+      ],
+      US: [
+        'ICOPAY orderNo alphanumeric-only (no hyphens) fixes sandbox “order is not Alphanumeric”. Signup collects locked legal English first/last name; card buyer name is taken from profile only.',
+      ],
+      JP: [
+        'ICOPAY orderNoを英数字のみにしサンドボックスのorderエラーを修正。登録時に法的英文名・姓を分離入力し変更不可。カード決済氏名はプロフィール固定。',
+      ],
+      CH: [
+        'ICOPAY orderNo 仅字母数字（去连字符）修复沙箱 order 报错。注册拆分法定英文名/姓且不可自改；卡支付姓名仅取自档案。',
+      ],
+      TH: [
+        'ICOPAY orderNo ใช้ตัวอักษร/ตัวเลขเท่านั้น แก้ error แซนด์บ็อกซ์ สมัครแยกชื่อ-นามสกุลตามกฎหมายภาษาอังกฤษ แก้เองไม่ได้ ชื่อชำระบัตรดึงจากโปรไฟล์เท่านั้น',
+      ],
+    },
+  },
+  {
+    version: '2.6.210',
+    kind: 'minor',
+    date: '2026-10-06',
+    items: {
+      KR: [
+        '1회 최소 한도: 설정 금액부터 가능(경계 포함). HQ 법정화폐 최소는 입금·견적 법정화폐로 비교해 100,000 JPY 등이 100,001부터만 통과하던 문제 수정.',
+      ],
+      US: [
+        'Per-trade minimum is inclusive of the limit amount. HQ fiat mins are checked on deposit/quote fiat so e.g. 100,000 JPY is allowed (not only 100,001+).',
+      ],
+      JP: [
+        '1回最小限度を境界値含む（設定額から可）。HQ法定通貨最小は入金・見積の法定通貨で判定し、100,000 JPY等が100,001からしか通らなかった問題を修正。',
+      ],
+      CH: [
+        '单笔最低限额含边界（达到设定金额即可）。HQ 法币下限按入金/报价法币校验，修复 100,000 JPY 等需从 100,001 才通过的问题。',
+      ],
+      TH: [
+        'ขั้นต่ำต่อครั้งรวมขอบเขต (ครบจำนวนที่ตั้งไว้ได้) ตรวจขั้นต่ำเงินเฟียตของ HQ กับยอดฝาก/ใบเสนอราคา แก้กรณี 100,000 JPY ต้องเป็น 100,001 ขึ้นไป',
+      ],
+    },
+  },
+  {
+    version: '2.6.209',
+    kind: 'minor',
+    date: '2026-10-06',
+    items: {
+      KR: [
+        'ICOPAY: LIVE·SANDBOX Broker Secret을 각각 저장하고, 드롭다운으로 활성 환경을 전환·배지로 표시. 로컬 목업(LOCAL MOCK) 선택 지원.',
+      ],
+      US: [
+        'ICOPAY: store LIVE and SANDBOX broker secrets separately; dropdown switches active env with a badge. LOCAL MOCK option supported.',
+      ],
+      JP: [
+        'ICOPAY: LIVE・SANDBOXのBroker Secretを別保存し、ドロップダウンで切替・バッジ表示。LOCAL MOCK選択対応。',
+      ],
+      CH: [
+        'ICOPAY：分别预存 LIVE/SANDBOX Broker Secret，下拉切换并显示徽章；支持 LOCAL MOCK。',
+      ],
+      TH: [
+        'ICOPAY: เก็บ Broker Secret แยก LIVE/SANDBOX สลับด้วยดรอปดาวน์พร้อมป้ายสถานะ รองรับ LOCAL MOCK',
+      ],
+    },
+  },
+  {
+    version: '2.6.208',
+    kind: 'minor',
+    date: '2026-10-06',
+    items: {
+      KR: [
+        '수수료관리에 「카드수수료」 추가: 전체 일괄/브랜드별(VISA·MASTER 등) 드롭다운. 결제관리 카드%는 수수료관리로 이동. ICOPAY 체크 명칭「샌드박스환경 안내문 호출」.',
+      ],
+      US: [
+        'Fee management: new Card fees card — uniform or by-brand (VISA/Mastercard…) dropdown. Payment admin card % moved here. ICOPAY checkbox renamed to sandbox notice.',
+      ],
+      JP: [
+        '手数料管理に「カード手数料」追加: 全体一括/ブランド別ドロップダウン。決済管理のカード%は手数料管理へ。ICOPAYチェック名を案内表示に変更。',
+      ],
+      CH: [
+        '手续费管理新增「卡手续费」：统一/按品牌下拉。支付管理卡费率迁至此。ICOPAY 勾选改名为沙箱说明。',
+      ],
+      TH: [
+        'จัดการค่าธรรมเนียมเพิ่ม「ค่าธรรมเนียมบัตร」: รวม/แยกแบรนด์ ย้าย % จากจัดการชำระเงิน เปลี่ยนชื่อติ๊ก ICOPAY เป็นข้อความแจ้งแซนด์บ็อกซ์',
+      ],
+    },
+  },
+  {
+    version: '2.6.207',
+    kind: 'minor',
+    date: '2026-10-06',
+    items: {
+      KR: [
+        'ICOPAY 샌드박스: 「샌드박스」체크 시에도 공식 SANDBOX API(prepare/status)를 호출. 로컬 목업은 Secret=SANDBOX 전용. 결제관리에 전환 안내 추가.',
+      ],
+      US: [
+        'ICOPAY sandbox: sandbox checkbox still calls official SANDBOX prepare/status. Local mock only when Secret=SANDBOX. Payment admin hints updated.',
+      ],
+      JP: [
+        'ICOPAYサンドボックス: チェックONでも公式SANDBOX APIを呼出。ローカルモックはSecret=SANDBOXのみ。決済管理に案内追加。',
+      ],
+      CH: [
+        'ICOPAY 沙箱：勾选后仍调用官方 SANDBOX prepare/status。本地模拟仅当 Secret=SANDBOX。支付管理补充说明。',
+      ],
+      TH: [
+        'ICOPAY แซนด์บ็อกซ์: ติ๊กแล้วยังเรียก API SANDBOX จริง ม็อกท้องถิ่นเมื่อ Secret=SANDBOX เท่านั้น เพิ่มคำแนะนำในจัดการชำระเงิน',
+      ],
+    },
+  },
+  {
+    version: '2.6.206',
+    kind: 'minor',
+    date: '2026-10-06',
+    items: {
+      KR: [
+        'ICOPAY LIVE 가맹 갱신: DEALMAI SERVICE (TINPASS) compId 6000000064 · MID 5f681081-… · API https://api.icopay.co.kr · 채널 IN. Webhook merchantNotifyUrls 안내·엔드포인트 표시.',
+      ],
+      US: [
+        'ICOPAY LIVE merchant update: DEALMAI SERVICE (TINPASS) compId 6000000064 · MID 5f681081-… · API https://api.icopay.co.kr · channel IN. Webhook/endpoint hints in Payment admin.',
+      ],
+      JP: [
+        'ICOPAY LIVE加盟更新: DEALMAI SERVICE (TINPASS) compId 6000000064 · MID 5f681081-… · API https://api.icopay.co.kr · チャネルIN。Webhook/エンドポイント案内。',
+      ],
+      CH: [
+        'ICOPAY LIVE 商户更新：DEALMAI SERVICE (TINPASS) compId 6000000064 · MID 5f681081-… · API https://api.icopay.co.kr · 渠道 IN。支付管理显示 Webhook/端点。',
+      ],
+      TH: [
+        'อัปเดตร้าน ICOPAY LIVE: DEALMAI SERVICE (TINPASS) compId 6000000064 · MID 5f681081-… · API https://api.icopay.co.kr · ช่องทาง IN แสดง Webhook/เอนด์พอยนต์',
+      ],
+    },
+  },
+  {
     version: '2.6.205',
     kind: 'minor',
     date: '2026-10-06',

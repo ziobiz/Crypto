@@ -31,6 +31,7 @@ import { FeeDualInput } from '@/components/policy/FeeDualInput';
 import { PolicyCellValue } from '@/components/policy/PolicyCellValue';
 import { PolicyNumberInput } from '@/components/policy/PolicyNumberInput';
 import { SimulatorCommissionPanel } from '@/components/hq-policy/SimulatorCommissionPanel';
+import { CardFeePolicyPanel } from '@/components/hq-policy/CardFeePolicyPanel';
 import { FeeTypeTemplateGrid } from '@/components/hq-policy/FeeTypeTemplateGrid';
 import {
   DEFAULT_FEE_DIAGRAM,
@@ -471,6 +472,13 @@ export default function HqCommissionPage() {
     <div className="pg-stack">
       {doubleConfirmDialog}
       
+      <section className="pg-section">
+        <div className="pg-section-head">{t('hq.cardFee.sectionTitle')}</div>
+        <div className="pg-section-pad space-y-3">
+          <CardFeePolicyPanel />
+        </div>
+      </section>
+
       <section className="pg-section">
         <div className="pg-section-head">{t('hq.commission.symbolTitle')}</div>
         <div className="pg-section-pad space-y-3">

@@ -2,14 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useT } from '@/context/LocaleProvider';
-import { hqPolicyApi, type HqCardPaymentConfig, type SymbolFeeCurrency } from '@/lib/api';
-import { PolicyNumberInput } from '@/components/policy/PolicyNumberInput';
-import { FormattedAmountInput } from '@/components/FormattedAmountInput';
-import { PolicyTableActions } from '@/components/policy/PolicyTableActions';
+import { hqPolicyApi, type HqCardPaymentConfig } from '@/lib/api';
 import { IcopayConfigPanel } from '@/components/hq-policy/IcopayConfigPanel';
 import { CurfexConfigPanel } from '@/components/hq-policy/CurfexConfigPanel';
-
-const CURRENCIES: SymbolFeeCurrency[] = ['KRW', 'JPY', 'THB', 'CNY', 'USD', 'EUR'];
 
 const DEFAULT_CONFIG: HqCardPaymentConfig = {
   enabled: false,
@@ -28,7 +23,6 @@ export default function HqPaymentManagementPage() {
   const t = useT();
   const [config, setConfig] = useState<HqCardPaymentConfig>(DEFAULT_CONFIG);
   const [savingPolicy, setSavingPolicy] = useState(false);
-  const [savingLimits, setSavingLimits] = useState(false);
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
   const [confirmSave, setConfirmSave] = useState(false);
@@ -46,9 +40,8 @@ export default function HqPaymentManagementPage() {
       .catch((e) => setError(e instanceof Error ? e.message : t('common.loadFailed')));
   }, [t]);
 
-  async function save(kind: 'policy' | 'limits') {
-    if (kind === 'policy') setSavingPolicy(true);
-    else setSavingLimits(true);
+  async function savePolicy() {
+    setSavingPolicy(true);
     setMsg('');
     setConfirmSave(false);
     try {
@@ -58,12 +51,11 @@ export default function HqPaymentManagementPage() {
         ...next.config,
         limits: { ...DEFAULT_CONFIG.limits, ...next.config.limits },
       });
-      setMsg(kind === 'limits' ? t('hq.payment.limitsSaved') : t('hq.payment.saved'));
+      setMsg(t('hq.payment.saved'));
     } catch (e) {
       setMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
     } finally {
       setSavingPolicy(false);
-      setSavingLimits(false);
     }
   }
 
@@ -72,17 +64,7 @@ export default function HqPaymentManagementPage() {
       setConfirmSave(true);
       return;
     }
-    void save('policy');
-  }
-
-  function setLimit(currency: SymbolFeeCurrency, field: 'min' | 'max', value: number) {
-    setConfig((c) => ({
-      ...c,
-      limits: {
-        ...c.limits,
-        [currency]: { ...(c.limits[currency] ?? { min: 0, max: 0 }), [field]: value },
-      },
-    }));
+    void savePolicy();
   }
 
   return (
@@ -91,7 +73,6 @@ export default function HqPaymentManagementPage() {
       {error && <p className="text-sm text-red-600">{error}</p>}
       {msg && <p className="text-sm text-green-700">{msg}</p>}
 
-      {/* 카드 결제 정책: 사용 on/off + 수수료 */}
       <div className="pg-card">
         <div className="pg-card-head">{t('hq.payment.title')}</div>
         <div className="pg-card-body space-y-4">
@@ -104,18 +85,11 @@ export default function HqPaymentManagementPage() {
             />
             {t('hq.payment.enabled')}
           </label>
-
-          <div className="max-w-xs">
-            <label className="pg-label">{t('hq.payment.cardFeePercent')}</label>
-            <PolicyNumberInput
-              value={config.cardFeePercent}
-              onChange={(v) => setConfig({ ...config, cardFeePercent: v })}
-              className="pg-input mt-1 w-full"
-            />
-            <p className="pg-hint mt-1 text-[11px]">{t('hq.payment.cardFeeBundleHint')}</p>
-          </div>
-
-          <PolicyTableActions>
+          <p className="pg-hint text-xs">{t('hq.payment.cardFeeMovedHint')}</p>
+          <a href="/dashboard/hq-policy/commission" className="text-xs font-medium text-blue-600 hover:underline">
+            {t('hq.cardFee.title')}
+          </a>
+          <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={requestPolicySave}
@@ -124,23 +98,22 @@ export default function HqPaymentManagementPage() {
             >
               {savingPolicy ? t('common.saving') : t('hq.payment.savePolicy')}
             </button>
-          </PolicyTableActions>
-
+          </div>
           {confirmSave && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-              <p className="text-sm font-semibold text-amber-950">{t('hq.payment.saveConfirmTitle')}</p>
-              <p className="mt-2 whitespace-pre-line text-xs text-amber-900">{t('hq.payment.saveConfirmBody')}</p>
-              <div className="mt-3 flex gap-2">
+            <div className="rounded border border-amber-200 bg-amber-50 p-3 space-y-2">
+              <p className="text-sm font-medium text-amber-950">{t('hq.payment.saveConfirmTitle')}</p>
+              <p className="whitespace-pre-line text-xs text-amber-900">{t('hq.payment.saveConfirmBody')}</p>
+              <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={() => setConfirmSave(false)}
-                  className="flex-1 rounded border border-gray-200 bg-white py-2 text-xs text-gray-700"
+                  className="flex-1 rounded border border-slate-300 py-2 text-xs"
                 >
                   {t('common.cancel')}
                 </button>
                 <button
                   type="button"
-                  onClick={() => void save('policy')}
+                  onClick={() => void savePolicy()}
                   disabled={savingPolicy}
                   className="flex-1 rounded bg-amber-600 py-2 text-xs font-medium text-white disabled:opacity-50"
                 >
@@ -152,63 +125,17 @@ export default function HqPaymentManagementPage() {
         </div>
       </div>
 
-      {/* 카드 결제 한도: 이체/송금과 분리, 개인·법인 공통 */}
       <div className="pg-card">
         <div className="pg-card-head">{t('hq.payment.limitsTitle')}</div>
-        <div className="pg-card-body space-y-4">
-          <p className="pg-hint">{t('hq.payment.limitsDesc')}</p>
-          <div className="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-[12px] text-slate-700">
-            <p>{t('hq.payment.limitsCommonNote')}</p>
-            <p className="mt-1">{t('hq.payment.limitsIcopayNote')}</p>
-          </div>
-
-          <div className="pg-table-wrap">
-            <table className="pg-table w-full text-sm">
-              <thead>
-                <tr>
-                  <th>{t('usdt.col.currency')}</th>
-                  <th>{t('hq.payment.min')}</th>
-                  <th>{t('hq.payment.max')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {CURRENCIES.map((currency) => (
-                  <tr key={currency}>
-                    <td className="font-medium">{currency}</td>
-                    <td>
-                      <FormattedAmountInput
-                        min={0}
-                        commitOnBlur
-                        value={config.limits[currency]?.min ?? 0}
-                        onChange={(v) => setLimit(currency, 'min', v)}
-                        className="pg-input w-full min-w-[8rem]"
-                      />
-                    </td>
-                    <td>
-                      <FormattedAmountInput
-                        min={0}
-                        commitOnBlur
-                        value={config.limits[currency]?.max ?? 0}
-                        onChange={(v) => setLimit(currency, 'max', v)}
-                        className="pg-input w-full min-w-[8rem]"
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <PolicyTableActions>
-            <button
-              type="button"
-              onClick={() => void save('limits')}
-              disabled={savingLimits}
-              className="pg-btn pg-btn-primary"
-            >
-              {savingLimits ? t('common.saving') : t('hq.payment.saveLimits')}
-            </button>
-          </PolicyTableActions>
+        <div className="pg-card-body space-y-2">
+          <p className="pg-hint">{t('hq.payment.limitsMovedToRisk')}</p>
+          <p className="text-[12px] text-slate-600">{t('hq.payment.limitsIcopayNote')}</p>
+          <a
+            href="/dashboard/hq-policy/risk"
+            className="inline-block text-sm font-medium text-blue-600 hover:underline"
+          >
+            {t('hq.payment.limitsRiskLink')}
+          </a>
         </div>
       </div>
 

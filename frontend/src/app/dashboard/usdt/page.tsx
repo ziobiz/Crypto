@@ -2,10 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthProvider';
 import { useT } from '@/context/LocaleProvider';
 import { api, UsdtDepositContext, UsdtTicket } from '@/lib/api';
+import {
+  pendingIcopayReturnPath,
+  pickIcopayOrderNoFromSearch,
+  isIcopayBrowserReturnQuery,
+} from '@/lib/icopay-return';
 import { StatusBadge, buildUsdtStatusContext } from '@/components/StatusBadge';
 import { PageSizeBar } from '@/components/PageSizeBar';
 import { SortableTh } from '@/components/ListTableControls';
@@ -89,6 +94,7 @@ export default function UsdtListPage() {
   const { user } = useAuth();
   const t = useT();
   const router = useRouter();
+  const search = useSearchParams();
   const kycOk = isKycApproved(user);
   const tradeAllowed = user?.tradeAccess !== 'VIEW_ONLY';
   const admin = isOperator(user?.role);
@@ -106,6 +112,29 @@ export default function UsdtListPage() {
   const load = useCallback(() => {
     api.usdt.list().then(setTickets).catch(console.error);
   }, []);
+
+  /** 구 ICOPAY Result URL(/dashboard/usdt) 복귀 → 결제 결과 페이지로 전달 */
+  useEffect(() => {
+    const fromPending = pendingIcopayReturnPath('/dashboard/usdt', search.toString());
+    if (fromPending) {
+      router.replace(fromPending);
+      return;
+    }
+    const orderNo = pickIcopayOrderNoFromSearch(search);
+    const ticketId = search.get('ticketId') || '';
+    const looksLikeReturn = isIcopayBrowserReturnQuery(search);
+    if (!looksLikeReturn) return;
+    const q = new URLSearchParams();
+    if (orderNo) q.set('orderNo', orderNo);
+    if (ticketId) q.set('ticketId', ticketId);
+    const status =
+      search.get('paymentStatus') ||
+      search.get('status') ||
+      search.get('returncode') ||
+      search.get('chillPaymentStatus');
+    if (status) q.set('paymentStatus', status);
+    router.replace(`/dashboard/usdt/card-result${q.toString() ? `?${q}` : ''}`);
+  }, [router, search]);
 
   useEffect(() => {
     load();

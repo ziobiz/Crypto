@@ -110,6 +110,8 @@ const userSelect = {
   id: true,
   email: true,
   name: true,
+  legalFirstName: true,
+  legalLastName: true,
   phone: true,
   phoneCountryCode: true,
   role: true,
@@ -765,6 +767,8 @@ export const userService = {
     id: string,
     data: {
       name?: string;
+      legalFirstName?: string | null;
+      legalLastName?: string | null;
       phone?: string | null;
       role?: UserRole;
       organizationId?: string | null;
@@ -1053,10 +1057,30 @@ export const userService = {
         expectedCompleteCard.expectedCompleteCardCustomDays;
     }
 
+    const englishLegalRe = /^[A-Za-z][A-Za-z .'-]*$/;
+    let legalFirstName: string | null | undefined;
+    let legalLastName: string | null | undefined;
+    if (data.legalFirstName !== undefined) {
+      const v = data.legalFirstName?.trim().replace(/\s+/g, ' ') || null;
+      if (v && !englishLegalRe.test(v)) {
+        throw new AppError(400, 'Legal first name must be English letters', 'VALIDATION');
+      }
+      legalFirstName = v;
+    }
+    if (data.legalLastName !== undefined) {
+      const v = data.legalLastName?.trim().replace(/\s+/g, ' ') || null;
+      if (v && !englishLegalRe.test(v)) {
+        throw new AppError(400, 'Legal last name must be English letters', 'VALIDATION');
+      }
+      legalLastName = v;
+    }
+
     const user = await prisma.user.update({
       where: { id },
       data: {
         name: data.name,
+        ...(legalFirstName !== undefined ? { legalFirstName } : {}),
+        ...(legalLastName !== undefined ? { legalLastName } : {}),
         phone:
           data.phone && existing.phoneCountryCode
             ? (canonicalizePhone(existing.phoneCountryCode, data.phone)?.phone ?? data.phone)

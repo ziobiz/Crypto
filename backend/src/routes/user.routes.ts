@@ -90,6 +90,8 @@ const createSchema = z.object({
 
 const updateSchema = z.object({
   name: z.string().min(1).optional(),
+  legalFirstName: z.string().nullable().optional(),
+  legalLastName: z.string().nullable().optional(),
   phone: z.string().nullable().optional(),
   role: z.nativeEnum(UserRole).optional(),
   organizationId: z.string().nullable().optional(),

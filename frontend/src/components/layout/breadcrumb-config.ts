@@ -253,6 +253,7 @@ const RULES: RouteRule[] = [
     meta: { titleKey: 'nav.users', trail: [{ labelKey: 'nav.ops', href: D.ops }] },
   },
   { test: (p) => p.startsWith('/dashboard/wallets'), meta: { titleKey: 'nav.wallets', trail: [] } },
+  { test: (p) => p.startsWith('/dashboard/account'), meta: { titleKey: 'nav.account', trail: [] } },
   { test: (p) => p.startsWith('/dashboard/merchant-users'), meta: { titleKey: 'nav.merchantUsers', trail: [] } },
   {
     test: (p) => p.startsWith('/dashboard/operation-history'),

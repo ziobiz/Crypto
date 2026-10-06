@@ -4,11 +4,19 @@ import {
   type HqCurrencyAmountDisplayPolicy,
   type CurrencyTransactionLimits,
   type CustomerTransactionLimitsPolicy,
+  type MethodTransactionLimitsPolicy,
+  type LimitPaymentMethod,
   type UsdtRiskLimitTier,
   type HqUsdtRiskLimitTiers,
   type SymbolFeeCurrency,
   hqPolicyApi,
 } from '@/lib/api';
+
+export const LIMIT_PAYMENT_METHODS: LimitPaymentMethod[] = [
+  'BANK_TRANSFER',
+  'REMITTANCE',
+  'CARD',
+];
 
 // Fee diagram defaults and utilities
 export const DEFAULT_FEE_DIAGRAM: FeeDiagramDisplayConfig = {
@@ -100,28 +108,55 @@ export function emptyCurrencyLimits(): CurrencyTransactionLimits {
   };
 }
 
-export function ensureTransactionLimits(risk: HqCommissionRiskConfig): HqCommissionRiskConfig {
-  if (risk.transactionLimits) return risk;
-  const policy = {
-    INDIVIDUAL: {} as CustomerTransactionLimitsPolicy['INDIVIDUAL'],
-    CORPORATE: {} as CustomerTransactionLimitsPolicy['CORPORATE'],
+function cloneCustomerPolicy(
+  policy: CustomerTransactionLimitsPolicy,
+): CustomerTransactionLimitsPolicy {
+  return {
+    INDIVIDUAL: { ...policy.INDIVIDUAL },
+    CORPORATE: { ...policy.CORPORATE },
   };
-  for (const currency of FEE_CURRENCIES) {
-    const row = emptyCurrencyLimits();
-    if (currency === 'KRW' && risk.maxTicketAmountKrw > 0) {
-      row.perTransactionMax = risk.maxTicketAmountKrw;
-      row.dailyMax = risk.maxTicketAmountKrw * 5;
-      row.monthlyMax = risk.maxTicketAmountKrw * 20;
-    }
-    policy.INDIVIDUAL[currency] = { ...row };
-    policy.CORPORATE[currency] = {
-      ...row,
-      perTransactionMax: row.perTransactionMax * 5,
-      dailyMax: row.dailyMax * 5,
-      monthlyMax: row.monthlyMax * 5,
+}
+
+export function ensureTransactionLimits(risk: HqCommissionRiskConfig): HqCommissionRiskConfig {
+  let transactionLimits = risk.transactionLimits;
+  if (!transactionLimits) {
+    const policy = {
+      INDIVIDUAL: {} as CustomerTransactionLimitsPolicy['INDIVIDUAL'],
+      CORPORATE: {} as CustomerTransactionLimitsPolicy['CORPORATE'],
     };
+    for (const currency of FEE_CURRENCIES) {
+      const row = emptyCurrencyLimits();
+      if (currency === 'KRW' && risk.maxTicketAmountKrw > 0) {
+        row.perTransactionMax = risk.maxTicketAmountKrw;
+        row.dailyMax = risk.maxTicketAmountKrw * 5;
+        row.monthlyMax = risk.maxTicketAmountKrw * 20;
+      }
+      policy.INDIVIDUAL[currency] = { ...row };
+      policy.CORPORATE[currency] = {
+        ...row,
+        perTransactionMax: row.perTransactionMax * 5,
+        dailyMax: row.dailyMax * 5,
+        monthlyMax: row.monthlyMax * 5,
+      };
+    }
+    transactionLimits = policy;
   }
-  return { ...risk, transactionLimits: policy };
+
+  const existing = risk.methodTransactionLimits;
+  const methodTransactionLimits: MethodTransactionLimitsPolicy = {
+    BANK_TRANSFER:
+      existing?.BANK_TRANSFER ?? cloneCustomerPolicy(transactionLimits),
+    REMITTANCE:
+      existing?.REMITTANCE ??
+      cloneCustomerPolicy(existing?.BANK_TRANSFER ?? transactionLimits),
+    CARD: existing?.CARD ?? cloneCustomerPolicy(transactionLimits),
+  };
+
+  return {
+    ...risk,
+    transactionLimits: methodTransactionLimits.BANK_TRANSFER,
+    methodTransactionLimits,
+  };
 }
 
 export function ensureUsdtRiskLimitTiers(risk: HqCommissionRiskConfig): HqCommissionRiskConfig {
@@ -148,13 +183,15 @@ export async function saveRisk(risk: HqCommissionRiskConfig) {
   const latest = await hqPolicyApi.getCommission();
   
   // Merge only RISK-owned fields onto latest.risk
+  const withMethods = ensureTransactionLimits(risk);
   const riskOwnedFields: Partial<HqCommissionRiskConfig> = {
-    riskEnabled: risk.riskEnabled,
-    transactionLimits: risk.transactionLimits,
-    usdtRiskLimitTiers: risk.usdtRiskLimitTiers,
-    maxDailyTicketsPerCustomer: risk.maxDailyTicketsPerCustomer,
-    maxTicketAmountKrw: risk.maxTicketAmountKrw,
-    notes: risk.notes,
+    riskEnabled: withMethods.riskEnabled,
+    transactionLimits: withMethods.methodTransactionLimits!.BANK_TRANSFER,
+    methodTransactionLimits: withMethods.methodTransactionLimits,
+    usdtRiskLimitTiers: withMethods.usdtRiskLimitTiers,
+    maxDailyTicketsPerCustomer: withMethods.maxDailyTicketsPerCustomer,
+    maxTicketAmountKrw: withMethods.maxTicketAmountKrw,
+    notes: withMethods.notes,
   };
   
   const payload = withRiskDefaults({

@@ -95,7 +95,63 @@ export async function resolveUsdtRiskLimitForCustomer(
   return { code, ...liveBand };
 }
 
-/** USDT 기준 1회 한도 검증 (고객 시뮬·LIVE·카드). 본사/운영자(프로필 없음)는 미적용 */
+/** 최소 한도: 경계값 포함 (amount >= min). 부동소수 오차만 허용 */
+const LIMIT_EPS_USDT = 1e-6;
+const LIMIT_EPS_FIAT = 1e-6;
+
+function throwUsdtRiskMin(
+  limit: ResolvedUsdtRiskLimit,
+  minUsdt: number,
+  rate: number,
+  cur: string,
+  codeOverride?: string | null,
+): never {
+  const code = codeOverride || limit.code;
+  const countryHint =
+    codeOverride === 'CARD' ? '' : limit.limitCountry ? ` · ${limit.limitCountry}` : '';
+  const fiatApprox = rate > 0 && cur ? Math.round(minUsdt * rate) : 0;
+  const body =
+    fiatApprox > 0
+      ? `1회 최소 한도 기준은 ${minUsdt.toLocaleString()} USDT 상당입니다 (약 ${fiatApprox.toLocaleString()} ${cur} · ${code}${countryHint})`
+      : `1회 최소 한도 기준은 ${minUsdt.toLocaleString()} USDT 상당의 통화 금액입니다 (${code}${countryHint})`;
+  throw new AppError(400, body, 'USDT_RISK_MIN', {
+    minUsdt,
+    fiatApprox,
+    currency: cur,
+    limitCode: code,
+    country: countryHint,
+  });
+}
+
+function throwUsdtRiskMax(
+  limit: ResolvedUsdtRiskLimit,
+  maxUsdt: number,
+  rate: number,
+  cur: string,
+  codeOverride?: string | null,
+): never {
+  const code = codeOverride || limit.code;
+  const countryHint =
+    codeOverride === 'CARD' ? '' : limit.limitCountry ? ` · ${limit.limitCountry}` : '';
+  const fiatApprox = rate > 0 && cur ? Math.round(maxUsdt * rate) : 0;
+  const body =
+    fiatApprox > 0
+      ? `1회 최대 한도 기준은 ${maxUsdt.toLocaleString()} USDT 상당입니다 (약 ${fiatApprox.toLocaleString()} ${cur} · ${code}${countryHint})`
+      : `1회 최대 한도 기준은 ${maxUsdt.toLocaleString()} USDT 상당의 통화 금액입니다 (${code}${countryHint})`;
+  throw new AppError(400, body, 'USDT_RISK_MAX', {
+    maxUsdt,
+    fiatApprox,
+    currency: cur,
+    limitCode: code,
+    country: countryHint,
+  });
+}
+
+/**
+ * USDT·법정화폐 1회 한도 검증 (고객 시뮬·LIVE·카드). 본사/운영자(프로필 없음)는 미적용.
+ * 최소 한도는 경계값 포함(>=). HQ 법정화폐 최소는 fiatAmount 가 있으면 법정화폐로 직접 비교한다
+ * (USDT 환산 후 net 비교로 100,000 JPY 가 100,001 부터만 통과하던 문제 방지).
+ */
 export async function validateUsdtRiskLimitAmount(input: {
   customerProfileId?: string | null;
   /** 희망 수령 또는 환산 기준 USDT */
@@ -107,6 +163,13 @@ export async function validateUsdtRiskLimitAmount(input: {
   /** 고객 안내용: 법정화폐 환산 표시 */
   fiatCurrency?: string | null;
   exchangeRate?: number | null;
+  /**
+   * 신청·견적 법정화폐 금액. 있으면 HQ perTransactionMin/Max 를 이 금액으로 포함 비교.
+   * (입금액·requiredFiat·카드 환전 재원 등)
+   */
+  fiatAmount?: number | null;
+  /** 이체/송금/카드 — HQ 법정화폐 한도 선택 */
+  paymentMethod?: 'BANK_TRANSFER' | 'REMITTANCE' | 'CARD' | string | null;
 }): Promise<ResolvedUsdtRiskLimit | null> {
   if (input.enforce === false || !input.customerProfileId) {
     return null;
@@ -116,17 +179,20 @@ export async function validateUsdtRiskLimitAmount(input: {
     riskSource: input.riskSource ?? 'live',
   });
   const amount = Number(input.usdtAmount) || 0;
+  const fiatAmount = Number(input.fiatAmount);
+  const hasFiat = Number.isFinite(fiatAmount) && fiatAmount > 0;
 
   if (amount <= 0) {
     throw new AppError(400, 'USDT 금액이 필요합니다', 'USDT_AMOUNT_REQUIRED');
   }
 
-  /** 한도 설정(transactionLimits) ↔ 신청 금액 USDT 연동 */
+  const cur = String(input.fiatCurrency || '')
+    .trim()
+    .toUpperCase() as SymbolFeeCurrency;
+  const rate = Number(input.exchangeRate) || 0;
+
+  /** HQ 법정화폐 한도 — 금액이 있으면 법정화폐로 포함 비교 (환산 USDT 재비교 안 함) */
   if ((input.riskSource ?? 'live') === 'live') {
-    const cur = String(input.fiatCurrency || '')
-      .trim()
-      .toUpperCase() as SymbolFeeCurrency;
-    const rate = Number(input.exchangeRate) || 0;
     if (rate > 0 && (SYMBOL_FEE_CURRENCIES as readonly string[]).includes(cur)) {
       const profile = await prisma.customerProfile.findUnique({
         where: { id: input.customerProfileId },
@@ -137,17 +203,44 @@ export async function validateUsdtRiskLimitAmount(input: {
         if (risk.riskEnabled) {
           const typeKey =
             profile.customerType === CustomerType.CORPORATE ? 'CORPORATE' : 'INDIVIDUAL';
-          const fiatBand = risk.transactionLimits[typeKey][cur];
-          if (fiatBand.perTransactionMax > 0) {
-            const maxFromHq = fiatBand.perTransactionMax / rate;
-            if (limit.maxUsdt <= 0 || maxFromHq + 1e-9 < limit.maxUsdt) {
-              limit = { ...limit, maxUsdt: maxFromHq };
+          const method =
+            input.paymentMethod === 'CARD'
+              ? 'CARD'
+              : input.paymentMethod === 'REMITTANCE'
+                ? 'REMITTANCE'
+                : 'BANK_TRANSFER';
+          const fiatBand =
+            (risk.methodTransactionLimits?.[method] ?? risk.transactionLimits)[typeKey][cur];
+
+          if (hasFiat) {
+            const codeOverride = method === 'CARD' ? 'CARD' : null;
+            if (
+              fiatBand.perTransactionMin > 0 &&
+              fiatAmount + LIMIT_EPS_FIAT < fiatBand.perTransactionMin
+            ) {
+              const minUsdt = fiatBand.perTransactionMin / rate;
+              throwUsdtRiskMin(limit, minUsdt, rate, cur, codeOverride);
             }
-          }
-          if (fiatBand.perTransactionMin > 0) {
-            const minFromHq = fiatBand.perTransactionMin / rate;
-            if (minFromHq > limit.minUsdt) {
-              limit = { ...limit, minUsdt: minFromHq };
+            if (
+              fiatBand.perTransactionMax > 0 &&
+              fiatAmount - LIMIT_EPS_FIAT > fiatBand.perTransactionMax
+            ) {
+              const maxUsdt = fiatBand.perTransactionMax / rate;
+              throwUsdtRiskMax(limit, maxUsdt, rate, cur, codeOverride);
+            }
+          } else {
+            /** fiat 미전달 시(레거시) 환산 USDT로 포함 비교 — 호출측에서 fiatAmount 전달 권장 */
+            if (fiatBand.perTransactionMax > 0) {
+              const maxFromHq = fiatBand.perTransactionMax / rate;
+              if (limit.maxUsdt <= 0 || maxFromHq + LIMIT_EPS_USDT < limit.maxUsdt) {
+                limit = { ...limit, maxUsdt: maxFromHq };
+              }
+            }
+            if (fiatBand.perTransactionMin > 0) {
+              const minFromHq = fiatBand.perTransactionMin / rate;
+              if (minFromHq > limit.minUsdt) {
+                limit = { ...limit, minUsdt: minFromHq };
+              }
             }
           }
         }
@@ -155,39 +248,21 @@ export async function validateUsdtRiskLimitAmount(input: {
     }
   }
 
-  if (limit.minUsdt > 0 && amount + 1e-9 < limit.minUsdt) {
-    const rate = Number(input.exchangeRate) || 0;
-    const cur = String(input.fiatCurrency || '').trim().toUpperCase();
-    const countryHint = limit.limitCountry ? ` · ${limit.limitCountry}` : '';
-    const fiatApprox = rate > 0 && cur ? Math.round(limit.minUsdt * rate) : 0;
-    const body =
-      fiatApprox > 0
-        ? `1회 최소 한도 기준은 ${limit.minUsdt.toLocaleString()} USDT 상당입니다 (약 ${fiatApprox.toLocaleString()} ${cur} · ${limit.code}${countryHint})`
-        : `1회 최소 한도 기준은 ${limit.minUsdt.toLocaleString()} USDT 상당의 통화 금액입니다 (${limit.code}${countryHint})`;
-    throw new AppError(400, body, 'USDT_RISK_MIN', {
-      minUsdt: limit.minUsdt,
-      fiatApprox,
-      currency: cur,
-      limitCode: limit.code,
-      country: countryHint,
-    });
+  /**
+   * 카드결제는 리스크관리「카드」탭 법정화폐 한도만 적용.
+   * USDT 티어(MR 등)는 이체·송금에만 추가 적용 — 카드 최소(예: 60,000 JPY)가
+   * 티어 환산(예: 약 100,000 JPY)에 가로막히지 않도록 한다.
+   */
+  if (input.paymentMethod === 'CARD') {
+    return limit;
   }
-  if (limit.maxUsdt > 0 && amount - 1e-9 > limit.maxUsdt) {
-    const rate = Number(input.exchangeRate) || 0;
-    const cur = String(input.fiatCurrency || '').trim().toUpperCase();
-    const countryHint = limit.limitCountry ? ` · ${limit.limitCountry}` : '';
-    const fiatApprox = rate > 0 && cur ? Math.round(limit.maxUsdt * rate) : 0;
-    const body =
-      fiatApprox > 0
-        ? `1회 최대 한도 기준은 ${limit.maxUsdt.toLocaleString()} USDT 상당입니다 (약 ${fiatApprox.toLocaleString()} ${cur} · ${limit.code}${countryHint})`
-        : `1회 최대 한도 기준은 ${limit.maxUsdt.toLocaleString()} USDT 상당의 통화 금액입니다 (${limit.code}${countryHint})`;
-    throw new AppError(400, body, 'USDT_RISK_MAX', {
-      maxUsdt: limit.maxUsdt,
-      fiatApprox,
-      currency: cur,
-      limitCode: limit.code,
-      country: countryHint,
-    });
+
+  /** USDT 리스크 티어 한도 — 경계 포함 (>= min, <= max) */
+  if (limit.minUsdt > 0 && amount + LIMIT_EPS_USDT < limit.minUsdt) {
+    throwUsdtRiskMin(limit, limit.minUsdt, rate, cur);
+  }
+  if (limit.maxUsdt > 0 && amount - LIMIT_EPS_USDT > limit.maxUsdt) {
+    throwUsdtRiskMax(limit, limit.maxUsdt, rate, cur);
   }
   return limit;
 }

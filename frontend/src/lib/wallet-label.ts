@@ -14,3 +14,13 @@ export function displayWalletLabel(
   if (isSystemDefaultWalletLabel(label)) return t('wallets.systemDefaultLabel');
   return (label ?? '').trim();
 }
+
+/** 목록·선택 UI: 닉네임 · 네트워크 */
+export function displayWalletTitle(
+  wallet: { label?: string | null; network?: string | null },
+  t: (key: MessageKey) => string,
+): string {
+  const name = displayWalletLabel(wallet.label, t);
+  const network = String(wallet.network || '').trim();
+  return network ? `${name} · ${network}` : name;
+}

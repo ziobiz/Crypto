@@ -487,6 +487,14 @@ export async function previewUsdtTransactionFees(
     fiatAmount?: number;
     targetUsdtAmount?: number;
     expressTier?: string | null;
+    paymentMethod?: 'BANK_TRANSFER' | 'REMITTANCE' | 'CARD';
+    /**
+     * 한도 검증용 법정화폐 금액. 카드는 결제액(cardCharge), 수수료 차감 후 환전 재원과 다를 수 있음.
+     * 없으면 견적/입금 법정화폐를 사용.
+     */
+    limitFiatAmount?: number;
+    /** true면 한도·일일검증 생략 (카드 견적 후 결제액으로 재검증할 때) */
+    skipLimitValidation?: boolean;
   },
 ) {
   const wallet = await prisma.wallet.findFirst({
@@ -508,13 +516,23 @@ export async function previewUsdtTransactionFees(
   const feeDiagramDisplay = await getFeeDiagramDisplayForCustomer(user.customerProfileId);
   const { rate } = await fetchUsdtFiatRate(currency);
 
-  const assertUsdtRisk = async (usdtAmount: number) => {
+  const limitPaymentMethod =
+    input.paymentMethod === 'REMITTANCE'
+      ? 'REMITTANCE'
+      : input.paymentMethod === 'CARD'
+        ? 'CARD'
+        : 'BANK_TRANSFER';
+
+  const assertUsdtRisk = async (usdtAmount: number, fiatAmount?: number) => {
+    if (input.skipLimitValidation) return;
     if (!user.customerProfileId || !(usdtAmount > 0)) return;
     await validateUsdtRiskLimitAmount({
       customerProfileId: user.customerProfileId,
       usdtAmount,
       fiatCurrency: currency,
       exchangeRate: rate,
+      fiatAmount,
+      paymentMethod: limitPaymentMethod,
     });
   };
 
@@ -525,7 +543,6 @@ export async function previewUsdtTransactionFees(
   );
 
   if (input.targetUsdtAmount != null && input.targetUsdtAmount > 0) {
-    await assertUsdtRisk(input.targetUsdtAmount);
     const quoted = await quoteFromTarget(
       wallet,
       currency,
@@ -535,8 +552,13 @@ export async function previewUsdtTransactionFees(
       user.customerProfileId,
       input.expressTier,
     );
+    const limitFiat =
+      input.limitFiatAmount != null && input.limitFiatAmount > 0
+        ? input.limitFiatAmount
+        : quoted.fiatAmount;
+    await assertUsdtRisk(input.targetUsdtAmount, limitFiat);
     let transactionLimits;
-    if (user.customerProfileId && quoted.fiatAmount > 0) {
+    if (!input.skipLimitValidation && user.customerProfileId && limitFiat > 0) {
       const profile = await prisma.customerProfile.findUnique({
         where: { id: user.customerProfileId },
         select: { customerType: true },
@@ -546,12 +568,14 @@ export async function previewUsdtTransactionFees(
           customerId: user.customerProfileId,
           customerType: profile.customerType,
           currency,
-          fiatAmount: quoted.fiatAmount,
+          fiatAmount: limitFiat,
+          paymentMethod: limitPaymentMethod,
         });
         transactionLimits = await getCustomerTransactionLimitSummary(
           user.customerProfileId,
           profile.customerType,
           currency,
+          limitPaymentMethod,
         );
       }
     }
@@ -587,8 +611,12 @@ export async function previewUsdtTransactionFees(
   }
 
   const fiatAmount = input.fiatAmount ?? 0;
+  const limitFiat =
+    input.limitFiatAmount != null && input.limitFiatAmount > 0
+      ? input.limitFiatAmount
+      : fiatAmount;
   if (fiatAmount > 0 && rate > 0) {
-    await assertUsdtRisk(fiatAmount / rate);
+    await assertUsdtRisk(limitFiat / rate, limitFiat);
   }
   let fees = await resolveFeesForPurchase(wallet, currency, fiatAmount, rate, {
     customerProfileId: user.customerProfileId,
@@ -612,7 +640,7 @@ export async function previewUsdtTransactionFees(
   const localPremiumInfo = localPremium ? toLocalPremiumInfo(localPremium) : undefined;
 
   let transactionLimits;
-  if (user.customerProfileId && fiatAmount > 0) {
+  if (!input.skipLimitValidation && user.customerProfileId && limitFiat > 0) {
     const profile = await prisma.customerProfile.findUnique({
       where: { id: user.customerProfileId },
       select: { customerType: true },
@@ -622,12 +650,14 @@ export async function previewUsdtTransactionFees(
         customerId: user.customerProfileId,
         customerType: profile.customerType,
         currency,
-        fiatAmount: breakdown?.requiredFiat ?? fiatAmount,
+        fiatAmount: limitFiat,
+        paymentMethod: limitPaymentMethod,
       });
       transactionLimits = await getCustomerTransactionLimitSummary(
         user.customerProfileId,
         profile.customerType,
         currency,
+        limitPaymentMethod,
       );
     }
   }
@@ -713,14 +743,6 @@ export async function simulateHqUsdtQuote(input: {
 
   try {
     if (input.targetUsdtAmount != null && Number(input.targetUsdtAmount) > 0) {
-      await validateUsdtRiskLimitAmount({
-        customerProfileId: input.customerProfileId ?? null,
-        usdtAmount: Number(input.targetUsdtAmount),
-        enforce: enforceCustomerLimits,
-        riskSource: 'simulator',
-        fiatCurrency: currency,
-        exchangeRate: rate,
-      });
       const quoted = await quoteFromTarget(
         wallet,
         currency,
@@ -729,6 +751,15 @@ export async function simulateHqUsdtQuote(input: {
         feeOpts,
         input.customerProfileId,
       );
+      await validateUsdtRiskLimitAmount({
+        customerProfileId: input.customerProfileId ?? null,
+        usdtAmount: Number(input.targetUsdtAmount),
+        enforce: enforceCustomerLimits,
+        riskSource: 'simulator',
+        fiatCurrency: currency,
+        exchangeRate: rate,
+        fiatAmount: quoted.fiatAmount,
+      });
       return {
         fees: quoted.fees,
         fiatAmount: quoted.fiatAmount,
@@ -755,6 +786,7 @@ export async function simulateHqUsdtQuote(input: {
         riskSource: 'simulator',
         fiatCurrency: currency,
         exchangeRate: rate,
+        fiatAmount,
       });
     }
     const fees = await resolveFeesForPurchase(wallet, currency, fiatAmount, rate, feeOpts);
@@ -941,12 +973,6 @@ export async function createUsdtPurchaseTicket(
   let localPremiumSnapshot: LocalMarketPremiumAnalysis | null = null;
 
   if (input.targetUsdtAmount != null && input.targetUsdtAmount > 0) {
-    await validateUsdtRiskLimitAmount({
-      customerProfileId: user.customerProfileId,
-      usdtAmount: input.targetUsdtAmount,
-      fiatCurrency: currency,
-      exchangeRate: rate,
-    });
     const quoted = await quoteFromTarget(
       wallet,
       currency,
@@ -961,6 +987,13 @@ export async function createUsdtPurchaseTicket(
     feeBreakdown = quoted.breakdown;
     expected = quoted.breakdown.netUsdt;
     targetUsdt = quoted.breakdown.netUsdt;
+    await validateUsdtRiskLimitAmount({
+      customerProfileId: user.customerProfileId,
+      usdtAmount: input.targetUsdtAmount,
+      fiatCurrency: currency,
+      exchangeRate: rate,
+      fiatAmount,
+    });
     if (quoted.localPremium && isLocalPremiumCurrency(currency)) {
       localPremiumSnapshot = await getLocalPremiumContext(currency);
     }
@@ -975,6 +1008,7 @@ export async function createUsdtPurchaseTicket(
         usdtAmount: fiatAmount / rate,
         fiatCurrency: currency,
         exchangeRate: rate,
+        fiatAmount,
       });
     }
     fees = withExpressFeeRates(
@@ -1010,6 +1044,7 @@ export async function createUsdtPurchaseTicket(
     customerType: customerProfile.customerType,
     currency,
     fiatAmount,
+    paymentMethod: paymentMethodStored,
   });
 
   const quotePolicy = await getEffectiveQuotePolicyForCustomer({
@@ -1407,6 +1442,18 @@ export async function listUsdtPurchaseTickets(user: AuthUser) {
     }
   }
 
+  const pendingCardIds = tickets
+    .filter(
+      (t) =>
+        t.usdtPurchase?.paymentMethod === 'CARD' &&
+        t.usdtPurchase.status === UsdtPurchaseStatus.CARD_PAYMENT_PENDING,
+    )
+    .map((t) => t.id);
+  if (pendingCardIds.length > 0) {
+    const { reconcilePendingCardPayments } = await import('./usdt-card-purchase.service');
+    await reconcilePendingCardPayments(user, pendingCardIds);
+  }
+
   const refreshed = await prisma.transactionTicket.findMany({
     where,
     include: USDT_PURCHASE_INCLUDE,
@@ -1428,6 +1475,25 @@ export async function getUsdtPurchaseTicket(user: AuthUser, ticketId: string) {
 
   if (!ticket) {
     throw new AppError(404, 'Ticket not found', 'NOT_FOUND');
+  }
+
+  if (
+    ticket.usdtPurchase?.paymentMethod === UsdtPaymentMethod.CARD &&
+    ticket.usdtPurchase.status === UsdtPurchaseStatus.CARD_PAYMENT_PENDING
+  ) {
+    const { syncUsdtCardPayment } = await import('./usdt-card-purchase.service');
+    try {
+      await syncUsdtCardPayment(user, ticketId);
+    } catch (e) {
+      console.warn('[icopay-detail-sync]', ticketId, e instanceof Error ? e.message : e);
+    }
+    ticket = await prisma.transactionTicket.findUnique({
+      where: { id: ticketId, type: TicketType.USDT_PURCHASE },
+      include: USDT_PURCHASE_INCLUDE,
+    });
+    if (!ticket) {
+      throw new AppError(404, 'Ticket not found', 'NOT_FOUND');
+    }
   }
 
   if (ticket.usdtPurchase) {
@@ -1869,10 +1935,20 @@ export async function getUsdtDepositContext(user: AuthUser) {
             const risk = await m.getCommissionRiskConfig();
             const typeKey =
               customerMode?.customerType === 'CORPORATE' ? 'CORPORATE' : 'INDIVIDUAL';
+            const methods = risk.methodTransactionLimits ?? {
+              BANK_TRANSFER: risk.transactionLimits,
+              REMITTANCE: risk.transactionLimits,
+              CARD: risk.transactionLimits,
+            };
             return {
               enabled: risk.riskEnabled,
               customerType: typeKey,
-              byCurrency: risk.transactionLimits[typeKey],
+              byCurrency: methods.BANK_TRANSFER[typeKey],
+              byMethod: {
+                BANK_TRANSFER: methods.BANK_TRANSFER[typeKey],
+                REMITTANCE: methods.REMITTANCE[typeKey],
+                CARD: methods.CARD[typeKey],
+              },
             };
           }),
         ])

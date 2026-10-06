@@ -1,17 +1,19 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthProvider';
 import { useT } from '@/context/LocaleProvider';
 import { AppShell } from '@/components/layout/AppShell';
 import { PageFrame } from '@/components/layout/PageFrame';
 import { DashboardErrorBoundary } from '@/components/DashboardErrorBoundary';
 import { WorkflowDisplayProvider } from '@/context/WorkflowDisplayProvider';
+import { pendingIcopayReturnPath } from '@/lib/icopay-return';
 
 export function DashboardGuard({ children }: { children: React.ReactNode }) {
   const { user, loading, refresh } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const t = useT();
   const retried = useRef(false);
 
@@ -28,6 +30,15 @@ export function DashboardGuard({ children }: { children: React.ReactNode }) {
     }
     router.replace('/login');
   }, [user, loading, router, refresh]);
+
+  /** ICOPAY 결제 후 대시보드·목록 등 임의 복귀 → 결제 결과 페이지로 강제 이동 */
+  useEffect(() => {
+    if (loading || !user) return;
+    const search = typeof window !== 'undefined' ? window.location.search : '';
+    const target = pendingIcopayReturnPath(pathname || '', search);
+    if (!target) return;
+    router.replace(target);
+  }, [loading, user, pathname, router]);
 
   if (loading || (!user && typeof window !== 'undefined' && sessionStorage.getItem('token'))) {
     return (

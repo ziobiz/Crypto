@@ -1,7 +1,10 @@
 import {
+  LIMIT_PAYMENT_METHODS,
   SYMBOL_FEE_CURRENCIES,
   type CurrencyTransactionLimits,
   type CustomerTransactionLimitsPolicy,
+  type LimitPaymentMethod,
+  type MethodTransactionLimitsPolicy,
   type SymbolFeeCurrency,
 } from '../constants/hq-policy';
 
@@ -71,6 +74,13 @@ export function defaultTransactionLimitsPolicy(
   };
 }
 
+function clonePolicy(policy: CustomerTransactionLimitsPolicy): CustomerTransactionLimitsPolicy {
+  return {
+    INDIVIDUAL: { ...policy.INDIVIDUAL },
+    CORPORATE: { ...policy.CORPORATE },
+  };
+}
+
 function normalizeCurrencyLimits(raw?: Partial<CurrencyTransactionLimits>): CurrencyTransactionLimits {
   const n = (v: unknown) => {
     const num = Number(v);
@@ -91,7 +101,10 @@ export function normalizeTransactionLimits(
   maxTicketKrw: number,
 ): CustomerTransactionLimitsPolicy {
   const defaults = defaultTransactionLimitsPolicy(maxTicketKrw);
-  const result = { ...defaults };
+  const result = {
+    INDIVIDUAL: { ...defaults.INDIVIDUAL },
+    CORPORATE: { ...defaults.CORPORATE },
+  };
 
   for (const customerType of ['INDIVIDUAL', 'CORPORATE'] as const) {
     const src = (raw?.[customerType] ?? {}) as Partial<
@@ -113,4 +126,103 @@ export function normalizeTransactionLimits(
   }
 
   return result;
+}
+
+/** 카드 결제관리 한도(min/max) → 리스크 CARD 정책 시드 */
+export function policyFromCardChargeLimits(
+  cardLimits: Partial<Record<SymbolFeeCurrency, { min?: number; max?: number }>> | undefined,
+  maxTicketKrw: number,
+): CustomerTransactionLimitsPolicy {
+  const base = defaultTransactionLimitsPolicy(maxTicketKrw);
+  const out: CustomerTransactionLimitsPolicy = {
+    INDIVIDUAL: { ...base.INDIVIDUAL },
+    CORPORATE: { ...base.CORPORATE },
+  };
+  for (const customerType of ['INDIVIDUAL', 'CORPORATE'] as const) {
+    for (const currency of SYMBOL_FEE_CURRENCIES) {
+      const band = cardLimits?.[currency];
+      const min = Math.max(0, Number(band?.min) || 0);
+      const max = Math.max(0, Number(band?.max) || 0);
+      out[customerType][currency] = defaultCurrencyLimits({
+        perTransactionMin: min,
+        perTransactionMax: max,
+      });
+    }
+  }
+  return out;
+}
+
+/** CARD 정책 → 카드 결제관리 limits 동기화용 */
+export function cardChargeLimitsFromPolicy(
+  policy: CustomerTransactionLimitsPolicy,
+): Record<SymbolFeeCurrency, { min: number; max: number }> {
+  const out = {} as Record<SymbolFeeCurrency, { min: number; max: number }>;
+  for (const currency of SYMBOL_FEE_CURRENCIES) {
+    const band = policy.INDIVIDUAL[currency];
+    out[currency] = {
+      min: band.perTransactionMin,
+      max: band.perTransactionMax,
+    };
+  }
+  return out;
+}
+
+export function defaultMethodTransactionLimitsPolicy(
+  maxTicketKrw = 100_000_000,
+): MethodTransactionLimitsPolicy {
+  const bank = defaultTransactionLimitsPolicy(maxTicketKrw);
+  return {
+    BANK_TRANSFER: clonePolicy(bank),
+    REMITTANCE: clonePolicy(bank),
+    CARD: clonePolicy(bank),
+  };
+}
+
+export function normalizeMethodTransactionLimits(
+  raw: Partial<MethodTransactionLimitsPolicy> | undefined,
+  legacyTransactionLimits: Partial<CustomerTransactionLimitsPolicy> | undefined,
+  maxTicketKrw: number,
+  cardSeedLimits?: Partial<Record<SymbolFeeCurrency, { min?: number; max?: number }>>,
+): MethodTransactionLimitsPolicy {
+  const hasMethodRaw = Boolean(
+    raw &&
+      LIMIT_PAYMENT_METHODS.some(
+        (m) => raw[m] && typeof raw[m] === 'object' && Object.keys(raw[m] as object).length > 0,
+      ),
+  );
+
+  const bank = normalizeTransactionLimits(
+    hasMethodRaw ? raw?.BANK_TRANSFER : (raw?.BANK_TRANSFER ?? legacyTransactionLimits),
+    maxTicketKrw,
+  );
+
+  const remit = normalizeTransactionLimits(
+    hasMethodRaw
+      ? raw?.REMITTANCE ?? raw?.BANK_TRANSFER
+      : (raw?.REMITTANCE ?? raw?.BANK_TRANSFER ?? legacyTransactionLimits),
+    maxTicketKrw,
+  );
+
+  let card: CustomerTransactionLimitsPolicy;
+  if (hasMethodRaw && raw?.CARD) {
+    card = normalizeTransactionLimits(raw.CARD, maxTicketKrw);
+  } else if (cardSeedLimits) {
+    card = policyFromCardChargeLimits(cardSeedLimits, maxTicketKrw);
+  } else {
+    card = normalizeTransactionLimits(raw?.CARD, maxTicketKrw);
+  }
+
+  return {
+    BANK_TRANSFER: bank,
+    REMITTANCE: remit,
+    CARD: card,
+  };
+}
+
+export function resolveLimitPaymentMethod(
+  method?: string | null,
+): LimitPaymentMethod {
+  if (method === 'CARD') return 'CARD';
+  if (method === 'REMITTANCE') return 'REMITTANCE';
+  return 'BANK_TRANSFER';
 }

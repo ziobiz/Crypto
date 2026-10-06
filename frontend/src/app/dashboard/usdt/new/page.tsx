@@ -26,7 +26,7 @@ import {
 import { LocalizedFileInput } from '@/components/LocalizedFileInput';
 import { ReferenceClocks } from '@/components/ReferenceClocks';
 import { CopyableMono } from '@/components/CopyButton';
-import { displayWalletLabel } from '@/lib/wallet-label';
+import { displayWalletTitle } from '@/lib/wallet-label';
 import { isKycApproved } from '@/lib/kyc';
 import { formatUsdtRiskError } from '@/lib/usdt-risk-message';
 import { useDoubleConfirm } from '@/hooks/useDoubleConfirm';
@@ -132,15 +132,17 @@ export default function UsdtNewPage() {
     api.usdt.depositContext().then(setDepositCtx).catch(console.error);
     api.usdt.cardContext().then((ctx) => {
       setCardContext(ctx);
+      const first = (ctx.legalFirstName ?? '').trim();
+      const last = (ctx.legalLastName ?? '').trim();
       setCardForm(
         emptyCardForm({
           email: ctx.userEmail ?? '',
           phone: ctx.userPhone ?? '',
           phoneCountryCode: ctx.userPhoneCountryCode ?? '+82',
-          // ICOPAY는 영문 성/이름 필수 — 한글 프로필명은 자동 채우지 않음
-          firstName: '',
-          lastName: '',
-          cardholderName: '',
+          firstName: first,
+          lastName: last,
+          cardholderName: [first, last].filter(Boolean).join(' '),
+          nameLocked: true,
         }),
       );
     }).catch(() => setCardContext({
@@ -154,6 +156,9 @@ export default function UsdtNewPage() {
       userPhoneCountryCode: null,
       userEmail: null,
       userName: null,
+      legalFirstName: null,
+      legalLastName: null,
+      legalNameLocked: false,
     }));
   }, [user?.id, user?.role]);
 
@@ -204,16 +209,25 @@ export default function UsdtNewPage() {
 
   useEffect(() => {
     if (paymentMethod === 'BANK_TRANSFER' && !bankMethodAvailable) {
-      if (remittanceMethodAvailable) setPaymentMethod('REMITTANCE');
-      else if (cardMethodAvailable) setPaymentMethod('CARD');
-      setInputMode('target');
+      if (remittanceMethodAvailable) {
+        setPaymentMethod('REMITTANCE');
+        setInputMode('target');
+      } else if (cardMethodAvailable) {
+        setPaymentMethod('CARD');
+        setInputMode('cardCharge');
+      }
     }
   }, [bankMethodAvailable, cardMethodAvailable, remittanceMethodAvailable, paymentMethod]);
 
   useEffect(() => {
     if (paymentMethod === 'REMITTANCE' && !remittanceMethodAvailable) {
-      setPaymentMethod(bankMethodAvailable ? 'BANK_TRANSFER' : 'CARD');
-      setInputMode('target');
+      if (bankMethodAvailable) {
+        setPaymentMethod('BANK_TRANSFER');
+        setInputMode('target');
+      } else {
+        setPaymentMethod('CARD');
+        setInputMode('cardCharge');
+      }
     }
   }, [remittanceMethodAvailable, bankMethodAvailable, paymentMethod]);
 
@@ -249,9 +263,41 @@ export default function UsdtNewPage() {
   // 금액·수단 변경 시 잠정 견적 초기화
   useEffect(() => {
     setFeePreview(null);
-  }, [walletId, fiatCurrency, inputMode, usdtAmount, fiatAmount, cardChargeFiat, isCard, isRemittance]);
+  }, [
+    walletId,
+    fiatCurrency,
+    inputMode,
+    usdtAmount,
+    fiatAmount,
+    cardChargeFiat,
+    isCard,
+    isRemittance,
+    cardForm.cardBrand,
+    cardContext?.cardFeeMode,
+  ]);
 
   const fiatRate = rate?.usdtFiatRate ?? rate?.usdtKrwRate ?? 0;
+  const cardLimitBand = isCard ? cardContext?.limits?.[fiatCurrency] : null;
+  const cardLimitMin = Number(cardLimitBand?.min) || 0;
+  const cardLimitMax = Number(cardLimitBand?.max) || 0;
+  const cardLimitBannerText =
+    cardLimitBand && (cardLimitMin > 0 || cardLimitMax > 0)
+      ? cardLimitMin > 0 && cardLimitMax > 0
+        ? t('usdt.cardLimitBanner', {
+            currency: fiatCurrency,
+            min: cardLimitMin.toLocaleString(),
+            max: cardLimitMax.toLocaleString(),
+          })
+        : cardLimitMax > 0
+          ? t('usdt.cardLimitBannerMaxOnly', {
+              currency: fiatCurrency,
+              max: cardLimitMax.toLocaleString(),
+            })
+          : t('usdt.cardLimitBannerMinOnly', {
+              currency: fiatCurrency,
+              min: cardLimitMin.toLocaleString(),
+            })
+      : null;
   const breakdown = feePreview?.breakdown ?? null;
   /** 이체·송금 + 견적정책 ON → 신청 후 상세에서 확정·거래 */
   const useQuoteFlow = !isCard && depositCtx?.quoteResponse?.enabled !== false;
@@ -266,6 +312,8 @@ export default function UsdtNewPage() {
           ? ('REMITTANCE' as const)
           : undefined,
       expressTier: isCard ? undefined : expressTier,
+      cardBrand:
+        isCard && cardContext?.cardFeeMode === 'BY_BRAND' ? cardForm.cardBrand : undefined,
     };
     if (inputMode === 'target') return { ...base, targetUsdtAmount: usdtAmount };
     if (inputMode === 'cardCharge') return { ...base, cardChargeFiat };
@@ -444,8 +492,12 @@ export default function UsdtNewPage() {
       }
 
       if (isCard) {
-        const firstName = (cardForm.firstName ?? '').trim();
-        const lastName = (cardForm.lastName ?? '').trim();
+        const firstName = (cardContext?.legalFirstName || cardForm.firstName || '').trim();
+        const lastName = (cardContext?.legalLastName || cardForm.lastName || '').trim();
+        if (!firstName || !lastName) {
+          setError(t('usdt.cardLegalNameMissing'));
+          return;
+        }
         if (
           !cardForm.email.trim() ||
           !cardForm.phone.trim() ||
@@ -464,6 +516,8 @@ export default function UsdtNewPage() {
           cardWaiverAccepted: true,
           targetUsdtAmount: inputMode === 'target' ? usdtAmount : undefined,
           cardChargeFiat: inputMode === 'cardCharge' ? cardChargeFiat : undefined,
+          cardBrand:
+            cardContext?.cardFeeMode === 'BY_BRAND' ? cardForm.cardBrand : undefined,
           card: {
             firstName,
             lastName,
@@ -473,9 +527,20 @@ export default function UsdtNewPage() {
             phoneCountryCode: cardForm.phoneCountryCode.trim(),
           },
         });
-        const sandbox = ticket.icopayCheckout?.integrationMode === 'SANDBOX';
-        const payUrl = ticket.icopayCheckout?.payUrl;
-        if (!sandbox && payUrl) {
+        const checkout = ticket.icopayCheckout as
+          | { payUrl?: string; sandbox?: boolean; integrationMode?: string; orderNo?: string }
+          | undefined;
+        const payUrl = checkout?.payUrl;
+        const sandbox =
+          checkout?.sandbox === true ||
+          String(checkout?.integrationMode || '').toUpperCase() === 'SANDBOX';
+        // Sandbox: never open hosted payUrl (live EP). Ticket already completed via complete API.
+        if (payUrl && !sandbox) {
+          const { saveIcopayPendingReturn } = await import('@/lib/icopay-return');
+          saveIcopayPendingReturn(
+            ticket.id,
+            checkout?.orderNo || ticket.ticketNo || '',
+          );
           window.location.href = payUrl;
           return;
         }
@@ -544,9 +609,15 @@ export default function UsdtNewPage() {
         </div>
       )}
       {(() => {
-        const band = depositCtx?.applicationLimits?.enabled
-          ? depositCtx.applicationLimits.byCurrency[fiatCurrency]
-          : null;
+        if (!depositCtx?.applicationLimits?.enabled) return null;
+        const methodKey = isCard
+          ? 'CARD'
+          : isRemittance
+            ? 'REMITTANCE'
+            : 'BANK_TRANSFER';
+        const band =
+          depositCtx.applicationLimits.byMethod?.[methodKey]?.[fiatCurrency] ??
+          depositCtx.applicationLimits.byCurrency[fiatCurrency];
         if (!band) return null;
         const min = band.perTransactionMin;
         const max = band.perTransactionMax;
@@ -645,7 +716,7 @@ export default function UsdtNewPage() {
                   onClick={() => {
                     if (!cardMethodAvailable) return;
                     setPaymentMethod('CARD');
-                    setInputMode('target');
+                    setInputMode('cardCharge');
                   }}
                   className={`pg-choice ${
                     !cardMethodAvailable
@@ -780,6 +851,11 @@ export default function UsdtNewPage() {
 
             {inputMode === 'target' ? (
               <div className="mt-5">
+                {isCard && cardLimitBannerText && (
+                  <div className="mb-2 rounded-md border border-rose-200/80 bg-gradient-to-r from-rose-50 to-amber-50 px-3 py-2 text-sm font-medium text-rose-800">
+                    {cardLimitBannerText}
+                  </div>
+                )}
                 <label className="pg-label">{t('usdt.targetUsdt')}</label>
                 <input
                   type="text"
@@ -794,6 +870,11 @@ export default function UsdtNewPage() {
               </div>
             ) : inputMode === 'cardCharge' ? (
               <div className="mt-5">
+                {cardLimitBannerText && (
+                  <div className="mb-2 rounded-md border border-rose-200/80 bg-gradient-to-r from-rose-50 to-amber-50 px-3 py-2 text-sm font-medium text-rose-800">
+                    {cardLimitBannerText}
+                  </div>
+                )}
                 <label className="pg-label">{t('usdt.cardChargeLabel', { currency: fiatCurrency })}</label>
                 <FormattedAmountInput
                   min={1}
@@ -824,7 +905,7 @@ export default function UsdtNewPage() {
               >
                 {wallets.map((w) => (
                   <option key={w.id} value={w.id}>
-                    {displayWalletLabel(w.label, t)} ({w.network}) {w.address}
+                    {displayWalletTitle(w, t)} — {w.address}
                   </option>
                 ))}
               </select>
@@ -834,7 +915,13 @@ export default function UsdtNewPage() {
               <p className="pg-hint mt-1">{t('usdt.walletPickHint')}</p>
             </div>
 
-            {isCard && cardPaymentEnabled && <CardPaymentForm value={cardForm} onChange={setCardForm} />}
+            {isCard && cardPaymentEnabled && (
+              <CardPaymentForm
+                value={cardForm}
+                onChange={setCardForm}
+                feeMode={cardContext?.cardFeeMode === 'BY_BRAND' ? 'BY_BRAND' : 'UNIFORM'}
+              />
+            )}
 
             {useQuoteFlow && (
               <div className="mt-6 space-y-2 border-t border-slate-200 pt-5">
