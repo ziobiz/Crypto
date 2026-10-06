@@ -33,6 +33,7 @@ export type IcopayPrepareResult = {
   amount: number;
   currency: string;
   integrationMode?: string;
+  sandbox?: boolean;
   raw?: unknown;
 };
 
@@ -123,30 +124,43 @@ function brokerHeaders(config: HqIcopayConfig): Record<string, string> {
   };
 }
 
-function isSandbox(config: HqIcopayConfig): boolean {
-  return (
-    config.sandbox === true ||
-    process.env.ICOPAY_SANDBOX === '1' ||
-    config.bracketSecret.trim().toUpperCase() === 'SANDBOX'
-  );
+function icopayErrorMessage(raw: Record<string, unknown>, fallback: string): string {
+  const messages = raw.messages as Record<string, string> | undefined;
+  return messages?.KOR || messages?.ENG || String(raw.message ?? raw.error ?? fallback);
 }
 
-function simulatePrepare(input: IcopayPrepareInput): IcopayPrepareResult {
-  const sessionId = `SANDBOX-${Date.now()}`;
-  return {
-    sessionId,
-    sessionToken: sessionId,
-    payUrl: `https://tinpass.com/dashboard/usdt?icopaySandbox=1&orderNo=${encodeURIComponent(input.orderNo)}`,
+function isIcopaySandboxPayload(data: Record<string, unknown>): boolean {
+  if (data.sandbox === true || String(data.sandbox).toLowerCase() === 'true') return true;
+  return String(data.integrationMode || '').toUpperCase() === 'SANDBOX';
+}
+
+async function completeIcopaySandbox(
+  config: HqIcopayConfig,
+  input: IcopayPrepareInput,
+  sessionToken: string,
+): Promise<Record<string, unknown>> {
+  const payload = {
+    compId: resolveIcopayCompId(config),
     orderNo: input.orderNo,
-    amount: input.amount,
-    currency: input.currency,
-    integrationMode: 'SANDBOX',
-    expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
-    raw: { sandbox: true },
+    sessionToken,
   };
+  const res = await fetch(`${apiBase(config)}/api/middleware/v1/merchant/checkout/complete`, {
+    method: 'POST',
+    headers: brokerHeaders(config),
+    body: JSON.stringify(payload),
+  });
+  const raw = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!res.ok || raw.success === false) {
+    throw new AppError(
+      502,
+      icopayErrorMessage(raw, `ICOPAY sandbox complete failed (${res.status})`),
+      String(raw.errorCode ?? 'ICOPAY_SANDBOX_COMPLETE_FAILED'),
+    );
+  }
+  return (raw.data ?? raw) as Record<string, unknown>;
 }
 
-/** Unified Checkout prepare — returns hosted payUrl (INLINE / REDIRECT). */
+/** Unified Checkout prepare. Sandbox broker secret → complete (no EP). Live secret → payUrl. */
 export async function prepareIcopayCheckout(
   config: HqIcopayConfig,
   input: IcopayPrepareInput,
@@ -160,10 +174,6 @@ export async function prepareIcopayCheckout(
   }
   if (!config.bracketSecret) {
     throw new AppError(503, 'ICOPAY broker secret is not configured', 'ICOPAY_SECRET_MISSING');
-  }
-
-  if (isSandbox(config)) {
-    return simulatePrepare(input);
   }
 
   const name =
@@ -197,21 +207,37 @@ export async function prepareIcopayCheckout(
   });
   const raw = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   if (!res.ok || raw.success === false) {
-    const messages = raw.messages as Record<string, string> | undefined;
-    const msg =
-      messages?.KOR ||
-      messages?.ENG ||
-      String(raw.message ?? raw.error ?? `ICOPAY prepare failed (${res.status})`);
-    throw new AppError(502, msg, String(raw.errorCode ?? 'ICOPAY_PREPARE_FAILED'));
+    throw new AppError(
+      502,
+      icopayErrorMessage(raw, `ICOPAY prepare failed (${res.status})`),
+      String(raw.errorCode ?? 'ICOPAY_PREPARE_FAILED'),
+    );
   }
   const data = (raw.data ?? raw) as Record<string, unknown>;
+  const sessionToken = String(data.sessionToken ?? data.sessionId ?? '');
+
+  if (isIcopaySandboxPayload(data)) {
+    const completed = await completeIcopaySandbox(config, input, sessionToken);
+    return {
+      sessionId: String(completed.sessionToken ?? sessionToken),
+      sessionToken: String(completed.sessionToken ?? sessionToken),
+      payUrl: '',
+      orderNo: String(completed.orderNo ?? input.orderNo),
+      amount: Number(completed.amount ?? input.amount),
+      currency: String(completed.currency ?? input.currency),
+      integrationMode: 'SANDBOX',
+      sandbox: true,
+      raw: { prepare: raw, complete: completed },
+    };
+  }
+
   const payUrl = String(data.payUrl ?? data.checkoutUrl ?? '');
   if (!payUrl) {
     throw new AppError(502, 'ICOPAY prepare did not return payUrl', 'ICOPAY_PAYURL_MISSING');
   }
   return {
-    sessionId: String(data.sessionId ?? ''),
-    sessionToken: String(data.sessionToken ?? ''),
+    sessionId: String(data.sessionId ?? sessionToken),
+    sessionToken,
     payUrl,
     embedScriptUrl: data.embedScriptUrl ? String(data.embedScriptUrl) : undefined,
     expiresAt: data.expiresAt ? String(data.expiresAt) : undefined,
@@ -219,6 +245,7 @@ export async function prepareIcopayCheckout(
     amount: Number(data.amount ?? input.amount),
     currency: String(data.currency ?? input.currency),
     integrationMode: data.integrationMode ? String(data.integrationMode) : undefined,
+    sandbox: false,
     raw,
   };
 }
@@ -232,15 +259,6 @@ export async function getIcopayCheckoutStatus(
   const compId = resolveIcopayCompId(config);
   if (!compId || !config.bracketSecret) {
     throw new AppError(503, 'ICOPAY is not configured', 'ICOPAY_NOT_CONFIGURED');
-  }
-  if (isSandbox(config)) {
-    return {
-      found: true,
-      paymentStatus: 'APPROVED',
-      orderNo,
-      transactionId: sessionId || `SANDBOX-${orderNo}`,
-      raw: { sandbox: true },
-    };
   }
 
   const qs = new URLSearchParams({ compId, orderNo });
@@ -264,7 +282,9 @@ export async function getIcopayCheckoutStatus(
         ? String(data.tid)
         : data.paymentId
           ? String(data.paymentId)
-          : undefined,
+          : data.sessionToken
+            ? String(data.sessionToken)
+            : undefined,
     amount: data.amount != null ? Number(data.amount) : undefined,
     currency: data.currency ? String(data.currency) : undefined,
     last4: data.last4 ? String(data.last4) : data.cardLast4 ? String(data.cardLast4) : undefined,

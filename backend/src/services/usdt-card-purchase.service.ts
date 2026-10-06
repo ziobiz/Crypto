@@ -448,9 +448,35 @@ export async function createUsdtCardPurchase(
     await prisma.usdtPurchaseDetail.update({
       where: { ticketId: ticket.id },
       data: {
-        icopayTransactionId: checkout.sessionId || null,
+        icopayTransactionId: checkout.sessionId || checkout.sessionToken || null,
       },
     });
+
+    if (checkout.sandbox || checkout.integrationMode === 'SANDBOX') {
+      const approved = await applyCardPaymentOutcome({
+        ticketId: ticket.id,
+        orderNo: orderId,
+        paid: true,
+        transactionId: checkout.sessionToken || checkout.sessionId || orderId,
+        note: 'ICOPAY sandbox complete (no live acquirer)',
+        actorUserId: user.id,
+      });
+      const serialized = serializeTicket(approved || ticket, (await getWorkflowDisplay()).sla);
+      return {
+        ...serialized,
+        icopayCheckout: {
+          payUrl: '',
+          sessionId: checkout.sessionId,
+          sessionToken: checkout.sessionToken,
+          embedScriptUrl: checkout.embedScriptUrl,
+          expiresAt: checkout.expiresAt,
+          integrationMode: 'SANDBOX',
+          orderNo: checkout.orderNo,
+          payCurrency: currency,
+          payAmount: cardChargeFiat,
+        },
+      };
+    }
 
     const serialized = serializeTicket(ticket, (await getWorkflowDisplay()).sla);
     return {

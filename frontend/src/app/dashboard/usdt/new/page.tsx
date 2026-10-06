@@ -473,8 +473,9 @@ export default function UsdtNewPage() {
             phoneCountryCode: cardForm.phoneCountryCode.trim(),
           },
         });
+        const sandbox = ticket.icopayCheckout?.integrationMode === 'SANDBOX';
         const payUrl = ticket.icopayCheckout?.payUrl;
-        if (payUrl) {
+        if (!sandbox && payUrl) {
           window.location.href = payUrl;
           return;
         }
