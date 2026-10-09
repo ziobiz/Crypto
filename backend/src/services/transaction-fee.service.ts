@@ -18,6 +18,8 @@ import {
   normalizeFeeBillingPresentation,
   normalizeGasNetworksByAsset,
   normalizeHqUsdtRiskLimitTiers,
+  normalizeHqUsdtRiskLimitTiersForType,
+  normalizeRiskEnabledByCustomerType,
 } from '../constants/hq-policy';
 import { mergeLiveFeesWithSandboxBasic, sandboxBasicDeltas, applySandboxGasDelta } from '../lib/sandbox-fee-merge';
 import { computeFeeAmounts, normalizeTransactionFees } from '../lib/fee-component';
@@ -197,6 +199,20 @@ function normalizeCommissionRiskCore(
   const defaults = defaultTransactionFees();
   const transfer = raw.defaultTransferFeeUsdt ?? raw.defaultPlatformFeeUsdt ?? defaults.transferFeeUsdt;
   const showTotalFee = raw.showTotalFee !== false;
+  const riskEnabledByCustomerType = normalizeRiskEnabledByCustomerType(
+    raw.riskEnabledByCustomerType,
+    raw.riskEnabled ?? true,
+  );
+  const usdtRiskLimitTiersByCustomerType = {
+    CORPORATE: normalizeHqUsdtRiskLimitTiersForType(
+      raw.usdtRiskLimitTiersByCustomerType?.CORPORATE ?? raw.usdtRiskLimitTiers,
+      'CORPORATE',
+    ),
+    INDIVIDUAL: normalizeHqUsdtRiskLimitTiersForType(
+      raw.usdtRiskLimitTiersByCustomerType?.INDIVIDUAL ?? null,
+      'INDIVIDUAL',
+    ),
+  };
   return {
     defaultFxFeePercent: raw.defaultFxFeePercent ?? defaults.fxFeePercent,
     defaultFxFeeUsdt: raw.defaultFxFeeUsdt ?? defaults.fxFeeUsdt,
@@ -225,11 +241,13 @@ function normalizeCommissionRiskCore(
       true,
     ),
     maxTicketAmountKrw: raw.maxTicketAmountKrw ?? 100_000_000,
-    riskEnabled: raw.riskEnabled ?? true,
+    riskEnabled: riskEnabledByCustomerType.CORPORATE,
+    riskEnabledByCustomerType,
     maxDailyTicketsPerCustomer: raw.maxDailyTicketsPerCustomer ?? 10,
     transactionLimits: methodLimits.BANK_TRANSFER,
     methodTransactionLimits: methodLimits,
-    usdtRiskLimitTiers: normalizeHqUsdtRiskLimitTiers(raw.usdtRiskLimitTiers),
+    usdtRiskLimitTiers: usdtRiskLimitTiersByCustomerType.CORPORATE,
+    usdtRiskLimitTiersByCustomerType,
     notes: raw.notes ?? '',
   };
 }

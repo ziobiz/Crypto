@@ -1,6 +1,8 @@
 import { CustomerType, UsdtPaymentMethod, UsdtPurchaseStatus } from '@prisma/client';
 import {
+  isRiskEnabledForCustomerType,
   type CurrencyTransactionLimits,
+  type CustomerTypeLimitKey,
   type HqCommissionRiskConfig,
   type LimitPaymentMethod,
   type SymbolFeeCurrency,
@@ -49,7 +51,7 @@ async function loadRiskConfig(): Promise<HqCommissionRiskConfig> {
   return getCommissionRiskConfig();
 }
 
-export function toCustomerTypeKey(customerType: CustomerType): 'INDIVIDUAL' | 'CORPORATE' {
+export function toCustomerTypeKey(customerType: CustomerType): CustomerTypeLimitKey {
   return customerType === CustomerType.CORPORATE ? 'CORPORATE' : 'INDIVIDUAL';
 }
 
@@ -112,21 +114,26 @@ export type TransactionLimitCheck = {
   paymentMethod: LimitPaymentMethod;
 };
 
+/**
+ * @param opts.skipPerTransaction — 리스크 활성(이체·송금) 시 1회 min/max는 티어가 담당 → FIAT 1회 제외
+ */
 export function checkTransactionAmount(
   limits: CurrencyTransactionLimits,
   amount: number,
   dailyTotal: number,
   monthlyTotal: number,
+  opts?: { skipPerTransaction?: boolean },
 ): Omit<TransactionLimitCheck, 'paymentMethod'> {
+  const skipPerTx = opts?.skipPerTransaction === true;
   const minCandidates = [
-    limits.perTransactionMin,
+    skipPerTx ? 0 : limits.perTransactionMin,
     limits.dailyMin,
     limits.monthlyMin,
   ].filter((v) => v > 0);
   const minAmount = minCandidates.length ? Math.max(...minCandidates) : 0;
 
   const maxCandidates = [
-    limits.perTransactionMax > 0 ? limits.perTransactionMax : Infinity,
+    !skipPerTx && limits.perTransactionMax > 0 ? limits.perTransactionMax : Infinity,
     limits.dailyMax > 0 ? limits.dailyMax - dailyTotal : Infinity,
     limits.monthlyMax > 0 ? limits.monthlyMax - monthlyTotal : Infinity,
   ].filter((v) => Number.isFinite(v) && v >= 0);
@@ -151,6 +158,7 @@ export function checkTransactionAmount(
   };
 }
 
+/** 한도 설정(FIAT) — 통화 행이 활성이면 항상 적용. 리스크 on/off와 무관(기본 안전망). */
 export async function validateCustomerTransactionAmount(input: {
   customerId: string;
   customerType: CustomerType;
@@ -161,22 +169,25 @@ export async function validateCustomerTransactionAmount(input: {
 }): Promise<TransactionLimitCheck> {
   const risk = input.risk ?? (await loadRiskConfig());
   const paymentMethod = resolveLimitPaymentMethod(input.paymentMethod);
-  if (!risk.riskEnabled) {
+  const typeKey = toCustomerTypeKey(input.customerType);
+  const riskOn = isRiskEnabledForCustomerType(risk, typeKey);
+  const methodLimits =
+    risk.methodTransactionLimits?.[paymentMethod] ?? risk.transactionLimits;
+  const limits = methodLimits[typeKey][input.currency];
+
+  /** 통화 행 비활성 → 해당 통화 FIAT 한도 미적용 */
+  if (limits.enabled === false) {
     return {
       allowed: true,
       minAmount: 0,
       maxAmount: null,
       dailyTotal: 0,
       monthlyTotal: 0,
-      limits: defaultCurrencyLimits(),
+      limits,
       paymentMethod,
     };
   }
 
-  const typeKey = toCustomerTypeKey(input.customerType);
-  const methodLimits =
-    risk.methodTransactionLimits?.[paymentMethod] ?? risk.transactionLimits;
-  const limits = methodLimits[typeKey][input.currency];
   const { dailyTotal, monthlyTotal } = await getCustomerFiatTotals(
     input.customerId,
     input.currency,
@@ -184,24 +195,34 @@ export async function validateCustomerTransactionAmount(input: {
     paymentMethod,
   );
 
-  const dailyTicketCount = await countDailyTicketsForCustomer(input.customerId);
-
-  if (
-    risk.maxDailyTicketsPerCustomer > 0 &&
-    dailyTicketCount >= risk.maxDailyTicketsPerCustomer
-  ) {
-    throw new AppError(
-      400,
-      `일일 최대 거래 건수(${risk.maxDailyTicketsPerCustomer}건)를 초과했습니다`,
-      'DAILY_TICKET_LIMIT',
-    );
+  /** 일일 최대 거래 건수 — 리스크 활성일 때만 */
+  if (riskOn) {
+    const dailyTicketCount = await countDailyTicketsForCustomer(input.customerId);
+    if (
+      risk.maxDailyTicketsPerCustomer > 0 &&
+      dailyTicketCount >= risk.maxDailyTicketsPerCustomer
+    ) {
+      throw new AppError(
+        400,
+        `일일 최대 거래 건수(${risk.maxDailyTicketsPerCustomer}건)를 초과했습니다`,
+        'DAILY_TICKET_LIMIT',
+      );
+    }
   }
+
+  /**
+   * 리스크 활성 + 이체/송금 → 1회 FIAT min/max 생략(크립토 티어가 1회 담당).
+   * 카드·리스크 비활성 → 한도 설정의 1회 포함.
+   */
+  const skipPerTransaction =
+    riskOn && (paymentMethod === 'BANK_TRANSFER' || paymentMethod === 'REMITTANCE');
 
   const check = checkTransactionAmount(
     limits,
     input.fiatAmount,
     dailyTotal,
     monthlyTotal,
+    { skipPerTransaction },
   );
 
   if (!check.allowed) {
@@ -217,11 +238,7 @@ export async function validateCustomerTransactionAmount(input: {
         limits.dailyMax > 0 && dailyTotal + input.fiatAmount > limits.dailyMax;
       const isMonthly =
         limits.monthlyMax > 0 && monthlyTotal + input.fiatAmount > limits.monthlyMax;
-      const reason = isMonthly
-        ? '월간'
-        : isDaily
-          ? '일일'
-          : '1회';
+      const reason = isMonthly ? '월간' : isDaily ? '일일' : '1회';
       throw new AppError(
         400,
         `${reason} 거래 한도를 초과했습니다 (최대 ${check.maxAmount.toLocaleString()} ${input.currency})`,
@@ -243,29 +260,47 @@ export async function getCustomerTransactionLimitSummary(
   const risk = await loadRiskConfig();
   const method = resolveLimitPaymentMethod(paymentMethod);
   const typeKey = toCustomerTypeKey(customerType);
+  const riskOn = isRiskEnabledForCustomerType(risk, typeKey);
   const methodLimits =
     risk.methodTransactionLimits?.[method] ?? risk.transactionLimits;
   const limits = methodLimits[typeKey][currency];
+  const rowEnabled = limits.enabled !== false;
   const totals = await getCustomerFiatTotals(customerId, currency, new Date(), method);
-  const check = checkTransactionAmount(limits, 0, totals.dailyTotal, totals.monthlyTotal);
+  const skipPerTransaction =
+    riskOn && (method === 'BANK_TRANSFER' || method === 'REMITTANCE');
+  const check = rowEnabled
+    ? checkTransactionAmount(limits, 0, totals.dailyTotal, totals.monthlyTotal, {
+        skipPerTransaction,
+      })
+    : {
+        minAmount: 0,
+        maxAmount: null as number | null,
+        dailyTotal: totals.dailyTotal,
+        monthlyTotal: totals.monthlyTotal,
+        limits,
+        allowed: true,
+      };
   const dailyTicketCount = await countDailyTicketsForCustomer(customerId);
   return {
-    enabled: risk.riskEnabled,
+    /** 한도 설정(통화 행) 활성 여부 — 리스크와 무관 */
+    enabled: rowEnabled,
+    /** 해당 고객유형 리스크 티어·건수 활성 */
+    riskTierEnabled: riskOn,
     limits,
     paymentMethod: method,
     dailyTotal: totals.dailyTotal,
     monthlyTotal: totals.monthlyTotal,
     remainingDaily:
-      limits.dailyMax > 0
+      rowEnabled && limits.dailyMax > 0
         ? Math.max(0, limits.dailyMax - totals.dailyTotal)
         : null,
     remainingMonthly:
-      limits.monthlyMax > 0
+      rowEnabled && limits.monthlyMax > 0
         ? Math.max(0, limits.monthlyMax - totals.monthlyTotal)
         : null,
     effectiveMin: check.minAmount,
     effectiveMax: check.maxAmount,
     dailyTicketCount,
-    maxDailyTicketsPerCustomer: risk.maxDailyTicketsPerCustomer,
+    maxDailyTicketsPerCustomer: riskOn ? risk.maxDailyTicketsPerCustomer : 0,
   };
 }

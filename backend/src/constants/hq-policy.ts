@@ -420,6 +420,8 @@ export type HqOrgColumnConfig = Record<
 >;
 
 export type CurrencyTransactionLimits = {
+  /** false = 해당 통화 한도 행 비활성(미적용). 기본 true */
+  enabled?: boolean;
   /** 1회 거래 최소 금액 (0 = 제한 없음) */
   perTransactionMin: number;
   /** 1회 거래 최대 금액 (0 = 제한 없음) */
@@ -465,6 +467,7 @@ export type UsdtRiskLimitBand = {
 
 export type HqUsdtRiskLimitTiers = Record<UsdtRiskLimitTier, UsdtRiskLimitBand>;
 
+/** 법인 기본 티어 */
 export const DEFAULT_USDT_RISK_LIMIT_TIERS: HqUsdtRiskLimitTiers = {
   LR: { minUsdt: 100, maxUsdt: 3_000 },
   MR: { minUsdt: 100, maxUsdt: 10_000 },
@@ -472,6 +475,85 @@ export const DEFAULT_USDT_RISK_LIMIT_TIERS: HqUsdtRiskLimitTiers = {
   XR: { minUsdt: 100, maxUsdt: 100_000 },
   SR: { minUsdt: 100, maxUsdt: 500_000 },
 };
+
+/** 개인 기본 티어 (법인보다 낮은 구간) */
+export const DEFAULT_INDIVIDUAL_USDT_RISK_LIMIT_TIERS: HqUsdtRiskLimitTiers = {
+  LR: { minUsdt: 10, maxUsdt: 1_000 },
+  MR: { minUsdt: 10, maxUsdt: 3_000 },
+  HR: { minUsdt: 10, maxUsdt: 10_000 },
+  XR: { minUsdt: 10, maxUsdt: 30_000 },
+  SR: { minUsdt: 10, maxUsdt: 100_000 },
+};
+
+export type RiskEnabledByCustomerType = Record<CustomerTypeLimitKey, boolean>;
+
+export type UsdtRiskLimitTiersByCustomerType = Record<
+  CustomerTypeLimitKey,
+  HqUsdtRiskLimitTiers
+>;
+
+export function normalizeHqUsdtRiskLimitTiersForType(
+  raw: Partial<Record<string, Partial<UsdtRiskLimitBand>>> | null | undefined,
+  customerType: CustomerTypeLimitKey,
+): HqUsdtRiskLimitTiers {
+  const fallback =
+    customerType === 'INDIVIDUAL'
+      ? DEFAULT_INDIVIDUAL_USDT_RISK_LIMIT_TIERS
+      : DEFAULT_USDT_RISK_LIMIT_TIERS;
+  const out = {} as HqUsdtRiskLimitTiers;
+  for (const tier of USDT_RISK_LIMIT_TIERS) {
+    out[tier] = normalizeUsdtRiskLimitBand(raw?.[tier], fallback[tier]);
+  }
+  return out;
+}
+
+export function normalizeRiskEnabledByCustomerType(
+  raw: Partial<RiskEnabledByCustomerType> | null | undefined,
+  legacyRiskEnabled?: boolean,
+): RiskEnabledByCustomerType {
+  const legacy = legacyRiskEnabled !== false;
+  return {
+    INDIVIDUAL: raw?.INDIVIDUAL !== undefined ? Boolean(raw.INDIVIDUAL) : legacy,
+    CORPORATE: raw?.CORPORATE !== undefined ? Boolean(raw.CORPORATE) : legacy,
+  };
+}
+
+export function isRiskEnabledForCustomerType(
+  risk: {
+    riskEnabled?: boolean;
+    riskEnabledByCustomerType?: Partial<RiskEnabledByCustomerType> | null;
+  },
+  customerType: CustomerTypeLimitKey,
+): boolean {
+  const by = normalizeRiskEnabledByCustomerType(
+    risk.riskEnabledByCustomerType,
+    risk.riskEnabled,
+  );
+  return by[customerType];
+}
+
+export function resolveUsdtRiskLimitTiersForCustomerType(
+  risk: {
+    usdtRiskLimitTiers?: Partial<Record<string, Partial<UsdtRiskLimitBand>>> | null;
+    usdtRiskLimitTiersByCustomerType?: Partial<
+      Record<CustomerTypeLimitKey, Partial<Record<string, Partial<UsdtRiskLimitBand>>>>
+    > | null;
+  },
+  customerType: CustomerTypeLimitKey,
+): HqUsdtRiskLimitTiers {
+  const byType = risk.usdtRiskLimitTiersByCustomerType?.[customerType];
+  if (byType) {
+    return normalizeHqUsdtRiskLimitTiersForType(byType, customerType);
+  }
+  /** legacy: 단일 표는 법인 기준으로 두고, 개인은 개인 기본표(또는 legacy 표가 있으면 그 값) */
+  if (customerType === 'CORPORATE') {
+    return normalizeHqUsdtRiskLimitTiersForType(risk.usdtRiskLimitTiers, 'CORPORATE');
+  }
+  if (risk.usdtRiskLimitTiers) {
+    return normalizeHqUsdtRiskLimitTiersForType(risk.usdtRiskLimitTiers, 'INDIVIDUAL');
+  }
+  return normalizeHqUsdtRiskLimitTiersForType(null, 'INDIVIDUAL');
+}
 
 export function normalizeUsdtRiskLimitBand(
   raw?: Partial<UsdtRiskLimitBand> | null,
@@ -533,11 +615,19 @@ export type HqCommissionRiskConfig = {
   hqSandboxFeeDiagramDisplay?: FeeDiagramDisplayConfig;
   /** 총 수수료(합계·항목) 화면 노출 — LIVE·Sandbox 공통. 기본 true */
   showTotalFee?: boolean;
-  /** USDT 기준 리스크 한도 5종 (LR/MR/HR/XR/SR) */
+  /** @deprecated 법인 티어. usdtRiskLimitTiersByCustomerType.CORPORATE 와 동기 */
   usdtRiskLimitTiers?: HqUsdtRiskLimitTiers;
+  /** 개인·법인 각각의 크립토 리스크 티어 */
+  usdtRiskLimitTiersByCustomerType?: UsdtRiskLimitTiersByCustomerType;
   /** @deprecated — transactionLimits 로 이전 */
   maxTicketAmountKrw: number;
+  /**
+   * @deprecated riskEnabledByCustomerType.CORPORATE 와 동기.
+   * true = 법인 리스크 활성(하위호환).
+   */
   riskEnabled: boolean;
+  /** 개인·법인 각각의 리스크 관리 활성 */
+  riskEnabledByCustomerType?: RiskEnabledByCustomerType;
   maxDailyTicketsPerCustomer: number;
   /**
    * @deprecated methodTransactionLimits.BANK_TRANSFER 와 동일(하위호환).

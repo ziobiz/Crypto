@@ -1140,12 +1140,32 @@ export const CH: Record<string, string> = {
   'hq.commission.unitUsdt': '(CRYPTO)',
   'hq.commission.unitCrypto': 'CRYPTO',
   'hq.commission.riskTitle': '风险政策',
-  'hq.commission.riskDesc': '总部政策 → 风险管理默认模板。',
+  'hq.commission.riskDesc':
+    '总部政策 → 风险管理。启用时，CRYPTO 风险档（LR/MR/…）单笔限额及各支付方式法币交易限额将应用于采购。',
   'hq.commission.maxAmount': '票据最大金额（KRW）',
   'hq.commission.maxDaily': '客户每日最大交易笔数',
   'hq.commission.limitsTitle': '限额设置',
   'hq.commission.limitsDesc':
     '按支付方式（转账 / 汇款 / 卡）分别设置单笔、日、月最小/最大。0=不限。',
+  'hq.risk.applyLogicTitle': '适用逻辑',
+  'hq.risk.applyLogicMaster':
+    '限额设置是始终生效的法币安全网；风险管理是 CRYPTO 单笔精细限额（个人/企业各自开关）。职责分离、互不重叠。',
+  'hq.risk.applyLogicLimits':
+    '① 限额设置（FIAT）= 币种行为「启用」时始终适用，与风险开关无关。日/月累计始终由此检查。「停用」币种不应用该法币限额。',
+  'hq.risk.applyLogicTiers':
+    '② 风险启用（该客户类型）+ 转账/汇款 = 单笔最小/最大由 CRYPTO 档位（LR~SR/ML）负责，省略限额设置的单笔 FIAT。风险停用时单笔也用法币限额设置。',
+  'hq.risk.applyLogicCustomer':
+    '③ 客户分配 = 客户管理→加密限额选择 LR/MR/HR/XR/SR/ML。个人与企业档位表分别保存。ML 使用该客户自填最小/最大。',
+  'hq.risk.applyLogicCombine':
+    '④ 组合 = 风险启用·转账/汇款：日/月（限额设置）+ 单笔 CRYPTO 档位。风险停用：限额设置的单笔·日·月全部。每日最大笔数仅在风险启用时生效。',
+  'hq.risk.applyLogicScope':
+    '范围：LIVE 加密采购（申请/报价/受理）。模拟器使用独立模拟风险配置。',
+  'hq.risk.applyLogicCard':
+    '卡支付：仅用限额设置「卡」标签的 FIAT。LR~SR CRYPTO 档位不作用于卡。',
+  'hq.risk.limitsApplyWhere':
+    '作用位置：加密采购申请页的法币金额（转账/汇款/卡）。单位=币种（如 JPY）。启用行与风险无关始终适用。',
+  'hq.risk.tiersApplyWhere':
+    '作用位置：该客户类型风险启用时，转账/汇款采购的收款 CRYPTO 折算单笔限额。单位=CRYPTO。',
   'hq.commission.limitsApplyLink':
     '该限额直接作用于加密货币采购「申请」金额。按个人/法人/币种/支付方式分别保存。',
   'hq.risk.limitMethod.BANK_TRANSFER': '转账交易',
@@ -1167,6 +1187,9 @@ export const CH: Record<string, string> = {
     '汇款交易：客户经 Wise 等兑换后以 USD/EUR 入金。个人上限请在上表 USD/EUR 行设置。',
   'hq.commission.limitsIndividual': '个人',
   'hq.commission.limitsCorporate': '企业',
+  'hq.commission.limitStatus': '状态',
+  'hq.commission.limitsInactiveHint':
+    '停用币种以灰色显示，且不应用该法币限额。点击「保存限额设置」生效。',
   'hq.commission.limitPerTxMin': '单笔最小',
   'hq.commission.limitPerTxMax': '单笔最大',
   'hq.commission.limitDailyMin': '每日最小',
@@ -1175,7 +1198,8 @@ export const CH: Record<string, string> = {
   'hq.commission.limitMonthlyMax': '每月最大',
   'hq.commission.limitZeroHint': '最大限额0=不限。每日/每月最大适用于累计总额。',
   'hq.commission.usdtRiskTiersTitle': 'CRYPTO 风险限额档位 (LR~SR)',
-  'hq.commission.usdtRiskTiersDesc': '按客户风险类型设置单笔最小/最大 CRYPTO 限额。0 表示不限制。',
+  'hq.commission.usdtRiskTiersDesc':
+    '所选客户类型（个人/企业）按风险类型的单笔最小/最大 CRYPTO 限额。0 表示不限制。',
   'hq.commission.usdtRiskTierCode': '代码',
   'hq.commission.usdtRiskTierLabel': '风险',
   'hq.commission.usdtRiskTierMin': '最小 CRYPTO',
@@ -1186,7 +1210,9 @@ export const CH: Record<string, string> = {
   'hq.commission.usdtRiskTier.HR': 'HIGH RISK',
   'hq.commission.usdtRiskTier.XR': 'MAX RISK',
   'hq.commission.usdtRiskTier.SR': 'SUPER RISK',
-  'hq.commission.riskEnabled': '启用风险管理',
+  'hq.commission.riskEnabled': '风险管理',
+  'hq.commission.riskEnabledHint':
+    '仅作用于该客户类型。启用时转账/汇款单笔用 CRYPTO 档位与日笔数，限额设置的日/月仍适用。停用时单笔也用法币限额。「保存风险政策」后生效。',
   'hq.commission.memo': '备注',
   'hq.commission.saveRisk': '保存风险政策',
   'hq.commission.ratesTitle': '组织手续费率（当前有效）',
@@ -1197,6 +1223,8 @@ export const CH: Record<string, string> = {
   'hq.commission.rateSourceSectionTitle': '分币种基准价（USDC / USDT）',
   'hq.commission.rateSourceDesc':
     '{asset} 采购/显示用的分币种基准价来源。随总部结算资产（USDT/USDC）查询行情。优先交易所盘口；失败时自动改用 CoinGecko。',
+  'hq.commission.rateSourceFailHint':
+    '仅完全取不到汇率的行显示灰色（—）。USDT 换算备份与 CoinGecko 替代仍为正常行。',
   'hq.commission.rateSourceCurrency': '币种',
   'hq.commission.rateSourceSelect': '基准价来源',
   'hq.commission.rateSourcePreview': '当前汇率 (1 {asset})',
@@ -1776,6 +1804,13 @@ export const CH: Record<string, string> = {
   'usdt.walletNetwork': '网络',
   'usdt.walletQrHint': '二维码仅编码已登记的钱包地址字符串，不包含网络标签。',
   'usdt.noWallet': '请先注册 {asset} 钱包。USDT 与 USDC 需分别登记。USDC 不支持 TRC20（Tron）。',
+  'usdt.walletSelectEmpty': '无可选收款钱包',
+  'usdt.noWalletPending':
+    '有 {count} 个 {asset} 钱包待总部审批。批准后即可选为收款钱包。',
+  'usdt.noWalletWrongAsset':
+    '已登记并通过审批的仅为 {other} {count} 个。当前总部结算为 {asset}，请在「我的钱包」中登记 {asset} 钱包。',
+  'usdt.walletPendingHint':
+    '有 {count} 个待审批钱包会显示在列表中，但尚不可用于交易。',
   'usdt.fxFee': 'FX手续费',
   'usdt.gasFee': 'Gas费',
   'usdt.transferFee': '汇款手续费',
@@ -2270,7 +2305,7 @@ export const CH: Record<string, string> = {
   'customers.riskLimit.title': 'CRYPTO 限额',
   'customers.riskLimit.select': '额度类型',
   'customers.riskLimit.hint':
-    '选择总部 LR~SR 限额，或以 ML（手动）指定最小/最大 CRYPTO。选档位时实际金额跟随总部设置。',
+    '该客户使用的 CRYPTO 档位代码。LR~SR 使用总部→风险管理档位表的最小/最大；ML 使用下方自填值。与法币「限额设置」分开；风险管理启用时，在 LIVE 转账/汇款采购中一并生效。',
   'customers.riskLimit.saved': '已保存 CRYPTO 限额。',
   'customers.riskLimit.LR': 'LR LOW RISK',
   'customers.riskLimit.MR': 'MR MIDDLE RISK',
@@ -2519,7 +2554,8 @@ export const CH: Record<string, string> = {
   'hq.commission.gasNetworksByAssetHint':
     'USDT 与 USDC 可分别选择应用组别（默认/A/B/C）。USDC 表无 TRC20(Tron)。',
   'network.BASE': 'Base',
-  'usdt.walletPickHint': '仅显示与总部结算资产一致的已批钱包。默认钱包排在最前。',
+  'usdt.walletPickHint':
+    '仅可选择与总部结算资产一致的已批钱包。待审批或其他资产钱包会在下方说明。默认钱包排在最前。',
   'usdt.walletSnapshotHint': '这是申请时选择的收款地址。之后修改钱包不会改变这笔交易的地址。',
   'merchantUsers.title': '用户管理',
   'merchantUsers.hint': '列表可直接查看。仅在登记、停用或重新启用运营者时需要管理员 Google OTP。不可删除。',

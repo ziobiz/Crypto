@@ -1663,13 +1663,17 @@ export interface UsdtDepositContext {
     minUsdt: number;
     maxUsdt: number;
   } | null;
-  /** HQ 한도 설정 — 고객유형별 통화 한도 */
+  /** HQ 한도 설정 — 고객유형별 통화 한도 (통화 행 활성 시 FIAT 상시) */
   applicationLimits?: {
+    /** @deprecated 항상 true — 통화 행 enabled 로 판단 */
     enabled: boolean;
+    /** 해당 고객유형 크립토 티어·일일 건수 활성 */
+    riskTierEnabled?: boolean;
     customerType: 'INDIVIDUAL' | 'CORPORATE';
     byCurrency: Record<
       'KRW' | 'JPY' | 'THB' | 'CNY' | 'USD' | 'EUR',
       {
+        enabled?: boolean;
         perTransactionMin: number;
         perTransactionMax: number;
         dailyMin: number;
@@ -1684,6 +1688,7 @@ export interface UsdtDepositContext {
         Record<
           'KRW' | 'JPY' | 'THB' | 'CNY' | 'USD' | 'EUR',
           {
+            enabled?: boolean;
             perTransactionMin: number;
             perTransactionMax: number;
             dailyMin: number;
@@ -2648,6 +2653,8 @@ export type HqOrgColumnConfig = Record<
 >;
 
 export type CurrencyTransactionLimits = {
+  /** false = 해당 통화 한도 행 비활성(미적용). 기본 true */
+  enabled?: boolean;
   perTransactionMin: number;
   perTransactionMax: number;
   dailyMin: number;
@@ -2655,6 +2662,15 @@ export type CurrencyTransactionLimits = {
   monthlyMin: number;
   monthlyMax: number;
 };
+
+export type CustomerTypeLimitKey = 'INDIVIDUAL' | 'CORPORATE';
+
+export type RiskEnabledByCustomerType = Record<CustomerTypeLimitKey, boolean>;
+
+export type UsdtRiskLimitTiersByCustomerType = Record<
+  CustomerTypeLimitKey,
+  HqUsdtRiskLimitTiers
+>;
 
 export type CustomerTransactionLimitsPolicy = {
   INDIVIDUAL: Record<SymbolFeeCurrency, CurrencyTransactionLimits>;
@@ -2711,10 +2727,15 @@ export interface HqCommissionRiskConfig {
   hqSandboxFeeDiagramDisplay?: FeeDiagramDisplayConfig;
   /** 총 수수료 노출 — LIVE·Sandbox 공통 */
   showTotalFee?: boolean;
-  /** USDT 기준 리스크 한도 5종 (LR/MR/HR/XR/SR) */
+  /** @deprecated 법인 티어. usdtRiskLimitTiersByCustomerType.CORPORATE 와 동기 */
   usdtRiskLimitTiers?: HqUsdtRiskLimitTiers;
+  /** 개인·법인 각각의 크립토 리스크 티어 */
+  usdtRiskLimitTiersByCustomerType?: UsdtRiskLimitTiersByCustomerType;
   maxTicketAmountKrw: number;
+  /** @deprecated riskEnabledByCustomerType.CORPORATE 와 동기 */
   riskEnabled: boolean;
+  /** 개인·법인 각각의 리스크 관리 활성 */
+  riskEnabledByCustomerType?: RiskEnabledByCustomerType;
   maxDailyTicketsPerCustomer: number;
   /** @deprecated methodTransactionLimits.BANK_TRANSFER */
   transactionLimits: CustomerTransactionLimitsPolicy;

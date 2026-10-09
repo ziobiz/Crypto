@@ -95,45 +95,34 @@ export function getInvoiceApiClient(channel: InvoiceChannel = 'live'): {
   return { baseUrl: cfg.baseUrl, apiKey: cfg.apiKey, siteCode: cfg.siteCode };
 }
 
-/**
- * Fire-and-forget safe by default: returns result, never throws.
- * Retries once on 5xx/network.
- * Live USDT purchase issues at order time (`transaction.ordered`);
- * simulator may still use completed-style payloads.
- */
-export async function notifyInvoiceTransactionCompleted(
-  payload: Omit<InvoiceCompletedPayload, 'site' | 'event'> &
-    Partial<Pick<InvoiceCompletedPayload, 'site' | 'event'>>,
-  idempotencyKey: string,
-  channel: InvoiceChannel = 'live',
-): Promise<{ ok: boolean; invoiceNo?: string; status?: number; error?: string }> {
-  const cfg = readConfig(channel);
-  if (!cfg.enabled) {
-    console.info('[invoice-webhook] disabled — skip', channel, idempotencyKey);
-    return { ok: false, error: 'disabled' };
+/** Invoice 카탈로그 구매 SKU — USDC는 USDC-PURCHASE, USDT는 USDT-PURCHASE. */
+export function invoiceProductCodeForAsset(
+  settlementAsset?: 'USDT' | 'USDC' | string | null,
+): string {
+  const asset = String(settlementAsset ?? '').toUpperCase() === 'USDC' ? 'USDC' : 'USDT';
+  if (asset === 'USDC') {
+    return (process.env.INVOICE_PRODUCT_CODE_USDC || '').trim() || 'USDC-PURCHASE';
   }
-  if (!cfg.baseUrl || !cfg.apiKey || !cfg.hmacSecret) {
-    console.warn('[invoice-webhook] missing INVOICE_* env — skip', channel, idempotencyKey);
-    return { ok: false, error: 'missing_env' };
-  }
+  return (process.env.INVOICE_PRODUCT_CODE_USDT || '').trim() || 'USDT-PURCHASE';
+}
 
-  const event: InvoiceEvent =
-    payload.event === 'transaction.completed' ? 'transaction.completed' : 'transaction.ordered';
-  const bodyObj: InvoiceCompletedPayload = {
-    site: payload.site || cfg.siteCode,
-    event,
-    occurredAt: payload.occurredAt,
-    transactionId: payload.transactionId,
-    ticketNo: payload.ticketNo,
-    amount: payload.amount,
-    currency: payload.currency,
-    asset: payload.asset,
-    assetAmount: payload.assetAmount,
-    buyerRef: payload.buyerRef,
-    productCode: payload.productCode,
-    memo: payload.memo,
-  };
+function isProductCodeNotFoundError(error: string | undefined): boolean {
+  const msg = String(error ?? '').toLowerCase();
+  return msg.includes('productcode') && msg.includes('not found');
+}
 
+async function postInvoiceWebhook(input: {
+  cfg: InvoiceWebhookConfig;
+  bodyObj: InvoiceCompletedPayload;
+  idempotencyKey: string;
+}): Promise<{
+  ok: boolean;
+  invoiceNo?: string;
+  status?: number;
+  error?: string;
+}> {
+  const { cfg, bodyObj, idempotencyKey } = input;
+  const event = bodyObj.event;
   const body = JSON.stringify(bodyObj);
   const signature = createHmac('sha256', cfg.hmacSecret).update(body, 'utf8').digest('hex');
   const ts = Math.floor(Date.now() / 1000).toString();
@@ -168,23 +157,95 @@ export async function notifyInvoiceTransactionCompleted(
       idempotentReplay?: boolean;
     };
     if (!res.ok) {
-      console.error('[invoice-webhook] failed', channel, res.status, data, idempotencyKey);
+      console.error('[invoice-webhook] failed', cfg.channel, res.status, data, idempotencyKey);
       return { ok: false, status: res.status, error: data.error || `http_${res.status}` };
     }
     const invoiceNo = data.invoice?.invoiceNo;
     console.info(
       '[invoice-webhook] ok',
-      channel,
+      cfg.channel,
       idempotencyKey,
       invoiceNo || '',
       data.idempotentReplay ? 'replay' : 'created',
+      bodyObj.productCode || '',
     );
     return { ok: true, status: res.status, invoiceNo };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    console.error('[invoice-webhook] network', channel, msg, idempotencyKey);
+    console.error('[invoice-webhook] network', cfg.channel, msg, idempotencyKey);
     return { ok: false, error: msg };
   }
+}
+
+/**
+ * Fire-and-forget safe by default: returns result, never throws.
+ * Retries once on 5xx/network.
+ * productCode not found 시 USDT-PURCHASE로 1회 폴백 재시도.
+ * Live USDT purchase issues at order time (`transaction.ordered`);
+ * simulator may still use completed-style payloads.
+ */
+export async function notifyInvoiceTransactionCompleted(
+  payload: Omit<InvoiceCompletedPayload, 'site' | 'event'> &
+    Partial<Pick<InvoiceCompletedPayload, 'site' | 'event'>>,
+  idempotencyKey: string,
+  channel: InvoiceChannel = 'live',
+): Promise<{ ok: boolean; invoiceNo?: string; status?: number; error?: string }> {
+  const cfg = readConfig(channel);
+  if (!cfg.enabled) {
+    console.info('[invoice-webhook] disabled — skip', channel, idempotencyKey);
+    return { ok: false, error: 'disabled' };
+  }
+  if (!cfg.baseUrl || !cfg.apiKey || !cfg.hmacSecret) {
+    console.warn('[invoice-webhook] missing INVOICE_* env — skip', channel, idempotencyKey);
+    return { ok: false, error: 'missing_env' };
+  }
+
+  const event: InvoiceEvent =
+    payload.event === 'transaction.completed' ? 'transaction.completed' : 'transaction.ordered';
+  const primaryCode =
+    payload.productCode || invoiceProductCodeForAsset(payload.asset);
+  const bodyObj: InvoiceCompletedPayload = {
+    site: payload.site || cfg.siteCode,
+    event,
+    occurredAt: payload.occurredAt,
+    transactionId: payload.transactionId,
+    ticketNo: payload.ticketNo,
+    amount: payload.amount,
+    currency: payload.currency,
+    asset: payload.asset,
+    assetAmount: payload.assetAmount,
+    buyerRef: payload.buyerRef,
+    productCode: primaryCode,
+    memo: payload.memo,
+  };
+
+  const first = await postInvoiceWebhook({ cfg, bodyObj, idempotencyKey });
+  if (first.ok) return first;
+
+  const fallbackCode = invoiceProductCodeForAsset('USDT');
+  if (
+    isProductCodeNotFoundError(first.error) &&
+    bodyObj.productCode &&
+    bodyObj.productCode !== fallbackCode
+  ) {
+    console.warn(
+      '[invoice-webhook] productCode not found — retry with',
+      fallbackCode,
+      channel,
+      idempotencyKey,
+    );
+    const retryBody: InvoiceCompletedPayload = {
+      ...bodyObj,
+      productCode: fallbackCode,
+    };
+    return postInvoiceWebhook({
+      cfg,
+      bodyObj: retryBody,
+      idempotencyKey: `${idempotencyKey}:pc-fallback`,
+    });
+  }
+
+  return first;
 }
 
 export function buildUsdtPurchaseInvoicePayload(input: {
@@ -241,7 +302,7 @@ export function buildUsdtPurchaseInvoicePayload(input: {
       asset,
       assetAmount,
       buyerRef: input.buyerRef || undefined,
-      productCode: asset === 'USDC' ? 'USDC-PURCHASE' : 'USDT-PURCHASE',
+      productCode: invoiceProductCodeForAsset(asset),
       memo: memoParts.join(' | ') || undefined,
     },
   };
@@ -283,7 +344,7 @@ export function buildSimulatorInvoicePayload(input: {
       asset,
       assetAmount: String(input.assetAmount),
       buyerRef: input.buyerRef || undefined,
-      productCode: asset === 'USDC' ? 'USDC-PURCHASE' : 'USDT-PURCHASE',
+      productCode: invoiceProductCodeForAsset(asset),
       memo: memoParts.join(' | '),
     },
   };

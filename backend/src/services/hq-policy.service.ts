@@ -230,7 +230,7 @@ function defaultOrgColumns(): HqOrgColumnConfig {
 function defaultCommissionRisk(): HqCommissionRiskConfig {
   const fees = defaultTransactionFees();
   const methodTransactionLimits = defaultMethodTransactionLimitsPolicy(100_000_000);
-  return {
+  return normalizeCommissionRisk({
     defaultFxFeePercent: fees.fxFeePercent,
     defaultGasFeeUsdt: fees.gasFeeUsdt,
     defaultTransferFeeUsdt: fees.transferFeeUsdt,
@@ -242,7 +242,7 @@ function defaultCommissionRisk(): HqCommissionRiskConfig {
     transactionLimits: methodTransactionLimits.BANK_TRANSFER,
     methodTransactionLimits,
     notes: '',
-  };
+  });
 }
 
 function mergeLoginNoticeI18n(

@@ -1092,12 +1092,32 @@ export const US: Record<string, string> = {
   'hq.orgColumns.fixed': 'Fixed',
   'hq.orgColumns.order': 'Order',
   'hq.commission.riskTitle': 'Risk policy',
-  'hq.commission.riskDesc': 'HQ Policy → Risk management default template.',
+  'hq.commission.riskDesc':
+    'HQ Policy → Risk management. When Active, CRYPTO tier (LR/MR/…) per-ticket limits and per-method fiat trade limits apply to purchases.',
   'hq.commission.maxAmount': 'Max ticket amount (KRW)',
   'hq.commission.maxDaily': 'Max daily transactions per customer',
   'hq.commission.limitsTitle': 'Limit settings',
   'hq.commission.limitsDesc':
     'Set per-transaction, daily, and monthly min/max by payment method (bank / remittance / card). 0 = no limit.',
+  'hq.risk.applyLogicTitle': 'Apply logic',
+  'hq.risk.applyLogicMaster':
+    'Limit settings are the always-on fiat safety net; Risk management is the CRYPTO per-ticket fine limit (on/off per Individual / Corporate). Roles do not overlap.',
+  'hq.risk.applyLogicLimits':
+    '① Limit settings (FIAT) = always applied when the currency row is Active, regardless of risk on/off. Daily/monthly cumulative caps always come from here. Inactive currency rows skip that fiat limit.',
+  'hq.risk.applyLogicTiers':
+    '② Risk Active (for that customer type) + bank/remittance = per-ticket min/max comes from CRYPTO tiers (LR–SR/ML); the Limit settings per-tx FIAT is skipped. When Risk is Inactive, per-tx also uses Limit settings FIAT.',
+  'hq.risk.applyLogicCustomer':
+    '③ Customer assignment = Customers → Crypto limit: pick LR/MR/HR/XR/SR/ML. Individual and Corporate tier tables are saved separately. ML uses that customer’s own min/max CRYPTO.',
+  'hq.risk.applyLogicCombine':
+    '④ Combined = Risk Active + bank/remittance: daily/monthly (Limit settings) + per-ticket CRYPTO tier. Risk Inactive: all of Limit settings (per-tx, daily, monthly). Daily max ticket count applies only when Risk is Active.',
+  'hq.risk.applyLogicScope':
+    'Scope: LIVE crypto purchase (apply / quote / submit). Simulator uses its own simulator risk config.',
+  'hq.risk.applyLogicCard':
+    'Card: only the Card-tab FIAT from Limit settings. LR–SR CRYPTO tiers are not applied to card.',
+  'hq.risk.limitsApplyWhere':
+    'Applies to: fiat amount on the crypto purchase Apply screen (bank / remittance / card). Unit = currency (e.g. JPY). Active currency rows apply regardless of risk.',
+  'hq.risk.tiersApplyWhere':
+    'Applies to: when Risk is Active for that customer type, per-ticket CRYPTO receive amount on bank/remittance purchases. Unit = CRYPTO.',
   'hq.commission.limitsApplyLink':
     'These limits apply directly to crypto purchase Apply amounts. Individual, corporate, currency, and payment method are saved separately.',
   'hq.risk.limitMethod.BANK_TRANSFER': 'Bank transfer',
@@ -1119,6 +1139,9 @@ export const US: Record<string, string> = {
     'Remittance trade: customer sends USD/EUR after converting elsewhere (Wise). Set individual caps in the USD/EUR rows above.',
   'hq.commission.limitsIndividual': 'Individual',
   'hq.commission.limitsCorporate': 'Corporate',
+  'hq.commission.limitStatus': 'Status',
+  'hq.commission.limitsInactiveHint':
+    'Inactive currencies are shown in gray and skip that fiat limit. Click “Save limit settings” to apply.',
   'hq.commission.limitPerTxMin': 'Per-tx min',
   'hq.commission.limitPerTxMax': 'Per-tx max',
   'hq.commission.limitDailyMin': 'Daily min',
@@ -1127,7 +1150,8 @@ export const US: Record<string, string> = {
   'hq.commission.limitMonthlyMax': 'Monthly max',
   'hq.commission.limitZeroHint': 'Max limit 0 = unlimited. Daily/monthly max applies to cumulative totals.',
   'hq.commission.usdtRiskTiersTitle': 'CRYPTO risk limit tiers (LR~SR)',
-  'hq.commission.usdtRiskTiersDesc': 'Set per-ticket min/max CRYPTO limits by customer risk type. 0 means no limit.',
+  'hq.commission.usdtRiskTiersDesc':
+    'Per-ticket min/max CRYPTO limits by risk type for the selected customer type (Individual / Corporate). 0 = no limit.',
   'hq.commission.usdtRiskTierCode': 'Code',
   'hq.commission.usdtRiskTierLabel': 'Risk',
   'hq.commission.usdtRiskTierMin': 'Min CRYPTO',
@@ -1138,7 +1162,9 @@ export const US: Record<string, string> = {
   'hq.commission.usdtRiskTier.HR': 'HIGH RISK',
   'hq.commission.usdtRiskTier.XR': 'MAX RISK',
   'hq.commission.usdtRiskTier.SR': 'SUPER RISK',
-  'hq.commission.riskEnabled': 'Enable risk management',
+  'hq.commission.riskEnabled': 'Risk management',
+  'hq.commission.riskEnabledHint':
+    'Applies only to this customer type. When Active, bank/remittance per-ticket uses CRYPTO tiers and daily ticket count; Limit settings daily/monthly still apply. When Inactive, per-ticket also uses Limit settings FIAT. Save risk policy to apply.',
   'hq.commission.memo': 'Memo',
   'hq.commission.saveRisk': 'Save risk policy',
   'hq.commission.ratesTitle': 'Org commission rates (current)',
@@ -1148,6 +1174,8 @@ export const US: Record<string, string> = {
   'hq.commission.rateSourceSectionDesc': 'Configure USDT and USDC reference sources separately. Live trades use the card matching HQ settlement asset. Both cards are always shown.',
   'hq.commission.rateSourceSectionTitle': 'Reference rates by currency (USDC / USDT)',
   'hq.commission.rateSourceDesc': 'Reference rate source per currency for {asset} purchase/display. Follows HQ settlement asset (USDT/USDC). Exchange order books preferred; falls back to CoinGecko.',
+  'hq.commission.rateSourceFailHint':
+    'Only rows with no rate at all are gray (—). USDT conversion backup and CoinGecko fallback stay as normal rows.',
   'hq.commission.rateSourceCurrency': 'Currency',
   'hq.commission.rateSourceSelect': 'Reference source',
   'hq.commission.rateSourcePreview': 'Live rate (1 {asset})',
@@ -1741,6 +1769,13 @@ export const US: Record<string, string> = {
   'usdt.walletQrHint': 'The QR encodes only the registered wallet address string. Network labels are not included.',
   'usdt.noWallet':
     'Please register a {asset} wallet first. USDT and USDC are registered separately. USDC does not support TRC20 (Tron).',
+  'usdt.walletSelectEmpty': 'No selectable receiving wallet',
+  'usdt.noWalletPending':
+    '{count} {asset} wallet(s) are pending HQ approval. You can select them as receiving wallets after approval.',
+  'usdt.noWalletWrongAsset':
+    'You only have {count} approved {other} wallet(s). HQ settlement is {asset} — register a {asset} wallet under My Wallets.',
+  'usdt.walletPendingHint':
+    '{count} pending wallet(s) appear in the list but cannot be selected for trades yet.',
   'usdt.fxFee': 'FX fee',
   'usdt.gasFee': 'Gas',
   'usdt.transferFee': 'Transfer fee',
@@ -2310,7 +2345,7 @@ export const US: Record<string, string> = {
   'customers.riskLimit.title': 'CRYPTO limits',
   'customers.riskLimit.select': 'Limit type',
   'customers.riskLimit.hint':
-    'Pick an HQ LR~SR tier or ML (manual) for min/max CRYPTO. Tier amounts follow HQ settings.',
+    'CRYPTO tier code for this customer. LR–SR use HQ Risk → tier table min/max; ML uses the manual values below. Separate from fiat Limit settings; both apply on LIVE bank/remittance purchases when Risk management is Active.',
   'customers.riskLimit.saved': 'CRYPTO limits saved.',
   'customers.riskLimit.LR': 'LR LOW RISK',
   'customers.riskLimit.MR': 'MR MIDDLE RISK',
@@ -2549,7 +2584,8 @@ export const US: Record<string, string> = {
   'hq.commission.gasNetworksByAssetHint':
     'Choose an active group (Default/A/B/C) separately for USDT and USDC. USDC has no TRC20 (Tron) row.',
   'network.BASE': 'Base',
-  'usdt.walletPickHint': 'Only approved wallets matching HQ settlement asset are listed. Default wallet appears first.',
+  'usdt.walletPickHint':
+    'Only approved wallets matching HQ settlement can be selected. Pending or other-asset wallets are explained below. Default wallet appears first.',
   'usdt.walletSnapshotHint': 'This is the receiving address selected when the trade was applied. Later wallet changes do not change this trade.',
   'merchantUsers.title': 'Users',
   'merchantUsers.hint': 'The list is visible immediately. Google OTP is required only to register, suspend, or reactivate operators. Deletion is disabled.',

@@ -59,6 +59,10 @@ export default function UsdtNewPage() {
   const tradeAllowed = user?.tradeAccess !== 'VIEW_ONLY';
   const canApply = kycOk && tradeAllowed;
   const [wallets, setWallets] = useState<Wallet[]>([]);
+  /** 정산 자산과 같지만 HQ 승인 대기 중 — 선택 불가, 안내용 */
+  const [pendingWallets, setPendingWallets] = useState<Wallet[]>([]);
+  /** 다른 자산으로만 등록된 승인 지갑 수 (정산 자산과 불일치) */
+  const [otherAssetApprovedCount, setOtherAssetApprovedCount] = useState(0);
   const [rate, setRate] = useState<ExchangeRateResponse | null>(null);
   const [cardContext, setCardContext] = useState<UsdtCardPaymentContext | null>(null);
   const [fiatCurrency, setFiatCurrency] = useState<FiatCurrency>('USD');
@@ -113,18 +117,37 @@ export default function UsdtNewPage() {
   ]);
 
   useEffect(() => {
-    const apply = (rows: Wallet[], settlement?: string) => {
+    const applySettlementWallets = (
+      settlementRows: Wallet[],
+      allRows: Wallet[],
+      settlement?: string,
+    ) => {
       const asset = settlement === 'USDC' ? 'USDC' : 'USDT';
-      const usable = rows
+      const otherAsset = asset === 'USDC' ? 'USDT' : 'USDC';
+      const matchAsset = (x: Wallet) => (x.assetType ?? 'USDT') === asset;
+      const notDeleted = (x: Wallet) => !x.deleteRequestedAt;
+      const usable = settlementRows
         .filter(
           (x) =>
+            matchAsset(x) &&
+            notDeleted(x) &&
             x.approvalStatus !== 'PENDING' &&
-            x.approvalStatus !== 'REJECTED' &&
-            !x.deleteRequestedAt &&
-            (x.assetType ?? 'USDT') === asset,
+            x.approvalStatus !== 'REJECTED',
         )
         .sort((a, b) => Number(b.isDefault) - Number(a.isDefault));
+      const pending = settlementRows
+        .filter((x) => matchAsset(x) && notDeleted(x) && x.approvalStatus === 'PENDING')
+        .sort((a, b) => Number(b.isDefault) - Number(a.isDefault));
+      const otherApproved = allRows.filter(
+        (x) =>
+          (x.assetType ?? 'USDT') === otherAsset &&
+          notDeleted(x) &&
+          x.approvalStatus !== 'PENDING' &&
+          x.approvalStatus !== 'REJECTED',
+      ).length;
       setWallets(usable);
+      setPendingWallets(pending);
+      setOtherAssetApprovedCount(otherApproved);
       const def = usable.find((x) => x.isDefault) ?? usable[0];
       if (def) setWalletId(def.id);
       else setWalletId('');
@@ -134,11 +157,15 @@ export default function UsdtNewPage() {
       .then((ctx) => {
         setDepositCtx(ctx);
         const asset = ctx.settlementAsset === 'USDC' ? 'USDC' : 'USDT';
-        if (user?.role === 'CUSTOMER_OPERATOR') {
-          apply(user.wallets ?? [], asset);
-        } else {
-          api.wallets.list({ forApply: true }).then((rows) => apply(rows, asset)).catch(console.error);
-        }
+        /** 운영자도 /api/wallets 로 최신·정산자산 필터 목록 사용 (세션 user.wallets 의존 제거) */
+        Promise.all([
+          api.wallets.list({ forApply: true }),
+          api.wallets.list(),
+        ])
+          .then(([settlementRows, allRows]) =>
+            applySettlementWallets(settlementRows, allRows, asset),
+          )
+          .catch(console.error);
       })
       .catch(console.error);
     api.usdt.cardContext().then((ctx) => {
@@ -624,7 +651,7 @@ export default function UsdtNewPage() {
         </div>
       )}
       {(() => {
-        if (!depositCtx?.applicationLimits?.enabled) return null;
+        if (!depositCtx?.applicationLimits) return null;
         const methodKey = isCard
           ? 'CARD'
           : isRemittance
@@ -633,9 +660,17 @@ export default function UsdtNewPage() {
         const band =
           depositCtx.applicationLimits.byMethod?.[methodKey]?.[fiatCurrency] ??
           depositCtx.applicationLimits.byCurrency[fiatCurrency];
-        if (!band) return null;
-        const min = band.perTransactionMin;
-        const max = band.perTransactionMax;
+        if (!band || band.enabled === false) return null;
+        /**
+         * 리스크 활성 + 이체/송금 → 1회는 크립토 티어가 담당 → FIAT 1회 힌트 생략.
+         * 카드·리스크 비활성 → 한도 설정 1회 표시.
+         */
+        const riskOn =
+          depositCtx.applicationLimits.riskTierEnabled ??
+          depositCtx.applicationLimits.enabled;
+        const skipPerTx = Boolean(riskOn) && !isCard;
+        const min = skipPerTx ? 0 : band.perTransactionMin;
+        const max = skipPerTx ? 0 : band.perTransactionMax;
         if (min <= 0 && max <= 0) return null;
         const hint =
           min > 0 && max > 0
@@ -898,23 +933,58 @@ export default function UsdtNewPage() {
                 value={walletId}
                 onChange={(e) => setWalletId(e.target.value)}
                 className="pg-input mt-1 w-full"
-                required
+                required={wallets.length > 0}
+                disabled={wallets.length === 0}
               >
+                {wallets.length === 0 && (
+                  <option value="">{t('usdt.walletSelectEmpty')}</option>
+                )}
                 {wallets.map((w) => (
                   <option key={w.id} value={w.id}>
                     {displayWalletTitle(w, t)} — {w.address}
                   </option>
                 ))}
+                {pendingWallets.map((w) => (
+                  <option key={`pending-${w.id}`} value="" disabled>
+                    [{t('wallets.pending')}] {displayWalletTitle(w, t)} — {w.address}
+                  </option>
+                ))}
               </select>
               {wallets.length === 0 && (
                 <div className="mt-1 space-y-1">
-                  <p className="text-sm text-red-600">
-                    {t('usdt.noWallet', { asset: settlementAssetLabel })}
-                  </p>
+                  {pendingWallets.length > 0 ? (
+                    <p className="text-sm text-amber-800">
+                      {t('usdt.noWalletPending', {
+                        asset: settlementAssetLabel,
+                        count: String(pendingWallets.length),
+                      })}
+                    </p>
+                  ) : otherAssetApprovedCount > 0 ? (
+                    <p className="text-sm text-amber-800">
+                      {t('usdt.noWalletWrongAsset', {
+                        asset: settlementAssetLabel,
+                        other:
+                          settlementAssetLabel === 'USDC' ? 'USDT' : 'USDC',
+                        count: String(otherAssetApprovedCount),
+                      })}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-red-600">
+                      {t('usdt.noWallet', { asset: settlementAssetLabel })}
+                    </p>
+                  )}
                   {settlementAssetLabel === 'USDC' && (
                     <p className="text-xs text-amber-700">{t('wallets.networkHintUsdc')}</p>
                   )}
+                  <a href="/dashboard/wallets" className="inline-block text-xs font-medium text-sky-700 underline">
+                    {t('account.manageWallets')}
+                  </a>
                 </div>
+              )}
+              {wallets.length > 0 && pendingWallets.length > 0 && (
+                <p className="mt-1 text-xs text-amber-700">
+                  {t('usdt.walletPendingHint', { count: String(pendingWallets.length) })}
+                </p>
               )}
               <p className="pg-hint mt-1">{t('usdt.walletPickHint')}</p>
             </div>

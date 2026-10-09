@@ -123,7 +123,8 @@ function serializeWalletWithFees(
 }
 
 router.use(authenticate);
-router.use(requireRoles(UserRole.CUSTOMER));
+/** 목록 조회는 운영자도 가능(대표 가맹 스코프). 등록·변경은 아래에서 merchant admin만. */
+router.use(requireRoles(UserRole.CUSTOMER, UserRole.CUSTOMER_OPERATOR));
 
 router.get(
   '/',

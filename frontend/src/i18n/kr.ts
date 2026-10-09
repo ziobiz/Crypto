@@ -1087,12 +1087,32 @@ export const KR = {
   'hq.orgColumns.fixed': '고정',
   'hq.orgColumns.order': '순서',
   'hq.commission.riskTitle': '리스크 정책',
-  'hq.commission.riskDesc': '본사정책 → 리스크관리 기본값 템플릿.',
+  'hq.commission.riskDesc':
+    '본사정책 → 리스크관리. 활성 시 아래 크립토 티어(LR/MR/…) 1회 한도와 결제수단별 법정화폐 거래한도가 매입에 적용됩니다.',
   'hq.commission.maxAmount': '티켓 최대 금액 (KRW)',
   'hq.commission.maxDaily': '고객 일일 최대 거래 건수',
   'hq.commission.limitsTitle': '한도 설정',
   'hq.commission.limitsDesc':
     '결제수단(이체·송금·카드)별로 통화 1회·일일·월간 최소/최대를 설정합니다. 0은 제한 없음.',
+  'hq.risk.applyLogicTitle': '적용 로직',
+  'hq.risk.applyLogicMaster':
+    '한도 설정은 기본 안전망(항상), 리스크 관리는 크립토 1회 정밀 한도(개인·법인 각각 on/off)입니다. 역할이 겹치지 않도록 분리합니다.',
+  'hq.risk.applyLogicLimits':
+    '① 한도 설정(FIAT) = 결제수단×고객유형×통화 행이 「활성」이면 항상 적용. 리스크 on/off와 무관합니다. 일일·월간 누적 한도는 항상 여기서 검사합니다. 「비활성」 통화는 해당 법정화폐 한도를 적용하지 않습니다.',
+  'hq.risk.applyLogicTiers':
+    '② 리스크 활성(해당 고객유형) + 이체·송금 = 1회 최소·최대는 크립토 티어(LR~SR/ML)가 담당하고, 한도 설정의 1회 FIAT는 생략합니다. 리스크 비활성이면 1회도 한도 설정 FIAT를 씁니다.',
+  'hq.risk.applyLogicCustomer':
+    '③ 고객별 배정 = 고객관리 → 크립토 한도에서 LR/MR/HR/XR/SR/ML 선택. 개인·법인 티어 표는 각각 따로 저장합니다. ML이면 그 고객만 직접 입력한 최소·최대 크립토를 씁니다.',
+  'hq.risk.applyLogicCombine':
+    '④ 조합 = 리스크 활성·이체/송금: 일일·월간(한도 설정) + 1회 크립토 티어. 리스크 비활성: 한도 설정의 1회·일일·월간 전부. 일일 최대 거래 건수는 리스크 활성일 때만 적용됩니다.',
+  'hq.risk.applyLogicScope':
+    '적용 대상: LIVE 크립토 매입(신청·견적·접수). 시뮬레이터는 별도 시뮬 리스크 설정을 씁니다.',
+  'hq.risk.applyLogicCard':
+    '카드결제: 한도 설정의 「카드」 탭 FIAT만 적용합니다. LR~SR 크립토 티어는 카드에 적용하지 않습니다.',
+  'hq.risk.limitsApplyWhere':
+    '적용 위치: 크립토 매입 신청 화면의 법정화폐 금액(이체·송금·카드). 단위는 통화(예: JPY). 통화 행이 활성이면 리스크와 무관하게 적용.',
+  'hq.risk.tiersApplyWhere':
+    '적용 위치: 해당 고객유형 리스크가 활성일 때, 이체·송금 매입의 수령 크립토 환산액 1회 한도. 단위는 크립토.',
   'hq.commission.limitsApplyLink':
     '이 한도 설정은 크립토 매입 「신청하기」 금액에 바로 연동됩니다. 개인·법인·통화·결제수단별로 따로 적용됩니다.',
   'hq.risk.limitMethod.BANK_TRANSFER': '이체거래',
@@ -1109,11 +1129,14 @@ export const KR = {
   'hq.payment.limitsMovedToRisk':
     '카드 결제 한도는 본사정책 → 리스크관리에서 이체·송금과 함께 설정합니다.',
   'hq.payment.limitsRiskLink': '리스크관리 → 카드결제 한도',
-  'hq.commission.saveLimits': '한도 설정 저장',
+  'hq.commission.saveLimits': '한도설정 저장',
   'hq.commission.limitsRemittanceNote':
     '송금거래: 고객이 Wise 등으로 환전한 뒤 USD/EUR로 입금합니다. 개인 한도는 위 표의 USD·EUR 행에서 운영하세요.',
   'hq.commission.limitsIndividual': '개인',
   'hq.commission.limitsCorporate': '법인',
+  'hq.commission.limitStatus': '상태',
+  'hq.commission.limitsInactiveHint':
+    '비활성 통화는 회색으로 표시되며, 해당 법정화폐 한도를 적용하지 않습니다. 「한도설정 저장」으로 반영합니다.',
   'hq.commission.limitPerTxMin': '1회 최소',
   'hq.commission.limitPerTxMax': '1회 최대',
   'hq.commission.limitDailyMin': '일일 최소',
@@ -1122,7 +1145,8 @@ export const KR = {
   'hq.commission.limitMonthlyMax': '월간 최대',
   'hq.commission.limitZeroHint': '최대 한도 0 = 제한 없음. 일일·월간 최대는 해당 기간 누적 합계에 적용됩니다.',
   'hq.commission.usdtRiskTiersTitle': '크립토 리스크 한도 티어 (LR~SR)',
-  'hq.commission.usdtRiskTiersDesc': '고객 리스크 타입별 1회 최소·최대 크립토 한도를 설정합니다. 0은 제한 없음입니다.',
+  'hq.commission.usdtRiskTiersDesc':
+    '선택한 고객유형(개인/법인)의 리스크 타입별 1회 최소·최대 크립토 한도입니다. 0은 제한 없음입니다.',
   'hq.commission.usdtRiskTierCode': '코드',
   'hq.commission.usdtRiskTierLabel': '리스크',
   'hq.commission.usdtRiskTierMin': '최소 크립토',
@@ -1133,7 +1157,9 @@ export const KR = {
   'hq.commission.usdtRiskTier.HR': 'HIGH RISK',
   'hq.commission.usdtRiskTier.XR': 'MAX RISK',
   'hq.commission.usdtRiskTier.SR': 'SUPER RISK',
-  'hq.commission.riskEnabled': '리스크 관리 사용',
+  'hq.commission.riskEnabled': '리스크 관리',
+  'hq.commission.riskEnabledHint':
+    '해당 고객유형만 적용됩니다. 활성이면 이체·송금 1회는 크립토 티어·일일 건수가 적용되고, 한도 설정의 일일·월간은 그대로입니다. 비활성이면 1회도 한도 설정 FIAT를 씁니다. 「리스크 정책 저장」 후 반영됩니다.',
   'hq.commission.memo': '메모',
   'hq.commission.saveRisk': '리스크 정책 저장',
   'hq.commission.ratesTitle': '조직별 수수료 요율 (현재 유효)',
@@ -1143,6 +1169,8 @@ export const KR = {
   'hq.commission.rateSourceSectionDesc': 'USDC·USDT 기준가를 각각 설정합니다. 실거래는 본사 「정산 자산」에 해당하는 쪽 소스가 적용됩니다. 두 카드는 항상 함께 노출됩니다(USDC 먼저).',
   'hq.commission.rateSourceSectionTitle': '통화별 기준가 (USDC / USDT)',
   'hq.commission.rateSourceDesc': '{asset} 매입·표시 시 적용할 통화별 기준가 소스입니다. 정산 자산 설정에 따라 USDT/USDC 시세를 조회합니다. 거래소 호가 기반 소스를 우선 권장합니다. 선택 소스 조회 실패 시 CoinGecko로 자동 대체됩니다.',
+  'hq.commission.rateSourceFailHint':
+    '시세를 전혀 가져오지 못한 행만 회색(—)으로 표시합니다. USDT 환산 백업·CoinGecko 대체는 정상 행으로 둡니다.',
   'hq.commission.rateSourceCurrency': '통화',
   'hq.commission.rateSourceSelect': '기준가 소스',
   'hq.commission.rateSourcePreview': '현재 시세 (1 {asset})',
@@ -1740,6 +1768,13 @@ export const KR = {
   'usdt.walletQrHint': 'QR은 등록된 지갑 주소 문자열만 담습니다. 네트워크 표기는 포함되지 않습니다.',
   'usdt.noWallet':
     '{asset} 지갑을 먼저 등록해 주세요. USDT·USDC는 각각 따로 등록하며, USDC는 TRC20(Tron)을 쓸 수 없습니다.',
+  'usdt.walletSelectEmpty': '선택 가능한 수령 지갑 없음',
+  'usdt.noWalletPending':
+    '{asset} 지갑 {count}개가 본사 승인 대기 중입니다. 승인 후 수령 지갑으로 선택할 수 있습니다.',
+  'usdt.noWalletWrongAsset':
+    '등록·승인된 지갑은 {other} {count}개뿐입니다. 현재 본사 정산은 {asset}이므로 내 지갑에서 {asset} 지갑을 등록해 주세요.',
+  'usdt.walletPendingHint':
+    '승인 대기 지갑 {count}개는 목록에 표시되나 선택·거래에는 쓸 수 없습니다.',
   'usdt.fxFee': 'FX 수수료',
   'usdt.gasFee': '가스피',
   'usdt.transferFee': '송금 수수료',
@@ -2309,7 +2344,7 @@ export const KR = {
   'customers.riskLimit.title': '크립토 한도',
   'customers.riskLimit.select': '한도 유형',
   'customers.riskLimit.hint':
-    '본사 LR~SR 한도 중 하나를 선택하거나 ML(직접입력)로 최소·최대 크립토를 지정합니다. 티어 선택 시 실제 한도 금액은 본사 설정을 따릅니다.',
+    '이 고객이 쓸 크립토 티어 코드입니다. LR~SR은 본사정책→리스크관리 티어 표의 최소·최대를 쓰고, ML은 아래 직접입력 값을 씁니다. 법정화폐 한도(한도 설정)와는 별개이며, 리스크 관리가 활성일 때 LIVE 매입(이체·송금)에 함께 적용됩니다.',
   'customers.riskLimit.saved': '크립토 한도를 저장했습니다.',
   'customers.riskLimit.LR': 'LR LOW RISK',
   'customers.riskLimit.MR': 'MR MIDDLE RISK',
@@ -2549,7 +2584,8 @@ export const KR = {
   'hq.commission.gasNetworksByAssetHint':
     'USDC·USDT 각각 적용 그룹(기본/A/B/C)을 따로 선택합니다(USDC 표가 먼저). USDC 표에는 TRC20(Tron)이 없습니다.',
   'network.BASE': 'Base',
-  'usdt.walletPickHint': '본사 정산 자산과 같은 승인 지갑만 표시됩니다. 기본 지갑이 맨 위에 옵니다.',
+  'usdt.walletPickHint':
+    '본사 정산 자산과 같은 승인 지갑만 선택할 수 있습니다. 승인 대기·다른 자산 지갑은 안내에 표시됩니다. 기본 지갑이 맨 위에 옵니다.',
   'usdt.walletSnapshotHint': '신청 당시 선택한 수령 주소입니다. 이후 지갑 주소를 바꿔도 이 거래의 주소는 바뀌지 않습니다.',
   'merchantUsers.title': '사용자관리',
   'merchantUsers.hint': '목록은 바로 볼 수 있습니다. 운영자 등록·중지·활성화 시에만 관리자 Google OTP가 필요합니다. 삭제는 불가하며 서비스중지·재활성화만 가능합니다.',

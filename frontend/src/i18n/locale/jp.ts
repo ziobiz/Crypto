@@ -1089,12 +1089,32 @@ export const JP: Record<string, string> = {
   'hq.commission.unitUsdt': '(クリプト)',
   'hq.commission.unitCrypto': 'クリプト',
   'hq.commission.riskTitle': 'リスクポリシー',
-  'hq.commission.riskDesc': '本社ポリシー → リスク管理のデフォルトテンプレート。',
+  'hq.commission.riskDesc':
+    '本社ポリシー → リスク管理。有効時はクリプトティア(LR/MR/…)の1回限度と決済手段別法定通貨取引限度が購入に適用されます。',
   'hq.commission.maxAmount': 'チケット最大金額（KRW）',
   'hq.commission.maxDaily': '顧客1日最大取引件数',
   'hq.commission.limitsTitle': '限度設定',
   'hq.commission.limitsDesc':
     '決済手段（振込・送金・カード）別に1回・日次・月次の最小/最大を設定します。0は制限なし。',
+  'hq.risk.applyLogicTitle': '適用ロジック',
+  'hq.risk.applyLogicMaster':
+    '限度設定は常時の法定通貨セーフティネット、リスク管理はクリプト1回の精密限度（個人・法人それぞれon/off）です。役割が重ならないよう分離します。',
+  'hq.risk.applyLogicLimits':
+    '① 限度設定（FIAT）= 通貨行が「有効」ならリスクon/offに関係なく常時適用。日次・月次累計は常にここから検査。「無効」通貨はその法定通貨限度を適用しません。',
+  'hq.risk.applyLogicTiers':
+    '② リスク有効（当該顧客種別）＋振込・送金 = 1回最小・最大はクリプトティア（LR〜SR/ML）が担当し、限度設定の1回FIATは省略。リスク無効なら1回も限度設定FIATを使います。',
+  'hq.risk.applyLogicCustomer':
+    '③ 顧客別割当 = 顧客管理→クリプト限度で LR/MR/HR/XR/SR/ML を選択。個人・法人のティア表は別々に保存。MLはその顧客の直接入力値。',
+  'hq.risk.applyLogicCombine':
+    '④ 組合せ = リスク有効・振込/送金: 日次・月次（限度設定）＋1回クリプトティア。リスク無効: 限度設定の1回・日次・月次すべて。1日最大取引件数はリスク有効時のみ。',
+  'hq.risk.applyLogicScope':
+    '対象: LIVEクリプト購入（申請・見積・受付）。シミュレータは別のシミュリスク設定を使用。',
+  'hq.risk.applyLogicCard':
+    'カード: 限度設定の「カード」タブFIATのみ。LR〜SRクリプトティアはカードに適用しません。',
+  'hq.risk.limitsApplyWhere':
+    '適用箇所: クリプト購入申請画面の法定通貨金額（振込・送金・カード）。単位=通貨（例: JPY）。有効行はリスクと無関係に適用。',
+  'hq.risk.tiersApplyWhere':
+    '適用箇所: 当該顧客種別のリスクが有効なとき、振込・送金購入の受取クリプト換算1回限度。単位=クリプト。',
   'hq.commission.limitsApplyLink':
     'この限度はクリプト購入「申請」金額に直結します。個人・法人・通貨・決済手段別に保存されます。',
   'hq.risk.limitMethod.BANK_TRANSFER': '振込取引',
@@ -1116,6 +1136,9 @@ export const JP: Record<string, string> = {
     '送金取引: 顧客がWise等で換金後にUSD/EUR入金。個人上限は上表のUSD・EUR行で運用してください。',
   'hq.commission.limitsIndividual': '個人',
   'hq.commission.limitsCorporate': '法人',
+  'hq.commission.limitStatus': '状態',
+  'hq.commission.limitsInactiveHint':
+    '無効の通貨はグレー表示され、その法定通貨限度を適用しません。「限度設定を保存」で反映します。',
   'hq.commission.limitPerTxMin': '1回最小',
   'hq.commission.limitPerTxMax': '1回最大',
   'hq.commission.limitDailyMin': '日次最小',
@@ -1124,7 +1147,8 @@ export const JP: Record<string, string> = {
   'hq.commission.limitMonthlyMax': '月次最大',
   'hq.commission.limitZeroHint': '最大0=無制限。日次・月次最大は累計に適用されます。',
   'hq.commission.usdtRiskTiersTitle': 'クリプト・リスク限度ティア (LR~SR)',
-  'hq.commission.usdtRiskTiersDesc': '顧客リスクタイプ別に1回あたりの最小・最大クリプト限度を設定します。0は制限なしです。',
+  'hq.commission.usdtRiskTiersDesc':
+    '選択中の顧客種別（個人/法人）のリスクタイプ別1回最小・最大クリプト限度です。0は制限なしです。',
   'hq.commission.usdtRiskTierCode': 'コード',
   'hq.commission.usdtRiskTierLabel': 'リスク',
   'hq.commission.usdtRiskTierMin': '最小クリプト',
@@ -1135,7 +1159,9 @@ export const JP: Record<string, string> = {
   'hq.commission.usdtRiskTier.HR': 'HIGH RISK',
   'hq.commission.usdtRiskTier.XR': 'MAX RISK',
   'hq.commission.usdtRiskTier.SR': 'SUPER RISK',
-  'hq.commission.riskEnabled': 'リスク管理を使用',
+  'hq.commission.riskEnabled': 'リスク管理',
+  'hq.commission.riskEnabledHint':
+    '当該顧客種別のみに適用。有効時は振込・送金の1回がクリプトティア・日次件数、限度設定の日次・月次はそのまま。無効時は1回も限度設定FIATを使用。「リスクポリシーを保存」後に反映。',
   'hq.commission.memo': 'メモ',
   'hq.commission.saveRisk': 'リスクポリシーを保存',
   'hq.commission.ratesTitle': '組織別手数料率（現在有効）',
@@ -1145,6 +1171,8 @@ export const JP: Record<string, string> = {
   'hq.commission.rateSourceSectionDesc': 'USDT・USDCの基準ソースをそれぞれ設定します。実取引は本社「精算資産」側が適用されます。両カードは常に表示されます。',
   'hq.commission.rateSourceSectionTitle': '通貨別基準価格 (USDC / USDT)',
   'hq.commission.rateSourceDesc': '{asset}購入・表示に使う通貨別基準ソースです。精算資産設定(USDT/USDC)に従い相場を取得します。取引所板を推奨。失敗時はCoinGeckoに自動切替。',
+  'hq.commission.rateSourceFailHint':
+    '相場を全く取得できなかった行だけグレー（—）表示します。USDT換算バックアップ・CoinGecko代替は通常行のままです。',
   'hq.commission.rateSourceCurrency': '通貨',
   'hq.commission.rateSourceSelect': '基準価格ソース',
   'hq.commission.rateSourcePreview': '現在レート (1 {asset})',
@@ -1709,6 +1737,13 @@ export const JP: Record<string, string> = {
   'usdt.walletQrHint': 'QRには登録済みウォレット住所文字列のみを入れます。ネットワーク表記は含めません。',
   'usdt.noWallet':
     '{asset}ウォレットを先に登録してください。USDTとUSDCは別々に登録します。USDCはTRC20（Tron）非対応です。',
+  'usdt.walletSelectEmpty': '選択可能な受取ウォレットがありません',
+  'usdt.noWalletPending':
+    '{asset}ウォレット{count}件が本社承認待ちです。承認後に受取ウォレットとして選択できます。',
+  'usdt.noWalletWrongAsset':
+    '登録・承認済みは{other}が{count}件のみです。現在の本社精算は{asset}のため、マイウォレットで{asset}を登録してください。',
+  'usdt.walletPendingHint':
+    '承認待ちウォレット{count}件は一覧に表示されますが、取引にはまだ使えません。',
   'usdt.fxFee': 'FX手数料',
   'usdt.gasFee': 'ガス代',
   'usdt.transferFee': '送金手数料',
@@ -2281,7 +2316,7 @@ export const JP: Record<string, string> = {
   'customers.riskLimit.title': 'クリプト限度',
   'customers.riskLimit.select': '限度タイプ',
   'customers.riskLimit.hint':
-    '本社LR~SR限度から選ぶか、ML(手動)で最小・最大クリプトを指定します。ティア選択時の実額は本社設定に従います。',
+    'この顧客が使うクリプトティアコードです。LR〜SRは本社→リスク管理のティア表の最小・最大を、MLは下記の直接入力を使います。法定通貨の限度設定とは別で、リスク管理が有効なときLIVE振込・送金購入に併せて適用されます。',
   'customers.riskLimit.saved': 'クリプト限度を保存しました。',
   'customers.riskLimit.LR': 'LR LOW RISK',
   'customers.riskLimit.MR': 'MR MIDDLE RISK',
@@ -2520,7 +2555,8 @@ export const JP: Record<string, string> = {
   'hq.commission.gasNetworksByAssetHint':
     '適用グループ(基本/A/B/C)はUSDT・USDCそれぞれ別に選べます。USDC表にTRC20(Tron)はありません。',
   'network.BASE': 'Base',
-  'usdt.walletPickHint': '本社精算資産と一致する承認済みウォレットのみ表示。基本ウォレットが先頭です。',
+  'usdt.walletPickHint':
+    '本社精算資産と一致する承認済みウォレットのみ選択可。承認待ち・他資産は案内に表示。基本ウォレットが先頭です。',
   'usdt.walletSnapshotHint': '申請時に選んだ受取アドレスです。その後ウォレットを変えてもこの取引のアドレスは変わりません。',
   'merchantUsers.title': 'ユーザー管理',
   'merchantUsers.hint': '一覧はすぐに表示されます。運営者の登録・停止・再有効時のみ管理者Google OTPが必要です。削除はできません。',

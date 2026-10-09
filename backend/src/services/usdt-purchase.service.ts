@@ -1896,12 +1896,18 @@ export async function getUsdtDepositContext(user: AuthUser) {
   let dailyTicketCount = 0;
   let maxDailyTicketsPerCustomer = 0;
   if (user.customerProfileId) {
+    const { isRiskEnabledForCustomerType } = await import('../constants/hq-policy');
     const [count, risk] = await Promise.all([
       countDailyTicketsForCustomer(user.customerProfileId),
       getCommissionRiskConfig(),
     ]);
     dailyTicketCount = count;
-    maxDailyTicketsPerCustomer = risk.maxDailyTicketsPerCustomer;
+    const typeKey =
+      customerMode?.customerType === 'CORPORATE' ? 'CORPORATE' : 'INDIVIDUAL';
+    /** 일일 건수 한도는 해당 고객유형 리스크 활성 시에만 */
+    if (isRiskEnabledForCustomerType(risk, typeKey)) {
+      maxDailyTicketsPerCustomer = risk.maxDailyTicketsPerCustomer;
+    }
   }
   const dailyTicketLimitReached =
     maxDailyTicketsPerCustomer > 0 && dailyTicketCount >= maxDailyTicketsPerCustomer;
@@ -1964,6 +1970,7 @@ export async function getUsdtDepositContext(user: AuthUser) {
             m.resolveCustomerIndividualLimitContext(user.customerProfileId!),
           ),
           import('./transaction-fee.service').then(async (m) => {
+            const { isRiskEnabledForCustomerType } = await import('../constants/hq-policy');
             const risk = await m.getCommissionRiskConfig();
             const typeKey =
               customerMode?.customerType === 'CORPORATE' ? 'CORPORATE' : 'INDIVIDUAL';
@@ -1972,8 +1979,12 @@ export async function getUsdtDepositContext(user: AuthUser) {
               REMITTANCE: risk.transactionLimits,
               CARD: risk.transactionLimits,
             };
+            const riskTierEnabled = isRiskEnabledForCustomerType(risk, typeKey);
             return {
-              enabled: risk.riskEnabled,
+              /** @deprecated 하위호환 — 한도 설정은 통화 행 활성 시 항상 노출. 리스크와 무관 */
+              enabled: true,
+              /** 해당 고객유형 크립토 티어·일일 건수 활성 */
+              riskTierEnabled,
               customerType: typeKey,
               byCurrency: methods.BANK_TRANSFER[typeKey],
               byMethod: {

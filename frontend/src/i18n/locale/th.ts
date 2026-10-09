@@ -1128,12 +1128,32 @@ export const TH: Record<string, string> = {
   'hq.commission.unitUsdt': '(CRYPTO)',
   'hq.commission.unitCrypto': 'CRYPTO',
   'hq.commission.riskTitle': 'นโยบายความเสี่ยง',
-  'hq.commission.riskDesc': 'เทมเพลตเริ่มต้น นโยบาย HQ → การจัดการความเสี่ยง',
+  'hq.commission.riskDesc':
+    'นโยบาย HQ → การจัดการความเสี่ยง เมื่อเปิดใช้งาน จะใช้วงเงินต่อครั้งของระดับ CRYPTO (LR/MR/…) และวงเงินเฟียตตามช่องทางชำระเงินกับการซื้อ',
   'hq.commission.maxAmount': 'จำนวนเงินสูงสุดต่อตั๋ว (KRW)',
   'hq.commission.maxDaily': 'จำนวนธุรกรรมสูงสุดต่อวันต่อลูกค้า',
   'hq.commission.limitsTitle': 'ตั้งค่าวงเงิน',
   'hq.commission.limitsDesc':
     'ตั้งขั้นต่ำ/สูงสุดรายการ·วัน·เดือนแยกตามวิธีชำระ (โอนธนาคาร / โอนเงิน / บัตร) 0=ไม่จำกัด',
+  'hq.risk.applyLogicTitle': 'ตรรกะการใช้งาน',
+  'hq.risk.applyLogicMaster':
+    'ตั้งค่าวงเงินเป็นตาข่ายนิรภัยเฟียตเสมอ การจัดการความเสี่ยงเป็นวงเงิน CRYPTO ต่อครั้งแบบละเอียด (เปิด/ปิดแยกบุคคล/นิติบุคคล) แยกบทบาทไม่ทับซ้อน',
+  'hq.risk.applyLogicLimits':
+    '① ตั้งค่าวงเงิน (FIAT) = เมื่อแถวสกุลเป็น「เปิด」ใช้เสมอ ไม่เกี่ยวกับความเสี่ยง วัน/เดือนสะสมตรวจที่นี่เสมอ 「ปิด」สกุลจะไม่ใช้วงเงินเฟียตนั้น',
+  'hq.risk.applyLogicTiers':
+    '② ความเสี่ยงเปิด (ประเภทลูกค้านั้น) + โอนธนาคาร/โอนเงิน = ขั้นต่ำ/สูงสุดต่อครั้งจากระดับ CRYPTO (LR–SR/ML) ข้าม FIAT ต่อครั้งในตั้งค่าวงเงิน เมื่อปิดความเสี่ยง ต่อครั้งก็ใช้ FIAT จากตั้งค่าวงเงิน',
+  'hq.risk.applyLogicCustomer':
+    '③ กำหนดลูกค้า = ลูกค้า→วงเงิน CRYPTO เลือก LR/MR/HR/XR/SR/ML ตารางระดับบุคคล/นิติบุคคลบันทึกแยก ML ใช้ค่าที่ลูกค้ากรอกเอง',
+  'hq.risk.applyLogicCombine':
+    '④ รวม = ความเสี่ยงเปิด·โอนธนาคาร/โอนเงิน: วัน/เดือน (ตั้งค่าวงเงิน) + CRYPTO ต่อครั้ง ความเสี่ยงปิด: ตั้งค่าวงเงินทั้งหมด (ต่อครั้ง·วัน·เดือน) จำนวนตั๋วสูงสุดต่อวันใช้เมื่อความเสี่ยงเปิดเท่านั้น',
+  'hq.risk.applyLogicScope':
+    'ขอบเขต: การซื้อคริปโต LIVE (สมัคร/ใบเสนอราคา/รับเรื่อง) ซิมใช้การตั้งค่าความเสี่ยงซิมแยก',
+  'hq.risk.applyLogicCard':
+    'บัตร: ใช้เฉพาะ FIAT แท็บ「บัตร」จากตั้งค่าวงเงิน ไม่ใช้ระดับ CRYPTO LR–SR กับบัตร',
+  'hq.risk.limitsApplyWhere':
+    'ใช้ที่: จำนวนเงินเฟียตบนหน้าสมัครซื้อคริปโต (โอนธนาคาร/โอนเงิน/บัตร) หน่วย=สกุลเงิน (เช่น JPY) แถวเปิดใช้โดยไม่เกี่ยวกับความเสี่ยง',
+  'hq.risk.tiersApplyWhere':
+    'ใช้ที่: เมื่อความเสี่ยงของประเภทลูกค้านั้นเปิด วงเงิน CRYPTO ต่อครั้งของการซื้อโอนธนาคาร/โอนเงิน หน่วย=CRYPTO',
   'hq.commission.limitsApplyLink':
     'These limits apply directly to crypto purchase Apply amounts. Individual, corporate, currency, and payment method are saved separately.',
   'hq.risk.limitMethod.BANK_TRANSFER': 'โอนธนาคาร',
@@ -1155,6 +1175,9 @@ export const TH: Record<string, string> = {
     'ธุรกรรมโอน: ลูกค้าแลกแล้วส่ง USD/EUR ตั้งวงเงินบุคคลที่แถว USD/EUR ด้านบน',
   'hq.commission.limitsIndividual': 'บุคคล',
   'hq.commission.limitsCorporate': 'นิติบุคคล',
+  'hq.commission.limitStatus': 'สถานะ',
+  'hq.commission.limitsInactiveHint':
+    'สกุลที่ปิดแสดงพื้นเทา และไม่ใช้วงเงินเฟียตนั้น กด「บันทึกตั้งค่าวงเงิน」เพื่อสะท้อน',
   'hq.commission.limitPerTxMin': 'ต่อครั้งขั้นต่ำ',
   'hq.commission.limitPerTxMax': 'ต่อครั้งสูงสุด',
   'hq.commission.limitDailyMin': 'รายวันขั้นต่ำ',
@@ -1163,7 +1186,8 @@ export const TH: Record<string, string> = {
   'hq.commission.limitMonthlyMax': 'รายเดือนสูงสุด',
   'hq.commission.limitZeroHint': 'สูงสุด 0 = ไม่จำกัด วงเงินรายวัน/รายเดือนใช้กับยอดสะสม',
   'hq.commission.usdtRiskTiersTitle': 'ชั้นขีดจำกัดความเสี่ยง CRYPTO (LR~SR)',
-  'hq.commission.usdtRiskTiersDesc': 'ตั้งค่าขีดจำกัด CRYPTO ขั้นต่ำ·สูงสุดต่อรายการตามประเภทความเสี่ยงลูกค้า 0 = ไม่จำกัด',
+  'hq.commission.usdtRiskTiersDesc':
+    'ขั้นต่ำ/สูงสุด CRYPTO ต่อครั้งตามประเภทความเสี่ยงของประเภทลูกค้าที่เลือก (บุคคล/นิติบุคคล) 0 = ไม่จำกัด',
   'hq.commission.usdtRiskTierCode': 'รหัส',
   'hq.commission.usdtRiskTierLabel': 'ความเสี่ยง',
   'hq.commission.usdtRiskTierMin': 'CRYPTO ขั้นต่ำ',
@@ -1174,7 +1198,9 @@ export const TH: Record<string, string> = {
   'hq.commission.usdtRiskTier.HR': 'HIGH RISK',
   'hq.commission.usdtRiskTier.XR': 'MAX RISK',
   'hq.commission.usdtRiskTier.SR': 'SUPER RISK',
-  'hq.commission.riskEnabled': 'เปิดใช้การจัดการความเสี่ยง',
+  'hq.commission.riskEnabled': 'การจัดการความเสี่ยง',
+  'hq.commission.riskEnabledHint':
+    'ใช้เฉพาะประเภทลูกค้านั้น เมื่อเปิด โอนธนาคาร/โอนเงินต่อครั้งใช้ระดับ CRYPTO และจำนวนตั๋ว/วัน ส่วนวัน/เดือนจากตั้งค่าวงเงินยังใช้ เมื่อปิด ต่อครั้งก็ใช้ FIAT จากตั้งค่าวงเงิน บันทึกนโยบายความเสี่ยงแล้วจึงมีผล',
   'hq.commission.memo': 'บันทึก',
   'hq.commission.saveRisk': 'บันทึกนโยบายความเสี่ยง',
   'hq.commission.ratesTitle': 'อัตราค่าธรรมเนียมองค์กร (ปัจจุบัน)',
@@ -1184,6 +1210,8 @@ export const TH: Record<string, string> = {
   'hq.commission.rateSourceSectionDesc': 'ตั้งค่าแหล่ง USDT และ USDC แยกกัน ดีลจริงใช้การ์ดที่ตรงสินทรัพย์ชำระ HQ แสดงทั้งสองการ์ดเสมอ',
   'hq.commission.rateSourceSectionTitle': 'อัตราอ้างอิงตามสกุล (USDC / USDT)',
   'hq.commission.rateSourceDesc': 'แหล่งอัตราอ้างอิงต่อสกุลสำหรับซื้อ/แสดง {asset} ตามสินทรัพย์ชำระ HQ (USDT/USDC) แนะนำ order book; ล้มเหลวแล้วใช้ CoinGecko',
+  'hq.commission.rateSourceFailHint':
+    'เฉพาะแถวที่ดึงอัตราไม่ได้เลยแสดงพื้นเทา (—) การสำรองแปลงจาก USDT และ CoinGecko ยังเป็นแถวปกติ',
   'hq.commission.rateSourceCurrency': 'สกุลเงิน',
   'hq.commission.rateSourceSelect': 'แหล่งราคาอ้างอิง',
   'hq.commission.rateSourcePreview': 'อัตราปัจจุบัน (1 {asset})',
@@ -1761,6 +1789,13 @@ export const TH: Record<string, string> = {
   'usdt.walletQrHint': 'QR เข้ารหัสเฉพาะสตริงที่อยู่กระเป๋าที่ลงทะเบียนแล้ว ไม่รวมป้ายเครือข่าย',
   'usdt.noWallet':
     'โปรดลงทะเบียนกระเป๋า {asset} ก่อน USDT และ USDC ลงทะเบียนแยกกัน USDC ไม่รองรับ TRC20 (Tron)',
+  'usdt.walletSelectEmpty': 'ไม่มีกระเป๋ารับที่เลือกได้',
+  'usdt.noWalletPending':
+    'มีกระเป๋า {asset} {count} รายการรอ HQ อนุมัติ เลือกเป็นกระเป๋ารับได้หลังอนุมัติ',
+  'usdt.noWalletWrongAsset':
+    'มีกระเป๋าที่อนุมัติแล้วเป็น {other} เท่านั้น {count} รายการ การชำระ HQ ปัจจุบันคือ {asset} — ลงทะเบียนกระเป๋า {asset} ที่กระเป๋าของฉัน',
+  'usdt.walletPendingHint':
+    'กระเป๋ารออนุมัติ {count} รายการจะแสดงในรายการ แต่ยังเลือกซื้อขายไม่ได้',
   'usdt.fxFee': 'ค่าธรรมเนียม FX',
   'usdt.gasFee': 'ค่าแก๊ส',
   'usdt.transferFee': 'ค่าธรรมเนียมโอน',
@@ -2254,7 +2289,7 @@ export const TH: Record<string, string> = {
   'customers.riskLimit.title': 'ขีดจำกัด CRYPTO',
   'customers.riskLimit.select': 'ประเภทวงเงิน',
   'customers.riskLimit.hint':
-    'เลือกชั้น LR~SR ของ HQ หรือ ML (กำหนดเอง) สำหรับ CRYPTO ขั้นต่ำ·สูงสุด เมื่อเลือกชั้น ยอดจริงตามการตั้งค่า HQ',
+    'รหัสระดับ CRYPTO ของลูกค้ารายนี้ LR–SR ใช้ขั้นต่ำ/สูงสุดจากตารางระดับ HQ→ความเสี่ยง ML ใช้ค่าที่กรอกด้านล่าง แยกจากตั้งค่าวงเงินเฟียต เมื่อเปิดการจัดการความเสี่ยง จะใช้ร่วมกับการซื้อ LIVE โอนธนาคาร/โอนเงิน',
   'customers.riskLimit.saved': 'บันทึกขีดจำกัด CRYPTO แล้ว',
   'customers.riskLimit.LR': 'LR LOW RISK',
   'customers.riskLimit.MR': 'MR MIDDLE RISK',
@@ -2492,7 +2527,8 @@ export const TH: Record<string, string> = {
   'hq.commission.gasNetworksByAssetHint':
     'เลือกกลุ่มที่ใช้ (ค่าเริ่มต้น/A/B/C) แยกสำหรับ USDT และ USDC ตาราง USDC ไม่มี TRC20 (Tron)',
   'network.BASE': 'Base',
-  'usdt.walletPickHint': 'แสดงเฉพาะกระเป๋าที่อนุมัติแล้วและตรงสินทรัพย์ชำระ HQ กระเป๋าเริ่มต้นอยู่บนสุด',
+  'usdt.walletPickHint':
+    'เลือกได้เฉพาะกระเป๋าที่อนุมัติแล้วและตรงสินทรัพย์ชำระ HQ กระเป๋ารออนุมัติหรือสินทรัพย์อื่นจะอธิบายด้านล่าง กระเป๋าเริ่มต้นอยู่บนสุด',
   'usdt.walletSnapshotHint': 'นี่คือที่อยู่รับที่เลือกตอนสมัคร การเปลี่ยนกระเป๋าภายหลังไม่เปลี่ยนที่อยู่ของรายการนี้',
   'merchantUsers.title': 'จัดการผู้ใช้',
   'merchantUsers.hint': 'ดูรายการได้ทันที ต้องใช้ Google OTP ของผู้ดูแลเฉพาะตอนลงทะเบียน หยุด หรือเปิดใช้อีกครั้ง ลบไม่ได้',

@@ -9,6 +9,9 @@ import {
   type UsdtRiskLimitTier,
   type HqUsdtRiskLimitTiers,
   type SymbolFeeCurrency,
+  type CustomerTypeLimitKey,
+  type RiskEnabledByCustomerType,
+  type UsdtRiskLimitTiersByCustomerType,
   hqPolicyApi,
 } from '@/lib/api';
 
@@ -54,11 +57,21 @@ export const DEFAULT_USDT_RISK_LIMIT_TIERS: HqUsdtRiskLimitTiers = {
   SR: { minUsdt: 100, maxUsdt: 500_000 },
 };
 
+export const DEFAULT_INDIVIDUAL_USDT_RISK_LIMIT_TIERS: HqUsdtRiskLimitTiers = {
+  LR: { minUsdt: 10, maxUsdt: 1_000 },
+  MR: { minUsdt: 10, maxUsdt: 3_000 },
+  HR: { minUsdt: 10, maxUsdt: 10_000 },
+  XR: { minUsdt: 10, maxUsdt: 30_000 },
+  SR: { minUsdt: 10, maxUsdt: 100_000 },
+};
+
 export const USDT_RISK_LIMIT_TIERS: UsdtRiskLimitTier[] = ['LR', 'MR', 'HR', 'XR', 'SR'];
 
 export const FEE_CURRENCIES: SymbolFeeCurrency[] = ['KRW', 'JPY', 'THB', 'CNY', 'USD', 'EUR'];
 
 export const AMOUNT_CURRENCIES = ['KRW', 'JPY', 'THB', 'CNY', 'USD', 'EUR'] as const;
+
+export const RISK_CUSTOMER_TYPES: CustomerTypeLimitKey[] = ['CORPORATE', 'INDIVIDUAL'];
 
 // Helper functions
 export function withFeeDiagramDefaults(risk: HqCommissionRiskConfig): HqCommissionRiskConfig {
@@ -85,7 +98,10 @@ export function withFeeDiagramDefaults(risk: HqCommissionRiskConfig): HqCommissi
     ...hqLive,
     ...risk.hqSandboxFeeDiagramDisplay,
     showTotalFee: true,
-    showRates: risk.hqSandboxFeeDiagramDisplay?.showRates ?? risk.hqFeeDiagramDisplay?.showRates ?? true,
+    showRates:
+      risk.hqSandboxFeeDiagramDisplay?.showRates ??
+      risk.hqFeeDiagramDisplay?.showRates ??
+      true,
   };
   return {
     ...risk,
@@ -99,6 +115,7 @@ export function withFeeDiagramDefaults(risk: HqCommissionRiskConfig): HqCommissi
 
 export function emptyCurrencyLimits(): CurrencyTransactionLimits {
   return {
+    enabled: true,
     perTransactionMin: 0,
     perTransactionMax: 0,
     dailyMin: 0,
@@ -115,6 +132,10 @@ function cloneCustomerPolicy(
     INDIVIDUAL: { ...policy.INDIVIDUAL },
     CORPORATE: { ...policy.CORPORATE },
   };
+}
+
+function withEnabledDefault(row: CurrencyTransactionLimits): CurrencyTransactionLimits {
+  return { ...row, enabled: row.enabled !== false };
 }
 
 export function ensureTransactionLimits(risk: HqCommissionRiskConfig): HqCommissionRiskConfig {
@@ -152,6 +173,17 @@ export function ensureTransactionLimits(risk: HqCommissionRiskConfig): HqCommiss
     CARD: existing?.CARD ?? cloneCustomerPolicy(transactionLimits),
   };
 
+  for (const method of LIMIT_PAYMENT_METHODS) {
+    for (const type of RISK_CUSTOMER_TYPES) {
+      for (const currency of FEE_CURRENCIES) {
+        const row = methodTransactionLimits[method][type][currency];
+        methodTransactionLimits[method][type][currency] = withEnabledDefault(
+          row ?? emptyCurrencyLimits(),
+        );
+      }
+    }
+  }
+
   return {
     ...risk,
     transactionLimits: methodTransactionLimits.BANK_TRANSFER,
@@ -159,55 +191,117 @@ export function ensureTransactionLimits(risk: HqCommissionRiskConfig): HqCommiss
   };
 }
 
-export function ensureUsdtRiskLimitTiers(risk: HqCommissionRiskConfig): HqCommissionRiskConfig {
-  const raw = risk.usdtRiskLimitTiers;
+function normalizeTierBand(
+  band: { minUsdt?: number; maxUsdt?: number } | undefined,
+  fallback: { minUsdt: number; maxUsdt: number },
+): { minUsdt: number; maxUsdt: number } {
+  return {
+    minUsdt: Math.max(0, Number(band?.minUsdt ?? fallback.minUsdt) || 0),
+    maxUsdt: Math.max(0, Number(band?.maxUsdt ?? fallback.maxUsdt) || 0),
+  };
+}
+
+function buildTiersForType(
+  raw: Partial<HqUsdtRiskLimitTiers> | null | undefined,
+  customerType: CustomerTypeLimitKey,
+): HqUsdtRiskLimitTiers {
+  const fallback =
+    customerType === 'INDIVIDUAL'
+      ? DEFAULT_INDIVIDUAL_USDT_RISK_LIMIT_TIERS
+      : DEFAULT_USDT_RISK_LIMIT_TIERS;
   const tiers = {} as HqUsdtRiskLimitTiers;
   for (const tier of USDT_RISK_LIMIT_TIERS) {
-    const band = raw?.[tier];
-    const fallback = DEFAULT_USDT_RISK_LIMIT_TIERS[tier];
-    tiers[tier] = {
-      minUsdt: Math.max(0, Number(band?.minUsdt ?? fallback.minUsdt) || 0),
-      maxUsdt: Math.max(0, Number(band?.maxUsdt ?? fallback.maxUsdt) || 0),
-    };
+    tiers[tier] = normalizeTierBand(raw?.[tier], fallback[tier]);
   }
-  return { ...risk, usdtRiskLimitTiers: tiers };
+  return tiers;
+}
+
+export function ensureUsdtRiskLimitTiers(risk: HqCommissionRiskConfig): HqCommissionRiskConfig {
+  const byType: UsdtRiskLimitTiersByCustomerType = {
+    CORPORATE: buildTiersForType(
+      risk.usdtRiskLimitTiersByCustomerType?.CORPORATE ?? risk.usdtRiskLimitTiers,
+      'CORPORATE',
+    ),
+    INDIVIDUAL: buildTiersForType(
+      risk.usdtRiskLimitTiersByCustomerType?.INDIVIDUAL ?? null,
+      'INDIVIDUAL',
+    ),
+  };
+  return {
+    ...risk,
+    usdtRiskLimitTiers: byType.CORPORATE,
+    usdtRiskLimitTiersByCustomerType: byType,
+  };
+}
+
+export function ensureRiskEnabledByCustomerType(
+  risk: HqCommissionRiskConfig,
+): HqCommissionRiskConfig {
+  const legacy = risk.riskEnabled !== false;
+  const byType: RiskEnabledByCustomerType = {
+    INDIVIDUAL:
+      risk.riskEnabledByCustomerType?.INDIVIDUAL !== undefined
+        ? Boolean(risk.riskEnabledByCustomerType.INDIVIDUAL)
+        : legacy,
+    CORPORATE:
+      risk.riskEnabledByCustomerType?.CORPORATE !== undefined
+        ? Boolean(risk.riskEnabledByCustomerType.CORPORATE)
+        : legacy,
+  };
+  return {
+    ...risk,
+    riskEnabled: byType.CORPORATE,
+    riskEnabledByCustomerType: byType,
+  };
 }
 
 export function withRiskDefaults(risk: HqCommissionRiskConfig): HqCommissionRiskConfig {
-  return ensureUsdtRiskLimitTiers(ensureTransactionLimits(withFeeDiagramDefaults(risk)));
+  return ensureRiskEnabledByCustomerType(
+    ensureUsdtRiskLimitTiers(ensureTransactionLimits(withFeeDiagramDefaults(risk))),
+  );
+}
+
+/** 한도 설정만 저장 (통화 행 활성·금액) */
+export async function saveLimits(risk: HqCommissionRiskConfig) {
+  const latest = await hqPolicyApi.getCommission();
+  const withMethods = ensureTransactionLimits(risk);
+  const payload = withRiskDefaults({
+    ...latest.risk,
+    transactionLimits: withMethods.methodTransactionLimits!.BANK_TRANSFER,
+    methodTransactionLimits: withMethods.methodTransactionLimits,
+    maxTicketAmountKrw: withMethods.maxTicketAmountKrw,
+  });
+  return await hqPolicyApi.saveCommissionRisk(payload);
 }
 
 // Safe saveRisk function that merges only risk-owned fields
 export async function saveRisk(risk: HqCommissionRiskConfig) {
-  // Get latest data first
   const latest = await hqPolicyApi.getCommission();
-  
-  // Merge only RISK-owned fields onto latest.risk
-  const withMethods = ensureTransactionLimits(risk);
+  const normalized = withRiskDefaults(risk);
   const riskOwnedFields: Partial<HqCommissionRiskConfig> = {
-    riskEnabled: withMethods.riskEnabled,
-    transactionLimits: withMethods.methodTransactionLimits!.BANK_TRANSFER,
-    methodTransactionLimits: withMethods.methodTransactionLimits,
-    usdtRiskLimitTiers: withMethods.usdtRiskLimitTiers,
-    maxDailyTicketsPerCustomer: withMethods.maxDailyTicketsPerCustomer,
-    maxTicketAmountKrw: withMethods.maxTicketAmountKrw,
-    notes: withMethods.notes,
+    riskEnabled: normalized.riskEnabledByCustomerType!.CORPORATE,
+    riskEnabledByCustomerType: normalized.riskEnabledByCustomerType,
+    transactionLimits: normalized.methodTransactionLimits!.BANK_TRANSFER,
+    methodTransactionLimits: normalized.methodTransactionLimits,
+    usdtRiskLimitTiers: normalized.usdtRiskLimitTiersByCustomerType!.CORPORATE,
+    usdtRiskLimitTiersByCustomerType: normalized.usdtRiskLimitTiersByCustomerType,
+    maxDailyTicketsPerCustomer: normalized.maxDailyTicketsPerCustomer,
+    maxTicketAmountKrw: normalized.maxTicketAmountKrw,
+    notes: normalized.notes,
   };
-  
+
   const payload = withRiskDefaults({
     ...latest.risk,
     ...riskOwnedFields,
   });
-  
+
   return await hqPolicyApi.saveCommissionRisk(payload);
 }
 
 // Safe saveFeeConfig function that merges only fee-owned fields
 export async function saveFeeConfig(risk: HqCommissionRiskConfig) {
-  // Get latest data first  
   const latest = await hqPolicyApi.getCommission();
-  
-  // Merge only FEE-owned fields onto latest.risk
+
   const feeOwnedFields: Partial<HqCommissionRiskConfig> = {
     showTotalFee: risk.showTotalFee,
     feeDiagramDisplay: risk.feeDiagramDisplay,
@@ -215,11 +309,11 @@ export async function saveFeeConfig(risk: HqCommissionRiskConfig) {
     hqFeeDiagramDisplay: risk.hqFeeDiagramDisplay,
     hqSandboxFeeDiagramDisplay: risk.hqSandboxFeeDiagramDisplay,
   };
-  
+
   const payload = withRiskDefaults({
     ...latest.risk,
     ...feeOwnedFields,
   });
-  
+
   return await hqPolicyApi.saveCommissionRisk(payload);
 }

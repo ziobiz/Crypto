@@ -26,14 +26,17 @@ import { PolicyNumberInput } from '@/components/policy/PolicyNumberInput';
 import {
   DEFAULT_CURRENCY_AMOUNT,
   DEFAULT_USDT_RISK_LIMIT_TIERS,
+  DEFAULT_INDIVIDUAL_USDT_RISK_LIMIT_TIERS,
   USDT_RISK_LIMIT_TIERS,
   FEE_CURRENCIES,
   AMOUNT_CURRENCIES,
   LIMIT_PAYMENT_METHODS,
+  RISK_CUSTOMER_TYPES,
   withRiskDefaults,
   saveRisk,
+  saveLimits,
 } from '@/lib/hq-commission-shared';
-import type { LimitPaymentMethod } from '@/lib/api';
+import type { CustomerTypeLimitKey, LimitPaymentMethod } from '@/lib/api';
 import {
   CUSTOMER_TYPES_UI_ORDER,
   SETTLEMENT_ASSETS_UI_ORDER,
@@ -60,7 +63,9 @@ const RATE_SOURCES: ExchangeRateSourceId[] = [
   'kr_domestic',
 ];
 
-const LIMIT_FIELDS: Array<{ key: keyof CurrencyTransactionLimits; labelKey: MessageKey }> = [
+type LimitAmountField = Exclude<keyof CurrencyTransactionLimits, 'enabled'>;
+
+const LIMIT_FIELDS: Array<{ key: LimitAmountField; labelKey: MessageKey }> = [
   { key: 'perTransactionMin', labelKey: 'hq.commission.limitPerTxMin' },
   { key: 'perTransactionMax', labelKey: 'hq.commission.limitPerTxMax' },
   { key: 'dailyMin', labelKey: 'hq.commission.limitDailyMin' },
@@ -95,6 +100,8 @@ export default function HqRiskPage() {
   const [editingMaxDaily, setEditingMaxDaily] = useState(false);
   const [maxDailyDraft, setMaxDailyDraft] = useState(0);
   const [savingRisk, setSavingRisk] = useState(false);
+  const [savingLimits, setSavingLimits] = useState(false);
+  const [limitsMsg, setLimitsMsg] = useState('');
   const [currencyAmount, setCurrencyAmount] = useState<HqCurrencyAmountDisplayPolicy>(DEFAULT_CURRENCY_AMOUNT);
   const [savingCurrencyAmount, setSavingCurrencyAmount] = useState(false);
   const [currencyAmountMsg, setCurrencyAmountMsg] = useState('');
@@ -114,6 +121,8 @@ export default function HqRiskPage() {
   const [limitCustomerType, setLimitCustomerType] = useState<LimitCustomerType>('CORPORATE');
   const [limitPaymentMethod, setLimitPaymentMethod] =
     useState<LimitPaymentMethod>('BANK_TRANSFER');
+  const [riskTierCustomerType, setRiskTierCustomerType] =
+    useState<CustomerTypeLimitKey>('CORPORATE');
 
   const settlementAssetLabel = data?.settlementAsset === 'USDC' ? 'USDC' : 'USDT';
   const rateSourceLabel = (source: ExchangeRateSourceId | string, asset: SettlementAsset) =>
@@ -290,7 +299,7 @@ export default function HqRiskPage() {
     setMsg('');
   }
 
-  function updateLimitDraft(field: keyof CurrencyTransactionLimits, value: number) {
+  function updateLimitDraft(field: LimitAmountField, value: number) {
     setLimitDraft((prev) => (prev ? { ...prev, [field]: value } : prev));
   }
 
@@ -321,6 +330,102 @@ export default function HqRiskPage() {
       };
     });
     cancelLimitEdit();
+  }
+
+  function setLimitRowEnabled(currency: SymbolFeeCurrency, enabled: boolean) {
+    if (!risk) return;
+    setRisk((prev) => {
+      if (!prev) return prev;
+      const base = withRiskDefaults(prev);
+      const methods = { ...base.methodTransactionLimits! };
+      const current = methods[limitPaymentMethod][limitCustomerType][currency];
+      methods[limitPaymentMethod] = {
+        ...methods[limitPaymentMethod],
+        [limitCustomerType]: {
+          ...methods[limitPaymentMethod][limitCustomerType],
+          [currency]: { ...current, enabled },
+        },
+      };
+      return {
+        ...prev,
+        methodTransactionLimits: methods,
+        transactionLimits: methods.BANK_TRANSFER,
+      };
+    });
+    if (editingLimitCurrency === currency && limitDraft) {
+      setLimitDraft({ ...limitDraft, enabled });
+    }
+  }
+
+  async function saveLimitsConfig() {
+    if (!risk) return;
+    if (hasPolicyEditInProgress()) {
+      setLimitsMsg(t('hq.commission.tierFinishEditFirst'));
+      return;
+    }
+    requestConfirm({
+      title: t('hq.commission.saveLimits'),
+      step1: t('common.doubleConfirm.step1'),
+      step2: t('common.doubleConfirm.step2'),
+      confirmLabel: t('common.save'),
+      onConfirm: async () => {
+        setSavingLimits(true);
+        setLimitsMsg('');
+        try {
+          const next = await saveLimits(risk);
+          setData(next);
+          setRisk(withRiskDefaults(next.risk));
+          setLimitsMsg(t('hq.saved'));
+        } catch (e) {
+          setLimitsMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
+        } finally {
+          setSavingLimits(false);
+        }
+      },
+    });
+  }
+
+  function setRiskEnabledForType(type: CustomerTypeLimitKey, enabled: boolean) {
+    setRisk((prev) => {
+      if (!prev) return prev;
+      const base = withRiskDefaults(prev);
+      const byType = {
+        ...base.riskEnabledByCustomerType!,
+        [type]: enabled,
+      };
+      return {
+        ...prev,
+        riskEnabledByCustomerType: byType,
+        riskEnabled: byType.CORPORATE,
+      };
+    });
+  }
+
+  function updateRiskTierBand(
+    type: CustomerTypeLimitKey,
+    tier: UsdtRiskLimitTier,
+    field: 'minUsdt' | 'maxUsdt',
+    value: number,
+  ) {
+    setRisk((prev) => {
+      if (!prev) return prev;
+      const base = withRiskDefaults(prev);
+      const byType = {
+        ...base.usdtRiskLimitTiersByCustomerType!,
+        [type]: {
+          ...base.usdtRiskLimitTiersByCustomerType![type],
+          [tier]: {
+            ...base.usdtRiskLimitTiersByCustomerType![type][tier],
+            [field]: Math.max(0, value),
+          },
+        },
+      };
+      return {
+        ...prev,
+        usdtRiskLimitTiersByCustomerType: byType,
+        usdtRiskLimitTiers: byType.CORPORATE,
+      };
+    });
   }
 
   function cancelMaxDailyEdit() {
@@ -405,6 +510,9 @@ export default function HqRiskPage() {
                   )}
                 </div>
                 <p className="pg-hint text-xs">{t('hq.commission.rateSourceDesc', { asset })}</p>
+                <p className="pg-hint text-[11px] text-slate-500">
+                  {t('hq.commission.rateSourceFailHint')}
+                </p>
                 <div className="pg-table-wrap">
                   <table className="pg-table">
                     <thead>
@@ -419,8 +527,20 @@ export default function HqRiskPage() {
                     <tbody>
                       {FEE_CURRENCIES.map((currency) => {
                         const preview = previewFor(asset, currency);
+                        /** 완전 실패(시세 없음)만 회색. USDT 환산·CoinGecko 대체는 정상 행 */
+                        const fetchFailed =
+                          preview == null ||
+                          preview.rate == null ||
+                          preview.actualSource === 'error';
                         return (
-                          <tr key={`${asset}-${currency}`}>
+                          <tr
+                            key={`${asset}-${currency}`}
+                            className={
+                              fetchFailed
+                                ? 'bg-slate-100/90 text-slate-500'
+                                : undefined
+                            }
+                          >
                             <td className="font-mono font-semibold">{currency}</td>
                             <td>
                               <select
@@ -441,7 +561,13 @@ export default function HqRiskPage() {
                                 ))}
                               </select>
                             </td>
-                            <td className="tabular-nums font-semibold text-blue-700">
+                            <td
+                              className={
+                                fetchFailed
+                                  ? 'tabular-nums font-semibold text-slate-400'
+                                  : 'tabular-nums font-semibold text-blue-700'
+                              }
+                            >
                               {preview?.rate != null
                                 ? preview.rate.toLocaleString(undefined, {
                                     maximumFractionDigits: currency === 'JPY' ? 2 : 0,
@@ -449,15 +575,15 @@ export default function HqRiskPage() {
                                 : '—'}
                             </td>
                             <td className="pg-muted text-xs">
-                              {preview
-                                ? rateSourceLabel(
+                              {fetchFailed
+                                ? '—'
+                                : rateSourceLabel(
                                     preview.actualSource.replace('_fallback', ''),
                                     asset,
-                                  )
-                                : '—'}
+                                  )}
                             </td>
                             <td className="pg-muted text-xs">
-                              {preview?.fetchedAt
+                              {!fetchFailed && preview?.fetchedAt
                                 ? new Date(preview.fetchedAt).toLocaleString()
                                 : '—'}
                             </td>
@@ -784,6 +910,26 @@ export default function HqRiskPage() {
         </div>
       </section>
 
+      {/* Agreed apply logic — 한도설정 vs 리스크 티어 */}
+      <section className="pg-section">
+        <div className="pg-section-head">{t('hq.risk.applyLogicTitle')}</div>
+        <div className="pg-section-pad">
+          <div className="pg-card">
+            <div className="pg-card-body space-y-3 text-sm text-slate-800">
+              <p className="font-medium text-slate-900">{t('hq.risk.applyLogicMaster')}</p>
+              <ol className="list-decimal space-y-2 pl-5">
+                <li>{t('hq.risk.applyLogicLimits')}</li>
+                <li>{t('hq.risk.applyLogicTiers')}</li>
+                <li>{t('hq.risk.applyLogicCustomer')}</li>
+                <li>{t('hq.risk.applyLogicCombine')}</li>
+              </ol>
+              <p className="pg-hint text-xs">{t('hq.risk.applyLogicScope')}</p>
+              <p className="pg-hint text-xs text-amber-800">{t('hq.risk.applyLogicCard')}</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Transaction Limits */}
       <section className="pg-section">
         <div className="pg-section-head">{t('hq.commission.limitsTitle')}</div>
@@ -791,6 +937,7 @@ export default function HqRiskPage() {
           <div className="pg-card">
             <div className="pg-card-body space-y-4">
               <p className="pg-hint text-xs">{t('hq.commission.limitsDesc')}</p>
+              <p className="pg-hint text-xs text-sky-900 font-medium">{t('hq.risk.limitsApplyWhere')}</p>
               <p className="pg-hint text-xs text-sky-800">{t('hq.risk.limitsMethodHint')}</p>
               <p className="pg-callout pg-callout-muted">{t('hq.commission.tierEditHint')}</p>
               <div className="flex flex-wrap gap-2">
@@ -841,6 +988,7 @@ export default function HqRiskPage() {
                   <thead>
                     <tr>
                       <th>{t('hq.commission.tierCurrency')}</th>
+                      <th>{t('hq.commission.limitStatus')}</th>
                       {LIMIT_FIELDS.map((field) => (
                         <th key={field.key}>{t(field.labelKey)}</th>
                       ))}
@@ -856,12 +1004,31 @@ export default function HqRiskPage() {
                       const limits = isEditing && limitDraft
                         ? limitDraft
                         : methodLimits[limitCustomerType][currency];
+                      const rowActive = limits.enabled !== false;
                       return (
                         <tr
                           key={currency}
-                          className={isEditing ? 'pg-row-edit' : undefined}
+                          className={[
+                            isEditing ? 'pg-row-edit' : '',
+                            !rowActive ? 'bg-slate-100 text-slate-500' : '',
+                          ]
+                            .filter(Boolean)
+                            .join(' ') || undefined}
                         >
                           <td className="font-mono font-medium">{currency}</td>
+                          <td>
+                            <select
+                              className="pg-input w-28 text-xs"
+                              value={rowActive ? '1' : '0'}
+                              onChange={(e) =>
+                                setLimitRowEnabled(currency, e.target.value === '1')
+                              }
+                              aria-label={`${currency} ${t('hq.commission.limitStatus')}`}
+                            >
+                              <option value="1">{t('hq.services.active')}</option>
+                              <option value="0">{t('hq.services.inactive')}</option>
+                            </select>
+                          </td>
                           {LIMIT_FIELDS.map((field) => (
                             <td key={field.key}>
                               {isEditing ? (
@@ -917,6 +1084,18 @@ export default function HqRiskPage() {
                 </table>
               </div>
               <p className="pg-hint text-[10px]">{t('hq.commission.limitZeroHint')}</p>
+              <p className="pg-hint text-[10px]">{t('hq.commission.limitsInactiveHint')}</p>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => void saveLimitsConfig()}
+                  disabled={savingLimits || hasPolicyEditInProgress()}
+                  className="pg-btn pg-btn-primary text-xs disabled:opacity-50"
+                >
+                  {savingLimits ? t('hq.saving') : t('hq.commission.saveLimits')}
+                </button>
+                {limitsMsg && <span className="pg-hint">{limitsMsg}</span>}
+              </div>
             </div>
           </div>
         </div>
@@ -929,89 +1108,135 @@ export default function HqRiskPage() {
           <div className="pg-card">
             <div className="pg-card-body space-y-4">
               <p className="pg-hint">{t('hq.commission.riskDesc')}</p>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={risk.riskEnabled}
-                  onChange={(e) => setRisk({ ...risk, riskEnabled: e.target.checked })}
-                />
-                <span className="pg-label">{t('hq.commission.riskEnabled')}</span>
-              </label>
+              <p className="pg-hint text-xs text-sky-900 font-medium">{t('hq.risk.tiersApplyWhere')}</p>
 
-              <div className="space-y-2">
-                <p className="pg-label">{t('hq.commission.usdtRiskTiersTitle')}</p>
-                <p className="pg-hint text-xs">{t('hq.commission.usdtRiskTiersDesc')}</p>
-                <div className="pg-card pg-table-wrap">
-                  <table className="pg-table">
-                    <thead>
-                      <tr>
-                        <th>{t('hq.commission.usdtRiskTierCode')}</th>
-                        <th>{t('hq.commission.usdtRiskTierLabel')}</th>
-                        <th>{t('hq.commission.usdtRiskTierMin')}</th>
-                        <th>{t('hq.commission.usdtRiskTierMax')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {USDT_RISK_LIMIT_TIERS.map((tier) => {
-                        const band = risk.usdtRiskLimitTiers?.[tier] ?? DEFAULT_USDT_RISK_LIMIT_TIERS[tier];
-                        return (
-                          <tr key={tier}>
-                            <td className="font-mono font-medium">{tier}</td>
-                            <td>{t(USDT_RISK_TIER_LABEL_KEYS[tier])}</td>
-                            <td>
-                              <FormattedAmountInput
-                                min={0}
-                                commitOnBlur
-                                className="pg-input w-28 text-xs"
-                                value={band.minUsdt}
-                                onChange={(n) =>
-                                  setRisk((prev) => {
-                                    if (!prev) return prev;
-                                    return {
-                                      ...prev,
-                                      usdtRiskLimitTiers: {
-                                        ...prev.usdtRiskLimitTiers!,
-                                        [tier]: {
-                                          ...prev.usdtRiskLimitTiers![tier],
-                                          minUsdt: Math.max(0, n),
-                                        },
-                                      },
-                                    };
-                                  })
-                                }
-                              />
-                            </td>
-                            <td>
-                              <FormattedAmountInput
-                                min={0}
-                                commitOnBlur
-                                className="pg-input w-28 text-xs"
-                                value={band.maxUsdt}
-                                onChange={(n) =>
-                                  setRisk((prev) => {
-                                    if (!prev) return prev;
-                                    return {
-                                      ...prev,
-                                      usdtRiskLimitTiers: {
-                                        ...prev.usdtRiskLimitTiers!,
-                                        [tier]: {
-                                          ...prev.usdtRiskLimitTiers![tier],
-                                          maxUsdt: Math.max(0, n),
-                                        },
-                                      },
-                                    };
-                                  })
-                                }
-                              />
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                <p className="pg-hint text-[10px]">{t('hq.commission.usdtRiskTierZeroHint')}</p>
+              <div className="flex flex-wrap gap-2">
+                {RISK_CUSTOMER_TYPES.map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setRiskTierCustomerType(type)}
+                    className={`pg-btn text-xs ${
+                      riskTierCustomerType === type ? 'pg-btn-primary' : 'pg-btn-secondary'
+                    }`}
+                  >
+                    {type === 'INDIVIDUAL'
+                      ? t('hq.commission.limitsIndividual')
+                      : t('hq.commission.limitsCorporate')}
+                  </button>
+                ))}
               </div>
+
+              {(() => {
+                const riskDefaults = withRiskDefaults(risk);
+                const riskOn =
+                  riskDefaults.riskEnabledByCustomerType![riskTierCustomerType] !== false;
+                const tierFallback =
+                  riskTierCustomerType === 'INDIVIDUAL'
+                    ? DEFAULT_INDIVIDUAL_USDT_RISK_LIMIT_TIERS
+                    : DEFAULT_USDT_RISK_LIMIT_TIERS;
+                const tiers =
+                  riskDefaults.usdtRiskLimitTiersByCustomerType![riskTierCustomerType];
+                return (
+                  <>
+                    <div
+                      className={`flex flex-wrap items-center gap-3 rounded-md p-3 ${
+                        riskOn ? 'bg-white' : 'bg-slate-100'
+                      }`}
+                    >
+                      <label
+                        className="pg-label shrink-0"
+                        htmlFor={`hq-risk-enabled-${riskTierCustomerType}`}
+                      >
+                        {t('hq.commission.riskEnabled')}
+                        {' · '}
+                        {riskTierCustomerType === 'INDIVIDUAL'
+                          ? t('hq.commission.limitsIndividual')
+                          : t('hq.commission.limitsCorporate')}
+                      </label>
+                      <select
+                        id={`hq-risk-enabled-${riskTierCustomerType}`}
+                        className="pg-input w-40"
+                        value={riskOn ? '1' : '0'}
+                        onChange={(e) =>
+                          setRiskEnabledForType(
+                            riskTierCustomerType,
+                            e.target.value === '1',
+                          )
+                        }
+                        aria-label={t('hq.commission.riskEnabled')}
+                      >
+                        <option value="1">{t('hq.services.active')}</option>
+                        <option value="0">{t('hq.services.inactive')}</option>
+                      </select>
+                    </div>
+                    <p className="pg-hint text-xs">{t('hq.commission.riskEnabledHint')}</p>
+
+                    <div className={`space-y-2 ${riskOn ? '' : 'opacity-60'}`}>
+                      <p className="pg-label">{t('hq.commission.usdtRiskTiersTitle')}</p>
+                      <p className="pg-hint text-xs">{t('hq.commission.usdtRiskTiersDesc')}</p>
+                      <div className="pg-card pg-table-wrap">
+                        <table className="pg-table">
+                          <thead>
+                            <tr>
+                              <th>{t('hq.commission.usdtRiskTierCode')}</th>
+                              <th>{t('hq.commission.usdtRiskTierLabel')}</th>
+                              <th>{t('hq.commission.usdtRiskTierMin')}</th>
+                              <th>{t('hq.commission.usdtRiskTierMax')}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {USDT_RISK_LIMIT_TIERS.map((tier) => {
+                              const band = tiers[tier] ?? tierFallback[tier];
+                              return (
+                                <tr key={tier}>
+                                  <td className="font-mono font-medium">{tier}</td>
+                                  <td>{t(USDT_RISK_TIER_LABEL_KEYS[tier])}</td>
+                                  <td>
+                                    <FormattedAmountInput
+                                      min={0}
+                                      commitOnBlur
+                                      className="pg-input w-28 text-xs"
+                                      value={band.minUsdt}
+                                      onChange={(n) =>
+                                        updateRiskTierBand(
+                                          riskTierCustomerType,
+                                          tier,
+                                          'minUsdt',
+                                          n,
+                                        )
+                                      }
+                                    />
+                                  </td>
+                                  <td>
+                                    <FormattedAmountInput
+                                      min={0}
+                                      commitOnBlur
+                                      className="pg-input w-28 text-xs"
+                                      value={band.maxUsdt}
+                                      onChange={(n) =>
+                                        updateRiskTierBand(
+                                          riskTierCustomerType,
+                                          tier,
+                                          'maxUsdt',
+                                          n,
+                                        )
+                                      }
+                                    />
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                      <p className="pg-hint text-[10px]">
+                        {t('hq.commission.usdtRiskTierZeroHint')}
+                      </p>
+                    </div>
+                  </>
+                );
+              })()}
 
               <div className="flex flex-wrap items-end gap-3">
                 <div className="min-w-[12rem]">

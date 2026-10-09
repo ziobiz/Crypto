@@ -11,6 +11,7 @@ import {
 export function defaultCurrencyLimits(
   overrides?: Partial<CurrencyTransactionLimits>,
 ): CurrencyTransactionLimits {
+  const { enabled: enabledOverride, ...rest } = overrides ?? {};
   return {
     perTransactionMin: 0,
     perTransactionMax: 0,
@@ -18,7 +19,8 @@ export function defaultCurrencyLimits(
     dailyMax: 0,
     monthlyMin: 0,
     monthlyMax: 0,
-    ...overrides,
+    ...rest,
+    enabled: enabledOverride !== false,
   };
 }
 
@@ -87,6 +89,7 @@ function normalizeCurrencyLimits(raw?: Partial<CurrencyTransactionLimits>): Curr
     return Number.isFinite(num) && num >= 0 ? num : 0;
   };
   return {
+    enabled: raw?.enabled !== false,
     perTransactionMin: n(raw?.perTransactionMin),
     perTransactionMax: n(raw?.perTransactionMax),
     dailyMin: n(raw?.dailyMin),
