@@ -34,9 +34,11 @@ import {
   normalizeOrgSharePolicy,
   persistableCustomerFeeShare,
   assertEscrowShareTotals,
-  defaultGasNetworkPolicy,
-  normalizeGasNetworkPolicy,
+  defaultGasNetworksByAsset,
+  gasNetworkPolicyForAsset,
+  normalizeGasNetworksByAsset,
   type HqGasNetworkPolicy,
+  type HqGasNetworksByAssetPolicy,
   type HqWorkflowDisplayConfig,
   defaultWorkflowDisplay,
   normalizeWorkflowDisplay,
@@ -101,9 +103,10 @@ import {
   type HqCurrencyAmountDisplayPolicy,
 } from '../lib/currency-amount';
 import {
-  getExchangeRatePolicyPreview,
-  getExchangeRateSourcePolicy,
-  saveExchangeRateSourcePolicy,
+  getExchangeRateSourcesByAsset,
+  getExchangeRatePolicyPreviewByAsset,
+  saveExchangeRateSourcesByAsset,
+  type HqExchangeRateSourcesByAsset,
 } from '../services/exchange-rate-policy.service';
 import { getAllLocalMarketPremiums } from '../services/local-market-premium.service';
 import { getKimchiPremiumAnalysis } from '../services/kimchi-premium.service';
@@ -647,8 +650,15 @@ export const hqPolicyService = {
     const risk = normalizeCommissionRisk(raw);
     const feeTiersByCustomerType = await getSymbolFeeTiersByCustomerType();
     const feeTiers = feeTiersByCustomerType.CORPORATE;
-    const exchangeRateSources = await getExchangeRateSourcePolicy();
-    const exchangeRatePreview = await getExchangeRatePolicyPreview();
+    const exchangeRateSourcesByAsset = await getExchangeRateSourcesByAsset();
+    const settlementAsset = await (
+      await import('./settlement-asset.service')
+    ).getSettlementAsset();
+    const exchangeRateSources =
+      exchangeRateSourcesByAsset[settlementAsset === 'USDC' ? 'USDC' : 'USDT'];
+    const exchangeRatePreviewByAsset = await getExchangeRatePolicyPreviewByAsset();
+    const exchangeRatePreview =
+      exchangeRatePreviewByAsset[settlementAsset === 'USDC' ? 'USDC' : 'USDT'];
     const localPremiums = await getAllLocalMarketPremiums();
     const krwPremium = localPremiums.find((p) => p.currency === 'KRW');
     let kimchiPremium = null;
@@ -686,7 +696,9 @@ export const hqPolicyService = {
       simulatorRisk: await getSimulatorCommissionRiskConfig(),
       simulatorFeeTiers: await getSimulatorSymbolFeeTiers(),
       exchangeRateSources,
+      exchangeRateSourcesByAsset,
       exchangeRatePreview,
+      exchangeRatePreviewByAsset,
       localPremiums,
       kimchiPremium,
       rates,
@@ -698,8 +710,14 @@ export const hqPolicyService = {
         name: string;
         feeShare: ReturnType<typeof persistableCustomerFeeShare>;
       }>,
-      gasNetworks: normalizeGasNetworkPolicy(
-        await getConfig(HQ_CONFIG_KEYS.gasNetworks, defaultGasNetworkPolicy()),
+      gasNetworksByAsset: normalizeGasNetworksByAsset(
+        await getConfig(HQ_CONFIG_KEYS.gasNetworks, defaultGasNetworksByAsset()),
+      ),
+      gasNetworks: gasNetworkPolicyForAsset(
+        normalizeGasNetworksByAsset(
+          await getConfig(HQ_CONFIG_KEYS.gasNetworks, defaultGasNetworksByAsset()),
+        ),
+        settlementAsset,
       ),
       currencyAmountDisplay: await getCurrencyAmountDisplayPolicy(),
       usdtQuoteResponse: await (
@@ -707,7 +725,25 @@ export const hqPolicyService = {
       ).getUsdtQuoteResponsePolicy(),
       expressFee: await getHqExpressPolicy(),
       memberGrade: await getHqMemberGradePolicy(),
+      settlementAsset,
     };
+  },
+
+  async saveSettlementAsset(
+    audit: AuditContext,
+    asset: import('./settlement-asset.service').SettlementAsset,
+  ) {
+    const { normalizeSettlementAsset } = await import('./settlement-asset.service');
+    const normalized = normalizeSettlementAsset(asset);
+    await putConfigWithAudit(audit, {
+      key: HQ_CONFIG_KEYS.settlementAsset,
+      value: { asset: normalized },
+      description: '본사 정산 자산 (USDT/USDC)',
+      entityType: 'HQ_SETTLEMENT_ASSET',
+      summary: `정산 자산 ${normalized}`,
+    });
+    /** 지갑은 USDT/USDC 각각 고객이 별도 등록 — 자동 미러 없음 */
+    return this.getCommissionPayload();
   },
 
   async saveExpressFee(audit: AuditContext, policy: HqExpressPolicy) {
@@ -793,14 +829,31 @@ export const hqPolicyService = {
     return this.getCommissionPayload();
   },
 
-  async saveGasNetworks(audit: AuditContext, policy: HqGasNetworkPolicy) {
-    const normalized = normalizeGasNetworkPolicy(policy);
+  async saveGasNetworks(
+    audit: AuditContext,
+    policy: HqGasNetworksByAssetPolicy | HqGasNetworkPolicy,
+  ) {
+    const raw = policy as HqGasNetworksByAssetPolicy & HqGasNetworkPolicy;
+    const normalized =
+      raw.byAsset != null
+        ? normalizeGasNetworksByAsset(raw)
+        : normalizeGasNetworksByAsset({
+            byAsset: {
+              USDT: {
+                activeGroup: raw.activeGroup ?? 'DEFAULT',
+                networks: raw.networks ?? [],
+              },
+              USDC: defaultGasNetworksByAsset().byAsset.USDC,
+            },
+          });
+    const usdtGroup = normalized.byAsset.USDT.activeGroup;
+    const usdcGroup = normalized.byAsset.USDC.activeGroup;
     await putConfigWithAudit(audit, {
       key: HQ_CONFIG_KEYS.gasNetworks,
       value: normalized,
-      description: '네트워크별 가스피',
+      description: '네트워크별 가스피 (USDT/USDC 적용그룹 분리)',
       entityType: 'HQ_GAS_NETWORKS',
-      summary: 'USDT 출금 네트워크별 가스피 저장',
+      summary: `USDT·USDC 네트워크 가스피 저장 (USDT=${usdtGroup}, USDC=${usdcGroup})`,
     });
     return this.getCommissionPayload();
   },
@@ -855,10 +908,23 @@ export const hqPolicyService = {
     return this.getCommissionPayload();
   },
 
-  async saveExchangeRateSources(audit: AuditContext, policy: HqExchangeRateSourcePolicy) {
-    const before = await getExchangeRateSourcePolicy();
-    await saveExchangeRateSourcePolicy(policy);
-    const after = await getExchangeRateSourcePolicy();
+  async saveExchangeRateSources(
+    audit: AuditContext,
+    policy: HqExchangeRateSourcePolicy | HqExchangeRateSourcesByAsset,
+  ) {
+    const before = await getExchangeRateSourcesByAsset();
+    const looksByAsset =
+      policy &&
+      typeof policy === 'object' &&
+      ('USDT' in policy || 'USDC' in policy) &&
+      !('KRW' in policy);
+    if (looksByAsset) {
+      await saveExchangeRateSourcesByAsset(policy as HqExchangeRateSourcesByAsset);
+    } else {
+      const { saveExchangeRateSourcePolicy } = await import('./exchange-rate-policy.service');
+      await saveExchangeRateSourcePolicy(policy as HqExchangeRateSourcePolicy);
+    }
+    const after = await getExchangeRateSourcesByAsset();
     await logAdminChange({
       actor: audit.actor,
       action: AdminChangeAction.UPDATE,
@@ -1057,9 +1123,11 @@ export const hqPolicyService = {
       ...defaultPlatform(),
       ...(await getConfig(HQ_CONFIG_KEYS.platform, defaultPlatform())),
     });
+    const { getSettlementAsset } = await import('./settlement-asset.service');
     return {
       idleTimeoutMinutes: config.idleTimeoutMinutes ?? 30,
       defaultUsdtFiatCurrency: config.defaultUsdtFiatCurrency ?? 'JPY',
+      settlementAsset: await getSettlementAsset(),
     };
   },
 
@@ -1173,6 +1241,9 @@ export const hqPolicyService = {
       baseTimezone: config.baseTimezone ?? 'Asia/Seoul',
       serviceTimezone: config.serviceTimezone ?? 'Asia/Seoul',
       currencyAmountDisplay: await getCurrencyAmountDisplayPolicy(),
+      settlementAsset: await (
+        await import('./settlement-asset.service')
+      ).getSettlementAsset(),
     };
   },
 

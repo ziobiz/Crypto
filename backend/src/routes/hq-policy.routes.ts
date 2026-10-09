@@ -198,6 +198,19 @@ router.put(
 );
 
 router.put(
+  '/commission/settlement-asset',
+  asyncHandler(async (req, res) => {
+    const body = req.body as { settlementAsset?: string };
+    if (!body.settlementAsset) {
+      res.status(400).json({ error: 'settlementAsset required' });
+      return;
+    }
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await hqPolicyService.saveSettlementAsset(audit, body.settlementAsset as 'USDT' | 'USDC'));
+  }),
+);
+
+router.put(
   '/commission/member-grade',
   asyncHandler(async (req, res) => {
     const body = req.body as { memberGrade?: import('../constants/hq-policy').HqMemberGradePolicy };
@@ -239,7 +252,9 @@ router.put(
 router.put(
   '/commission/exchange-rate-sources',
   asyncHandler(async (req, res) => {
-    const body = req.body as { exchangeRateSources?: HqExchangeRateSourcePolicy };
+    const body = req.body as {
+      exchangeRateSources?: HqExchangeRateSourcePolicy | Record<'USDT' | 'USDC', HqExchangeRateSourcePolicy>;
+    };
     if (!body.exchangeRateSources) {
       res.status(400).json({ error: 'exchangeRateSources required' });
       return;

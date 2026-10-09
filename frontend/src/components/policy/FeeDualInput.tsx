@@ -53,7 +53,7 @@ export function FeeDualInput({ feeKey, fees, editing, onChange, stackBoth }: Fee
             className="pg-input w-full text-xs"
           />
         </div>
-        <p className="text-[10px] text-slate-500">% / USDT</p>
+        <p className="text-[10px] text-slate-500">% / {t('hq.commission.unitCrypto')}</p>
       </div>
     );
   }

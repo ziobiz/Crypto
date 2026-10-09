@@ -332,7 +332,13 @@ export const api = {
     request<ExchangeRateResponse>(`/api/tickets/usdt-purchase/exchange-rate?currency=${currency}`),
 
   wallets: {
-    list: () => request<Wallet[]>('/api/wallets'),
+    list: (opts?: { forApply?: boolean; assetType?: SettlementAsset }) => {
+      const q = new URLSearchParams();
+      if (opts?.forApply) q.set('forApply', '1');
+      if (opts?.assetType) q.set('assetType', opts.assetType);
+      const qs = q.toString();
+      return request<Wallet[]>(`/api/wallets${qs ? `?${qs}` : ''}`);
+    },
     create: (data: WalletInput) =>
       request<Wallet>('/api/wallets', { method: 'POST', body: JSON.stringify(data) }),
     update: (id: string, data: Partial<WalletInput>) =>
@@ -918,6 +924,7 @@ export interface CustomerAccountProfile {
 export interface SessionPolicy {
   idleTimeoutMinutes: number;
   defaultUsdtFiatCurrency: 'KRW' | 'JPY' | 'THB' | 'CNY' | 'USD' | 'EUR';
+  settlementAsset?: SettlementAsset;
 }
 
 export type SimulatorRunRow = {
@@ -970,6 +977,7 @@ export type CostAnalysisPreview = {
   exchangeRate: number;
   exchangeRateAt: string;
   exchangeSource: string;
+  settlementAsset?: SettlementAsset;
   correctionUsdt: number;
   gasFeeUsdt: number;
   feeUsdt: number;
@@ -995,7 +1003,9 @@ export type ProfitAnalysisRow = {
   fiatCurrency: string;
   exchangeRate: number;
   expectedUsdtAmount: number;
+  actualUsdtAmount?: number | null;
   brokerUsdtAmount: number | null;
+  profitSource?: 'manual' | 'auto' | null;
   profitUsdt: number | null;
 };
 
@@ -1320,6 +1330,7 @@ export interface ManagedUser {
     label?: string | null;
     address: string;
     network: string;
+    assetType?: SettlementAsset;
     isDefault: boolean;
     hqRegistered?: boolean;
     approvalStatus?: WalletApprovalStatus;
@@ -1459,15 +1470,19 @@ export interface UpdateUserInput {
 
 export type WalletApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
+export type SettlementAsset = 'USDT' | 'USDC';
+
 export interface Wallet {
   id: string;
   label?: string;
   address: string;
   network: string;
+  assetType?: SettlementAsset;
   isDefault: boolean;
   hqRegistered?: boolean;
   approvalStatus?: WalletApprovalStatus;
   deleteRequestedAt?: string | null;
+  createdAt?: string;
   feesVisible?: boolean;
   fxFeePercent?: number;
   gasFeeAmount?: number;
@@ -1486,6 +1501,7 @@ export interface WalletInput {
   label: string;
   address: string;
   network?: string;
+  assetType?: SettlementAsset;
   isDefault?: boolean;
   fxFeePercent?: number;
   gasFeeAmount?: number;
@@ -1545,8 +1561,11 @@ export interface TradeReceiptEmailLogDetail extends TradeReceiptEmailLogSummary 
 
 export interface ExchangeRateResponse {
   currency?: string;
+  /** Alias of usdtFiatRate (fiat per 1 settlement asset) */
+  rate?: number;
   usdtFiatRate?: number;
   usdtKrwRate: number;
+  settlementAsset?: SettlementAsset;
   source: string;
   fetchedAt: string;
   disclaimer: string;
@@ -1557,6 +1576,7 @@ export interface AllExchangeRatesResponse {
   source: string;
   fetchedAt: string;
   disclaimer: string;
+  settlementAsset?: SettlementAsset;
 }
 
 export interface DepositReceivingAccountInfo {
@@ -1605,6 +1625,7 @@ export interface UsdtExpressOption {
   feeUsdt: number;
   feePercent?: number;
   maxHours: number;
+  calendarDays?: number | null;
 }
 
 export interface UsdtDepositContext {
@@ -1695,12 +1716,14 @@ export interface UsdtDepositContext {
     quoteValidMinutes?: number;
   };
   usdtQuoteResponseMode?: UsdtQuoteResponseMode;
+  settlementAsset?: SettlementAsset;
   express?: {
     enabled: boolean;
     tier: string | null;
     feeUsdt: number;
     feePercent?: number;
     maxHours?: number;
+    calendarDays?: number | null;
     options: UsdtExpressOption[];
     source?: string;
   };
@@ -1882,6 +1905,8 @@ export interface UsdtTicket {
   ticketNo: string;
   type: string;
   status: string;
+  /** Wallet/settlement unit for this ticket (USDT|USDC) */
+  settlementAsset?: SettlementAsset;
   paymentMethod?: 'BANK_TRANSFER' | 'CARD' | 'REMITTANCE';
   expressTier?: string | null;
   expressFeeUsdt?: number | null;
@@ -2268,6 +2293,11 @@ export const hqPolicyApi = {
       method: 'PUT',
       body: JSON.stringify({ feeTiersByCustomerType }),
     }),
+  saveSettlementAsset: (settlementAsset: SettlementAsset) =>
+    request<HqCommissionPayload>('/api/hq-policy/commission/settlement-asset', {
+      method: 'PUT',
+      body: JSON.stringify({ settlementAsset }),
+    }),
   saveExpressFee: (expressFee: HqExpressPolicy) =>
     request<HqCommissionPayload>('/api/hq-policy/commission/express-fee', {
       method: 'PUT',
@@ -2278,7 +2308,9 @@ export const hqPolicyApi = {
       method: 'PUT',
       body: JSON.stringify({ memberGrade }),
     }),
-  saveExchangeRateSources: (exchangeRateSources: HqExchangeRateSourcePolicy) =>
+  saveExchangeRateSources: (
+    exchangeRateSources: HqExchangeRateSourcePolicy | HqExchangeRateSourcesByAsset,
+  ) =>
     request<HqCommissionPayload>('/api/hq-policy/commission/exchange-rate-sources', {
       method: 'PUT',
       body: JSON.stringify({ exchangeRateSources }),
@@ -2314,7 +2346,7 @@ export const hqPolicyApi = {
       `/api/hq-policy/commission/fee-types/${id}`,
       { method: 'DELETE' },
     ),
-  saveGasNetworks: (gasNetworks: HqGasNetworkPolicy) =>
+  saveGasNetworks: (gasNetworks: HqGasNetworkPolicy | HqGasNetworksByAssetPolicy) =>
     request<HqCommissionPayload>('/api/hq-policy/commission/gas-networks', {
       method: 'PUT',
       body: JSON.stringify({ gasNetworks }),
@@ -2717,8 +2749,8 @@ export const EXPRESS_TIERS = [
   'PRIORITY',
   'HALF',
   'DAY',
-  'T1',
-  'T2',
+  'D1',
+  'D2',
   'BASIC',
 ] as const;
 export type ExpressTier = (typeof EXPRESS_TIERS)[number];
@@ -2746,8 +2778,8 @@ export function defaultExpressCustomerTypePolicy(): HqExpressCustomerTypePolicy 
       PRIORITY: { feeUsdt: null, feePercent: null, enabled: false },
       HALF: { feeUsdt: null, feePercent: null, enabled: false },
       DAY: { feeUsdt: null, feePercent: null, enabled: false },
-      T1: { feeUsdt: null, feePercent: null, enabled: false },
-      T2: { feeUsdt: null, feePercent: null, enabled: false },
+      D1: { feeUsdt: null, feePercent: null, enabled: false },
+      D2: { feeUsdt: null, feePercent: null, enabled: false },
       BASIC: { feeUsdt: 0, feePercent: null, enabled: true },
     },
   };
@@ -2788,8 +2820,8 @@ function defaultMemberGradeBenefit(
       PRIORITY: null,
       HALF: null,
       DAY: null,
-      T1: null,
-      T2: null,
+      D1: null,
+      D2: null,
       BASIC: null,
     },
     tierFeePercents: {
@@ -2797,8 +2829,8 @@ function defaultMemberGradeBenefit(
       PRIORITY: null,
       HALF: null,
       DAY: null,
-      T1: null,
-      T2: null,
+      D1: null,
+      D2: null,
       BASIC: null,
     },
     discountPercent,
@@ -2839,6 +2871,10 @@ export type ExchangeRateSourceId =
   | 'kr_domestic';
 
 export type HqExchangeRateSourcePolicy = Record<SymbolFeeCurrency, ExchangeRateSourceId>;
+export type HqExchangeRateSourcesByAsset = {
+  USDT: HqExchangeRateSourcePolicy;
+  USDC: HqExchangeRateSourcePolicy;
+};
 
 export interface LocalMarketPremiumAnalysis {
   currency: 'KRW' | 'THB' | 'JPY';
@@ -2871,9 +2907,24 @@ export interface ExchangeRatePreviewRow {
   actualSource: string;
   fetchedAt: string | null;
   error?: string;
+  settlementAsset?: SettlementAsset;
 }
 
-export type GasNetworkCode = 'TRC20' | 'ERC20' | 'BEP20' | 'POLYGON' | 'ARBITRUM' | 'SOL';
+export type ExchangeRatePreviewByAsset = {
+  USDT: ExchangeRatePreviewRow[];
+  USDC: ExchangeRatePreviewRow[];
+};
+
+export type GasNetworkCode =
+  | 'TRC20'
+  | 'ERC20'
+  | 'BEP20'
+  | 'POLYGON'
+  | 'ARBITRUM'
+  | 'SOL'
+  | 'OPTIMISM'
+  | 'AVAX'
+  | 'BASE';
 export type GasFeeGroupId = 'DEFAULT' | 'A' | 'B' | 'C';
 
 export type HqGasNetworkPolicy = {
@@ -2882,6 +2933,18 @@ export type HqGasNetworkPolicy = {
     code: GasNetworkCode;
     fees: Record<GasFeeGroupId, number>;
   }>;
+};
+
+export type HqGasAssetNetworksPolicy = {
+  activeGroup: GasFeeGroupId;
+  networks: HqGasNetworkPolicy['networks'];
+};
+
+export type HqGasNetworksByAssetPolicy = {
+  byAsset: {
+    USDT: HqGasAssetNetworksPolicy;
+    USDC: HqGasAssetNetworksPolicy;
+  };
 };
 
 export type FeeTicketKind = 'USDT_PURCHASE' | 'TRADE_ESCROW';
@@ -2958,11 +3021,14 @@ export interface HqCommissionPayload {
   feeTiers: SymbolFeeTierRow[];
   feeTiersByCustomerType?: SymbolFeeTiersByCustomerType;
   expressFee?: HqExpressPolicy;
+  settlementAsset?: SettlementAsset;
   memberGrade?: HqMemberGradePolicy;
   simulatorRisk?: HqCommissionRiskConfig;
   simulatorFeeTiers?: SymbolFeeTierRow[];
   exchangeRateSources: HqExchangeRateSourcePolicy;
+  exchangeRateSourcesByAsset?: HqExchangeRateSourcesByAsset;
   exchangeRatePreview: ExchangeRatePreviewRow[];
+  exchangeRatePreviewByAsset?: ExchangeRatePreviewByAsset;
   localPremiums: LocalMarketPremiumAnalysis[];
   kimchiPremium: KimchiPremiumAnalysis | null;
   rates: Array<{
@@ -2974,6 +3040,7 @@ export interface HqCommissionPayload {
   orgShare: HqOrgSharePolicy;
   feeTypes?: FeeTypeTemplate[];
   gasNetworks?: HqGasNetworkPolicy;
+  gasNetworksByAsset?: HqGasNetworksByAssetPolicy;
   currencyAmountDisplay?: HqCurrencyAmountDisplayPolicy;
   usdtQuoteResponse?: {
     enabled: boolean;
@@ -3031,6 +3098,8 @@ export interface BrandingResponse {
   baseTimezone?: string;
   /** 서비스기준시간 IANA TZ */
   serviceTimezone?: string;
+  /** HQ settlement asset (USDT | USDC) */
+  settlementAsset?: SettlementAsset;
 }
 
 export interface HqPlatformConfig {

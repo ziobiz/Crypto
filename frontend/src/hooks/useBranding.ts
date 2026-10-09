@@ -24,6 +24,7 @@ export type ResolvedBranding = {
   individualRegisterNoticeI18n: Partial<Record<Locale, { title: string; body: string }>>;
   baseTimezone: string;
   serviceTimezone: string;
+  settlementAsset: 'USDT' | 'USDC';
 };
 
 function resolveUrls(b: BrandingResponse): ResolvedBranding {
@@ -46,6 +47,7 @@ function resolveUrls(b: BrandingResponse): ResolvedBranding {
     individualRegisterNoticeI18n: b.individualRegisterNoticeI18n ?? {},
     baseTimezone: b.baseTimezone || 'Asia/Seoul',
     serviceTimezone: b.serviceTimezone || 'Asia/Seoul',
+    settlementAsset: b.settlementAsset === 'USDC' ? 'USDC' : 'USDT',
   };
 }
 
@@ -67,6 +69,7 @@ const FALLBACK: ResolvedBranding = {
   individualRegisterNoticeI18n: {},
   baseTimezone: 'Asia/Seoul',
   serviceTimezone: 'Asia/Seoul',
+  settlementAsset: 'USDT',
 };
 
 export function useBranding() {

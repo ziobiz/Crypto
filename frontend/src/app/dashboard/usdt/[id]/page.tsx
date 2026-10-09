@@ -40,14 +40,18 @@ function hasLocalPremium(currency: string) {
   return (LOCAL_PREMIUM_CURRENCIES as readonly string[]).includes(currency);
 }
 
-function feeSummaryLabel(ticket: UsdtTicket, t: ReturnType<typeof useT>) {
+function feeSummaryLabel(
+  ticket: UsdtTicket,
+  t: ReturnType<typeof useT>,
+  asset: string = 'CRYPTO',
+) {
   const policy = ticket.feePolicySnapshot;
   if (policy) {
     return [
-      `${t('usdt.fxFee')} ${formatFeeComponentLabel(policy, 'fx')}`,
-      `${t('usdt.gasFee')} ${formatFeeComponentLabel(policy, 'gas')}`,
-      `${t('usdt.transferFee')} ${formatFeeComponentLabel(policy, 'transfer')}`,
-      `${t('usdt.otherFee')} ${formatFeeComponentLabel(policy, 'other')}`,
+      `${t('usdt.fxFee')} ${formatFeeComponentLabel(policy, 'fx', asset)}`,
+      `${t('usdt.gasFee')} ${formatFeeComponentLabel(policy, 'gas', asset)}`,
+      `${t('usdt.transferFee')} ${formatFeeComponentLabel(policy, 'transfer', asset)}`,
+      `${t('usdt.otherFee')} ${formatFeeComponentLabel(policy, 'other', asset)}`,
     ].join(' · ');
   }
   const legacyPolicy = {
@@ -65,10 +69,10 @@ function feeSummaryLabel(ticket: UsdtTicket, t: ReturnType<typeof useT>) {
     otherFeeUsdt: ticket.otherFeeSnapshot,
   } satisfies TransactionFees;
   return [
-    `${t('usdt.fxFee')} ${formatFeeComponentLabel(legacyPolicy, 'fx')}`,
-    `${t('usdt.gasFee')} ${formatFeeComponentLabel(legacyPolicy, 'gas')}`,
-    `${t('usdt.transferFee')} ${formatFeeComponentLabel(legacyPolicy, 'transfer')}`,
-    `${t('usdt.otherFee')} ${formatFeeComponentLabel(legacyPolicy, 'other')}`,
+    `${t('usdt.fxFee')} ${formatFeeComponentLabel(legacyPolicy, 'fx', asset)}`,
+    `${t('usdt.gasFee')} ${formatFeeComponentLabel(legacyPolicy, 'gas', asset)}`,
+    `${t('usdt.transferFee')} ${formatFeeComponentLabel(legacyPolicy, 'transfer', asset)}`,
+    `${t('usdt.otherFee')} ${formatFeeComponentLabel(legacyPolicy, 'other', asset)}`,
   ].join(' · ');
 }
 
@@ -142,6 +146,16 @@ export default function UsdtDetailPage() {
     load();
     api.usdt.depositContext().then(setDepositCtx).catch(console.error);
   }, [id]);
+
+  useEffect(() => {
+    if (!ticket || ticket.status !== 'TRANSFER_IN_PROGRESS') return;
+    if (actualUsdt.trim() !== '') return;
+    const suggested =
+      ticket.confirmedUsdtAmount ?? ticket.expectedUsdtAmount ?? null;
+    if (suggested != null && Number.isFinite(Number(suggested))) {
+      setActualUsdt(Number(suggested).toFixed(4));
+    }
+  }, [ticket?.id, ticket?.status, ticket?.confirmedUsdtAmount, ticket?.expectedUsdtAmount]);
 
   // CURFEX: poll for webhook/poll auto-detect
   useEffect(() => {
@@ -380,7 +394,14 @@ export default function UsdtDetailPage() {
     void submitComplete(false);
   };
 
-  const rateLabel = `1 USDT = ${ticket.exchangeRate.toLocaleString()} ${ticket.fiatCurrency}`;
+  const settlementAssetLabel =
+    ticket.settlementAsset === 'USDC' ||
+    (ticket.wallet as { assetType?: string } | null | undefined)?.assetType === 'USDC' ||
+    depositCtx?.settlementAsset === 'USDC' ||
+    user?.sessionPolicy?.settlementAsset === 'USDC'
+      ? 'USDC'
+      : 'USDT';
+  const rateLabel = `1 ${settlementAssetLabel} = ${ticket.exchangeRate.toLocaleString()} ${ticket.fiatCurrency}`;
   const displayFiat =
     ticket.confirmedFiatAmount != null ? ticket.confirmedFiatAmount : ticket.fiatAmount;
   const displayUsdt =
@@ -389,12 +410,12 @@ export default function UsdtDetailPage() {
       : ticket.expectedUsdtAmount;
   const expectedRange =
     ticket.status === 'QUOTE_CONFIRMED' || ticket.confirmedUsdtAmount != null
-      ? `${displayUsdt.toFixed(4)} USDT`
+      ? `${displayUsdt.toFixed(4)} ${settlementAssetLabel}`
       : ticket.status === 'QUOTE_PENDING'
-        ? `${ticket.expectedUsdtAmount.toFixed(4)} USDT`
+        ? `${ticket.expectedUsdtAmount.toFixed(4)} ${settlementAssetLabel}`
         : ticket.expectedUsdtMin != null && ticket.expectedUsdtMax != null
-          ? `${ticket.expectedUsdtMin.toFixed(4)} ~ ${ticket.expectedUsdtMax.toFixed(4)} USDT`
-          : `${ticket.expectedUsdtAmount.toFixed(4)} USDT`;
+          ? `${ticket.expectedUsdtMin.toFixed(4)} ~ ${ticket.expectedUsdtMax.toFixed(4)} ${settlementAssetLabel}`
+          : `${ticket.expectedUsdtAmount.toFixed(4)} ${settlementAssetLabel}`;
 
   const depositExpired =
     ticket.depositDeadlineAt &&
@@ -424,7 +445,7 @@ export default function UsdtDetailPage() {
           : t('usdt.collection.fixed');
   const heroToUsdt =
     ticket.actualUsdtAmount != null
-      ? `${Number(ticket.actualUsdtAmount).toFixed(4)} USDT`
+      ? `${Number(ticket.actualUsdtAmount).toFixed(4)} ${settlementAssetLabel}`
       : expectedRange;
   const usdtCtx = buildUsdtStatusContext(ticket);
   const isTestSeed = ticket.adminNote?.includes('[TEST R2]') ?? false;
@@ -492,7 +513,7 @@ export default function UsdtDetailPage() {
               </div>
               <div>
                 <dt className="pg-muted">{t('usdt.quote.provisionalUsdt')}</dt>
-                <dd className="font-mono font-semibold">{ticket.expectedUsdtAmount.toFixed(4)} USDT</dd>
+                <dd className="font-mono font-semibold">{ticket.expectedUsdtAmount.toFixed(4)} {settlementAssetLabel}</dd>
               </div>
             </dl>
           </div>
@@ -516,7 +537,7 @@ export default function UsdtDetailPage() {
               </div>
               <div>
                 <dt className="pg-muted">{t('usdt.quote.confirmedUsdt')}</dt>
-                <dd className="font-mono text-lg font-bold">{displayUsdt.toFixed(4)} USDT</dd>
+                <dd className="font-mono text-lg font-bold">{displayUsdt.toFixed(4)} {settlementAssetLabel}</dd>
               </div>
             </dl>
           </div>
@@ -923,7 +944,7 @@ export default function UsdtDetailPage() {
         {ticket.targetUsdtAmount != null && (
           <DetailRow
             label={t('usdt.targetUsdt')}
-            value={`${ticket.targetUsdtAmount.toFixed(4)} USDT`}
+            value={`${ticket.targetUsdtAmount.toFixed(4)} ${settlementAssetLabel}`}
           />
         )}
         <DetailRow label={t('usdt.detail.expected')} value={expectedRange} highlight />
@@ -993,7 +1014,10 @@ export default function UsdtDetailPage() {
           return (
             <>
               {showIntegrated && (
-                <DetailRow label={t('usdt.fee.integratedTotal')} value={feeSummaryLabel(ticket, t)} />
+                <DetailRow
+                  label={t('usdt.fee.integratedTotal')}
+                  value={feeSummaryLabel(ticket, t, 'CRYPTO')}
+                />
               )}
               {showItemized && (
                 <>
@@ -1003,20 +1027,20 @@ export default function UsdtDetailPage() {
                   />
                   <DetailRow
                     label={t('usdt.detail.gasFee')}
-                    value={`${ticket.gasFeeSnapshot} USDT`}
+                    value={`${ticket.gasFeeSnapshot} ${settlementAssetLabel}`}
                   />
                   <DetailRow
                     label={t('usdt.detail.transferFee')}
-                    value={`${ticket.transferFeeSnapshot} USDT`}
+                    value={`${ticket.transferFeeSnapshot} ${settlementAssetLabel}`}
                   />
                   <DetailRow
                     label={t('usdt.detail.otherFee')}
-                    value={`${ticket.otherFeeSnapshot} USDT`}
+                    value={`${ticket.otherFeeSnapshot} ${settlementAssetLabel}`}
                   />
                   {ticket.expressFeeUsdt != null && (
                     <DetailRow
                       label={t('hq.commission.feeDiagram.expressFee')}
-                      value={`${ticket.expressFeeUsdt} USDT (${ticket.expressTier ?? '—'})`}
+                      value={`${ticket.expressFeeUsdt} ${settlementAssetLabel} (${ticket.expressTier ?? '—'})`}
                     />
                   )}
                 </>
@@ -1024,7 +1048,7 @@ export default function UsdtDetailPage() {
               {(user?.role === 'SUPER_ADMIN' || user?.role === 'ORGANIZER') && (
                 <DetailRow
                   label={t('usdt.brokerUsdt')}
-                  value={`${ticket.brokerUsdtAmount != null ? ticket.brokerUsdtAmount.toFixed(4) : '—'} USDT`}
+                  value={`${ticket.brokerUsdtAmount != null ? ticket.brokerUsdtAmount.toFixed(4) : '—'} ${settlementAssetLabel}`}
                 />
               )}
             </>
@@ -1049,7 +1073,7 @@ export default function UsdtDetailPage() {
           )}
           <DetailRow
             label={t('express.detail.promisedFee')}
-            value={ticket.expressFeeUsdt != null ? `${ticket.expressFeeUsdt} USDT` : '—'}
+            value={ticket.expressFeeUsdt != null ? `${ticket.expressFeeUsdt} ${settlementAssetLabel}` : '—'}
           />
           {ticket.expressDueAt && (
             <DetailRow
@@ -1063,13 +1087,13 @@ export default function UsdtDetailPage() {
           {ticket.expressFeeSettledUsdt != null && (
             <DetailRow
               label={t('express.detail.settledFee')}
-              value={`${ticket.expressFeeSettledUsdt} USDT`}
+              value={`${ticket.expressFeeSettledUsdt} ${settlementAssetLabel}`}
             />
           )}
           {ticket.expressRefundUsdt != null && ticket.expressRefundUsdt > 0 && (
             <DetailRow
               label={t('express.detail.refund')}
-              value={`${ticket.expressRefundUsdt} USDT`}
+              value={`${ticket.expressRefundUsdt} ${settlementAssetLabel}`}
             />
           )}
           {ticket.expressSlaMet != null && (
@@ -1124,7 +1148,7 @@ export default function UsdtDetailPage() {
                 {ticket.actualUsdtAmount != null && (
                   <DetailRow
                     label={t('usdt.detail.actualUsdt')}
-                    value={`${ticket.actualUsdtAmount} USDT`}
+                    value={`${ticket.actualUsdtAmount} ${settlementAssetLabel}`}
                     highlight
                   />
                 )}
@@ -1372,28 +1396,51 @@ export default function UsdtDetailPage() {
               </button>
             )}
             {ticket.status === 'TRANSFER_IN_PROGRESS' && (
-              <>
-                <input
-                  value={txId}
-                  onChange={(e) => setTxId(e.target.value)}
-                  placeholder="USDT TXID"
-                  className="pg-input"
-                />
-                <input
-                  value={actualUsdt}
-                  onChange={(e) => setActualUsdt(e.target.value)}
-                  placeholder={t('usdt.detail.actualUsdt')}
-                  className="pg-input"
-                />
-                <button
-                  type="button"
-                  onClick={requestComplete}
-                  disabled={loading || !txId}
-                  className="pg-btn pg-btn-primary disabled:opacity-50"
-                >
-                  {t('usdt.detail.complete')}
-                </button>
-              </>
+              <div className="w-full space-y-2">
+                <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 space-y-1">
+                  <p>
+                    {t('usdt.detail.suggestedUsdt')}:{' '}
+                    <span className="font-mono font-semibold">
+                      {displayUsdt.toFixed(4)}{' '}
+                      {depositCtx?.settlementAsset === 'USDC' ? 'USDC' : 'USDT'}
+                    </span>
+                  </p>
+                  {ticket.expressFeeUsdt != null && Number(ticket.expressFeeUsdt) > 0 && (
+                    <p>
+                      {t('express.detail.promised')}: {ticket.expressTier ?? '—'} ·{' '}
+                      {ticket.expressFeeUsdt}{' '}
+                      {depositCtx?.settlementAsset === 'USDC' ? 'USDC' : 'USDT'}
+                    </p>
+                  )}
+                  {ticket.memberGrade && (
+                    <p>
+                      {t('memberGrade.customer.title')}: {ticket.memberGrade}
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <input
+                    value={txId}
+                    onChange={(e) => setTxId(e.target.value)}
+                    placeholder={t('usdt.detail.txidPlaceholder')}
+                    className="pg-input"
+                  />
+                  <input
+                    value={actualUsdt}
+                    onChange={(e) => setActualUsdt(e.target.value)}
+                    placeholder={`${t('usdt.detail.actualUsdt')} (${displayUsdt.toFixed(4)})`}
+                    className="pg-input"
+                  />
+                  <button
+                    type="button"
+                    onClick={requestComplete}
+                    disabled={loading || !txId}
+                    className="pg-btn pg-btn-primary disabled:opacity-50"
+                  >
+                    {t('usdt.detail.complete')}
+                  </button>
+                </div>
+              </div>
             )}
             {ticket.status !== 'COMPLETED' && ticket.status !== 'CANCELLED' && (
               <>
@@ -1495,31 +1542,31 @@ export default function UsdtDetailPage() {
               ? [
                   {
                     label: t('usdt.detail.confirmExpected'),
-                    value: `${ticket.expectedUsdtAmount.toFixed(4)} USDT`,
+                    value: `${ticket.expectedUsdtAmount.toFixed(4)} ${settlementAssetLabel}`,
                   },
                   ...(ticket.expectedUsdtMin != null && ticket.expectedUsdtMax != null
                     ? [
                         {
                           label: t('usdt.detail.confirmRange'),
-                          value: `${ticket.expectedUsdtMin.toFixed(4)} ~ ${ticket.expectedUsdtMax.toFixed(4)} USDT`,
+                          value: `${ticket.expectedUsdtMin.toFixed(4)} ~ ${ticket.expectedUsdtMax.toFixed(4)} ${settlementAssetLabel}`,
                         },
                       ]
                     : []),
                   {
                     label: t('usdt.detail.confirmActual'),
-                    value: `${completeConfirm.variance.actualAmount.toFixed(4)} USDT`,
+                    value: `${completeConfirm.variance.actualAmount.toFixed(4)} ${settlementAssetLabel}`,
                     warn: true,
                   },
                   {
                     label: t('usdt.detail.confirmDiff'),
-                    value: `${completeConfirm.variance.diffAmount >= 0 ? '+' : ''}${completeConfirm.variance.diffAmount.toFixed(4)} USDT (${completeConfirm.variance.diffPercent >= 0 ? '+' : ''}${completeConfirm.variance.diffPercent.toFixed(2)}%)`,
+                    value: `${completeConfirm.variance.diffAmount >= 0 ? '+' : ''}${completeConfirm.variance.diffAmount.toFixed(4)} ${settlementAssetLabel} (${completeConfirm.variance.diffPercent >= 0 ? '+' : ''}${completeConfirm.variance.diffPercent.toFixed(2)}%)`,
                     warn: true,
                   },
                 ]
               : [
                   {
                     label: t('usdt.detail.confirmExpected'),
-                    value: `${ticket.expectedUsdtAmount.toFixed(4)} USDT`,
+                    value: `${ticket.expectedUsdtAmount.toFixed(4)} ${settlementAssetLabel}`,
                   },
                   {
                     label: t('usdt.detail.confirmActual'),

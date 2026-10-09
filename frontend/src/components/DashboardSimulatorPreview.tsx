@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useAuth } from '@/context/AuthProvider';
 import { useT } from '@/context/LocaleProvider';
 import { api, type SimulatorRunRow } from '@/lib/api';
 import { ContentCard } from '@/components/layout/ContentCard';
@@ -10,6 +11,8 @@ import type { MessageKey } from '@/i18n/messages';
 
 export function DashboardSimulatorPreview() {
   const t = useT();
+  const { user } = useAuth();
+  const asset = user?.sessionPolicy?.settlementAsset === 'USDC' ? 'USDC' : 'USDT';
   const [rows, setRows] = useState<SimulatorRunRow[]>([]);
 
   useEffect(() => {
@@ -40,16 +43,16 @@ export function DashboardSimulatorPreview() {
                 <span>{t(`network.${row.network}` as MessageKey)}</span>
                 <span className="font-semibold text-red-600">
                   {showRange
-                    ? `${usdtLow.toFixed(4)} ~ ${usdtHigh.toFixed(4)} USDT`
-                    : `${net.toFixed(4)} USDT`}
+                    ? `${usdtLow.toFixed(4)} ~ ${usdtHigh.toFixed(4)} ${asset}`
+                    : `${net.toFixed(4)} ${asset}`}
                 </span>
                 {showTotalFee && (
                   <span className="font-semibold text-green-600">
-                    {Number(row.totalFeeUsdt).toFixed(4)} USDT
+                    {Number(row.totalFeeUsdt).toFixed(4)} {asset}
                   </span>
                 )}
                 <span>
-                  1 USDT = {Number(row.exchangeRate).toLocaleString()} {row.currency}
+                  1 {asset} = {Number(row.exchangeRate).toLocaleString()} {row.currency}
                 </span>
               </div>
             </div>

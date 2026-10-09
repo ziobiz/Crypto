@@ -1164,6 +1164,24 @@ router.post(
     const hqFees = await import('../services/transaction-fee.service').then((m) =>
       m.getHqTransactionFees(),
     );
+    const { getSettlementAsset } = await import('../services/settlement-asset.service');
+    const {
+      assertNetworkForAsset,
+      defaultNetworkForAsset,
+      rememberApprovedAddress,
+      normalizeWalletAddress,
+    } = await import('../services/wallet-policy.service');
+    const { validateWalletAddressFormat } = await import('../lib/wallet-address');
+    const settlementAsset = await getSettlementAsset();
+    const walletNetwork = assertNetworkForAsset(
+      data.walletNetwork?.trim() || defaultNetworkForAsset(settlementAsset),
+      settlementAsset,
+    );
+    const walletFormat = validateWalletAddressFormat(walletNetwork, data.walletAddress);
+    if (!walletFormat.ok) {
+      throw new AppError(400, walletFormat.message, walletFormat.code);
+    }
+    const walletAddressNormalized = normalizeWalletAddress(walletNetwork, walletFormat.address);
     const signupIp = clientIpFromRequest(req);
     const signupCountry = clientCountryFromRequest(req);
     const limitCountry = resolveLimitCountryForRegister({
@@ -1237,8 +1255,10 @@ router.post(
         wallets: {
           create: {
             label: data.walletLabel.trim().slice(0, 40),
-            address: data.walletAddress.trim(),
-            network: data.walletNetwork?.trim() || 'TRC20',
+            address: walletAddressNormalized,
+            network: walletNetwork,
+            assetType: settlementAsset,
+            feeCurrency: settlementAsset,
             isDefault: true,
             hqRegistered: true,
             approvalStatus: 'APPROVED',
@@ -1258,12 +1278,7 @@ router.post(
         created.id,
       );
     }
-    const { rememberApprovedAddress } = await import('../services/wallet-policy.service');
-    await rememberApprovedAddress(
-      created.id,
-      data.walletNetwork?.trim() || 'TRC20',
-      data.walletAddress.trim(),
-    );
+    await rememberApprovedAddress(created.id, walletNetwork, walletAddressNormalized);
 
     res.status(201).json({
       ok: true,

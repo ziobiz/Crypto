@@ -51,13 +51,13 @@ function isLocalPremiumCurrency(currency: string) {
   return (LOCAL_PREMIUM_CURRENCIES as readonly string[]).includes(currency);
 }
 
-function formatOperatingFeeRate(fees?: FeeRates): string {
+function formatOperatingFeeRate(fees?: FeeRates, asset = 'CRYPTO'): string {
   const pct = fees?.operatingFeePercent ?? 0;
   const fixed = fees?.operatingFeeFixedUsdt ?? 0;
   const parts: string[] = [];
   if (pct > 0) parts.push(`${pct}%`);
-  if (fixed > 0) parts.push(`${fixed} USDT`);
-  return parts.length > 0 ? parts.join(' + ') : '—';
+  if (fixed > 0) parts.push(`${fixed} ${asset}`);
+  return parts.length > 0 ? parts.join(' + ') : '-';
 }
 
 const DEFAULT_DISPLAY: FeeDiagramDisplayConfig = {
@@ -87,7 +87,7 @@ export function UsdtFeeBreakdownPanel({
   cardChargeFiat,
   cardFeePercent,
   isCardPayment = false,
-  /** 입금/수령 금액 ±N% 범위 표시. exact도 함께 보여줄지 여부 */
+  settlementAsset = 'USDT',
   amountRangePct,
   showExactWithRange = false,
 }: {
@@ -101,10 +101,12 @@ export function UsdtFeeBreakdownPanel({
   cardChargeFiat?: number | null;
   cardFeePercent?: number | null;
   isCardPayment?: boolean;
+  settlementAsset?: 'USDT' | 'USDC';
   amountRangePct?: number | null;
   showExactWithRange?: boolean;
 }) {
   const t = useT();
+  const asset = settlementAsset === 'USDC' ? 'USDC' : 'USDT';
   const cfg = { ...DEFAULT_DISPLAY, ...display };
   const billingMethod = cfg.billingMethod ?? cfg.defaultFeeBillingMethod ?? 'ITEMIZED';
   const premiumPct = breakdown.localPremiumPercent ?? breakdown.kimchiPremiumPercent ?? 0;
@@ -118,19 +120,25 @@ export function UsdtFeeBreakdownPanel({
   const expressRateParts: string[] = [];
   if (expressTier) expressRateParts.push(String(expressTier));
   if (expressFeePercent > 0) expressRateParts.push(`${expressFeePercent}%`);
-  const expressRate = expressRateParts.length ? expressRateParts.join(' · ') : '—';
+  const expressRate = expressRateParts.length ? expressRateParts.join(' Â· ') : '-';
 
   const premiumFeeLabel =
     currency === 'KRW'
       ? t('usdt.kimchiPremiumFee', { pct: premiumPct.toFixed(2) })
       : t('usdt.localPremiumFee', { currency, pct: premiumPct.toFixed(2) });
 
-  const itemizedFeeParts: Array<{ key: string; amount: number; rate?: string; label: string; tone: string }> = [];
+  const itemizedFeeParts: Array<{
+    key: string;
+    amount: number;
+    rate?: string;
+    label: string;
+    tone: string;
+  }> = [];
   if (cfg.fxFee) {
     itemizedFeeParts.push({
       key: 'fxFee',
       amount: breakdown.fxFeeUsdt,
-      rate: fees ? formatFeeComponentLabel(fees, 'fx') : '—',
+      rate: fees ? formatFeeComponentLabel(fees, 'fx', 'CRYPTO') : '-',
       label: t('usdt.fxFee'),
       tone: 'bg-rose-50',
     });
@@ -139,7 +147,7 @@ export function UsdtFeeBreakdownPanel({
     itemizedFeeParts.push({
       key: 'gasFee',
       amount: breakdown.gasFeeUsdt,
-      rate: fees ? formatFeeComponentLabel(fees, 'gas') : '—',
+      rate: fees ? formatFeeComponentLabel(fees, 'gas', 'CRYPTO') : '-',
       label: t('usdt.gasFee'),
       tone: 'bg-rose-50/70',
     });
@@ -148,7 +156,7 @@ export function UsdtFeeBreakdownPanel({
     itemizedFeeParts.push({
       key: 'transferFee',
       amount: breakdown.transferFeeUsdt,
-      rate: fees ? formatFeeComponentLabel(fees, 'transfer') : '—',
+      rate: fees ? formatFeeComponentLabel(fees, 'transfer', 'CRYPTO') : '-',
       label: t('usdt.transferFee'),
       tone: 'bg-rose-50/70',
     });
@@ -158,7 +166,7 @@ export function UsdtFeeBreakdownPanel({
       itemizedFeeParts.push({
         key: 'otherFeeBase',
         amount: baseOther,
-        rate: fees ? formatFeeComponentLabel(fees, 'other') : '—',
+        rate: fees ? formatFeeComponentLabel(fees, 'other', 'CRYPTO') : '-',
         label: t('usdt.otherFeeBase'),
         tone: 'bg-rose-50/70',
       });
@@ -175,7 +183,7 @@ export function UsdtFeeBreakdownPanel({
       itemizedFeeParts.push({
         key: 'otherFee',
         amount: breakdown.otherFeeUsdt,
-        rate: fees ? formatFeeComponentLabel(fees, 'other') : '—',
+        rate: fees ? formatFeeComponentLabel(fees, 'other', 'CRYPTO') : '-',
         label: t('usdt.otherFee'),
         tone: 'bg-rose-50/70',
       });
@@ -193,7 +201,7 @@ export function UsdtFeeBreakdownPanel({
     itemizedFeeParts.push({
       key: 'operatingFee',
       amount: operatingFeeUsdt,
-      rate: formatOperatingFeeRate(fees),
+      rate: formatOperatingFeeRate(fees, 'CRYPTO'),
       label: t('usdt.operatingFee'),
       tone: 'bg-rose-50',
     });
@@ -204,7 +212,7 @@ export function UsdtFeeBreakdownPanel({
       amount: expressFeeUsdt,
       rate: expressRate,
       label: t('usdt.expressFee'),
-      tone: 'bg-amber-50',
+      tone: 'bg-violet-50',
     });
   }
 
@@ -212,8 +220,8 @@ export function UsdtFeeBreakdownPanel({
   const integratedRate = cfg.showRates
     ? itemizedFeeParts
         .map((p) => p.rate)
-        .filter((r) => r && r !== '—')
-        .join(' · ') || '—'
+        .filter((r) => r && r !== '-')
+        .join(' Â· ') || '-'
     : undefined;
 
   const allSteps: FeeStep[] = [];
@@ -221,8 +229,8 @@ export function UsdtFeeBreakdownPanel({
     allSteps.push({
       key: 'gross',
       label: t('usdt.fee.gross'),
-      rate: '—',
-      value: `${breakdown.grossUsdt.toFixed(4)} USDT`,
+      rate: '-',
+      value: `${breakdown.grossUsdt.toFixed(4)} ${asset}`,
       tone: 'bg-rose-50/50',
     });
   }
@@ -236,7 +244,7 @@ export function UsdtFeeBreakdownPanel({
       key: 'integratedFee',
       label: t('usdt.fee.integratedTotal'),
       rate: integratedRate,
-      value: `− ${integratedTotal.toFixed(4)} USDT`,
+      value: `- ${integratedTotal.toFixed(4)} ${asset}`,
       tone: 'bg-rose-100/70',
     });
   }
@@ -247,20 +255,20 @@ export function UsdtFeeBreakdownPanel({
         key: p.key,
         label: p.label,
         rate: p.rate,
-        value: `− ${Number(p.amount).toFixed(4)} USDT`,
+        value: `- ${Number(p.amount).toFixed(4)} ${asset}`,
         tone: p.tone,
       });
     }
   }
 
   if (cfg.net) {
-    const netExact = `${breakdown.netUsdt.toFixed(4)} USDT`;
+    const netExact = `${breakdown.netUsdt.toFixed(4)} ${asset}`;
     let netValue = netExact;
     if (amountRangePct != null && amountRangePct > 0) {
       const d = breakdown.netUsdt * (amountRangePct / 100);
       const low = Math.max(0, breakdown.netUsdt - d);
       const high = breakdown.netUsdt + d;
-      const range = `${low.toFixed(4)} ~ ${high.toFixed(4)} USDT`;
+      const range = `${low.toFixed(4)} ~ ${high.toFixed(4)} ${asset}`;
       netValue = showExactWithRange
         ? `${range}\n${t('usdt.fee.refExact')}: ${netExact}`
         : range;
@@ -268,7 +276,7 @@ export function UsdtFeeBreakdownPanel({
     allSteps.push({
       key: 'net',
       label: t('usdt.fee.net'),
-      rate: '—',
+      rate: '-',
       value: netValue,
       tone: 'bg-rose-50 border-rose-200',
     });
@@ -286,9 +294,9 @@ export function UsdtFeeBreakdownPanel({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-xs font-semibold text-gray-900">{t('usdt.fee.diagramTitle')}</h3>
         <span className="text-[10px] text-gray-500">
-          1 USDT = {exchangeRate.toLocaleString()} {currency}
-          {source ? ` · ${source}` : ''}
-          {` · ${t(`feeBilling.${billingMethod}` as 'feeBilling.INTEGRATED' | 'feeBilling.ITEMIZED' | 'feeBilling.HYBRID')}`}
+          1 {asset} = {exchangeRate.toLocaleString()} {currency}
+          {source ? ` Â· ${source}` : ''}
+          {` Â· ${t(`feeBilling.${billingMethod}` as 'feeBilling.INTEGRATED' | 'feeBilling.ITEMIZED' | 'feeBilling.HYBRID')}`}
         </span>
       </div>
       {showLocalPremium && breakdown.fairExchangeRate && cfg.localPremium && showItemized && (
@@ -296,12 +304,16 @@ export function UsdtFeeBreakdownPanel({
           {currency === 'KRW'
             ? t('usdt.kimchiPremiumNote', {
                 pct: premiumPct.toFixed(2),
-                fair: breakdown.fairExchangeRate.toLocaleString(undefined, { maximumFractionDigits: 0 }),
+                fair: breakdown.fairExchangeRate.toLocaleString(undefined, {
+                  maximumFractionDigits: 0,
+                }),
                 domestic: exchangeRate.toLocaleString(undefined, { maximumFractionDigits: 0 }),
               })
             : t(premiumNoteKey, {
                 pct: premiumPct.toFixed(2),
-                fair: breakdown.fairExchangeRate.toLocaleString(undefined, { maximumFractionDigits: 2 }),
+                fair: breakdown.fairExchangeRate.toLocaleString(undefined, {
+                  maximumFractionDigits: 2,
+                }),
                 domestic: exchangeRate.toLocaleString(undefined, { maximumFractionDigits: 2 }),
               })}
         </p>

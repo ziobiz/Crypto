@@ -4,8 +4,9 @@ import { useT } from '@/context/LocaleProvider';
 import type { HqExpressCustomerTypePolicy, HqExpressPolicy, ExpressTier } from '@/lib/api';
 import { EXPRESS_TIERS } from '@/lib/api';
 import type { MessageKey } from '@/i18n/messages';
+import { CUSTOMER_TYPES_UI_ORDER } from '@/constants/ui-display-order';
 
-const CUSTOMER_TYPES = ['CORPORATE', 'INDIVIDUAL'] as const;
+const CUSTOMER_TYPES = CUSTOMER_TYPES_UI_ORDER;
 type CustomerTypeKey = (typeof CUSTOMER_TYPES)[number];
 
 type ExpressFeePolicyEditorProps = {

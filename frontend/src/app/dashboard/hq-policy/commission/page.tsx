@@ -10,6 +10,7 @@ import {
   type HqCommissionPayload,
   type HqCommissionRiskConfig,
   type HqGasNetworkPolicy,
+  type HqGasNetworksByAssetPolicy,
   type FeeTypeTemplate,
   type GasFeeGroupId,
   type FeeDiagramDisplayConfig,
@@ -18,6 +19,7 @@ import {
   type SymbolFeeTiersByCustomerType,
   type HqExpressPolicy,
   type HqMemberGradePolicy,
+  type SettlementAsset,
   defaultExpressPolicy,
   defaultMemberGradePolicy,
 } from '@/lib/api';
@@ -39,6 +41,10 @@ import {
   withFeeDiagramDefaults,
   saveFeeConfig,
 } from '@/lib/hq-commission-shared';
+import {
+  CUSTOMER_TYPES_UI_ORDER,
+  SETTLEMENT_ASSETS_UI_ORDER,
+} from '@/constants/ui-display-order';
 
 type OrgRateRow = {
   organizationId: string;
@@ -50,7 +56,7 @@ type OrgRateRow = {
   tradeEscrow: string;
 };
 
-const LIMIT_CUSTOMER_TYPES = ['INDIVIDUAL', 'CORPORATE'] as const;
+const LIMIT_CUSTOMER_TYPES = CUSTOMER_TYPES_UI_ORDER;
 type LimitCustomerType = (typeof LIMIT_CUSTOMER_TYPES)[number];
 
 function normalizeFeeTiersByCustomerType(payload: HqCommissionPayload): SymbolFeeTiersByCustomerType {
@@ -90,17 +96,106 @@ const GAS_GROUP_LABEL: Record<GasFeeGroupId, MessageKey> = {
   C: 'hq.commission.gasGroupC',
 };
 
-const DEFAULT_GAS_NETWORKS: HqGasNetworkPolicy = {
-  activeGroup: 'DEFAULT',
-  networks: [
-    { code: 'TRC20', fees: { DEFAULT: 1, A: 0, B: 0, C: 0 } },
-    { code: 'ERC20', fees: { DEFAULT: 8, A: 0, B: 0, C: 0 } },
-    { code: 'BEP20', fees: { DEFAULT: 0.5, A: 0, B: 0, C: 0 } },
-    { code: 'POLYGON', fees: { DEFAULT: 0.3, A: 0, B: 0, C: 0 } },
-    { code: 'ARBITRUM', fees: { DEFAULT: 0.5, A: 0, B: 0, C: 0 } },
-    { code: 'SOL', fees: { DEFAULT: 1, A: 0, B: 0, C: 0 } },
-  ],
+const emptyFees = (n: number) => ({ DEFAULT: n, A: 0, B: 0, C: 0 });
+
+const DEFAULT_GAS_BY_ASSET: HqGasNetworksByAssetPolicy = {
+  byAsset: {
+    USDT: {
+      activeGroup: 'DEFAULT',
+      networks: [
+        { code: 'TRC20', fees: emptyFees(1) },
+        { code: 'ERC20', fees: emptyFees(8) },
+        { code: 'BEP20', fees: emptyFees(0.5) },
+        { code: 'POLYGON', fees: emptyFees(0.3) },
+        { code: 'ARBITRUM', fees: emptyFees(0.5) },
+        { code: 'SOL', fees: emptyFees(1) },
+        { code: 'OPTIMISM', fees: emptyFees(0.5) },
+        { code: 'AVAX', fees: emptyFees(0.5) },
+        { code: 'BASE', fees: emptyFees(0.4) },
+      ],
+    },
+    USDC: {
+      activeGroup: 'DEFAULT',
+      networks: [
+        { code: 'SOL', fees: emptyFees(1) },
+        { code: 'BASE', fees: emptyFees(0.4) },
+        { code: 'ERC20', fees: emptyFees(8) },
+        { code: 'BEP20', fees: emptyFees(0.5) },
+        { code: 'POLYGON', fees: emptyFees(0.3) },
+        { code: 'ARBITRUM', fees: emptyFees(0.5) },
+        { code: 'OPTIMISM', fees: emptyFees(0.5) },
+        { code: 'AVAX', fees: emptyFees(0.5) },
+      ],
+    },
+  },
 };
+
+function normalizeAssetGasBlock(
+  block: unknown,
+  fallback: HqGasNetworksByAssetPolicy['byAsset']['USDT'],
+  legacySharedGroup?: GasFeeGroupId,
+): HqGasNetworksByAssetPolicy['byAsset']['USDT'] {
+  if (Array.isArray(block) && block.length) {
+    return {
+      activeGroup: legacySharedGroup ?? fallback.activeGroup,
+      networks: block as HqGasNetworksByAssetPolicy['byAsset']['USDT']['networks'],
+    };
+  }
+  if (block && typeof block === 'object' && 'networks' in (block as object)) {
+    const rec = block as {
+      activeGroup?: GasFeeGroupId;
+      networks?: HqGasNetworksByAssetPolicy['byAsset']['USDT']['networks'];
+    };
+    return {
+      activeGroup: rec.activeGroup ?? legacySharedGroup ?? fallback.activeGroup,
+      networks: rec.networks?.length ? rec.networks : fallback.networks,
+    };
+  }
+  return fallback;
+}
+
+function toGasByAsset(
+  raw: HqGasNetworksByAssetPolicy | HqGasNetworkPolicy | null | undefined,
+): HqGasNetworksByAssetPolicy {
+  if (raw && 'byAsset' in raw && raw.byAsset) {
+    const legacyShared =
+      'activeGroup' in raw && raw.activeGroup
+        ? (raw.activeGroup as GasFeeGroupId)
+        : undefined;
+    return {
+      byAsset: {
+        USDT: normalizeAssetGasBlock(
+          raw.byAsset.USDT,
+          DEFAULT_GAS_BY_ASSET.byAsset.USDT,
+          legacyShared,
+        ),
+        USDC: normalizeAssetGasBlock(
+          raw.byAsset.USDC,
+          DEFAULT_GAS_BY_ASSET.byAsset.USDC,
+          legacyShared,
+        ),
+      },
+    };
+  }
+  if (raw && 'networks' in raw && Array.isArray(raw.networks)) {
+    const group = raw.activeGroup ?? 'DEFAULT';
+    return {
+      byAsset: {
+        USDT: {
+          activeGroup: group,
+          networks: raw.networks.length
+            ? raw.networks
+            : DEFAULT_GAS_BY_ASSET.byAsset.USDT.networks,
+        },
+        USDC: {
+          activeGroup: group,
+          networks: DEFAULT_GAS_BY_ASSET.byAsset.USDC.networks,
+        },
+      },
+    };
+  }
+  return DEFAULT_GAS_BY_ASSET;
+}
 
 type FeeDiagramEnv = 'live' | 'sandbox';
 type FeeDiagramAudience = 'customer' | 'hq';
@@ -224,6 +319,9 @@ export default function HqCommissionPage() {
   const [expressFee, setExpressFee] = useState<HqExpressPolicy>(defaultExpressPolicy());
   const [savingExpress, setSavingExpress] = useState(false);
   const [expressMsg, setExpressMsg] = useState('');
+  const [settlementAsset, setSettlementAsset] = useState<SettlementAsset>('USDT');
+  const [savingSettlement, setSavingSettlement] = useState(false);
+  const [settlementMsg, setSettlementMsg] = useState('');
   const [memberGrade, setMemberGrade] = useState<HqMemberGradePolicy>(defaultMemberGradePolicy());
   const [savingMemberGrade, setSavingMemberGrade] = useState(false);
   const [memberGradeMsg, setMemberGradeMsg] = useState('');
@@ -236,7 +334,7 @@ export default function HqCommissionPage() {
   const [editingOrgId, setEditingOrgId] = useState<string | null>(null);
   const [orgDraft, setOrgDraft] = useState<{ usdtPurchase: string; tradeEscrow: string } | null>(null);
   const [savingRisk, setSavingRisk] = useState(false);
-  const [gasNetworks, setGasNetworks] = useState<HqGasNetworkPolicy>(DEFAULT_GAS_NETWORKS);
+  const [gasNetworks, setGasNetworks] = useState<HqGasNetworksByAssetPolicy>(DEFAULT_GAS_BY_ASSET);
   const [savingGas, setSavingGas] = useState(false);
   const [gasMsg, setGasMsg] = useState('');
   const [savingRates, setSavingRates] = useState(false);
@@ -272,9 +370,10 @@ export default function HqCommissionPage() {
         setOrgRows(mergeWithOrganizations(baseRows, commission, orgs));
         const types = commission.feeTypes ?? [];
         setFeeTypes(types);
-        setGasNetworks(commission.gasNetworks ?? DEFAULT_GAS_NETWORKS);
+        setGasNetworks(toGasByAsset(commission.gasNetworksByAsset ?? commission.gasNetworks));
         setFeeTiersByCustomerType(normalizeFeeTiersByCustomerType(commission));
         setExpressFee(commission.expressFee ?? defaultExpressPolicy());
+        setSettlementAsset(commission.settlementAsset === 'USDC' ? 'USDC' : 'USDT');
         setMemberGrade(commission.memberGrade ?? defaultMemberGradePolicy());
       })
       .catch((e) => setError(e instanceof Error ? e.message : t('common.loadFailed')));
@@ -756,69 +855,129 @@ export default function HqCommissionPage() {
 
           <div className="pg-card">
             <div className="pg-card-head">{t('hq.commission.gasNetworksTitle')}</div>
-            <div className="pg-card-body space-y-3">
+            <div className="pg-card-body space-y-4">
               <p className="pg-hint">{t('hq.commission.gasNetworksDesc')}</p>
+              <p className="pg-hint">{t('hq.commission.gasNetworksByAssetHint')}</p>
               <p className="pg-callout pg-callout-muted">{t('hq.commission.gasGroupHint')}</p>
-              <div className="pg-card pg-table-wrap">
-                <table className="pg-table">
-                  <thead>
-                    <tr>
-                      <th>{t('wallets.col.network')}</th>
-                      {GAS_GROUPS.map((group) => {
-                        const selected = gasNetworks.activeGroup === group;
-                        return (
-                          <th key={group} className={selected ? 'bg-sky-100' : undefined}>
-                            <button
-                              type="button"
-                              onClick={() => setGasNetworks((prev) => ({ ...prev, activeGroup: group }))}
-                              className={`w-full rounded px-2 py-1 text-left ${
-                                selected
-                                  ? 'bg-sky-600 text-white'
-                                  : 'bg-slate-100 text-slate-800 hover:bg-slate-200'
-                              }`}
-                            >
-                              <span className="block text-sm font-semibold">{t(GAS_GROUP_LABEL[group])}</span>
-                              <span className="block text-[10px] font-normal opacity-90">
-                                {selected ? t('hq.commission.gasGroupSelected') : t('hq.commission.gasGroupSelect')}
-                              </span>
-                            </button>
-                          </th>
-                        );
-                      })}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {gasNetworks.networks.map((row) => (
-                      <tr key={row.code}>
-                        <td>{t(`network.${row.code}` as MessageKey)}</td>
-                        {GAS_GROUPS.map((group) => {
-                          const selected = gasNetworks.activeGroup === group;
-                          return (
-                            <td key={group} className={selected ? 'bg-sky-50' : undefined}>
-                              <PolicyNumberInput
-                                step="0.01"
-                                min={0}
-                                value={row.fees[group]}
-                                onChange={(n) =>
-                                  setGasNetworks((prev) => ({
-                                    ...prev,
-                                    networks: prev.networks.map((r) =>
-                                      r.code === row.code
-                                        ? { ...r, fees: { ...r.fees, [group]: n } }
-                                        : r,
-                                    ),
-                                  }))
-                                }
-                                className={`pg-input w-24 ${selected ? 'border-sky-400 ring-1 ring-sky-300' : ''}`}
-                              />
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              {SETTLEMENT_ASSETS_UI_ORDER.map((asset) => {
+                const assetGas = gasNetworks.byAsset[asset];
+                const activeGroup = assetGas.activeGroup;
+                return (
+                  <div key={asset} className="space-y-2">
+                    <h3 className="text-sm font-semibold text-slate-800">
+                      {t('hq.commission.gasNetworksAssetTitle', { asset })}
+                    </h3>
+                    <p className="pg-hint text-[11px]">
+                      {asset === 'USDC'
+                        ? t('hq.commission.gasNetworksUsdcNote')
+                        : t('hq.commission.gasNetworksUsdtNote')}
+                    </p>
+                    <div className="pg-card pg-table-wrap">
+                      <table className="pg-table">
+                        <thead>
+                          <tr>
+                            <th>{t('hq.commission.gasGroupApply')}</th>
+                            {GAS_GROUPS.map((group) => {
+                              const selected = activeGroup === group;
+                              return (
+                                <th key={group} className={selected ? 'bg-sky-100' : undefined}>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setGasNetworks((prev) => ({
+                                        ...prev,
+                                        byAsset: {
+                                          ...prev.byAsset,
+                                          [asset]: {
+                                            ...prev.byAsset[asset],
+                                            activeGroup: group,
+                                          },
+                                        },
+                                      }))
+                                    }
+                                    className={`w-full rounded px-2 py-1 text-left ${
+                                      selected
+                                        ? 'bg-sky-600 text-white'
+                                        : 'bg-slate-100 text-slate-800 hover:bg-slate-200'
+                                    }`}
+                                  >
+                                    <span className="block text-sm font-semibold">
+                                      {t(GAS_GROUP_LABEL[group])}
+                                    </span>
+                                    <span className="block text-[10px] font-normal opacity-90">
+                                      {selected
+                                        ? t('hq.commission.gasGroupSelected')
+                                        : t('hq.commission.gasGroupSelect')}
+                                    </span>
+                                  </button>
+                                </th>
+                              );
+                            })}
+                          </tr>
+                        </thead>
+                      </table>
+                    </div>
+                    <div className="pg-card pg-table-wrap">
+                      <table className="pg-table">
+                        <thead>
+                          <tr>
+                            <th>{t('wallets.col.network')}</th>
+                            {GAS_GROUPS.map((group) => (
+                              <th
+                                key={group}
+                                className={activeGroup === group ? 'bg-sky-100' : undefined}
+                              >
+                                {t(GAS_GROUP_LABEL[group])}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {assetGas.networks.map((row) => (
+                            <tr key={`${asset}-${row.code}`}>
+                              <td>{t(`network.${row.code}` as MessageKey)}</td>
+                              {GAS_GROUPS.map((group) => {
+                                const selected = activeGroup === group;
+                                return (
+                                  <td key={group} className={selected ? 'bg-sky-50' : undefined}>
+                                    <PolicyNumberInput
+                                      step="0.01"
+                                      min={0}
+                                      value={row.fees[group]}
+                                      onChange={(n) =>
+                                        setGasNetworks((prev) => ({
+                                          ...prev,
+                                          byAsset: {
+                                            ...prev.byAsset,
+                                            [asset]: {
+                                              ...prev.byAsset[asset],
+                                              networks: prev.byAsset[asset].networks.map((r) =>
+                                                r.code === row.code
+                                                  ? {
+                                                      ...r,
+                                                      fees: { ...r.fees, [group]: n },
+                                                    }
+                                                  : r,
+                                              ),
+                                            },
+                                          },
+                                        }))
+                                      }
+                                      className={`pg-input w-24 ${
+                                        selected ? 'border-sky-400 ring-1 ring-sky-300' : ''
+                                      }`}
+                                    />
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })}
               <button
                 type="button"
                 onClick={async () => {
@@ -827,10 +986,13 @@ export default function HqCommissionPage() {
                   try {
                     const next = await hqPolicyApi.saveGasNetworks(gasNetworks);
                     setData(next);
-                    setGasNetworks(next.gasNetworks ?? gasNetworks);
+                    setGasNetworks(
+                      toGasByAsset(next.gasNetworksByAsset ?? next.gasNetworks ?? gasNetworks),
+                    );
                     setGasMsg(
-                      t('hq.commission.gasNetworksSaved', {
-                        group: t(GAS_GROUP_LABEL[gasNetworks.activeGroup]),
+                      t('hq.commission.gasNetworksSavedByAsset', {
+                        usdc: t(GAS_GROUP_LABEL[gasNetworks.byAsset.USDC.activeGroup]),
+                        usdt: t(GAS_GROUP_LABEL[gasNetworks.byAsset.USDT.activeGroup]),
                       }),
                     );
                   } catch (e) {
@@ -861,9 +1023,9 @@ export default function HqCommissionPage() {
                   feeCustomerType === type ? 'pg-btn-primary' : 'pg-btn-secondary'
                 }`}
               >
-                {type === 'INDIVIDUAL'
-                  ? t('hq.commission.limitsIndividual')
-                  : t('hq.commission.limitsCorporate')}
+                {type === 'CORPORATE'
+                  ? t('auth.corporate')
+                  : t('auth.individual')}
               </button>
             ))}
           </div>
@@ -1024,6 +1186,49 @@ export default function HqCommissionPage() {
               {savingTiers ? t('hq.saving') : t('hq.commission.saveTiers')}
             </button>
             {tiersMsg && <span className="pg-hint">{tiersMsg}</span>}
+          </div>
+
+          <div className="pg-card">
+            <div className="pg-card-head">{t('settlement.hq.title')}</div>
+            <div className="pg-card-body space-y-4">
+              <p className="pg-hint text-xs">{t('settlement.hq.desc')}</p>
+              <div className="flex flex-wrap items-center gap-3">
+                <select
+                  className="pg-input w-40"
+                  value={settlementAsset}
+                  onChange={(e) => setSettlementAsset(e.target.value as SettlementAsset)}
+                  aria-label={t('settlement.hq.title')}
+                >
+                  {SETTLEMENT_ASSETS_UI_ORDER.map((asset) => (
+                    <option key={asset} value={asset}>
+                      {asset}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  disabled={savingSettlement}
+                  className="pg-btn pg-btn-primary disabled:opacity-50"
+                  onClick={async () => {
+                    setSavingSettlement(true);
+                    setSettlementMsg('');
+                    try {
+                      const next = await hqPolicyApi.saveSettlementAsset(settlementAsset);
+                      setData(next);
+                      setSettlementAsset(next.settlementAsset === 'USDC' ? 'USDC' : 'USDT');
+                      setSettlementMsg(t('settlement.hq.saved'));
+                    } catch (e) {
+                      setSettlementMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
+                    } finally {
+                      setSavingSettlement(false);
+                    }
+                  }}
+                >
+                  {savingSettlement ? t('hq.saving') : t('settlement.hq.save')}
+                </button>
+                {settlementMsg && <span className="pg-hint">{settlementMsg}</span>}
+              </div>
+            </div>
           </div>
 
           <div className="pg-card">

@@ -170,7 +170,14 @@ export function DashboardCharts() {
                   <Tooltip />
                   <Legend />
                   <Line yAxisId="left" type="monotone" dataKey="count" stroke="#3b82f6" name={t('dashboard.chart.txCount')} dot={false} />
-                  <Line yAxisId="right" type="monotone" dataKey="usdtAmount" stroke="#10b981" name="USDT" dot={false} />
+                  <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="usdtAmount"
+                    stroke="#10b981"
+                    name={user?.sessionPolicy?.settlementAsset === 'USDC' ? 'USDC' : 'USDT'}
+                    dot={false}
+                  />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -214,7 +221,9 @@ export function DashboardCharts() {
             <div key={currency} className="pg-card">
               <div className="pg-card-body space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-gray-700">USDT / {currency}</span>
+                  <span className="text-xs font-bold text-gray-700">
+                    {user?.sessionPolicy?.settlementAsset === 'USDC' ? 'USDC' : 'USDT'} / {currency}
+                  </span>
                   <span className="text-[10px] text-gray-400">{stat?.source ?? '—'}</span>
                 </div>
                 <p className="text-lg font-bold tabular-nums" style={{ color: CURRENCY_COLORS[currency] }}>
@@ -291,7 +300,11 @@ export function DashboardCharts() {
                   <Tooltip />
                   <Legend />
                   <Bar dataKey="count" fill="#3b82f6" name={t('dashboard.chart.txCount')} />
-                  <Bar dataKey="usdtAmount" fill="#10b981" name="USDT" />
+                  <Bar
+                    dataKey="usdtAmount"
+                    fill="#10b981"
+                    name={user?.sessionPolicy?.settlementAsset === 'USDC' ? 'USDC' : 'USDT'}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </div>

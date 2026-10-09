@@ -43,6 +43,7 @@ export function UsdtRatePanel({ compact = false }: { compact?: boolean }) {
     return <p className="pg-hint">{t('dashboard.rateLoading')}</p>;
   }
 
+  const asset = rates.settlementAsset === 'USDC' ? 'USDC' : 'USDT';
   const items = ['KRW', 'JPY', 'THB', 'CNY'].map((key) => ({
     key,
     rate: rates.rates[key]?.rate ?? 0,
@@ -52,13 +53,17 @@ export function UsdtRatePanel({ compact = false }: { compact?: boolean }) {
   return (
     <div className={compact ? 'space-y-2' : 'space-y-3'}>
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-[11px] font-semibold text-gray-900">{t('dashboard.usdtLiveRate')}</h2>
+        <h2 className="text-[11px] font-semibold text-gray-900">
+          {t('dashboard.settlementLiveRate', { asset })}
+        </h2>
         <span className="pg-hint">{new Date(rates.fetchedAt).toLocaleTimeString()}</span>
       </div>
       <div className={`grid gap-2 ${compact ? 'grid-cols-2 sm:grid-cols-4' : 'sm:grid-cols-4'}`}>
         {items.map((item) => (
           <div key={item.key} className="rounded border border-blue-100 bg-blue-50/40 px-3 py-2">
-            <p className="text-[10px] text-gray-500">USDT / {item.key}</p>
+            <p className="text-[10px] text-gray-500">
+              {asset} / {item.key}
+            </p>
             <p className="text-sm font-bold text-blue-700 tabular-nums">
               {formatFiatRate(item.key, item.rate)}
             </p>
@@ -66,7 +71,7 @@ export function UsdtRatePanel({ compact = false }: { compact?: boolean }) {
           </div>
         ))}
       </div>
-      <p className="pg-hint">{t('dashboard.rateDisclaimer')}</p>
+      <p className="pg-hint">{t('dashboard.rateDisclaimer', { asset })}</p>
     </div>
   );
 }

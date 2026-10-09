@@ -3,6 +3,72 @@ import type { PlatformReleaseNote } from './version';
 /** 본사정책 → 검증관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
 export const PLATFORM_RELEASE_NOTES: PlatformReleaseNote[] = [
   {
+    version: '2.6.230',
+    kind: 'minor',
+    date: '2026-10-09',
+    items: {
+      KR: [
+        'USDC 정산 운영 보강: 카드매입·공개가입 지갑을 정산자산으로 강제, 인보이스/시뮬 자산코드 USDC, HQ 가스·네트워크 USDC 표(TRC20 제외), 거래 상세·수수료율 CRYPTO 표기. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'USDC settlement hardening: card/register wallets must match settlement asset; invoice/sim asset=USDC; HQ USDC gas table (no TRC20); ticket detail + fee rates use CRYPTO. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        'USDC精算の運用補強: カード・公開登録ウォレットを精算資産に強制、請求/シミュ資産USDC、HQ USDCガス表(TRC20なし)、詳細・手数料率はCRYPTO。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        'USDC 结算加固：卡支付/公开注册钱包强制匹配结算资产；发票/模拟器资产为 USDC；总部 USDC Gas 表（无 TRC20）；详情与费率显示 CRYPTO。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'เสริม USDC: บัตร/สมัครสาธารณะบังคับกระเป๋าตามสินทรัพย์ชำระ ใบแจ้ง/ซิมเป็น USDC ตารางแก๊ส USDC (ไม่มี TRC20) รายละเอียด+อัตราค่าธรรมเนียมเป็น CRYPTO KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.229',
+    kind: 'minor',
+    date: '2026-10-09',
+    items: {
+      KR: [
+        '지갑 등록: 닉네임·자산(USDT/USDC) 먼저 선택 후 네트워크·주소. USDC는 TRC20(Tron) 제외·Solana/Base 주력. 거래 시 정산 자산 지갑만 표시·기본 지갑 우선. HQ 가스피 USDT/USDC 표 분리. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'Wallet register: nickname + asset (USDT/USDC) first, then network/address. USDC excludes TRC20; Solana/Base preferred. Apply lists only settlement-asset wallets with default first. HQ gas fees split USDT/USDC. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        'ウォレット登録: ニックネーム・資産(USDT/USDC)を先に選択しネットワーク・アドレス。USDCはTRC20除外・Solana/Base主力。申請は精算資産ウォレットのみ・基本優先。HQガス代をUSDT/USDC分離。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        '钱包登记：先选昵称与资产(USDT/USDC)，再选网络/地址。USDC 不含 TRC20，主用 Solana/Base。申请仅显示结算资产钱包且默认优先。总部 Gas 分 USDT/USDC 表。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'ลงทะเบียนกระเป๋า: เลือกชื่อเล่น+สินทรัพย์ (USDT/USDC) ก่อน แล้วเครือข่าย/ที่อยู่ USDC ไม่มี TRC20 เน้น Solana/Base สมัครแสดงเฉพาะกระเป๋าตรงสินทรัพย์ชำระและค่าเริ่มต้นก่อน ค่าแก๊ส HQ แยก USDT/USDC KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.228',
+    kind: 'minor',
+    date: '2026-10-09',
+    items: {
+      KR: [
+        '공통 화면·시뮬레이터·수수료 단위·매뉴얼·거래명세에서 USDT 표기를 크립토(CRYPTO)로 통일. 실거래 금액·시세는 본사 정산 자산(USDT/USDC)을 유지. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'Shared UI, simulator, fee units, manuals, and trade receipts now say CRYPTO instead of USDT. Live amounts and rates still follow HQ settlement asset (USDT/USDC). KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        '共通画面・シミュレーター・手数料単位・マニュアル・取引明細のUSDT表記をクリプト(CRYPTO)に統一。実取引の金額・相場は本社精算資産(USDT/USDC)のまま。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        '共通界面、模拟器、手续费单位、手册与交易明细将 USDT 统一为加密货币(CRYPTO)。实交易金额与行情仍跟随总部结算资产(USDT/USDC)。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'หน้าจอร่วม ตัวจำลอง หน่วยค่าธรรมเนียม คู่มือ และใบเสร็จ ใช้คริปโต(CRYPTO) แทน USDT ยอดจริงและเรทยังตามสินทรัพย์ชำระ HQ (USDT/USDC) KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
     version: '2.6.227',
     kind: 'minor',
     date: '2026-10-07',

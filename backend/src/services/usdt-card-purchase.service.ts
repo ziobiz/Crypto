@@ -53,6 +53,7 @@ import {
 } from './usdt-purchase.service';
 import { getWorkflowDisplay } from './workflow-display.service';
 import { assertCustomerKycApproved } from './kyc.service';
+import { getSettlementAsset } from './settlement-asset.service';
 
 /** ICOPAY orderNo: digits only (no USDT/USD/crypto terms or letters) */
 function generateTicketNo(): string {
@@ -369,6 +370,7 @@ export async function createUsdtCardPurchase(
     );
   }
 
+  const settlementAsset = await getSettlementAsset();
   const wallet = await prisma.wallet.findFirst({
     where: {
       id: input.walletId,
@@ -376,11 +378,14 @@ export async function createUsdtCardPurchase(
       isActive: true,
       approvalStatus: WalletApprovalStatus.APPROVED,
       deleteRequestedAt: null,
+      assetType: settlementAsset,
     },
   });
   if (!wallet) {
     throw new AppError(404, 'Wallet not found', 'NOT_FOUND');
   }
+  const { assertNetworkForAsset } = await import('./wallet-policy.service');
+  assertNetworkForAsset(wallet.network, settlementAsset);
 
   const sessionPolicy = await hqPolicyService.getSessionPolicy();
   const currency = input.fiatCurrency ?? sessionPolicy.defaultUsdtFiatCurrency ?? 'JPY';

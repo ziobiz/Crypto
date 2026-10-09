@@ -72,12 +72,12 @@ export default function DashboardPage() {
             <StatCard
               label={t('dashboard.totalCommission')}
               value={stats.totalCommission ?? 0}
-              suffix="USDT"
+              suffix={user?.sessionPolicy?.settlementAsset === 'USDC' ? 'USDC' : 'USDT'}
             />
             <StatCard
               label={t('dashboard.pendingCommission')}
               value={stats.pendingCommission ?? 0}
-              suffix="USDT"
+              suffix={user?.sessionPolicy?.settlementAsset === 'USDC' ? 'USDC' : 'USDT'}
             />
             <StatCard label={t('dashboard.commissionCount')} value={stats.commissionCount ?? 0} />
           </>

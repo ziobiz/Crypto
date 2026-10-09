@@ -39,14 +39,24 @@ export function computeOtherFeeUsdt(grossUsdt: number, percent: number, fixedUsd
   return Number((fromPct + fromFixed).toFixed(8));
 }
 
-export function formatFeeRateLabel(mode: FeeMode, percent: number, fixedUsdt: number): string {
-  return mode === 'percent' ? `${percent}%` : `${fixedUsdt} USDT`;
+export function formatFeeRateLabel(
+  mode: FeeMode,
+  percent: number,
+  fixedUsdt: number,
+  /** HQ shared fee tables use CRYPTO; ticket/live UIs pass settlement asset. */
+  asset: string = 'CRYPTO',
+): string {
+  return mode === 'percent' ? `${percent}%` : `${fixedUsdt} ${asset}`;
 }
 
-export function formatOtherFeeRateLabel(percent: number, fixedUsdt: number): string {
+export function formatOtherFeeRateLabel(
+  percent: number,
+  fixedUsdt: number,
+  asset: string = 'CRYPTO',
+): string {
   const parts: string[] = [];
   if (percent > 0) parts.push(`${percent}%`);
-  if (fixedUsdt > 0) parts.push(`${fixedUsdt} USDT`);
+  if (fixedUsdt > 0) parts.push(`${fixedUsdt} ${asset}`);
   return parts.length ? parts.join(' + ') : '0';
 }
 
@@ -58,12 +68,14 @@ export function readFeeComponent(fees: Partial<TransactionFees>, key: FeeCompone
   return { mode, percent, fixedUsdt };
 }
 
-export function formatFeeComponentLabel(fees: Partial<TransactionFees>, key: FeeComponentKey): string {
+export function formatFeeComponentLabel(
+  fees: Partial<TransactionFees>,
+  key: FeeComponentKey,
+  asset: string = 'CRYPTO',
+): string {
   const { mode, percent, fixedUsdt } = readFeeComponent(fees, key);
-  if (key === 'other') {
-    return formatOtherFeeRateLabel(percent, fixedUsdt);
-  }
-  return formatFeeRateLabel(mode, percent, fixedUsdt);
+  if (key === 'other') return formatOtherFeeRateLabel(percent, fixedUsdt, asset);
+  return formatFeeRateLabel(mode, percent, fixedUsdt, asset);
 }
 
 export function percentMultiplierSum(fees: Partial<TransactionFees>, extraPercent = 0): number {

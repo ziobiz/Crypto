@@ -12,10 +12,11 @@ import {
   DEFAULT_FEE_DIAGRAM_DISPLAY,
   HQ_CONFIG_KEYS,
   SYMBOL_FEE_CURRENCIES,
-  defaultGasNetworkPolicy,
+  defaultGasNetworksByAsset,
   gasFeeUsdtForNetwork,
+  gasNetworkPolicyForAsset,
   normalizeFeeBillingPresentation,
-  normalizeGasNetworkPolicy,
+  normalizeGasNetworksByAsset,
   normalizeHqUsdtRiskLimitTiers,
 } from '../constants/hq-policy';
 import { mergeLiveFeesWithSandboxBasic, sandboxBasicDeltas, applySandboxGasDelta } from '../lib/sandbox-fee-merge';
@@ -367,11 +368,17 @@ export async function getFeeDiagramDisplayForCustomer(
   return { ...base, billingMethod, showTotalFee };
 }
 
-export async function getGasNetworkPolicy() {
+export async function getGasNetworksByAsset() {
   const row = await prisma.systemConfig.findUnique({
     where: { key: HQ_CONFIG_KEYS.gasNetworks },
   });
-  return normalizeGasNetworkPolicy(row?.value ?? defaultGasNetworkPolicy());
+  return normalizeGasNetworksByAsset(row?.value ?? defaultGasNetworksByAsset());
+}
+
+/** @param asset settlement / wallet asset — USDC uses USDC network table (no TRC20) */
+export async function getGasNetworkPolicy(asset?: string | null) {
+  const full = await getGasNetworksByAsset();
+  return gasNetworkPolicyForAsset(full, asset === 'USDC' ? 'USDC' : 'USDT');
 }
 
 export async function getHqTransactionFees(): Promise<TransactionFees> {
@@ -399,6 +406,7 @@ type WalletFeeSource = {
   otherFeeAmount?: unknown;
   platformFeeAmount?: unknown;
   network?: unknown;
+  assetType?: unknown;
 };
 
 function overrideFeeComponent(
@@ -475,9 +483,10 @@ export async function resolveFeesForAmount(
   const customerType =
     options?.customerType ??
     (await resolveFeeCustomerTypeKey(options?.customerProfileId, 'CORPORATE'));
+  const walletAsset = String(wallet.assetType ?? '') === 'USDC' ? 'USDC' : 'USDT';
   const [liveTiers, gasPolicy] = await Promise.all([
     getSymbolFeeTiers(customerType),
-    getGasNetworkPolicy(),
+    getGasNetworkPolicy(walletAsset),
   ]);
   const tier = pickFeeTier(liveTiers, currency, fiatAmount);
 
@@ -501,8 +510,14 @@ export async function resolveFeesForAmount(
   return resolveTransactionFees(wallet, hq);
 }
 
-export async function gasFeeUsdtForWalletNetwork(network: string | null | undefined): Promise<number> {
-  const [policy, hq] = await Promise.all([getGasNetworkPolicy(), getHqTransactionFees()]);
+export async function gasFeeUsdtForWalletNetwork(
+  network: string | null | undefined,
+  asset?: string | null,
+): Promise<number> {
+  const [policy, hq] = await Promise.all([
+    getGasNetworkPolicy(asset),
+    getHqTransactionFees(),
+  ]);
   return gasFeeUsdtForNetwork(policy, network, hq.gasFeeUsdt);
 }
 

@@ -9,7 +9,7 @@
 const { PrismaClient } = require('@prisma/client');
 
 const KEY = 'hq.commission.member_grade';
-const TIERS = ['ULTRA', 'PRIORITY', 'HALF', 'DAY', 'T1', 'T2', 'BASIC'];
+const TIERS = ['ULTRA', 'PRIORITY', 'HALF', 'DAY', 'D1', 'D2', 'BASIC'];
 
 function benefit(discountPercent, discountUsdt = 0, ultraFeeUsdt = null) {
   const tierFees = {};

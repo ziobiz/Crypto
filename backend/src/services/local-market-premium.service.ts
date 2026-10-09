@@ -3,13 +3,16 @@ import {
   fetchFromBinanceCross,
   fetchFromBinanceTh,
   fetchFromCoinGecko,
+  fetchFromUpbit,
   fetchUsdFiatForex,
   fetchFromKrakenBook,
+  type SettlementRateAsset,
 } from './exchange-rate-sources';
 import {
   fetchDomesticUsdtKrw,
   kimchiPremiumFeeUsdt,
 } from './kimchi-premium.service';
+import { getSettlementAsset } from './settlement-asset.service';
 
 /** 국내 시세 프리미엄 적용 통화 (김프·태국 프리미엄·엔화 프리미엄) */
 export const LOCAL_PREMIUM_CURRENCIES = ['KRW', 'THB', 'JPY'] as const;
@@ -34,19 +37,22 @@ export function isLocalPremiumCurrency(value: string): value is LocalPremiumCurr
 
 export { kimchiPremiumFeeUsdt as localPremiumFeeUsdt };
 
-async function fetchFairUsdtFiat(currency: SymbolFeeCurrency): Promise<{
+async function fetchFairStableFiat(
+  currency: SymbolFeeCurrency,
+  asset: SettlementRateAsset,
+): Promise<{
   fairRate: number;
   usdFiatRate: number;
   usdtUsdRate: number;
 }> {
-  const [forex, usdtUsd] = await Promise.all([
+  const [forex, stableUsd] = await Promise.all([
     fetchUsdFiatForex(currency),
-    fetchFromCoinGecko('USD'),
+    fetchFromCoinGecko('USD', asset),
   ]);
   if (!forex?.rate) {
     throw new Error(`USD/${currency} 환율을 가져올 수 없습니다`);
   }
-  const usdtUsdRate = usdtUsd?.rate && usdtUsd.rate > 0 ? usdtUsd.rate : 1;
+  const usdtUsdRate = stableUsd?.rate && stableUsd.rate > 0 ? stableUsd.rate : 1;
   return {
     fairRate: forex.rate * usdtUsdRate,
     usdFiatRate: forex.rate,
@@ -54,57 +60,69 @@ async function fetchFairUsdtFiat(currency: SymbolFeeCurrency): Promise<{
   };
 }
 
-async function fetchDomesticUsdtThb(): Promise<{
+async function fetchDomesticStableThb(asset: SettlementRateAsset): Promise<{
   rate: number;
   source: string;
   label: string;
   details: Record<string, number | null>;
 }> {
-  const th = await fetchFromBinanceTh('THB');
+  const th = await fetchFromBinanceTh('THB', asset);
   if (!th?.rate) {
-    throw new Error('Binance Thailand USDT/THB 시세를 가져올 수 없습니다');
+    throw new Error(`Binance Thailand ${asset}/THB 시세를 가져올 수 없습니다`);
   }
   return {
     rate: th.rate,
     source: 'binance_th',
-    label: 'Binance Thailand USDT/THB',
+    label: `Binance Thailand ${asset}/THB`,
     details: { binanceTh: th.rate },
   };
 }
 
-async function fetchDomesticUsdtJpy(): Promise<{
+async function fetchDomesticStableJpy(asset: SettlementRateAsset): Promise<{
   rate: number;
   source: string;
   label: string;
   details: Record<string, number | null>;
 }> {
-  const binance = await fetchFromBinanceCross('JPY');
+  const binance = await fetchFromBinanceCross('JPY', asset);
   if (binance?.rate) {
     return {
       rate: binance.rate,
       source: binance.source,
-      label: 'Binance Global BTC/JPY ÷ BTC/USDT',
+      label: `Binance Global BTC/JPY ÷ BTC/${asset}`,
       details: { binanceGlobal: binance.rate },
     };
   }
-  const kraken = await fetchFromKrakenBook('JPY');
+  const kraken = await fetchFromKrakenBook('JPY', asset);
   if (kraken?.rate) {
     return {
       rate: kraken.rate,
       source: kraken.source,
-      label: 'Kraken USDT/JPY',
+      label: `Kraken ${asset}/JPY`,
       details: { kraken: kraken.rate },
     };
   }
-  throw new Error('일본 USDT/JPY 국내 시세를 가져올 수 없습니다');
+  throw new Error(`일본 ${asset}/JPY 국내 시세를 가져올 수 없습니다`);
 }
 
-async function fetchDomesticUsdtKrwWrapped(): Promise<{
+async function fetchDomesticStableKrw(asset: SettlementRateAsset): Promise<{
   rate: number;
   source: string;
   label: string;
   details: Record<string, number | null>;
 }> {
+  if (asset === 'USDC') {
+    const upbit = await fetchFromUpbit('KRW', 'USDC');
+    if (!upbit?.rate) {
+      throw new Error('업비트 KRW-USDC 시세를 가져올 수 없습니다');
+    }
+    return {
+      rate: upbit.rate,
+      source: 'upbit',
+      label: 'Upbit KRW-USDC',
+      details: { upbit: upbit.rate, bithumb: null },
+    };
+  }
   const domestic = await fetchDomesticUsdtKrw();
   return {
     rate: domestic.rate,
@@ -119,17 +137,19 @@ function calcPremiumPercent(domesticRate: number, fairRate: number): number {
   return Number((((domesticRate / fairRate) - 1) * 100).toFixed(4));
 }
 
-/** 국내 시세 vs 환율 이론가 — 통화별 로컬 프리미엄 % */
+/** 국내 시세 vs 환율 이론가 — 통화별 로컬 프리미엄 % (정산자산 USDT|USDC 반영) */
 export async function getLocalMarketPremiumAnalysis(
   currency: LocalPremiumCurrency,
+  assetOverride?: SettlementRateAsset,
 ): Promise<LocalMarketPremiumAnalysis> {
+  const asset = assetOverride ?? (await getSettlementAsset());
   const [domestic, fair] = await Promise.all([
     currency === 'KRW'
-      ? fetchDomesticUsdtKrwWrapped()
+      ? fetchDomesticStableKrw(asset)
       : currency === 'THB'
-        ? fetchDomesticUsdtThb()
-        : fetchDomesticUsdtJpy(),
-    fetchFairUsdtFiat(currency),
+        ? fetchDomesticStableThb(asset)
+        : fetchDomesticStableJpy(asset),
+    fetchFairStableFiat(currency, asset),
   ]);
 
   return {
@@ -147,8 +167,9 @@ export async function getLocalMarketPremiumAnalysis(
 }
 
 export async function getAllLocalMarketPremiums(): Promise<LocalMarketPremiumAnalysis[]> {
+  const asset = await getSettlementAsset();
   const results = await Promise.allSettled(
-    LOCAL_PREMIUM_CURRENCIES.map((c) => getLocalMarketPremiumAnalysis(c)),
+    LOCAL_PREMIUM_CURRENCIES.map((c) => getLocalMarketPremiumAnalysis(c, asset)),
   );
   return results
     .filter((r): r is PromiseFulfilledResult<LocalMarketPremiumAnalysis> => r.status === 'fulfilled')

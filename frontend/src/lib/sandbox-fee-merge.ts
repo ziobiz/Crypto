@@ -66,7 +66,7 @@ export function formatSandboxFeeCell(
 }
 
 export function formatSandboxGasCell(networkGasUsdt: number, gasDelta: number): string {
-  const live = `${networkGasUsdt} USDT`;
+  const live = `${networkGasUsdt} CRYPTO`;
   if (gasDelta <= 0) return live;
-  return `${networkGasUsdt + gasDelta} USDT (${networkGasUsdt} USDT)`;
+  return `${networkGasUsdt + gasDelta} CRYPTO (${networkGasUsdt} CRYPTO)`;
 }

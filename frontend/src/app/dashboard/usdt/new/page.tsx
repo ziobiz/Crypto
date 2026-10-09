@@ -113,23 +113,34 @@ export default function UsdtNewPage() {
   ]);
 
   useEffect(() => {
-    const apply = (rows: Wallet[]) => {
-      const usable = rows.filter(
-        (x) =>
-          x.approvalStatus !== 'PENDING' &&
-          x.approvalStatus !== 'REJECTED' &&
-          !x.deleteRequestedAt,
-      );
+    const apply = (rows: Wallet[], settlement?: string) => {
+      const asset = settlement === 'USDC' ? 'USDC' : 'USDT';
+      const usable = rows
+        .filter(
+          (x) =>
+            x.approvalStatus !== 'PENDING' &&
+            x.approvalStatus !== 'REJECTED' &&
+            !x.deleteRequestedAt &&
+            (x.assetType ?? 'USDT') === asset,
+        )
+        .sort((a, b) => Number(b.isDefault) - Number(a.isDefault));
       setWallets(usable);
       const def = usable.find((x) => x.isDefault) ?? usable[0];
       if (def) setWalletId(def.id);
+      else setWalletId('');
     };
-    if (user?.role === 'CUSTOMER_OPERATOR') {
-      apply(user.wallets ?? []);
-    } else {
-      api.wallets.list().then(apply).catch(console.error);
-    }
-    api.usdt.depositContext().then(setDepositCtx).catch(console.error);
+    api.usdt
+      .depositContext()
+      .then((ctx) => {
+        setDepositCtx(ctx);
+        const asset = ctx.settlementAsset === 'USDC' ? 'USDC' : 'USDT';
+        if (user?.role === 'CUSTOMER_OPERATOR') {
+          apply(user.wallets ?? [], asset);
+        } else {
+          api.wallets.list({ forApply: true }).then((rows) => apply(rows, asset)).catch(console.error);
+        }
+      })
+      .catch(console.error);
     api.usdt.cardContext().then((ctx) => {
       setCardContext(ctx);
       const first = (ctx.legalFirstName ?? '').trim();
@@ -251,6 +262,10 @@ export default function UsdtNewPage() {
     api.exchangeRateFor(fiatCurrency).then(setRate).catch(console.error);
   }, [fiatCurrency]);
 
+  const settlementAssetLabel =
+    depositCtx?.settlementAsset === 'USDC' || user?.sessionPolicy?.settlementAsset === 'USDC'
+      ? 'USDC'
+      : 'USDT';
   const usdtAmount = parseFloat(targetUsdt) || 0;
   const canPreview =
     walletId &&
@@ -736,36 +751,6 @@ export default function UsdtNewPage() {
               {isRemittance && (
                 <p className="mt-1.5 text-[11px] text-sky-800">{t('usdt.paymentRemittanceHint')}</p>
               )}
-              {expressEnabled && (
-                <div className="mt-4 space-y-2">
-                  <p className="pg-label">{t('express.apply.title')}</p>
-                  <p className="pg-hint text-[11px]">{t('express.apply.hint')}</p>
-                  <select
-                    className="pg-input w-full text-sm"
-                    value={expressTier}
-                    onChange={(e) => {
-                      setExpressTier(e.target.value);
-                      setFeePreview(null);
-                    }}
-                  >
-                    {expressOptions.map((opt) => {
-                      const pct = opt.feePercent ?? 0;
-                      const parts = [
-                        opt.tier,
-                        t(`express.sla.${opt.tier}` as 'express.sla.BASIC'),
-                      ];
-                      if (opt.feeUsdt > 0) parts.push(`${opt.feeUsdt} USDT`);
-                      if (pct > 0) parts.push(`${pct}%`);
-                      if (opt.feeUsdt <= 0 && pct <= 0) parts.push('0 USDT');
-                      return (
-                        <option key={opt.tier} value={opt.tier}>
-                          {parts.join(' · ')}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
-              )}
               {!cardMethodAvailable && (
                 <p className="mt-1.5 text-[11px] text-gray-500">
                   {cardPaymentEnabled ? t('usdt.noEnabledFiatCard') : t('usdt.paymentCardDisabledHint')}
@@ -798,7 +783,11 @@ export default function UsdtNewPage() {
               )}
               {rate && fiatRate > 0 && (
                 <p className="mt-1 pg-hint">
-                  {t('usdt.rateRefCurrency', { rate: fiatRate.toLocaleString(), currency: fiatCurrency })}
+                  {t('usdt.rateRefCurrency', {
+                    rate: fiatRate.toLocaleString(),
+                    currency: fiatCurrency,
+                    asset: settlementAssetLabel,
+                  })}
                   {rate.source ? ` (${rate.source})` : ''}
                 </p>
               )}
@@ -822,9 +811,13 @@ export default function UsdtNewPage() {
                   onClick={() => setInputMode('target')}
                   className={`pg-choice ${inputMode === 'target' ? 'pg-choice-active' : ''}`}
                 >
-                  <span className="block font-semibold">{t('usdt.inputModeTarget')}</span>
+                  <span className="block font-semibold">
+                    {t('usdt.inputModeTarget', { asset: settlementAssetLabel })}
+                  </span>
                   <span className="mt-0.5 block text-[10px] opacity-80 sm:text-xs">
-                    {t(isCard ? 'usdt.targetUsdtDescCard' : 'usdt.targetUsdtDesc')}
+                    {t(isCard ? 'usdt.targetUsdtDescCard' : 'usdt.targetUsdtDesc', {
+                      asset: settlementAssetLabel,
+                    })}
                   </span>
                 </button>
                 {isCard ? (
@@ -834,7 +827,9 @@ export default function UsdtNewPage() {
                     className={`pg-choice ${inputMode === 'cardCharge' ? 'pg-choice-active' : ''}`}
                   >
                     <span className="block font-semibold">{t('usdt.inputModeCardCharge')}</span>
-                    <span className="mt-0.5 block text-[10px] opacity-80 sm:text-xs">{t('usdt.cardChargeDesc')}</span>
+                    <span className="mt-0.5 block text-[10px] opacity-80 sm:text-xs">
+                      {t('usdt.cardChargeDesc', { asset: settlementAssetLabel })}
+                    </span>
                   </button>
                 ) : (
                   <button
@@ -843,7 +838,9 @@ export default function UsdtNewPage() {
                     className={`pg-choice ${inputMode === 'fiat' ? 'pg-choice-active' : ''}`}
                   >
                     <span className="block font-semibold">{t('usdt.inputModeFiat')}</span>
-                    <span className="mt-0.5 block text-[10px] opacity-80 sm:text-xs">{t('usdt.fiatAmountDesc')}</span>
+                    <span className="mt-0.5 block text-[10px] opacity-80 sm:text-xs">
+                      {t('usdt.fiatAmountDesc', { asset: settlementAssetLabel })}
+                    </span>
                   </button>
                 )}
               </div>
@@ -910,7 +907,14 @@ export default function UsdtNewPage() {
                 ))}
               </select>
               {wallets.length === 0 && (
-                <p className="mt-1 text-sm text-red-600">{t('usdt.noWallet')}</p>
+                <div className="mt-1 space-y-1">
+                  <p className="text-sm text-red-600">
+                    {t('usdt.noWallet', { asset: settlementAssetLabel })}
+                  </p>
+                  {settlementAssetLabel === 'USDC' && (
+                    <p className="text-xs text-amber-700">{t('wallets.networkHintUsdc')}</p>
+                  )}
+                </div>
               )}
               <p className="pg-hint mt-1">{t('usdt.walletPickHint')}</p>
             </div>
@@ -1089,6 +1093,38 @@ export default function UsdtNewPage() {
 
             {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
 
+            {expressEnabled && (
+              <div className="mt-5 rounded-lg border border-violet-200 bg-violet-50/80 p-4 space-y-2">
+                <p className="text-sm font-semibold text-violet-900">{t('express.apply.title')}</p>
+                <p className="text-[11px] text-violet-800/80">{t('express.apply.hint')}</p>
+                <select
+                  className="pg-input w-full text-sm border-violet-200 bg-white"
+                  value={expressTier}
+                  onChange={(e) => {
+                    setExpressTier(e.target.value);
+                    setFeePreview(null);
+                  }}
+                >
+                  {expressOptions.map((opt) => {
+                    const pct = opt.feePercent ?? 0;
+                    const asset = depositCtx?.settlementAsset === 'USDC' ? 'USDC' : 'USDT';
+                    const parts = [
+                      opt.tier,
+                      t(`express.sla.${opt.tier}` as 'express.sla.BASIC'),
+                    ];
+                    if (opt.feeUsdt > 0) parts.push(`${opt.feeUsdt} ${asset}`);
+                    if (pct > 0) parts.push(`${pct}%`);
+                    if (opt.feeUsdt <= 0 && pct <= 0) parts.push(`0 ${asset}`);
+                    return (
+                      <option key={opt.tier} value={opt.tier}>
+                        {parts.join(' · ')}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            )}
+
             <button
               type="submit"
               disabled={
@@ -1123,6 +1159,7 @@ export default function UsdtNewPage() {
               fees={feePreview?.fees}
               display={feePreview?.feeDiagramDisplay}
               isCardPayment={isCard}
+              settlementAsset={depositCtx?.settlementAsset === 'USDC' ? 'USDC' : 'USDT'}
               cardFeeFiat={feePreview?.cardFeeFiat}
               cardChargeFiat={feePreview?.cardChargeFiat}
               cardFeePercent={feePreview?.cardFeePercent}

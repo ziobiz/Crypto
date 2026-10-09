@@ -126,6 +126,8 @@ export const HQ_CONFIG_KEYS = {
   expressFee: 'hq.commission.express_fee',
   /** 회원 등급(개인·법인 공통) EXPRESS 보너스 */
   memberGrade: 'hq.commission.member_grade',
+  /** 본사 정산 자산 USDT | USDC */
+  settlementAsset: 'hq.settlement.asset',
 } as const;
 
 /** 자동 확정 지연(분). 0 = 즉시 */
@@ -564,9 +566,21 @@ export type TransactionFees = {
   otherFeeUsdt: number;
 };
 
-/** USDT 출금 네트워크별 가스피 (고정 USDT) */
-export const GAS_NETWORK_CODES = ['TRC20', 'ERC20', 'BEP20', 'POLYGON', 'ARBITRUM', 'SOL'] as const;
-export type GasNetworkCode = (typeof GAS_NETWORK_CODES)[number];
+/** 출금 네트워크별 가스피 (고정 크립토) — 자산(USDT/USDC)별 */
+export const GAS_NETWORK_CODES_BY_ASSET = {
+  USDT: ['TRC20', 'ERC20', 'BEP20', 'POLYGON', 'ARBITRUM', 'SOL', 'OPTIMISM', 'AVAX', 'BASE'] as const,
+  USDC: ['SOL', 'BASE', 'ERC20', 'BEP20', 'POLYGON', 'ARBITRUM', 'OPTIMISM', 'AVAX'] as const,
+} as const;
+
+export type GasSettlementAsset = keyof typeof GAS_NETWORK_CODES_BY_ASSET;
+export type GasNetworkCode =
+  | (typeof GAS_NETWORK_CODES_BY_ASSET.USDT)[number]
+  | (typeof GAS_NETWORK_CODES_BY_ASSET.USDC)[number];
+
+/** @deprecated union of all codes — prefer GAS_NETWORK_CODES_BY_ASSET */
+export const GAS_NETWORK_CODES = [
+  ...GAS_NETWORK_CODES_BY_ASSET.USDT,
+] as const;
 
 export const GAS_FEE_GROUPS = ['DEFAULT', 'A', 'B', 'C'] as const;
 export type GasFeeGroupId = (typeof GAS_FEE_GROUPS)[number];
@@ -583,13 +597,30 @@ export type HqGasNetworkPolicy = {
   networks: HqGasNetworkRow[];
 };
 
-const DEFAULT_GAS_FEES: Record<GasNetworkCode, number> = {
+/** 자산별 네트워크 가스피 + 적용 그룹(기본/A/B/C) */
+export type HqGasAssetNetworksPolicy = {
+  activeGroup: GasFeeGroupId;
+  networks: HqGasNetworkRow[];
+};
+
+/** HQ 저장 형식: USDT·USDC 각각 적용 그룹 + 네트워크 가스피 */
+export type HqGasNetworksByAssetPolicy = {
+  byAsset: {
+    USDT: HqGasAssetNetworksPolicy;
+    USDC: HqGasAssetNetworksPolicy;
+  };
+};
+
+const DEFAULT_GAS_FEES: Partial<Record<GasNetworkCode, number>> = {
   TRC20: 1,
   ERC20: 8,
   BEP20: 0.5,
   POLYGON: 0.3,
   ARBITRUM: 0.5,
   SOL: 1,
+  OPTIMISM: 0.5,
+  AVAX: 0.5,
+  BASE: 0.4,
 };
 
 function emptyGroupFees(base: number): HqGasNetworkFees {
@@ -603,51 +634,149 @@ function parseFee(value: unknown, fallback = 0): number {
   return Number(n.toFixed(8));
 }
 
-export function defaultGasNetworkPolicy(): HqGasNetworkPolicy {
+function codesForAsset(asset: GasSettlementAsset): readonly GasNetworkCode[] {
+  return GAS_NETWORK_CODES_BY_ASSET[asset] as readonly GasNetworkCode[];
+}
+
+function parseNetworkRows(
+  codes: readonly GasNetworkCode[],
+  rows: unknown[] | undefined,
+): HqGasNetworkRow[] {
+  const byCode = new Map<GasNetworkCode, HqGasNetworkFees>();
+  for (const code of codes) {
+    byCode.set(code, emptyGroupFees(DEFAULT_GAS_FEES[code] ?? 0));
+  }
+  if (Array.isArray(rows)) {
+    for (const row of rows) {
+      const rec = row as {
+        code?: string;
+        gasFeeUsdt?: unknown;
+        fees?: Partial<HqGasNetworkFees>;
+      };
+      const code = String(rec?.code ?? '').toUpperCase() as GasNetworkCode;
+      if (!(codes as readonly string[]).includes(code)) continue;
+      const legacy = parseFee(rec.gasFeeUsdt, DEFAULT_GAS_FEES[code] ?? 0);
+      const prev = byCode.get(code) ?? emptyGroupFees(legacy);
+      byCode.set(code, {
+        DEFAULT: parseFee(rec.fees?.DEFAULT, rec.fees ? prev.DEFAULT : legacy),
+        A: parseFee(rec.fees?.A, 0),
+        B: parseFee(rec.fees?.B, 0),
+        C: parseFee(rec.fees?.C, 0),
+      });
+    }
+  }
+  return codes.map((code) => ({
+    code,
+    fees: byCode.get(code) ?? emptyGroupFees(DEFAULT_GAS_FEES[code] ?? 0),
+  }));
+}
+
+function parseActiveGroup(value: unknown, fallback: GasFeeGroupId = 'DEFAULT'): GasFeeGroupId {
+  const ag = String(value ?? '').toUpperCase();
+  if ((GAS_FEE_GROUPS as readonly string[]).includes(ag)) return ag as GasFeeGroupId;
+  return fallback;
+}
+
+function parseAssetGasBlock(
+  asset: GasSettlementAsset,
+  block: unknown,
+  fallbackGroup: GasFeeGroupId,
+): HqGasAssetNetworksPolicy {
+  if (Array.isArray(block)) {
+    return {
+      activeGroup: fallbackGroup,
+      networks: parseNetworkRows(codesForAsset(asset), block),
+    };
+  }
+  if (block && typeof block === 'object') {
+    const rec = block as { activeGroup?: unknown; networks?: unknown };
+    return {
+      activeGroup: parseActiveGroup(rec.activeGroup, fallbackGroup),
+      networks: parseNetworkRows(
+        codesForAsset(asset),
+        Array.isArray(rec.networks) ? rec.networks : undefined,
+      ),
+    };
+  }
   return {
-    activeGroup: 'DEFAULT',
-    networks: GAS_NETWORK_CODES.map((code) => ({
-      code,
-      fees: emptyGroupFees(DEFAULT_GAS_FEES[code]),
-    })),
+    activeGroup: fallbackGroup,
+    networks: parseNetworkRows(codesForAsset(asset), undefined),
+  };
+}
+
+export function defaultGasNetworksByAsset(): HqGasNetworksByAssetPolicy {
+  return {
+    byAsset: {
+      USDT: {
+        activeGroup: 'DEFAULT',
+        networks: parseNetworkRows(codesForAsset('USDT'), undefined),
+      },
+      USDC: {
+        activeGroup: 'DEFAULT',
+        networks: parseNetworkRows(codesForAsset('USDC'), undefined),
+      },
+    },
+  };
+}
+
+/** @deprecated use defaultGasNetworksByAsset — returns USDT slice */
+export function defaultGasNetworkPolicy(): HqGasNetworkPolicy {
+  const full = defaultGasNetworksByAsset();
+  return {
+    activeGroup: full.byAsset.USDT.activeGroup,
+    networks: full.byAsset.USDT.networks,
+  };
+}
+
+export function normalizeGasNetworksByAsset(raw: unknown): HqGasNetworksByAssetPolicy {
+  const defaults = defaultGasNetworksByAsset();
+  if (!raw || typeof raw !== 'object') return defaults;
+  const obj = raw as Record<string, unknown>;
+  /** 구버전 공통 activeGroup → 자산별 폴백 */
+  const legacySharedGroup = parseActiveGroup(obj.activeGroup, 'DEFAULT');
+
+  // Shape: { byAsset: { USDT: { activeGroup, networks } | [...], USDC: ... } }
+  const byAssetRaw = obj.byAsset as Record<string, unknown> | undefined;
+  if (byAssetRaw && typeof byAssetRaw === 'object') {
+    return {
+      byAsset: {
+        USDT: parseAssetGasBlock('USDT', byAssetRaw.USDT, legacySharedGroup),
+        USDC: parseAssetGasBlock('USDC', byAssetRaw.USDC, legacySharedGroup),
+      },
+    };
+  }
+
+  // Legacy flat: { activeGroup, networks: [...] } → USDT에 복사, USDC는 기본
+  const legacyNetworks = Array.isArray(obj.networks) ? obj.networks : undefined;
+  return {
+    byAsset: {
+      USDT: {
+        activeGroup: legacySharedGroup,
+        networks: parseNetworkRows(codesForAsset('USDT'), legacyNetworks),
+      },
+      USDC: {
+        activeGroup: legacySharedGroup,
+        networks: parseNetworkRows(codesForAsset('USDC'), undefined),
+      },
+    },
+  };
+}
+
+/** Single-asset view (settlement / wallet asset) */
+export function gasNetworkPolicyForAsset(
+  full: HqGasNetworksByAssetPolicy,
+  asset: GasSettlementAsset | string | null | undefined,
+): HqGasNetworkPolicy {
+  const key: GasSettlementAsset = asset === 'USDC' ? 'USDC' : 'USDT';
+  const block = full.byAsset[key];
+  return {
+    activeGroup: block.activeGroup,
+    networks: block.networks,
   };
 }
 
 export function normalizeGasNetworkPolicy(raw: unknown): HqGasNetworkPolicy {
-  const defaults = defaultGasNetworkPolicy();
-  const byCode = new Map(defaults.networks.map((n) => [n.code, n.fees]));
-  let activeGroup: GasFeeGroupId = 'DEFAULT';
-  if (raw && typeof raw === 'object') {
-    const obj = raw as Partial<HqGasNetworkPolicy> & { networks?: unknown[] };
-    const ag = String(obj.activeGroup ?? '').toUpperCase();
-    if ((GAS_FEE_GROUPS as readonly string[]).includes(ag)) activeGroup = ag as GasFeeGroupId;
-    if (Array.isArray(obj.networks)) {
-      for (const row of obj.networks) {
-        const rec = row as {
-          code?: string;
-          gasFeeUsdt?: unknown;
-          fees?: Partial<HqGasNetworkFees>;
-        };
-        const code = String(rec?.code ?? '') as GasNetworkCode;
-        if (!(GAS_NETWORK_CODES as readonly string[]).includes(code)) continue;
-        const legacy = parseFee(rec.gasFeeUsdt, DEFAULT_GAS_FEES[code]);
-        const prev = byCode.get(code) ?? emptyGroupFees(legacy);
-        byCode.set(code, {
-          DEFAULT: parseFee(rec.fees?.DEFAULT, rec.fees ? prev.DEFAULT : legacy),
-          A: parseFee(rec.fees?.A, 0),
-          B: parseFee(rec.fees?.B, 0),
-          C: parseFee(rec.fees?.C, 0),
-        });
-      }
-    }
-  }
-  return {
-    activeGroup,
-    networks: GAS_NETWORK_CODES.map((code) => ({
-      code,
-      fees: byCode.get(code) ?? emptyGroupFees(DEFAULT_GAS_FEES[code]),
-    })),
-  };
+  return gasNetworkPolicyForAsset(normalizeGasNetworksByAsset(raw), 'USDT');
 }
 
 export function gasFeeUsdtForNetwork(
@@ -715,8 +844,8 @@ export const EXPRESS_TIERS = [
   'PRIORITY',
   'HALF',
   'DAY',
-  'T1',
-  'T2',
+  'D1',
+  'D2',
   'BASIC',
 ] as const;
 export type ExpressTier = (typeof EXPRESS_TIERS)[number];
@@ -724,18 +853,30 @@ export type ExpressTier = (typeof EXPRESS_TIERS)[number];
 export type ExpressFeeMode = 'FOLLOW_HQ' | 'CUSTOM' | 'DISABLED';
 
 /**
- * 등급별 SLA 상한(시간).
- * ULTRA~DAY: 벽시계 시간. T1/T2/BASIC: T+N일 ≈ N×24h (DAY 24h와 구분되도록 T1부터 48h).
+ * 등급별 SLA 상한(시간) — ULTRA~DAY 벽시계.
+ * D1/D2/BASIC은 달력일(D+N)이며, maxHours는 표시·하위호환용 근사값.
  */
 export const EXPRESS_TIER_MAX_HOURS: Record<ExpressTier, number> = {
   ULTRA: 1,
   PRIORITY: 6,
   HALF: 12,
   DAY: 24,
-  T1: 48,
-  T2: 72,
-  BASIC: 96,
+  D1: 24,
+  D2: 48,
+  BASIC: 72,
 };
+
+/** D1/D2/BASIC: 견적 확정일(D+0) 기준 달력일. 마감 = 해당일 serviceTimezone 23:59:59.999 */
+export const EXPRESS_TIER_CALENDAR_DAYS: Partial<Record<ExpressTier, number>> = {
+  D1: 1,
+  D2: 2,
+  BASIC: 3,
+};
+
+export function expressCalendarDays(tier: ExpressTier): number | null {
+  const d = EXPRESS_TIER_CALENDAR_DAYS[tier];
+  return d != null && Number.isFinite(d) ? d : null;
+}
 
 export type ExpressTierFeeConfig = {
   /** null = 미설정. BASIC은 활성 시 0으로 취급(퍼센트도 없으면) */
@@ -758,6 +899,8 @@ export type ExpressTierOption = {
   feeUsdt: number;
   feePercent: number;
   maxHours: number;
+  /** D1/D2/BASIC: D+N 달력일. 그 외 null */
+  calendarDays: number | null;
 };
 
 export type ResolvedExpressSelection = {
@@ -766,6 +909,7 @@ export type ResolvedExpressSelection = {
   feeUsdt: number;
   feePercent: number;
   maxHours: number;
+  calendarDays: number | null;
   source: 'HQ' | 'CUSTOM' | 'DISABLED';
   customerType: CustomerTypeLimitKey;
   options: ExpressTierOption[];
@@ -827,9 +971,24 @@ export function defaultExpressPolicy(): HqExpressPolicy {
 
 export function normalizeExpressTier(raw?: string | null): ExpressTier | null {
   const v = String(raw ?? '').toUpperCase();
+  // Legacy names T1/T2 → D1/D2
+  if (v === 'T1') return 'D1';
+  if (v === 'T2') return 'D2';
   if ((EXPRESS_TIERS as readonly string[]).includes(v)) return v as ExpressTier;
   if (v === 'PIRORITY') return 'PRIORITY';
   return null;
+}
+
+/** HQ/고객 JSON에 남은 T1/T2 키를 D1/D2로 읽어 합친다 */
+function legacyExpressTierRow<T>(
+  tiers: Partial<Record<string, T>> | undefined,
+  tier: ExpressTier,
+): T | undefined {
+  const direct = tiers?.[tier];
+  if (direct != null) return direct;
+  if (tier === 'D1') return tiers?.T1;
+  if (tier === 'D2') return tiers?.T2;
+  return undefined;
 }
 
 export function normalizeExpressFeeMode(raw?: string | null): ExpressFeeMode {
@@ -850,12 +1009,12 @@ export function normalizeExpressCustomerTypePolicy(raw: unknown): HqExpressCusto
   if (!raw || typeof raw !== 'object') return base;
   const obj = raw as Partial<HqExpressCustomerTypePolicy> & {
     tiers?: Partial<
-      Record<ExpressTier, { feeUsdt?: unknown; feePercent?: unknown; enabled?: unknown }>
+      Record<string, { feeUsdt?: unknown; feePercent?: unknown; enabled?: unknown }>
     >;
   };
   const tiers = { ...base.tiers };
   for (const tier of EXPRESS_TIERS) {
-    const row = obj.tiers?.[tier];
+    const row = legacyExpressTierRow(obj.tiers, tier);
     const feeUsdt = normalizeNonNegOrNull(row?.feeUsdt, tier === 'BASIC' ? 0 : null);
     const feePercent = normalizeNonNegOrNull(row?.feePercent, null);
     const partial: ExpressTierFeeConfig = { feeUsdt, feePercent, enabled: false };
@@ -971,14 +1130,17 @@ export function normalizeMemberGradeBenefit(raw: unknown): MemberGradeExpressBen
   const base = defaultMemberGradeBenefit();
   if (!raw || typeof raw !== 'object') return base;
   const obj = raw as Partial<MemberGradeExpressBenefit> & {
-    tierFees?: Partial<Record<ExpressTier, unknown>>;
-    tierFeePercents?: Partial<Record<ExpressTier, unknown>>;
+    tierFees?: Partial<Record<string, unknown>>;
+    tierFeePercents?: Partial<Record<string, unknown>>;
   };
   const tierFees = { ...base.tierFees };
   const tierFeePercents = { ...base.tierFeePercents };
   for (const tier of EXPRESS_TIERS) {
-    tierFees[tier] = normalizeNonNegOrNull(obj.tierFees?.[tier], null);
-    tierFeePercents[tier] = normalizeNonNegOrNull(obj.tierFeePercents?.[tier], null);
+    tierFees[tier] = normalizeNonNegOrNull(legacyExpressTierRow(obj.tierFees, tier), null);
+    tierFeePercents[tier] = normalizeNonNegOrNull(
+      legacyExpressTierRow(obj.tierFeePercents, tier),
+      null,
+    );
   }
   const discountPercent = Math.min(100, Math.max(0, Number(obj.discountPercent) || 0));
   const discountUsdt = Math.max(0, Number(obj.discountUsdt) || 0);

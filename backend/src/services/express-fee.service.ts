@@ -15,7 +15,7 @@ import {
   computeExpressFeeUsdt,
   defaultExpressCustomerTypePolicy,
   defaultExpressPolicy,
-  expressDeadlineAt,
+  expressCalendarDays,
   expressMaxHours,
   normalizeExpressFeeMode,
   normalizeExpressPolicy,
@@ -25,8 +25,37 @@ import {
   isExpressTierEnabled,
   resolveExpressRatesWithMemberGrade,
 } from '../constants/hq-policy';
+import { calendarDayEndDeadline } from '../lib/zoned-calendar';
 import { prisma } from '../lib/prisma';
 import { benefitForMemberGrade, getHqMemberGradePolicy } from './member-grade.service';
+
+export async function getServiceTimezone(): Promise<string> {
+  try {
+    const row = await prisma.systemConfig.findUnique({
+      where: { key: HQ_CONFIG_KEYS.platform },
+    });
+    const cfg = row?.value as { serviceTimezone?: string } | null;
+    const tz = String(cfg?.serviceTimezone ?? '').trim();
+    if (!tz) return 'Asia/Seoul';
+    Intl.DateTimeFormat(undefined, { timeZone: tz });
+    return tz;
+  } catch {
+    return 'Asia/Seoul';
+  }
+}
+
+/** ULTRA~DAY: 벽시계 시간. D1/D2/BASIC: 서비스 TZ 달력일 D+N 23:59:59.999 */
+export function expressDeadlineAt(
+  startedAt: Date,
+  tier: ExpressTier,
+  timeZone = 'Asia/Seoul',
+): Date {
+  const days = expressCalendarDays(tier);
+  if (days != null) {
+    return calendarDayEndDeadline(startedAt, days, timeZone);
+  }
+  return new Date(startedAt.getTime() + expressMaxHours(tier) * 3_600_000);
+}
 
 export async function getHqExpressPolicy(): Promise<HqExpressPolicy> {
   const row = await prisma.systemConfig.findUnique({
@@ -136,6 +165,7 @@ export function listAvailableExpressOptions(
       feeUsdt: rates.feeUsdt,
       feePercent: rates.feePercent,
       maxHours: expressMaxHours(tier),
+      calendarDays: expressCalendarDays(tier),
     });
   }
   return options;
@@ -178,6 +208,7 @@ export async function resolveExpressSelectionForCustomer(
     feeUsdt: picked.feeUsdt,
     feePercent: picked.feePercent,
     maxHours: picked.maxHours,
+    calendarDays: picked.calendarDays,
     source: resolved.source,
     customerType: resolved.customerType,
     options,
@@ -188,11 +219,16 @@ export async function resolveExpressSelectionForCustomer(
   };
 }
 
-/** 실제 소요 시간으로 달성한 EXPRESS 등급 (빠른 순) */
-export function achievedExpressTier(elapsedMs: number): ExpressTier {
-  const hours = Math.max(0, elapsedMs) / 3_600_000;
+/** 마감 시각 기준으로 달성한 EXPRESS 등급 (빠른 순) */
+export function achievedExpressTier(
+  startedAt: Date,
+  completedAt: Date,
+  timeZone = 'Asia/Seoul',
+): ExpressTier {
   for (const tier of EXPRESS_TIERS) {
-    if (hours <= expressMaxHours(tier)) return tier;
+    if (completedAt.getTime() <= expressDeadlineAt(startedAt, tier, timeZone).getTime()) {
+      return tier;
+    }
   }
   return 'BASIC';
 }
@@ -224,12 +260,14 @@ export function settleExpressFee(input: {
   grossUsdt?: number | null;
   startedAt: Date;
   completedAt: Date;
+  timeZone?: string;
 }): ExpressSettlement | null {
   const promisedTier = normalizeExpressTier(input.promisedTier);
   if (!promisedTier && (input.promisedFeeUsdt == null || Number(input.promisedFeeUsdt) <= 0)) {
     return null;
   }
   const tier = promisedTier ?? 'BASIC';
+  const tz = input.timeZone || 'Asia/Seoul';
   const policy = normalizeExpressCustomerTypePolicy(input.policySnapshot);
   const benefit = normalizeMemberGradeBenefit(input.memberGradeBenefitSnapshot);
   const gross = Math.max(0, Number(input.grossUsdt) || 0);
@@ -241,13 +279,12 @@ export function settleExpressFee(input: {
           return rates ? computeExpressFeeUsdt(rates, gross, benefit) : 0;
         })();
   const elapsedMs = Math.max(0, input.completedAt.getTime() - input.startedAt.getTime());
-  const actualTier = achievedExpressTier(elapsedMs);
+  const actualTier = achievedExpressTier(input.startedAt, input.completedAt, tz);
   const actualRates = ratesForExpressTier(policy, benefit, actualTier);
   const gradeActual = actualRates
     ? computeExpressFeeUsdt(actualRates, gross, benefit)
     : promisedFee;
-  const slaMet =
-    elapsedMs <= expressDeadlineAt(input.startedAt, tier).getTime() - input.startedAt.getTime();
+  const slaMet = input.completedAt.getTime() <= expressDeadlineAt(input.startedAt, tier, tz).getTime();
   const effectiveSettled = slaMet ? promisedFee : Math.min(promisedFee, gradeActual);
   return {
     promisedTier: tier,
@@ -260,4 +297,4 @@ export function settleExpressFee(input: {
   };
 }
 
-export { expressDeadlineAt, defaultExpressPolicy, computeExpressFeeUsdt };
+export { defaultExpressPolicy, computeExpressFeeUsdt };

@@ -91,6 +91,7 @@ export async function previewCostAnalysis(input: {
     currency,
     exchangeRateAt: rate.fetchedAt.toISOString(),
     exchangeSource: rate.source,
+    settlementAsset: rate.settlementAsset,
   };
 }
 

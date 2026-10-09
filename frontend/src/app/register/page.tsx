@@ -10,6 +10,7 @@ import { AuthChrome } from '@/components/layout/AuthChrome';
 import { AuthConfirmDialog } from '@/components/AuthConfirmDialog';
 import { useBranding } from '@/hooks/useBranding';
 import { resolveIndividualRegisterNotice } from '@/lib/individual-register-notice';
+import { validateWalletAddressFormat } from '@/lib/wallet-address';
 import { ReferenceClocks } from '@/components/ReferenceClocks';
 import {
   CustomerBankAccountsForm,
@@ -24,7 +25,11 @@ import {
   isAllowedRemittanceCountry,
   remittanceCountryGroups,
 } from '@/constants/remittance-countries';
-import { WALLET_NETWORKS } from '@/constants/wallet-networks';
+import {
+  defaultNetworkForAsset,
+  networksForAsset,
+  type SettlementWalletAsset,
+} from '@/constants/wallet-networks';
 
 export default function RegisterPage() {
   const t = useT();
@@ -83,6 +88,8 @@ function RegisterForm() {
   /** 빠른송금 국가·이메일을 계정 정보와 같이 유지 */
   const [senderSameAsAccount, setSenderSameAsAccount] = useState(true);
   const [inviteLabel, setInviteLabel] = useState('');
+  const settlementAsset: SettlementWalletAsset =
+    branding?.settlementAsset === 'USDC' ? 'USDC' : 'USDT';
   const [form, setForm] = useState({
     email: '',
     name: '',
@@ -93,7 +100,8 @@ function RegisterForm() {
     limitCountry: limitCountryFromPhone(defaultPhoneCountryCode(locale)) as LimitCountryCode,
     bankAccounts: emptyBankAccounts(),
     walletAddress: '',
-    walletNetwork: 'TRC20',
+    walletAsset: 'USDT' as SettlementWalletAsset,
+    walletNetwork: defaultNetworkForAsset('USDT'),
     walletLabel: '',
     remittanceEnabled: false,
     remittanceProvider: '',
@@ -102,6 +110,21 @@ function RegisterForm() {
     wiseSenderEmail: '',
     wiseSenderCountry: '',
   });
+
+  useEffect(() => {
+    if (!branding?.settlementAsset) return;
+    const asset: SettlementWalletAsset =
+      branding.settlementAsset === 'USDC' ? 'USDC' : 'USDT';
+    setForm((prev) => {
+      const allowed = networksForAsset(asset);
+      const networkOk = allowed.some((n) => n.value === prev.walletNetwork);
+      return {
+        ...prev,
+        walletAsset: asset,
+        walletNetwork: networkOk ? prev.walletNetwork : defaultNetworkForAsset(asset),
+      };
+    });
+  }, [branding?.settlementAsset]);
 
   useEffect(() => {
     if (!codeExpiresAt || emailVerified) return;
@@ -367,6 +390,10 @@ function RegisterForm() {
     }
     if (!form.walletAddress.trim()) {
       setError(t('register.walletRequired'));
+      return;
+    }
+    if (!validateWalletAddressFormat(form.walletNetwork, form.walletAddress).ok) {
+      setError(t('wallets.err.addressInvalid'));
       return;
     }
     if (!form.walletLabel.trim()) {
@@ -954,6 +981,27 @@ function RegisterForm() {
                 hint={t('wallets.labelHint')}
               />
               <div>
+                <label className="block text-sm font-medium">{t('wallets.col.asset')}</label>
+                <select
+                  value={form.walletAsset}
+                  onChange={(e) => {
+                    const walletAsset = e.target.value as SettlementWalletAsset;
+                    setForm({
+                      ...form,
+                      walletAsset,
+                      walletNetwork: defaultNetworkForAsset(walletAsset),
+                    });
+                  }}
+                  className="auth-field mt-1 w-full rounded-lg border border-gray-300 px-3 py-3 text-base"
+                  required
+                >
+                  <option value={settlementAsset}>
+                    {settlementAsset === 'USDC' ? 'USDC (Circle)' : 'USDT (Tether)'}
+                  </option>
+                </select>
+                <p className="mt-1 text-xs text-gray-500">{t('register.walletAssetHint')}</p>
+              </div>
+              <div>
                 <label className="block text-sm font-medium">{t('users.walletNetwork')}</label>
                 <select
                   value={form.walletNetwork}
@@ -961,12 +1009,17 @@ function RegisterForm() {
                   className="auth-field mt-1 w-full rounded-lg border border-gray-300 px-3 py-3 text-base"
                   required
                 >
-                  {WALLET_NETWORKS.map((n) => (
+                  {networksForAsset(form.walletAsset).map((n) => (
                     <option key={n.value} value={n.value}>
                       {n.label}
                     </option>
                   ))}
                 </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  {form.walletAsset === 'USDC'
+                    ? t('wallets.networkHintUsdc')
+                    : t('wallets.networkHintUsdt')}
+                </p>
               </div>
               <div className="sm:col-span-2">
                 <Field

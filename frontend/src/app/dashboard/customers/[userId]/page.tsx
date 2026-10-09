@@ -32,6 +32,10 @@ import {
   type InactiveNoticePresetId,
 } from '@/lib/inactive-notice-presets';
 import type { MessageKey } from '@/i18n/messages';
+import {
+  CUSTOMER_TYPES_UI_ORDER,
+  SETTLEMENT_ASSETS_UI_ORDER,
+} from '@/constants/ui-display-order';
 import { CustomerWalletQrCard } from '@/components/ScheduleDelayPanel';
 import {
   MemberGradeCard,
@@ -819,8 +823,11 @@ export default function CustomerKycDetailPage() {
                 }
                 aria-label={t('auth.customerType')}
               >
-                <option value="INDIVIDUAL">{t('auth.individual')}</option>
-                <option value="CORPORATE">{t('auth.corporate')}</option>
+                {CUSTOMER_TYPES_UI_ORDER.map((type) => (
+                  <option key={type} value={type}>
+                    {type === 'CORPORATE' ? t('auth.corporate') : t('auth.individual')}
+                  </option>
+                ))}
               </select>
             </div>
             {canEditCustomer && (
@@ -1450,14 +1457,27 @@ export default function CustomerKycDetailPage() {
             {(profile.wallets ?? []).length === 0 ? (
               <p className="pg-hint">{t('wallets.empty')}</p>
             ) : (
-              (profile.wallets ?? []).map((w) => (
+              SETTLEMENT_ASSETS_UI_ORDER.map((asset) => {
+                const rows = (profile.wallets ?? []).filter(
+                  (w) => (w.assetType ?? 'USDT') === asset,
+                );
+                if (rows.length === 0) return null;
+                return (
+                  <div key={asset} className="space-y-2">
+                    <p className="text-xs font-semibold text-slate-600">
+                      {asset} ({rows.length})
+                    </p>
+                    {rows.map((w) => (
                 <div key={w.id} className="space-y-2 border-b border-slate-100 pb-3 last:border-0">
                   <CustomerWalletQrCard
                     address={w.address}
                     network={w.network}
                     nickname={w.label}
                     meta={[
-                      w.isDefault ? t('wallets.default') : '',
+                      w.assetType ?? 'USDT',
+                      w.isDefault
+                        ? t('wallets.defaultForAsset', { asset: w.assetType ?? 'USDT' })
+                        : '',
                       w.hqRegistered ? t('wallets.hqRegistered') : '',
                       w.deleteRequestedAt ? t('wallets.deleteRequested') : '',
                       w.approvalStatus
@@ -1566,7 +1586,10 @@ export default function CustomerKycDetailPage() {
                     </div>
                   ) : null}
                 </div>
-              ))
+                    ))}
+                  </div>
+                );
+              })
             )}
           </div>
         </div>

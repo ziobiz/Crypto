@@ -20,6 +20,7 @@ import {
   isSimulatorInvoiceIssueEnabled,
   notifyInvoiceTransactionCompleted,
 } from '../services/invoice-webhook.service';
+import { getSettlementAsset } from '../services/settlement-asset.service';
 
 const router = Router();
 router.use(authenticate);
@@ -113,6 +114,7 @@ router.post(
       network,
       feeMode: body.feeMode,
       buyerRef: req.user!.email,
+      settlementAsset: await getSettlementAsset(),
     });
 
     const result = await notifyInvoiceTransactionCompleted(payload, idempotencyKey, 'simulator');

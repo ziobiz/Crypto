@@ -11,7 +11,11 @@ import {
   type UsdtDepositContext,
   type UsdtFeePreview,
 } from '@/lib/api';
-import { WALLET_NETWORKS, type WalletNetwork } from '@/constants/wallet-networks';
+import {
+  defaultNetworkForAsset,
+  networksForAsset,
+  type WalletNetwork,
+} from '@/constants/wallet-networks';
 import type { MessageKey } from '@/i18n/messages';
 import { UsdtRatePanel } from '@/components/UsdtRatePanel';
 import { UsdtFeeBreakdownPanel } from '@/components/UsdtFeeBreakdown';
@@ -140,7 +144,18 @@ export default function UsdtSimulatorPage() {
   const hq = isHqViewer(user);
   const [feeMode, setFeeMode] = useState<SimulatorFeeMode>('LIVE');
   const [fiatCurrency, setFiatCurrency] = useState<FiatCurrency>('JPY');
-  const [network, setNetwork] = useState<WalletNetwork>('TRC20');
+  const settlementAsset =
+    user?.sessionPolicy?.settlementAsset === 'USDC' ? 'USDC' : 'USDT';
+  const [network, setNetwork] = useState<WalletNetwork>(
+    defaultNetworkForAsset(settlementAsset) as WalletNetwork,
+  );
+
+  useEffect(() => {
+    const allowed = networksForAsset(settlementAsset);
+    if (!allowed.some((n) => n.value === network)) {
+      setNetwork(defaultNetworkForAsset(settlementAsset) as WalletNetwork);
+    }
+  }, [settlementAsset, network]);
   const [inputMode, setInputMode] = useState<InputMode>('fiat');
   const [fiatAmount, setFiatAmount] = useState(0);
   const [targetUsdt, setTargetUsdt] = useState(0);
@@ -454,7 +469,7 @@ export default function UsdtSimulatorPage() {
               value={network}
               onChange={(e) => setNetwork(e.target.value as WalletNetwork)}
             >
-              {WALLET_NETWORKS.map((n) => (
+              {networksForAsset(settlementAsset).map((n) => (
                 <option key={n.value} value={n.value}>
                   {t(`network.${n.value}` as MessageKey)}
                 </option>
@@ -516,6 +531,7 @@ export default function UsdtSimulatorPage() {
             totalFeeUsdt={totalFeeUsdt(preview!)}
             showTotalFee={preview?.feeDiagramDisplay?.showTotalFee !== false}
             rangePct={preview?.amountRangePct}
+            settlementAsset={user?.sessionPolicy?.settlementAsset}
           />
           {hq && (
             <div className="mt-3">
@@ -527,6 +543,7 @@ export default function UsdtSimulatorPage() {
                 display={preview?.feeDiagramDisplay}
                 amountRangePct={preview?.amountRangePct}
                 showExactWithRange={Boolean(preview?.amountRangePct)}
+                settlementAsset={user?.sessionPolicy?.settlementAsset}
               />
             </div>
           )}
@@ -556,6 +573,7 @@ export default function UsdtSimulatorPage() {
                   rangePct={
                     item.amountRangePct != null ? item.amountRangePct : historyRangePct
                   }
+                  settlementAsset={user?.sessionPolicy?.settlementAsset}
                 />
                 {hq && (
                   <div className="mt-3">
@@ -581,6 +599,7 @@ export default function UsdtSimulatorPage() {
                         (item.amountRangePct != null ? item.amountRangePct : historyRangePct) ??
                           0,
                       )}
+                      settlementAsset={user?.sessionPolicy?.settlementAsset}
                     />
                   </div>
                 )}
@@ -603,6 +622,7 @@ function SimpleSimSummary({
   totalFeeUsdt,
   showTotalFee = true,
   rangePct,
+  settlementAsset = 'USDT',
 }: {
   at: string | null;
   currency: string;
@@ -614,8 +634,10 @@ function SimpleSimSummary({
   showTotalFee?: boolean;
   /** 고객 시뮬 ±N%. 본사는 미전달 → 정확 금액만 */
   rangePct?: number | null;
+  settlementAsset?: 'USDT' | 'USDC';
 }) {
   const t = useT();
+  const asset = settlementAsset === 'USDC' ? 'USDC' : 'USDT';
   const showRange = rangePct != null && rangePct > 0;
   const fiatDelta = showRange ? n(requiredFiat) * (rangePct / 100) : 0;
   const usdtDelta = showRange ? n(netUsdt) * (rangePct / 100) : 0;
@@ -632,7 +654,7 @@ function SimpleSimSummary({
       <div>
         <div className="pg-hint">{t('simulator.rate')}</div>
         <div className="font-semibold">
-          1 USDT = {n(rate).toLocaleString()} {currency}
+          1 {asset} = {n(rate).toLocaleString()} {currency}
         </div>
       </div>
       <div>
@@ -663,20 +685,24 @@ function SimpleSimSummary({
         {showRange ? (
           <div className="space-y-0.5">
             <div className="text-lg font-bold tabular-nums text-red-600">
-              {usdtLow.toFixed(4)} ~ {usdtHigh.toFixed(4)} USDT
+              {usdtLow.toFixed(4)} ~ {usdtHigh.toFixed(4)} {asset}
             </div>
             <div className="text-lg font-bold tabular-nums text-red-600">
-              {t('usdt.fee.refExact')}: {n(netUsdt).toFixed(4)} USDT
+              {t('usdt.fee.refExact')}: {n(netUsdt).toFixed(4)} {asset}
             </div>
           </div>
         ) : (
-          <div className="text-lg font-bold tabular-nums text-red-600">{n(netUsdt).toFixed(4)} USDT</div>
+          <div className="text-lg font-bold tabular-nums text-red-600">
+            {n(netUsdt).toFixed(4)} {asset}
+          </div>
         )}
       </div>
       {showTotalFee && (
         <div>
           <div className="pg-hint">{t('simulator.totalFee')}</div>
-          <div className="text-lg font-bold tabular-nums text-green-600">{n(totalFeeUsdt).toFixed(4)} USDT</div>
+          <div className="text-lg font-bold tabular-nums text-green-600">
+            {n(totalFeeUsdt).toFixed(4)} {asset}
+          </div>
         </div>
       )}
     </div>

@@ -18,7 +18,12 @@ export async function listProfitAnalysis() {
   });
   return rows.map((d) => {
     const expected = Number(d.expectedUsdtAmount);
+    const actual = d.actualUsdtAmount != null ? Number(d.actualUsdtAmount) : null;
     const broker = d.brokerUsdtAmount != null ? Number(d.brokerUsdtAmount) : null;
+    /** 자동: actual 있으면 actual, 없으면 expected. 수동: broker 입력 시 broker */
+    const settledForProfit = broker != null ? broker : actual != null ? actual : null;
+    const profitSource: 'manual' | 'auto' | null =
+      broker != null ? 'manual' : actual != null ? 'auto' : null;
     return {
       ticketId: d.ticketId,
       ticketNo: d.ticket.ticketNo,
@@ -30,8 +35,13 @@ export async function listProfitAnalysis() {
       fiatCurrency: d.fiatCurrency,
       exchangeRate: Number(d.exchangeRate),
       expectedUsdtAmount: expected,
+      actualUsdtAmount: actual,
       brokerUsdtAmount: broker,
-      profitUsdt: broker == null ? null : Number((broker - expected).toFixed(8)),
+      profitSource,
+      profitUsdt:
+        settledForProfit == null
+          ? null
+          : Number((settledForProfit - expected).toFixed(8)),
     };
   });
 }

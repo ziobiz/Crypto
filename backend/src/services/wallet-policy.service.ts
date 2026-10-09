@@ -1,9 +1,37 @@
-import { Prisma, UsdtPurchaseStatus, WalletApprovalStatus } from '@prisma/client';
+import { Prisma, UsdtPurchaseStatus, WalletApprovalStatus, type WalletAssetType } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
+import { validateWalletAddressFormat } from '../lib/wallet-address';
 import { recordMerchantOperation } from './merchant-operation-log.service';
+import type { SettlementAsset } from './settlement-asset.service';
 
-export const MAX_CUSTOMER_WALLETS = 5;
+/** 자산(USDT/USDC)별 활성 지갑 상한 */
+export const MAX_CUSTOMER_WALLETS = 6;
+
+/** USDT: TRON 주력. USDC: Circle TRON 미지원 → TRC20 불가 */
+export const WALLET_NETWORKS_BY_ASSET = {
+  USDT: ['TRC20', 'ERC20', 'BEP20', 'POLYGON', 'ARBITRUM', 'SOL', 'OPTIMISM', 'AVAX', 'BASE'],
+  USDC: ['SOL', 'BASE', 'ERC20', 'BEP20', 'POLYGON', 'ARBITRUM', 'OPTIMISM', 'AVAX'],
+} as const;
+
+export function defaultNetworkForAsset(asset: 'USDT' | 'USDC'): string {
+  return asset === 'USDC' ? 'SOL' : 'TRC20';
+}
+
+export function assertNetworkForAsset(network: string, asset: 'USDT' | 'USDC') {
+  const net = normalizeWalletNetwork(network) || defaultNetworkForAsset(asset);
+  const allowed = WALLET_NETWORKS_BY_ASSET[asset] as readonly string[];
+  if (!allowed.includes(net)) {
+    throw new AppError(
+      400,
+      asset === 'USDC'
+        ? 'USDC does not support this network (TRC20/Tron is unavailable for native USDC)'
+        : 'Unsupported network for USDT wallet',
+      'WALLET_NETWORK_ASSET',
+    );
+  }
+  return net;
+}
 
 const OPEN_USDT_STATUSES: UsdtPurchaseStatus[] = [
   UsdtPurchaseStatus.QUOTE_PENDING,
@@ -17,9 +45,9 @@ const OPEN_USDT_STATUSES: UsdtPurchaseStatus[] = [
 
 const CASE_INSENSITIVE_NETWORKS = new Set(['ERC20', 'BEP20', 'ETH', 'POLYGON']);
 
+/** Normalize network code. Empty stays empty — callers must supply defaultNetworkForAsset(asset). */
 export function normalizeWalletNetwork(network: string): string {
-  const net = network.trim().toUpperCase();
-  return net || 'TRC20';
+  return String(network ?? '').trim().toUpperCase();
 }
 
 export function normalizeWalletAddress(network: string, address: string): string {
@@ -62,7 +90,11 @@ export async function assertWalletNotInOpenTrade(walletId: string) {
   }
 }
 
-async function reassignDefault(userId: string, exceptWalletId: string) {
+async function reassignDefault(
+  userId: string,
+  exceptWalletId: string,
+  assetType?: WalletAssetType | string | null,
+) {
   const next = await prisma.wallet.findFirst({
     where: {
       userId,
@@ -70,12 +102,52 @@ async function reassignDefault(userId: string, exceptWalletId: string) {
       id: { not: exceptWalletId },
       approvalStatus: WalletApprovalStatus.APPROVED,
       deleteRequestedAt: null,
+      ...(assetType ? { assetType: assetType as WalletAssetType } : {}),
     },
     orderBy: { createdAt: 'asc' },
   });
   if (next) {
     await prisma.wallet.update({ where: { id: next.id }, data: { isDefault: true } });
   }
+  await ensurePrimaryWalletForAsset(userId, assetType ?? next?.assetType ?? 'USDT');
+}
+
+/**
+ * 자산별 활성 지갑(삭제요청 제외)이 1개면 자동으로 대표지갑(isDefault).
+ * 여러 개인데 대표가 없으면 승인된 가장 오래된 지갑(없으면 가장 오래된 지갑)을 지정.
+ */
+export async function ensurePrimaryWalletForAsset(
+  userId: string,
+  assetType?: WalletAssetType | string | null,
+) {
+  const asset = (assetType === 'USDC' ? 'USDC' : 'USDT') as WalletAssetType;
+  const rows = await prisma.wallet.findMany({
+    where: {
+      userId,
+      isActive: true,
+      deleteRequestedAt: null,
+      assetType: asset,
+    },
+    select: { id: true, isDefault: true, approvalStatus: true },
+    orderBy: { createdAt: 'asc' },
+  });
+  if (rows.length === 0) return null;
+
+  if (rows.length === 1) {
+    const sole = rows[0]!;
+    if (!sole.isDefault) {
+      await prisma.wallet.update({ where: { id: sole.id }, data: { isDefault: true } });
+    }
+    return sole.id;
+  }
+
+  const currentDefault = rows.find((r) => r.isDefault);
+  if (currentDefault) return currentDefault.id;
+
+  const approved = rows.find((r) => r.approvalStatus === WalletApprovalStatus.APPROVED);
+  const pick = approved ?? rows[0]!;
+  await prisma.wallet.update({ where: { id: pick.id }, data: { isDefault: true } });
+  return pick.id;
 }
 
 type FeeInput = {
@@ -107,14 +179,17 @@ export async function registerMerchantWallet(
     label?: string;
     address: string;
     network: string;
+    assetType?: SettlementAsset | WalletAssetType;
     fees: FeeInput;
   } & AuditBits,
 ) {
-  const network = normalizeWalletNetwork(input.network);
-  const address = normalizeWalletAddress(network, input.address);
-  if (address.length < 10) {
-    throw new AppError(400, '지갑 주소가 너무 짧습니다', 'VALIDATION');
+  const assetType = (input.assetType === 'USDC' ? 'USDC' : 'USDT') as WalletAssetType;
+  const network = assertNetworkForAsset(input.network, assetType);
+  const format = validateWalletAddressFormat(network, input.address);
+  if (!format.ok) {
+    throw new AppError(400, format.message, format.code);
   }
+  const address = normalizeWalletAddress(network, format.address);
   const label = normalizeWalletNickname(input.label);
   if (!label) {
     throw new AppError(
@@ -124,21 +199,30 @@ export async function registerMerchantWallet(
     );
   }
 
-  const activeCount = await prisma.wallet.count({ where: { userId: ownerId, isActive: true } });
+  /** 자산별 한도(USDT 6 + USDC 6) */
+  const activeCount = await prisma.wallet.count({
+    where: { userId: ownerId, isActive: true, assetType },
+  });
   const existing = await prisma.wallet.findFirst({
-    where: { userId: ownerId, address, network },
+    where: { userId: ownerId, address, network, assetType },
   });
   if (existing?.isActive) {
     throw new AppError(400, '이미 등록된 지갑 주소입니다', 'WALLET_DUPLICATE');
   }
   if (activeCount >= MAX_CUSTOMER_WALLETS) {
-    throw new AppError(400, '지갑은 최대 5개까지 등록할 수 있습니다', 'WALLET_LIMIT');
+    throw new AppError(
+      400,
+      `지갑은 ${assetType} 기준 최대 ${MAX_CUSTOMER_WALLETS}개까지 등록할 수 있습니다`,
+      'WALLET_LIMIT',
+    );
   }
 
   const previouslyApproved = await hasApprovedAddress(ownerId, network, address);
   const approvalStatus = previouslyApproved
     ? WalletApprovalStatus.APPROVED
     : WalletApprovalStatus.PENDING;
+  /** 해당 자산의 첫 지갑이면 자동 대표지갑 */
+  const asPrimary = activeCount === 0;
 
   const wallet = existing
     ? await prisma.wallet.update({
@@ -146,9 +230,10 @@ export async function registerMerchantWallet(
         data: {
           label,
           isActive: true,
-          isDefault: false,
+          isDefault: asPrimary,
           approvalStatus,
           deleteRequestedAt: null,
+          assetType,
         },
       })
     : await prisma.wallet.create({
@@ -157,7 +242,8 @@ export async function registerMerchantWallet(
           label,
           address,
           network,
-          isDefault: false,
+          assetType,
+          isDefault: asPrimary,
           hqRegistered: false,
           approvalStatus,
           fxFeePercent: input.fees.fxFeePercent,
@@ -165,8 +251,11 @@ export async function registerMerchantWallet(
           transferFeeAmount: input.fees.transferFeeAmount,
           otherFeeAmount: input.fees.otherFeeAmount,
           platformFeeAmount: input.fees.platformFeeAmount,
+          feeCurrency: assetType,
         },
       });
+
+  await ensurePrimaryWalletForAsset(ownerId, assetType);
 
   await recordMerchantOperation({
     actorId: input.actorId,
@@ -195,7 +284,12 @@ export async function registerMerchantWallet(
 export async function changeMerchantWalletAddress(
   ownerId: string,
   walletId: string,
-  input: { address: string; network: string; label?: string } & AuditBits,
+  input: {
+    address: string;
+    network: string;
+    assetType?: SettlementAsset | WalletAssetType;
+    label?: string;
+  } & AuditBits,
 ) {
   const existing = await prisma.wallet.findFirst({
     where: { id: walletId, userId: ownerId, isActive: true },
@@ -205,11 +299,26 @@ export async function changeMerchantWalletAddress(
     throw new AppError(400, '삭제 요청 중인 지갑은 주소를 바꿀 수 없습니다', 'WALLET_DELETE_PENDING');
   }
 
-  const network = normalizeWalletNetwork(input.network || existing.network);
-  const address = normalizeWalletAddress(network, input.address);
-  if (address.length < 10) {
-    throw new AppError(400, '지갑 주소가 너무 짧습니다', 'VALIDATION');
+  /** 자산(USDT/USDC)은 등록 후 변경 불가 — 요청 값이 와도 무시하고 기존 고정 */
+  const assetType = (existing.assetType === 'USDC' ? 'USDC' : 'USDT') as WalletAssetType;
+  if (
+    input.assetType === 'USDC' ||
+    input.assetType === 'USDT'
+  ) {
+    if (input.assetType !== assetType) {
+      throw new AppError(
+        400,
+        'Wallet asset (USDT/USDC) cannot be changed after registration',
+        'WALLET_ASSET_LOCKED',
+      );
+    }
   }
+  const network = assertNetworkForAsset(input.network || existing.network, assetType);
+  const format = validateWalletAddressFormat(network, input.address);
+  if (!format.ok) {
+    throw new AppError(400, format.message, format.code);
+  }
+  const address = normalizeWalletAddress(network, format.address);
 
   const same =
     normalizeWalletAddress(existing.network, existing.address) === address &&
@@ -229,7 +338,13 @@ export async function changeMerchantWalletAddress(
   await assertWalletNotInOpenTrade(existing.id);
 
   const clash = await prisma.wallet.findFirst({
-    where: { userId: ownerId, address, network, id: { not: existing.id } },
+    where: {
+      userId: ownerId,
+      address,
+      network,
+      assetType,
+      id: { not: existing.id },
+    },
   });
   if (clash?.isActive) {
     throw new AppError(400, '이미 등록된 지갑 주소입니다', 'WALLET_DUPLICATE');
@@ -240,8 +355,10 @@ export async function changeMerchantWalletAddress(
     ? WalletApprovalStatus.APPROVED
     : WalletApprovalStatus.PENDING;
 
+  const clearDefault = approvalStatus !== WalletApprovalStatus.APPROVED;
   const wallet = await prisma.$transaction(async (tx) => {
     if (clash && !clash.isActive) {
+      /** 비활성 충돌 행만 주소 슬롯 비움 — 과거 거래는 walletAddressSnapshot 유지 */
       await tx.wallet.update({
         where: { id: clash.id },
         data: { address: `retired:${clash.id}` },
@@ -252,16 +369,19 @@ export async function changeMerchantWalletAddress(
       data: {
         address,
         network,
+        /** assetType 고정 — 변경하지 않음 */
         approvalStatus,
         ...(input.label !== undefined ? { label: input.label.trim() || null } : {}),
-        ...(approvalStatus !== WalletApprovalStatus.APPROVED ? { isDefault: false } : {}),
+        ...(clearDefault ? { isDefault: false } : {}),
       },
     });
     return updated;
   });
 
-  if (existing.isDefault && wallet.approvalStatus !== WalletApprovalStatus.APPROVED) {
-    await reassignDefault(ownerId, wallet.id);
+  if (existing.isDefault && clearDefault) {
+    await reassignDefault(ownerId, wallet.id, assetType);
+  } else {
+    await ensurePrimaryWalletForAsset(ownerId, assetType);
   }
 
   await recordMerchantOperation({
@@ -270,15 +390,17 @@ export async function changeMerchantWalletAddress(
     action: 'WALLET_ADDRESS_CHANGE',
     entityType: 'Wallet',
     entityId: wallet.id,
-    summary: `Change wallet address ${existing.network} → ${network} (open trades unchanged)`,
+    summary: `Change wallet ${assetType}/${existing.network} → ${assetType}/${network}`,
     before: {
       address: existing.address,
       network: existing.network,
+      assetType,
       approvalStatus: existing.approvalStatus,
     },
     after: {
       address: wallet.address,
       network: wallet.network,
+      assetType,
       approvalStatus: wallet.approvalStatus,
       previouslyApproved,
     },
@@ -345,9 +467,20 @@ export async function requestMerchantWalletDeletion(
     throw new AppError(400, '이미 삭제 요청된 지갑입니다', 'WALLET_DELETE_PENDING');
   }
 
-  const activeCount = await prisma.wallet.count({ where: { userId: ownerId, isActive: true } });
-  if (activeCount <= 1) {
-    throw new AppError(400, '마지막 지갑은 삭제 요청할 수 없습니다', 'WALLET_LAST');
+  const activeSameAsset = await prisma.wallet.count({
+    where: {
+      userId: ownerId,
+      isActive: true,
+      assetType: existing.assetType ?? 'USDT',
+      deleteRequestedAt: null,
+    },
+  });
+  if (activeSameAsset <= 1) {
+    throw new AppError(
+      400,
+      `마지막 ${existing.assetType ?? 'USDT'} 지갑은 삭제 요청할 수 없습니다`,
+      'WALLET_LAST',
+    );
   }
 
   await assertWalletNotInOpenTrade(existing.id);
@@ -356,7 +489,11 @@ export async function requestMerchantWalletDeletion(
     where: { id: existing.id },
     data: { deleteRequestedAt: new Date(), isDefault: false },
   });
-  if (existing.isDefault) await reassignDefault(ownerId, wallet.id);
+  if (existing.isDefault) {
+    await reassignDefault(ownerId, wallet.id, existing.assetType);
+  } else {
+    await ensurePrimaryWalletForAsset(ownerId, existing.assetType);
+  }
 
   await recordMerchantOperation({
     actorId: audit.actorId,

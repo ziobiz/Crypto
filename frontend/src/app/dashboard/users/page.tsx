@@ -29,6 +29,7 @@ import { type OrgTypeCode } from '@/lib/org-types';
 import { detailRowProps } from '@/lib/table-row-detail';
 import { formatDate } from '@/lib/format';
 import { resolveHistoryActorName } from '@/lib/session-display';
+import { defaultNetworkForAsset } from '@/constants/wallet-networks';
 
 const emptyCreate: CreateUserInput = {
   email: '',
@@ -42,7 +43,7 @@ const emptyCreate: CreateUserInput = {
   accountNumber: '',
   accountHolder: '',
   walletAddress: '',
-  walletNetwork: 'TRC20',
+  walletNetwork: defaultNetworkForAsset('USDT'),
   walletLabel: '',
 };
 
@@ -51,6 +52,8 @@ export default function UsersPage() {
   const t = useT();
   const { locale } = useLocale();
   const isSuperAdmin = me?.role === 'SUPER_ADMIN';
+  const settlementAsset =
+    me?.sessionPolicy?.settlementAsset === 'USDC' ? 'USDC' : 'USDT';
   const canAssignOrganizer = (me?.email ?? '').toLowerCase() === 'ziobizm@gmail.com' && isSuperAdmin;
   const [passwordConfirm, setPasswordConfirm] = useState('');
 
@@ -122,7 +125,11 @@ export default function UsersPage() {
   }, [load]);
 
   function openCreate() {
-    setForm({ ...emptyCreate, role: 'ORG_STAFF' });
+    setForm({
+      ...emptyCreate,
+      role: 'ORG_STAFF',
+      walletNetwork: defaultNetworkForAsset(settlementAsset),
+    });
     setPasswordConfirm('');
     setOrgMode(orgs.length === 0 ? 'new' : 'existing');
     setNewOrgType(isSuperAdmin ? 'HEAD_OFFICE' : 'REGIONAL_BRANCH');

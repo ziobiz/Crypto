@@ -10,6 +10,7 @@ import {
   type UsdtServiceFlags,
 } from '@/lib/api';
 import { PolicyTableActions } from '@/components/policy/PolicyTableActions';
+import { CUSTOMER_TYPES_UI_ORDER } from '@/constants/ui-display-order';
 
 const CURRENCIES = ['KRW', 'JPY', 'THB', 'CNY', 'USD', 'EUR'] as const;
 type FiatCur = (typeof CURRENCIES)[number];
@@ -145,7 +146,7 @@ export default function HqUsdtServicesPage() {
     setError('');
     try {
       const normalized = defaultMatrix();
-      for (const type of ['INDIVIDUAL', 'CORPORATE'] as const) {
+      for (const type of CUSTOMER_TYPES_UI_ORDER) {
         for (const cur of CURRENCIES) {
           const src = config[type]?.[cur] ?? emptyFlags();
           normalized[type][cur] = {
@@ -187,20 +188,20 @@ export default function HqUsdtServicesPage() {
       {msg && <p className="text-sm text-green-700">{msg}</p>}
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <ServiceTypePanel
-          type="INDIVIDUAL"
-          title={t('hq.services.tabIndividual')}
-          rows={config.INDIVIDUAL}
-          onChange={(cur, key, value) => patchFlag('INDIVIDUAL', cur, key, value)}
-          t={t}
-        />
-        <ServiceTypePanel
-          type="CORPORATE"
-          title={t('hq.services.tabCorporate')}
-          rows={config.CORPORATE}
-          onChange={(cur, key, value) => patchFlag('CORPORATE', cur, key, value)}
-          t={t}
-        />
+        {CUSTOMER_TYPES_UI_ORDER.map((type) => (
+          <ServiceTypePanel
+            key={type}
+            type={type}
+            title={
+              type === 'CORPORATE'
+                ? t('hq.services.tabCorporate')
+                : t('hq.services.tabIndividual')
+            }
+            rows={config[type]}
+            onChange={(cur, key, value) => patchFlag(type, cur, key, value)}
+            t={t}
+          />
+        ))}
       </div>
 
       <PolicyTableActions>

@@ -174,7 +174,16 @@ const userSelect = {
     where: { isActive: true },
     orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
     take: 1,
-    select: { id: true, label: true, address: true, network: true, isDefault: true },
+    select: {
+      id: true,
+      label: true,
+      address: true,
+      network: true,
+      assetType: true,
+      isDefault: true,
+      approvalStatus: true,
+      deleteRequestedAt: true,
+    },
   },
   bankAccounts: {
     where: { isActive: true },
@@ -463,6 +472,7 @@ export const userService = {
             label: true,
             address: true,
             network: true,
+            assetType: true,
             isDefault: true,
             hqRegistered: true,
             approvalStatus: true,
@@ -594,7 +604,23 @@ export const userService = {
     let created;
     if (data.role === UserRole.CUSTOMER) {
       const hqFees = await getHqTransactionFees();
-      const network = data.walletNetwork?.trim() || 'TRC20';
+      const { getSettlementAsset } = await import('./settlement-asset.service');
+      const {
+        assertNetworkForAsset,
+        defaultNetworkForAsset,
+        normalizeWalletAddress,
+      } = await import('./wallet-policy.service');
+      const { validateWalletAddressFormat } = await import('../lib/wallet-address');
+      const settlementAsset = await getSettlementAsset();
+      const network = assertNetworkForAsset(
+        data.walletNetwork?.trim() || defaultNetworkForAsset(settlementAsset),
+        settlementAsset,
+      );
+      const walletFormat = validateWalletAddressFormat(network, data.walletAddress ?? '');
+      if (!walletFormat.ok) {
+        throw new AppError(400, walletFormat.message, walletFormat.code);
+      }
+      const walletAddressNormalized = normalizeWalletAddress(network, walletFormat.address);
       const riskLimit = resolveUsdtRiskLimitFields({
         usdtRiskLimitCode: data.usdtRiskLimitCode ?? 'MR',
         usdtLimitMinUsdt: data.usdtLimitMinUsdt,
@@ -679,9 +705,10 @@ export const userService = {
           },
           wallets: {
             create: {
-              label: data.walletLabel?.trim() || '메인 USDT 지갑',
-              address: data.walletAddress!.trim(),
+              label: data.walletLabel?.trim() || `메인 ${settlementAsset} 지갑`,
+              address: walletAddressNormalized,
               network,
+              assetType: settlementAsset,
               isDefault: true,
               hqRegistered: true,
               approvalStatus: 'APPROVED',
@@ -689,6 +716,7 @@ export const userService = {
               gasFeeAmount: 0,
               transferFeeAmount: hqFees.transferFeeUsdt,
               otherFeeAmount: hqFees.otherFeeUsdt,
+              feeCurrency: settlementAsset,
             },
           },
         },
@@ -706,7 +734,7 @@ export const userService = {
         );
       }
       const { rememberApprovedAddress } = await import('./wallet-policy.service');
-      await rememberApprovedAddress(created.id, network, data.walletAddress!.trim());
+      await rememberApprovedAddress(created.id, network, walletAddressNormalized);
     } else {
       created = await prisma.user.create({
         data: {
@@ -1365,8 +1393,14 @@ export const userService = {
     });
 
     if (status === 'APPROVED') {
-      const { rememberApprovedAddress } = await import('./wallet-policy.service');
+      const { rememberApprovedAddress, ensurePrimaryWalletForAsset } = await import(
+        './wallet-policy.service'
+      );
       await rememberApprovedAddress(customerUserId, next.network, next.address);
+      await ensurePrimaryWalletForAsset(customerUserId, next.assetType);
+    } else {
+      const { ensurePrimaryWalletForAsset } = await import('./wallet-policy.service');
+      await ensurePrimaryWalletForAsset(customerUserId, wallet.assetType);
     }
 
     const { recordMerchantOperation } = await import('./merchant-operation-log.service');
@@ -1439,6 +1473,8 @@ export const userService = {
         where: { id: wallet.id },
         data: { deleteRequestedAt: null },
       });
+      const { ensurePrimaryWalletForAsset } = await import('./wallet-policy.service');
+      await ensurePrimaryWalletForAsset(customerUserId, next.assetType);
       await recordMerchantOperation({
         actorId: actor.id,
         merchantAdminUserId: customerUserId,
@@ -1478,23 +1514,14 @@ export const userService = {
       throw new AppError(400, '마지막 지갑은 삭제할 수 없습니다', 'WALLET_LAST');
     }
 
+    /** soft-delete: 주소·네트워크 유지 → 과거 거래는 snapshot + 원본 주소로 표시 */
     const next = await prisma.wallet.update({
       where: { id: wallet.id },
       data: { isActive: false, isDefault: false, deleteRequestedAt: null },
     });
-    if (wallet.isDefault) {
-      const fallback = await prisma.wallet.findFirst({
-        where: {
-          userId: customerUserId,
-          isActive: true,
-          approvalStatus: 'APPROVED',
-          deleteRequestedAt: null,
-        },
-        orderBy: { createdAt: 'asc' },
-      });
-      if (fallback) {
-        await prisma.wallet.update({ where: { id: fallback.id }, data: { isDefault: true } });
-      }
+    {
+      const { ensurePrimaryWalletForAsset } = await import('./wallet-policy.service');
+      await ensurePrimaryWalletForAsset(customerUserId, wallet.assetType);
     }
 
     await recordMerchantOperation({

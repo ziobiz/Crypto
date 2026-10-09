@@ -11,8 +11,9 @@ import type {
 } from '@/lib/api';
 import { EXPRESS_TIERS, MEMBER_GRADES, defaultMemberGradePolicy } from '@/lib/api';
 import type { MessageKey } from '@/i18n/messages';
+import { CUSTOMER_TYPES_UI_ORDER } from '@/constants/ui-display-order';
 
-const CUSTOMER_TYPES = ['CORPORATE', 'INDIVIDUAL'] as const;
+const CUSTOMER_TYPES = CUSTOMER_TYPES_UI_ORDER;
 type CustomerTypeKey = (typeof CUSTOMER_TYPES)[number];
 
 type MemberGradePolicyEditorProps = {
@@ -135,7 +136,7 @@ export function MemberGradePolicyEditor({ value, onChange }: MemberGradePolicyEd
                   <tr>
                     {EXPRESS_TIERS.map((tier) => (
                       <Fragment key={`${type}-${tier}-sub`}>
-                        <th className="whitespace-nowrap font-normal">USDT</th>
+                        <th className="whitespace-nowrap font-normal">{t('hq.commission.unitCrypto')}</th>
                         <th className="whitespace-nowrap font-normal">%</th>
                       </Fragment>
                     ))}

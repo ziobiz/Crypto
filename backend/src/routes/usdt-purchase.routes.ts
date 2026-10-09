@@ -290,7 +290,7 @@ const createSchema = z
     walletId: z.string().min(1),
     paymentMethod: z.enum(['BANK_TRANSFER', 'CARD', 'REMITTANCE']).optional(),
     expressTier: z
-      .enum(['ULTRA', 'PRIORITY', 'HALF', 'DAY', 'T1', 'T2', 'BASIC'])
+      .enum(['ULTRA', 'PRIORITY', 'HALF', 'DAY', 'D1', 'D2', 'BASIC', 'T1', 'T2'])
       .optional()
       .nullable(),
     cardWaiverAccepted: z.literal(true).optional(),

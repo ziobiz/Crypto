@@ -32,6 +32,7 @@ function queueUsdtOrderInvoice(input: {
   adminNote?: string | null;
   collectionAccountJson?: unknown;
   sandboxInvoice?: boolean;
+  settlementAsset?: 'USDT' | 'USDC' | string | null;
 }) {
   const sandbox =
     input.sandboxInvoice === true ||
@@ -48,6 +49,7 @@ function queueUsdtOrderInvoice(input: {
     assetAmount: input.assetAmount,
     buyerRef: input.buyerRef,
     usdtTxId: input.usdtTxId,
+    settlementAsset: input.settlementAsset,
   };
   const processed = buildUsdtPurchaseInvoicePayload({ ...base, sandbox });
   void notifyInvoiceTransactionCompleted(processed.payload, processed.idempotencyKey);
@@ -69,8 +71,10 @@ import {
 import {
   computeExpectedCompleteAt,
   isDirectRemitCurrency,
+  normalizeExpressTier,
   resolveExpectedCompletionDays,
   type HqSlaConfig,
+  type ResolvedExpressSelection,
 } from '../constants/hq-policy';
 import {
   completedAtFromHistory,
@@ -120,11 +124,13 @@ import {
 } from './usdt-quote-policy.service';
 import {
   expressDeadlineAt,
+  getServiceTimezone,
   resolveExpressSelectionForCustomer,
   settleExpressFee,
   type ExpressCustomerProfile,
 } from './express-fee.service';
-import type { ResolvedExpressSelection } from '../constants/hq-policy';
+import { getSettlementAsset } from './settlement-asset.service';
+import { defaultNetworkForAsset } from './wallet-policy.service';
 
 function withExpressFeeRates(
   fees: ResolvedTransactionFees,
@@ -291,12 +297,13 @@ const CUSTOMER_TRANSITIONS: Record<UsdtPurchaseStatus, UsdtPurchaseStatus[]> = {
   [UsdtPurchaseStatus.CANCELLED]: [],
 };
 
-function generateTicketNo(): string {
+function generateTicketNo(settlementAsset: 'USDT' | 'USDC' = 'USDT'): string {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
   const rand = Math.floor(Math.random() * 10000)
     .toString()
     .padStart(4, '0');
-  return `USDT-${date}-${rand}`;
+  const prefix = settlementAsset === 'USDC' ? 'USDC' : 'USDT';
+  return `${prefix}-${date}-${rand}`;
 }
 
 function normalizeName(s: string): string {
@@ -495,6 +502,7 @@ export async function previewUsdtTransactionFees(
     skipLimitValidation?: boolean;
   },
 ) {
+  const settlementAsset = await getSettlementAsset();
   const wallet = await prisma.wallet.findFirst({
     where: {
       id: input.walletId,
@@ -502,6 +510,7 @@ export async function previewUsdtTransactionFees(
       isActive: true,
       approvalStatus: WalletApprovalStatus.APPROVED,
       deleteRequestedAt: null,
+      assetType: settlementAsset,
     },
   });
 
@@ -581,6 +590,7 @@ export async function previewUsdtTransactionFees(
       fees: quoted.fees,
       fiatAmount: quoted.fiatAmount,
       exchangeRate: rate,
+      settlementAsset,
       breakdown: quoted.breakdown,
       localPremium: quoted.localPremium,
       kimchiPremium: quoted.localPremium?.currency === 'KRW' ? quoted.localPremium : undefined,
@@ -664,6 +674,7 @@ export async function previewUsdtTransactionFees(
     fees,
     fiatAmount: breakdown?.requiredFiat ?? fiatAmount,
     exchangeRate: rate,
+    settlementAsset,
     breakdown,
     localPremium: localPremiumInfo,
     kimchiPremium: localPremiumInfo?.currency === 'KRW' ? localPremiumInfo : undefined,
@@ -677,6 +688,7 @@ export async function previewUsdtTransactionFees(
           feeUsdt: expressSelection.feeUsdt,
           feePercent: expressSelection.feePercent,
           maxHours: expressSelection.maxHours,
+          calendarDays: expressSelection.calendarDays,
           options: expressSelection.options,
           source: expressSelection.source,
         }
@@ -718,7 +730,10 @@ export async function simulateHqUsdtQuote(input: {
   if (!network) {
     throw new AppError(400, 'Withdrawal network is required', 'NETWORK_REQUIRED');
   }
-  const wallet = { ...HQ_SIM_WALLET, network };
+  const settlementAsset = await getSettlementAsset();
+  const { assertNetworkForAsset } = await import('./wallet-policy.service');
+  assertNetworkForAsset(network, settlementAsset);
+  const wallet = { ...HQ_SIM_WALLET, network, assetType: settlementAsset };
   const feeOpts = {
     ...(input.feePolicy === 'sandbox' ? { feePolicy: 'sandbox' as const } : {}),
     customerProfileId: input.customerProfileId ?? null,
@@ -856,6 +871,7 @@ export async function createUsdtPurchaseTicket(
     throw new AppError(400, 'fiatAmount or targetUsdtAmount is required', 'VALIDATION');
   }
 
+  const settlementAsset = await getSettlementAsset();
   const wallet = await prisma.wallet.findFirst({
     where: {
       id: input.walletId,
@@ -863,6 +879,7 @@ export async function createUsdtPurchaseTicket(
       isActive: true,
       approvalStatus: WalletApprovalStatus.APPROVED,
       deleteRequestedAt: null,
+      assetType: settlementAsset,
     },
   });
 
@@ -1033,10 +1050,6 @@ export async function createUsdtPurchaseTicket(
     max = range.max;
   }
 
-  const expressDueAt = expressSelection
-    ? expressDeadlineAt(new Date(), expressSelection.tier)
-    : null;
-
   await validateCustomerTransactionAmount({
     customerId: user.customerProfileId,
     customerType: customerProfile.customerType,
@@ -1069,6 +1082,12 @@ export async function createUsdtPurchaseTicket(
    * 카드는 별도 서비스로 즉시 PG 결제 유지.
    */
   const useQuoteFlow = quotePolicy.enabled;
+  const serviceTz = await getServiceTimezone();
+  /** 견적 OFF: 신청 시각=앵커. 견적 ON: 확정 시 expressDueAt 재계산 */
+  const expressDueAt =
+    expressSelection && !useQuoteFlow
+      ? expressDeadlineAt(new Date(), expressSelection.tier, serviceTz)
+      : null;
 
   const feeSnapshots = buildFeeSnapshotFields(fees, {
     fxFeeUsdt: feeBreakdown?.fxFeeUsdt ?? 0,
@@ -1084,7 +1103,7 @@ export async function createUsdtPurchaseTicket(
     operatingFeeFixedUsdt: fees.operatingFeeFixedUsdt ?? 0,
   });
 
-  const ticketNo = generateTicketNo();
+  const ticketNo = generateTicketNo(settlementAsset);
   const dbUser = await prisma.user.findUnique({
     where: { id: user.id },
     select: { name: true, email: true },
@@ -1116,7 +1135,7 @@ export async function createUsdtPurchaseTicket(
       customerName: dbUser?.name || user.email,
       customerEmail: dbUser?.email || user.email,
       customerType: customerProfile.customerType === 'CORPORATE' ? 'CORPORATE' : 'INDIVIDUAL',
-      description: `TINPASS USDT ${ticketNo}`,
+      description: `TINPASS ${settlementAsset} ${ticketNo}`,
       paymentDueDateTime: (depositDeadlineAt ?? new Date(Date.now() + DEPOSIT_WINDOW_MS)).toISOString(),
       requestExpiryDateTime: (depositDeadlineAt ?? new Date(Date.now() + DEPOSIT_WINDOW_MS)).toISOString(),
     });
@@ -1219,7 +1238,7 @@ export async function createUsdtPurchaseTicket(
     action: 'USDT_CREATE',
     entityType: 'TransactionTicket',
     entityId: ticket.id,
-    summary: `USDT purchase ${ticket.ticketNo}`,
+    summary: `${settlementAsset} purchase ${ticket.ticketNo}`,
     otpVerified: false,
   });
 
@@ -1246,6 +1265,7 @@ export async function createUsdtPurchaseTicket(
       buyerRef: ticket.customerId || ticket.customer?.user?.email || null,
       adminNote: detail.adminNote,
       collectionAccountJson: detail.collectionAccountJson,
+      settlementAsset: await getSettlementAsset(),
     });
   }
 
@@ -1311,6 +1331,7 @@ export async function confirmUsdtQuote(
   if (needsCurfexIssue) {
     const currency = detail.fiatCurrency as FiatCurrency;
     const customerUser = ticket.customer?.user;
+    const settlementAsset = await getSettlementAsset();
     const collection = await createCurfexCollection({
       sendAmount: confirmedFiat,
       currency,
@@ -1319,7 +1340,7 @@ export async function confirmUsdtQuote(
       customerEmail: customerUser?.email || 'noreply@tinpass.com',
       customerType:
         ticket.customer?.customerType === 'CORPORATE' ? 'CORPORATE' : 'INDIVIDUAL',
-      description: `TINPASS USDT ${ticket.ticketNo}`,
+      description: `TINPASS ${settlementAsset} ${ticket.ticketNo}`,
       paymentDueDateTime: depositDeadlineAt.toISOString(),
       requestExpiryDateTime: depositDeadlineAt.toISOString(),
     });
@@ -1329,6 +1350,13 @@ export async function confirmUsdtQuote(
       collectionAccountJson: collection.collectionAccount as object,
     };
   }
+
+  const expressTz = await getServiceTimezone();
+  const { normalizeExpressTier } = await import('../constants/hq-policy');
+  const expressTierForDue = normalizeExpressTier(ticket.usdtPurchase.expressTier);
+  const expressDueAtOnConfirm = expressTierForDue
+    ? expressDeadlineAt(now, expressTierForDue, expressTz)
+    : undefined;
 
   const updated = await prisma.$transaction(async (tx) => {
     await tx.usdtPurchaseDetail.update({
@@ -1345,6 +1373,7 @@ export async function confirmUsdtQuote(
         expectedUsdtMax: confirmedUsdt,
         // 확정 시점부터 입금 기한 시작 (CURFEX 계좌 만료와 맞춤)
         depositDeadlineAt,
+        ...(expressDueAtOnConfirm ? { expressDueAt: expressDueAtOnConfirm } : {}),
         ...(opts?.adminNote ? { adminNote: opts.adminNote } : {}),
         ...(curfexIssue
           ? {
@@ -1390,6 +1419,7 @@ export async function confirmUsdtQuote(
       buyerRef: updated.customerId || updated.customer?.user?.email || null,
       adminNote: detail.adminNote,
       collectionAccountJson: detail.collectionAccountJson,
+      settlementAsset: await getSettlementAsset(),
     });
   }
 
@@ -1699,13 +1729,16 @@ export async function transitionUsdtPurchaseStatus(
     const startedAt = ticket.usdtPurchase.quoteConfirmedAt ?? ticket.createdAt;
     const completedAt = new Date();
     const settleGross =
-      ticket.usdtPurchase.actualUsdtAmount != null
-        ? Number(ticket.usdtPurchase.actualUsdtAmount)
-        : ticket.usdtPurchase.confirmedUsdtAmount != null
-          ? Number(ticket.usdtPurchase.confirmedUsdtAmount)
-          : ticket.usdtPurchase.expectedUsdtAmount != null
-            ? Number(ticket.usdtPurchase.expectedUsdtAmount)
-            : 0;
+      extra.actualUsdtAmount != null
+        ? Number(extra.actualUsdtAmount)
+        : ticket.usdtPurchase.actualUsdtAmount != null
+          ? Number(ticket.usdtPurchase.actualUsdtAmount)
+          : ticket.usdtPurchase.confirmedUsdtAmount != null
+            ? Number(ticket.usdtPurchase.confirmedUsdtAmount)
+            : ticket.usdtPurchase.expectedUsdtAmount != null
+              ? Number(ticket.usdtPurchase.expectedUsdtAmount)
+              : 0;
+    const settleTz = await getServiceTimezone();
     expressSettlement = settleExpressFee({
       promisedTier: ticket.usdtPurchase.expressTier,
       promisedFeeUsdt:
@@ -1717,6 +1750,7 @@ export async function transitionUsdtPurchaseStatus(
       grossUsdt: settleGross,
       startedAt,
       completedAt,
+      timeZone: settleTz,
     });
   }
 
@@ -2046,6 +2080,7 @@ export async function getUsdtDepositContext(user: AuthUser) {
           };
         })()
       : null,
+    settlementAsset: await getSettlementAsset(),
     express: expressSelection
       ? {
           enabled: true,
@@ -2053,6 +2088,7 @@ export async function getUsdtDepositContext(user: AuthUser) {
           feeUsdt: expressSelection.feeUsdt,
           feePercent: expressSelection.feePercent,
           maxHours: expressSelection.maxHours,
+          calendarDays: expressSelection.calendarDays,
           options: expressSelection.options,
           source: expressSelection.source,
         }
@@ -2067,19 +2103,33 @@ export async function getUsdtDepositContext(user: AuthUser) {
   };
 }
 
-function settlementWallet(detail: {
-  walletAddressSnapshot: string | null;
-  walletNetworkSnapshot: string | null;
-  wallet: { id: string; label: string | null; address: string; network: string } | null;
-}) {
+function settlementWallet(
+  detail: {
+    walletAddressSnapshot: string | null;
+    walletNetworkSnapshot: string | null;
+    wallet: {
+      id: string;
+      label: string | null;
+      address: string;
+      network: string;
+      assetType?: string | null;
+    } | null;
+  },
+  settlementAsset?: 'USDT' | 'USDC' | string | null,
+) {
   const address = detail.walletAddressSnapshot || detail.wallet?.address || '';
   const network = detail.walletNetworkSnapshot || detail.wallet?.network || '';
   if (!address) return null;
+  const asset =
+    String(settlementAsset ?? detail.wallet?.assetType ?? '').toUpperCase() === 'USDC'
+      ? 'USDC'
+      : 'USDT';
   return {
     id: detail.wallet?.id ?? '',
     label: detail.wallet?.label ?? null,
     address,
-    network: network || 'TRC20',
+    network: network || defaultNetworkForAsset(asset),
+    assetType: asset,
   };
 }
 
@@ -2178,11 +2228,12 @@ function serializeTicket(
     otherFeeSnapshot: Number(detail.otherFeeSnapshot),
     platformFeeSnapshot: Number(detail.platformFeeSnapshot),
     feePolicySnapshot: detail.feePolicySnapshot ?? null,
-    expressTier: detail.expressTier ?? null,
+    expressTier: normalizeExpressTier(detail.expressTier) ?? detail.expressTier ?? null,
     expressFeeUsdt: detail.expressFeeUsdtSnapshot != null ? Number(detail.expressFeeUsdtSnapshot) : null,
     expressDueAt: detail.expressDueAt ?? null,
     memberGrade: detail.memberGradeSnapshot ?? null,
-    expressActualTier: detail.expressActualTier ?? null,
+    expressActualTier:
+      normalizeExpressTier(detail.expressActualTier) ?? detail.expressActualTier ?? null,
     expressFeeSettledUsdt:
       detail.expressFeeSettledUsdt != null ? Number(detail.expressFeeSettledUsdt) : null,
     expressSlaMet: detail.expressSlaMet ?? null,
@@ -2240,6 +2291,9 @@ function serializeTicket(
     brokerUsdtAmount: detail.brokerUsdtAmount != null ? Number(detail.brokerUsdtAmount) : null,
     adminNote: detail.adminNote,
     sandboxInvoice: detectUsdtSandboxTicket(detail),
+    /** Ticket wallet settlement unit (USDT|USDC) — prefer over depositCtx for labels */
+    settlementAsset:
+      String(detail.wallet?.assetType ?? '').toUpperCase() === 'USDC' ? 'USDC' : 'USDT',
     wallet: settlementWallet(detail),
     registeredBank: registeredBank
       ? {

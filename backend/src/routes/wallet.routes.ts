@@ -12,10 +12,12 @@ import { getGasNetworkPolicy, getHqTransactionFees, resolveTransactionFees, with
 import { assertCustomerTradeAllowed } from '../services/customer-access.service';
 import {
   changeMerchantWalletAddress,
+  defaultNetworkForAsset,
   registerMerchantWallet,
   renameMerchantWalletNickname,
   requestMerchantWalletDeletion,
 } from '../services/wallet-policy.service';
+import { getSettlementAsset, normalizeSettlementAsset } from '../services/settlement-asset.service';
 
 const router = Router();
 
@@ -30,7 +32,8 @@ const feeFields = {
 const createWalletSchema = z.object({
   label: z.string().trim().min(1).max(40),
   address: z.string().min(10),
-  network: z.string().default('TRC20'),
+  network: z.string().optional(),
+  assetType: z.enum(['USDT', 'USDC']).optional(),
   isDefault: z.boolean().optional(),
   ...feeFields,
 });
@@ -43,6 +46,7 @@ const updateWalletSchema = z.object({
   label: z.string().trim().min(1).max(40).optional(),
   address: z.string().min(10).optional(),
   network: z.string().optional(),
+  assetType: z.enum(['USDT', 'USDC']).optional(),
   isDefault: z.boolean().optional(),
   fxFeePercent: z.number().min(0).max(100).optional(),
   gasFeeAmount: z.number().min(0).optional(),
@@ -57,6 +61,7 @@ function serializeWallet(w: {
   label: string | null;
   address: string;
   network: string;
+  assetType?: string;
   isDefault: boolean;
   isActive: boolean;
   hqRegistered?: boolean;
@@ -73,6 +78,7 @@ function serializeWallet(w: {
 }) {
   return {
     ...w,
+    assetType: w.assetType ?? 'USDT',
     fxFeePercent: Number(w.fxFeePercent),
     gasFeeAmount: Number(w.gasFeeAmount),
     transferFeeAmount: Number(w.transferFeeAmount),
@@ -88,6 +94,7 @@ function serializeWalletPublic(w: Parameters<typeof serializeWallet>[0]) {
     label: w.label,
     address: w.address,
     network: w.network,
+    assetType: w.assetType ?? 'USDT',
     isDefault: w.isDefault,
     isActive: w.isActive,
     hqRegistered: w.hqRegistered,
@@ -102,10 +109,12 @@ function serializeWalletPublic(w: Parameters<typeof serializeWallet>[0]) {
 function serializeWalletWithFees(
   w: Parameters<typeof serializeWallet>[0],
   hq: Awaited<ReturnType<typeof getHqTransactionFees>>,
-  gasPolicy: Awaited<ReturnType<typeof getGasNetworkPolicy>>,
+  gasPolicyUsdt: Awaited<ReturnType<typeof getGasNetworkPolicy>>,
+  gasPolicyUsdc: Awaited<ReturnType<typeof getGasNetworkPolicy>>,
   feesVisible: boolean,
 ) {
   if (!feesVisible) return serializeWalletPublic(w);
+  const gasPolicy = (w.assetType ?? 'USDT') === 'USDC' ? gasPolicyUsdc : gasPolicyUsdt;
   return {
     ...serializeWallet(w),
     feesVisible: true as const,
@@ -120,13 +129,34 @@ router.get(
   '/',
   asyncHandler(async (req, res) => {
     const ownerId = merchantScopeUserId(req.user!);
-    const [wallets, hq, gasPolicy, profile] = await Promise.all([
+    /** assetType 또는 forApply=1 일 때만 본사 정산자산으로 필터 (관리 목록은 전체) */
+    let assetFilter: 'USDT' | 'USDC' | undefined;
+    if (req.query.assetType != null && String(req.query.assetType).trim() !== '') {
+      assetFilter = normalizeSettlementAsset(req.query.assetType);
+    } else if (String(req.query.forApply ?? '') === '1') {
+      assetFilter = await getSettlementAsset();
+    }
+    const { ensurePrimaryWalletForAsset } = await import('../services/wallet-policy.service');
+    if (assetFilter) {
+      await ensurePrimaryWalletForAsset(ownerId, assetFilter);
+    } else {
+      await Promise.all([
+        ensurePrimaryWalletForAsset(ownerId, 'USDT'),
+        ensurePrimaryWalletForAsset(ownerId, 'USDC'),
+      ]);
+    }
+    const [wallets, hq, gasPolicyUsdt, gasPolicyUsdc, profile] = await Promise.all([
       prisma.wallet.findMany({
-        where: { userId: ownerId, isActive: true },
+        where: {
+          userId: ownerId,
+          isActive: true,
+          ...(assetFilter ? { assetType: assetFilter } : {}),
+        },
         orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
       }),
       getHqTransactionFees(),
-      getGasNetworkPolicy(),
+      getGasNetworkPolicy('USDT'),
+      getGasNetworkPolicy('USDC'),
       prisma.customerProfile.findUnique({
         where: { userId: ownerId },
         select: { walletFeesVisible: true },
@@ -134,7 +164,9 @@ router.get(
     ]);
     const feesVisible = profile?.walletFeesVisible === true;
 
-    res.json(wallets.map((w) => serializeWalletWithFees(w, hq, gasPolicy, feesVisible)));
+    res.json(
+      wallets.map((w) => serializeWalletWithFees(w, hq, gasPolicyUsdt, gasPolicyUsdc, feesVisible)),
+    );
   }),
 );
 
@@ -148,11 +180,16 @@ router.post(
     await assertCustomerTradeAllowed(req.user!);
     const data = createWalletSchema.parse(req.body);
     const ownerId = merchantScopeUserId(req.user!);
+    const assetType = data.assetType
+      ? normalizeSettlementAsset(data.assetType)
+      : await getSettlementAsset();
+    const network = data.network || defaultNetworkForAsset(assetType);
     const wallet = await registerMerchantWallet(ownerId, {
       actorId: req.user!.id,
       label: data.label,
       address: data.address,
-      network: data.network,
+      network,
+      assetType,
       fees: {
         fxFeePercent: data.fxFeePercent,
         gasFeeAmount: data.gasFeeAmount,
@@ -204,11 +241,13 @@ router.patch(
       throw new AppError(404, 'Wallet not found', 'NOT_FOUND');
     }
 
-    if (data.address) {
+    if (data.address || data.network || data.assetType) {
+      /** assetType 변경 시도는 changeMerchantWalletAddress 에서 WALLET_ASSET_LOCKED */
       const wallet = await changeMerchantWalletAddress(ownerId, existing.id, {
         actorId: req.user!.id,
-        address: data.address,
+        address: data.address || existing.address,
         network: data.network || existing.network,
+        assetType: data.assetType,
         label: data.label,
         ipAddress: req.ip,
         userAgent: req.get('user-agent') ?? undefined,
@@ -224,8 +263,12 @@ router.patch(
       if (existing.approvalStatus !== WalletApprovalStatus.APPROVED) {
         throw new AppError(400, 'Only approved wallets can be set as default', 'VALIDATION');
       }
+      // 기본값은 자산(USDT/USDC)별로 각각 1개 — 거래 시 해당 자산 기본 지갑이 먼저 선택됨
       await prisma.wallet.updateMany({
-        where: { userId: ownerId },
+        where: {
+          userId: ownerId,
+          assetType: existing.assetType ?? 'USDT',
+        },
         data: { isDefault: false },
       });
     }

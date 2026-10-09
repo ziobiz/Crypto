@@ -51,7 +51,7 @@ export function SimulatorSandboxFeePreview({
   const activeGasGroup = gasNetworks?.activeGroup ?? 'DEFAULT';
   const gasRows = gasNetworks?.networks ?? [];
   const operatingLabel = operatingFee
-    ? `${operatingFee.name} · ${operatingFee.poolPercent}% + ${operatingFee.perTicketUsdt} USDT`
+    ? `${operatingFee.name} · ${operatingFee.poolPercent}% + ${operatingFee.perTicketUsdt} ${t('hq.commission.unitCrypto')}`
     : '—';
 
   return (

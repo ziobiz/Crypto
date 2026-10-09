@@ -196,6 +196,8 @@ export function buildUsdtPurchaseInvoicePayload(input: {
   buyerRef?: string | null;
   usdtTxId?: string | null;
   memo?: string | null;
+  /** Settlement asset for invoice (USDT | USDC). Defaults USDT for legacy callers. */
+  settlementAsset?: 'USDT' | 'USDC' | string | null;
   /** When true, memo is prefixed with [SANDBOX] and idempotency key is sandbox-scoped. */
   sandbox?: boolean;
   /**
@@ -213,12 +215,13 @@ export function buildUsdtPurchaseInvoicePayload(input: {
     input.assetAmount != null && input.assetAmount !== ''
       ? String(input.assetAmount)
       : undefined;
+  const asset = String(input.settlementAsset ?? '').toUpperCase() === 'USDC' ? 'USDC' : 'USDT';
   const official = input.official === true && input.sandbox !== true;
   const memoParts = [
     official ? '[OFFICIAL]' : '',
     input.sandbox ? '[SANDBOX]' : '',
     input.memo?.trim() || '',
-    input.usdtTxId ? `USDT tx: ${input.usdtTxId}` : '',
+    input.usdtTxId ? `${asset} tx: ${input.usdtTxId}` : '',
   ].filter(Boolean);
 
   let idempotencyKey = `tinpass:usdt:${input.ticketId}:ordered`;
@@ -235,16 +238,16 @@ export function buildUsdtPurchaseInvoicePayload(input: {
       ticketNo: input.ticketNo,
       amount,
       currency: input.fiatCurrency,
-      asset: 'USDT',
+      asset,
       assetAmount,
       buyerRef: input.buyerRef || undefined,
-      productCode: 'USDT-PURCHASE',
+      productCode: asset === 'USDC' ? 'USDC-PURCHASE' : 'USDT-PURCHASE',
       memo: memoParts.join(' | ') || undefined,
     },
   };
 }
 
-/** USDT simulator run → Invoice on tinpass-sim site with [SIMULATOR] memo. */
+/** Crypto simulator run → Invoice on tinpass-sim site with [SIMULATOR] memo. */
 export function buildSimulatorInvoicePayload(input: {
   userId: string;
   runKey: string;
@@ -254,16 +257,19 @@ export function buildSimulatorInvoicePayload(input: {
   network?: string | null;
   feeMode?: string | null;
   buyerRef?: string | null;
+  settlementAsset?: 'USDT' | 'USDC' | string | null;
 }): {
   payload: Omit<InvoiceCompletedPayload, 'site' | 'event'> &
     Partial<Pick<InvoiceCompletedPayload, 'site' | 'event'>>;
   idempotencyKey: string;
 } {
   const feeMode = (input.feeMode || '').trim().toUpperCase();
+  const asset = String(input.settlementAsset ?? '').toUpperCase() === 'USDC' ? 'USDC' : 'USDT';
   const memoParts = [
     '[SIMULATOR]',
     input.network ? `network: ${input.network}` : '',
     feeMode ? `feeMode: ${feeMode}` : '',
+    `asset: ${asset}`,
   ].filter(Boolean);
 
   return {
@@ -274,10 +280,10 @@ export function buildSimulatorInvoicePayload(input: {
       ticketNo: `SIM-${input.runKey.slice(0, 12).toUpperCase()}`,
       amount: String(input.fiatAmount),
       currency: input.fiatCurrency,
-      asset: 'USDT',
+      asset,
       assetAmount: String(input.assetAmount),
       buyerRef: input.buyerRef || undefined,
-      productCode: 'USDT-PURCHASE',
+      productCode: asset === 'USDC' ? 'USDC-PURCHASE' : 'USDT-PURCHASE',
       memo: memoParts.join(' | '),
     },
   };

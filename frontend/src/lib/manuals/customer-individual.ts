@@ -72,8 +72,8 @@ export const CUSTOMER_INDIVIDUAL_MANUAL: ManualDoc = {
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc"><strong>본사 승인 대기</strong> — 승인 전에는 매입·에스크로 실행이 막힐 수 있습니다. 승인되면 거래 실행이 열립니다.</span></div>
           <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc"><strong>인증센터</strong> — 6개월 거래 예정 보고서 등 서류를 올립니다. 양식은 이용메뉴얼에서 내려받습니다.</span></div>
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc"><strong>내 지갑</strong> — 최대 5개. 등록·주소 변경·삭제 요청은 OTP + 두 번 확인. 새 주소는 본사 승인 후 매입에서 선택합니다.</span></div>
-          <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>USDT 시뮬레이터</strong> — 네트워크·금액으로 수수료·수령액을 미리 봅니다 (참고용).</span></div>
-          <div class="flow-row"><span class="flow-num">7</span><span class="flow-desc"><strong>인증패스 후</strong> USDT 매입 또는 무역 에스크로를 신청합니다. 개인 기본 결제수단은 <strong>송금거래</strong>입니다.</span></div>
+          <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>크립토 시뮬레이터</strong> — 네트워크·금액으로 수수료·수령액을 미리 봅니다 (참고용).</span></div>
+          <div class="flow-row"><span class="flow-num">7</span><span class="flow-desc"><strong>인증패스 후</strong> 크립토 매입 또는 무역 에스크로를 신청합니다. 개인 기본 결제수단은 <strong>송금거래</strong>입니다.</span></div>
         </div>
         <div class="warn-box">인증패스·승인 지갑·본사 승인이 없으면 매입·에스크로가 진행되지 않습니다. 시뮬레이터는 확정 금액이 아닙니다.</div>`,
         `<div class="flow">
@@ -82,8 +82,8 @@ export const CUSTOMER_INDIVIDUAL_MANUAL: ManualDoc = {
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc"><strong>Wait for HQ approval</strong> — purchase/escrow may stay blocked until approved.</span></div>
           <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc"><strong>Verification</strong> — upload the 6-month forecast (templates in Usage manuals).</span></div>
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc"><strong>My wallets</strong> — up to 5. Register / change / delete-request need OTP and two confirms. New addresses need HQ approval.</span></div>
-          <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>USDT simulator</strong> — preview fees (reference only).</span></div>
-          <div class="flow-row"><span class="flow-num">7</span><span class="flow-desc">After a <strong>verification pass</strong>, apply for USDT purchase or escrow. Default method for individuals is <strong>remittance</strong>.</span></div>
+          <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>Crypto simulator</strong> — preview fees (reference only).</span></div>
+          <div class="flow-row"><span class="flow-num">7</span><span class="flow-desc">After a <strong>verification pass</strong>, apply for Crypto purchase or escrow. Default method for individuals is <strong>remittance</strong>.</span></div>
         </div>
         <div class="warn-box">Without a pass, an approved wallet, and HQ approval, purchase/escrow stay blocked. The simulator is not a binding amount.</div>`,
         `<div class="flow">
@@ -92,7 +92,7 @@ export const CUSTOMER_INDIVIDUAL_MANUAL: ManualDoc = {
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc"><strong>本社承認待ち</strong> — 承認前は購入・エスクローが止まることがあります。</span></div>
           <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc"><strong>認証センター</strong> — 6か月取引予定報告書など。様式は利用マニュアルから。</span></div>
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc"><strong>マイウォレット</strong> — 最大5。登録・変更・削除依頼はOTP+2回確認。新アドレスは本社承認後。</span></div>
-          <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>USDTシミュレーター</strong> — 手数料の試算(参考)。</span></div>
+          <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>クリプトシミュレーター</strong> — 手数料の試算(参考)。</span></div>
           <div class="flow-row"><span class="flow-num">7</span><span class="flow-desc"><strong>認証パス後</strong>に購入またはエスクロー。個人の既定決済は<strong>送金</strong>です。</span></div>
         </div>
         <div class="warn-box">認証パス・承認ウォレット・本社承認がないと進めません。シミュレーターは確定金額ではありません。</div>`,
@@ -102,7 +102,7 @@ export const CUSTOMER_INDIVIDUAL_MANUAL: ManualDoc = {
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc"><strong>等待总部批准</strong> — 批准前可能无法执行采购/托管。</span></div>
           <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc"><strong>认证中心</strong> — 上传 6 个月交易预估等。模板在使用手册。</span></div>
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc"><strong>我的钱包</strong> — 最多 5 个。登记/改址/删请需 OTP+两次确认。新地址需总部批准。</span></div>
-          <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>USDT 模拟器</strong> — 预览手续费（仅供参考）。</span></div>
+          <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>加密货币模拟器</strong> — 预览手续费（仅供参考）。</span></div>
           <div class="flow-row"><span class="flow-num">7</span><span class="flow-desc"><strong>认证通过后</strong>申请采购或托管。个人默认支付方式为<strong>汇款</strong>。</span></div>
         </div>
         <div class="warn-box">无认证通过、已批钱包、总部批准则无法继续。模拟器不是确定金额。</div>`,
@@ -112,7 +112,7 @@ export const CUSTOMER_INDIVIDUAL_MANUAL: ManualDoc = {
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc"><strong>รอ HQ อนุมัติ</strong> — ก่อนอนุมัติอาจซื้อ/เอสโครว์ไม่ได้</span></div>
           <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc"><strong>ศูนย์ยืนยัน</strong> — อัปโหลดรายงาน 6 เดือน ฯลฯ แบบฟอร์มจากคู่มือใช้งาน</span></div>
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc"><strong>กระเป๋าของฉัน</strong> — สูงสุด 5 ใบ ลงทะเบียน/เปลี่ยน/ขอลบ ต้อง OTP+ยืนยันสองครั้ง ที่อยู่ใหม่ต้อง HQ อนุมัติ</span></div>
-          <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>ตัวจำลอง USDT</strong> — ดูค่าธรรมเนียม (อ้างอิง)</span></div>
+          <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>ตัวจำลองคริปโต</strong> — ดูค่าธรรมเนียม (อ้างอิง)</span></div>
           <div class="flow-row"><span class="flow-num">7</span><span class="flow-desc">หลัง<strong>ผ่านยืนยัน</strong> สมัครซื้อหรือเอสโครว์ ช่องทางเริ่มต้นของบุคคลคือ<strong>ธุรกรรมโอน</strong></span></div>
         </div>
         <div class="warn-box">ไม่มีผ่านยืนยัน กระเป๋าที่อนุมัติ และอนุมัติ HQ จะทำต่อไม่ได้ ตัวจำลองไม่ใช่ยอดผูกพัน</div>`,
@@ -173,120 +173,120 @@ export const CUSTOMER_INDIVIDUAL_MANUAL: ManualDoc = {
         <ul>
           <li><strong>비인증</strong> → 서류 제출</li>
           <li><strong>심사중</strong> → 본사 확인 중</li>
-          <li><strong>인증패스</strong> → USDT·에스크로 신청 가능 (본사 거래 승인·지갑 승인 포함)</li>
+          <li><strong>인증패스</strong> → 크립토·에스크로 신청 가능 (본사 거래 승인·지갑 승인 포함)</li>
           <li><strong>반려</strong> → 사유 확인 후 재제출</li>
         </ul>
-        <div class="warn-box">「심사중」은 인증센터(KYC)용입니다. USDT 티켓의 「입금확인중」「결제확인중」과는 다릅니다.</div>
+        <div class="warn-box">「심사중」은 인증센터(KYC)용입니다. 크립토 티켓의 「입금확인중」「결제확인중」과는 다릅니다.</div>
         <div class="info-box">양식은 왼쪽 <strong>이용메뉴얼</strong>에서 내려받으세요.</div>`,
         `<span class="menu-path">Verification</span>
         <p>Individuals mainly upload the <strong>6-month forecast</strong>. Wait for HQ pass when status is under review; if rejected, resubmit after reading the reason.</p>
         <ul>
           <li><strong>Unverified</strong> → submit files</li>
           <li><strong>Under review</strong> → HQ checking</li>
-          <li><strong>Verified pass</strong> → USDT / escrow (also need trade approval + approved wallet)</li>
+          <li><strong>Verified pass</strong> → crypto / escrow (also need trade approval + approved wallet)</li>
           <li><strong>Rejected</strong> → fix and resubmit</li>
         </ul>
-        <div class="warn-box">“Under review” is for KYC only — not the same as USDT “Deposit verifying” / “Payment verifying”.</div>`,
+        <div class="warn-box">“Under review” is for KYC only — not the same as crypto purchase "Deposit verifying" / “Payment verifying”.</div>`,
         `<span class="menu-path">認証センター</span>
         <p>個人は主に<strong>6か月取引予定報告書</strong>を提出します。審査中なら総本社の認証パスを待ち、差戻しなら理由を見て再提出します。</p>
         <ul>
           <li><strong>未認証</strong> → 提出</li>
           <li><strong>審査中</strong> → 本社確認</li>
-          <li><strong>認証パス</strong> → USDT・エスクロー可（取引承認・ウォレット承認も必要）</li>
+          <li><strong>認証パス</strong> → クリプト・エスクロー可（取引承認・ウォレット承認も必要）</li>
           <li><strong>差戻し</strong> → 再提出</li>
         </ul>
-        <div class="warn-box">「審査中」はKYC用です。USDTの「入金確認中」「決済確認中」とは別です。</div>`,
+        <div class="warn-box">「審査中」はKYC用です。クリプトの「入金確認中」「決済確認中」とは別です。</div>`,
         `<span class="menu-path">认证中心</span>
         <p>个人主要上传<strong>6 个月交易预估报告</strong>。审核中请等待总部通过；退回则按原因重交。</p>
         <ul>
           <li><strong>未认证</strong> → 提交</li>
           <li><strong>审核中</strong> → 总部核对</li>
-          <li><strong>认证通过</strong> → 可申请 USDT/托管（还需交易批准与已批钱包）</li>
+          <li><strong>认证通过</strong> → 可申请加密货币/托管（还需交易批准与已批钱包）</li>
           <li><strong>已退回</strong> → 重交</li>
         </ul>
-        <div class="warn-box">「审核中」仅用于 KYC，与 USDT「入金确认中」「支付确认中」不同。</div>`,
+        <div class="warn-box">「审核中」仅用于 KYC，与加密货币「入金确认中」「支付确认中」不同。</div>`,
         `<span class="menu-path">ศูนย์ยืนยัน</span>
         <p>บุคคลอัปโหลดหลักคือ<strong>รายงานคาดการณ์ 6 เดือน</strong> รอผ่านเมื่อกำลังตรวจ หากถูกปฏิเสธอ่านเหตุผลแล้วส่งใหม่</p>
         <ul>
           <li><strong>ยังไม่ยืนยัน</strong> → ส่งเอกสาร</li>
           <li><strong>กำลังตรวจสอบ</strong> → HQ ตรวจ</li>
-          <li><strong>ผ่านยืนยัน</strong> → สมัคร USDT/เอสโครว์ได้ (ต้องอนุมัติธุรกรรม+กระเป๋าด้วย)</li>
+          <li><strong>ผ่านยืนยัน</strong> → สมัครคริปโต/เอสโครว์ได้ (ต้องอนุมัติธุรกรรม+กระเป๋าด้วย)</li>
           <li><strong>ถูกปฏิเสธ</strong> → ส่งใหม่</li>
         </ul>
-        <div class="warn-box">「กำลังตรวจสอบ」เป็นของ KYC ไม่ใช่สถานะฝาก/ชำระของตั๋ว USDT</div>`,
+        <div class="warn-box">「กำลังตรวจสอบ」เป็นของ KYC ไม่ใช่สถานะฝาก/ชำระของตั๋วคริปโต</div>`,
       ),
     },
     {
       id: 'i-wallet-sim',
       title: L('내 지갑 · 시뮬레이터', 'Wallets · simulator', 'マイウォレット・シミュレーター', '我的钱包·模拟器', 'กระเป๋า · ตัวจำลอง'),
       bodyHtml: L(
-        `<span class="menu-path">내 지갑 / USDT 시뮬레이터</span>
+        `<span class="menu-path">내 지갑 / 크립토 시뮬레이터</span>
         <ul>
           <li>지갑은 <strong>최대 5개</strong>. 관리자만 등록·변경·삭제 요청. 운영자는 신청 화면에서 승인된 지갑만 고릅니다.</li>
           <li>등록·주소 변경·삭제 요청 = OTP + 두 번 확인. 삭제는 본사 승인 후에만 실행됩니다.</li>
           <li>진행 중 거래가 있는 지갑은 주소를 바꿀 수 없고, 완료된 거래 주소는 그대로입니다.</li>
-          <li>시뮬레이터: 네트워크 선택 → 입금액 또는 받을 USDT로 계산. 최근 결과 최대 3건(대시보드 2건).</li>
+          <li>시뮬레이터: 네트워크 선택 → 입금액 또는 받을 크립토로 계산. 최근 결과 최대 3건(대시보드 2건).</li>
         </ul>
         <div class="warn-box">시뮬레이터는 <strong>참고용 미리 계산</strong>입니다. 실제 신청·입금 금액과 다를 수 있습니다.</div>`,
         `<ul>
           <li>Up to <strong>5 wallets</strong>. Admin only for register/change/delete-request; operators pick approved wallets on apply.</li>
           <li>OTP + two confirms for register, address change, delete request. Deletion runs only after HQ approves.</li>
           <li>In-progress trades lock that wallet’s address; completed trades keep theirs.</li>
-          <li>Simulator: pick network → calculate from deposit or target USDT. Up to 3 recent runs (dashboard shows 2).</li>
+          <li>Simulator: pick network → calculate from deposit or target CRYPTO. Up to 3 recent runs (dashboard shows 2).</li>
         </ul>
         <div class="warn-box">The simulator is a <strong>reference preview only</strong>.</div>`,
         `<ul>
           <li>ウォレット<strong>最大5</strong>。登録・変更・削除依頼は管理者のみ。運営者は申請画面で承認済みを選択。</li>
           <li>OTP+2回確認。削除は本社承認後のみ。</li>
           <li>進行中取引があるとアドレス変更不可。完了取引のアドレスは維持。</li>
-          <li>シミュレーター: ネットワーク→入金または受取USDT。直近最大3件(ダッシュボード2件)。</li>
+          <li>シミュレーター: ネットワーク→入金または受取クリプト。直近最大3件(ダッシュボード2件)。</li>
         </ul>
         <div class="warn-box">シミュレーターは<strong>参考用の試算</strong>です。</div>`,
         `<ul>
           <li>钱包最多 <strong>5</strong> 个。仅管理员可登记/改址/申请删除；操作员在申请页选择已批钱包。</li>
           <li>OTP + 两次确认。删除仅在总部批准后执行。</li>
           <li>进行中交易锁定该钱包地址；已完成交易地址不变。</li>
-          <li>模拟器：选网络 → 按入金或目标 USDT 计算。最多 3 条（仪表盘 2 条）。</li>
+          <li>模拟器：选网络 → 按入金或目标加密货币 计算。最多 3 条（仪表盘 2 条）。</li>
         </ul>
         <div class="warn-box">模拟器为<strong>仅供参考的试算</strong>。</div>`,
         `<ul>
           <li>กระเป๋าสูงสุด <strong>5</strong> ใบ แอดมินเท่านั้นที่ลงทะเบียน/เปลี่ยน/ขอลบ ผู้ปฏิบัติงานเลือกกระเป๋าที่อนุมัติในหน้าสมัคร</li>
           <li>OTP + ยืนยันสองครั้ง การลบเกิดเมื่อ HQ อนุมัติเท่านั้น</li>
           <li>รายการกำลังทำจะล็อกที่อยู่ รายการจบแล้วที่อยู่คงเดิม</li>
-          <li>ตัวจำลอง: เลือกเครือข่าย → คำนวณจากฝากหรือ USDT เป้าหมาย สูงสุด 3 รายการ (แดชบอร์ด 2)</li>
+          <li>ตัวจำลอง: เลือกเครือข่าย → คำนวณจากฝากหรือ คริปโตเป้าหมาย สูงสุด 3 รายการ (แดชบอร์ด 2)</li>
         </ul>
         <div class="warn-box">ตัวจำลองเป็น<strong>การอ้างอิงเท่านั้น</strong></div>`,
       ),
     },
     {
       id: 'i-pay',
-      title: L('USDT 매입 · 결제수단', 'USDT purchase · pay methods', 'USDT購入・決済手段', 'USDT 采购·支付方式', 'ซื้อ USDT · ช่องทางชำระ'),
+      title: L('크립토 매입 · 결제수단', 'Crypto purchase · pay methods', 'クリプト購入・決済手段', '加密货币采购·支付方式', 'ซื้อคริปโต · ช่องทางชำระ'),
       bodyHtml: L(
-        `<span class="menu-path">USDT 매입</span>
-        <p>목록 기본 기간은 시작 <strong>1주 전</strong> ~ 종료 <strong>오늘</strong>입니다. 금액 입력만으로 수수료가 자동 계산되지 않으며, <strong>거래하기</strong>에서 1회 USDT 한도(LR~SR/ML)와 ±8% 참고 견적을 확인합니다.</p>
+        `<span class="menu-path">크립토 매입</span>
+        <p>목록 기본 기간은 시작 <strong>1주 전</strong> ~ 종료 <strong>오늘</strong>입니다. 금액 입력만으로 수수료가 자동 계산되지 않으며, <strong>거래하기</strong>에서 1회 크립토 한도(LR~SR/ML)와 ±8% 참고 견적을 확인합니다.</p>
         <table><thead><tr><th>결제수단</th><th>개인 고객 안내</th></tr></thead><tbody>
         <tr><td><strong>송금거래</strong></td><td>개인 기본값. 본사·고객 설정이 켜져 있을 때 사용. 송금자 성명은 계정 이름과 같고, 국가·이메일은 계정에서 가져온 뒤 수정 가능. 한도 국가가 맨 위에 기본 선택됩니다.</td></tr>
         <tr><td><strong>계좌이체</strong></td><td>본사가 허용하고 고객 상세에서 켠 경우에만 보입니다. 전용계좌/가상계좌 흐름은 아래 「입금 순서」를 보세요.</td></tr>
         <tr><td><strong>카드</strong></td><td>본사·통화·고객 설정이 모두 켜져 있을 때만. 결제 후 환불 불가에 동의해야 합니다. 버튼이 회색이면 비활성입니다.</td></tr>
         </tbody></table>
         <div class="info-box">결제수단 on/off는 본사 설정과 고객별 설정(본사따름/사용/중지)의 <strong>교집합</strong>입니다. 안 보이면 지원팀에 문의하세요.</div>`,
-        `<span class="menu-path">USDT purchase</span>
-        <p>List dates default to <strong>1 week ago → today</strong>. Fees do not auto-calc on input — use <strong>Trade</strong> for per-ticket USDT limits and a ±8% reference quote.</p>
+        `<span class="menu-path">Crypto purchase</span>
+        <p>List dates default to <strong>1 week ago → today</strong>. Fees do not auto-calc on input — use <strong>Trade</strong> for per-ticket CRYPTO limits and a ±8% reference quote.</p>
         <table><thead><tr><th>Method</th><th>For individuals</th></tr></thead><tbody>
         <tr><td><strong>Remittance</strong></td><td>Default. Sender name matches account name; country/email are copied and editable. Limit country is selected first.</td></tr>
         <tr><td><strong>Bank transfer</strong></td><td>Only when HQ and your customer setting allow it. See deposit steps below.</td></tr>
         <tr><td><strong>Card</strong></td><td>Only when HQ, currency, and customer settings are on. Non-refundable after charge. Gray button = disabled.</td></tr>
         </tbody></table>
         <div class="info-box">Visibility is HQ settings <strong>AND</strong> your per-customer toggle (Follow HQ / Enabled / Disabled).</div>`,
-        `<span class="menu-path">USDT購入</span>
-        <p>一覧の既定期間は開始<strong>1週間前</strong>〜終了<strong>今日</strong>。金額入力だけでは手数料は自動計算されず、<strong>取引する</strong>で1回USDT限度と±8%参考見積を確認します。</p>
+        `<span class="menu-path">クリプト購入</span>
+        <p>一覧の既定期間は開始<strong>1週間前</strong>〜終了<strong>今日</strong>。金額入力だけでは手数料は自動計算されず、<strong>取引する</strong>で1回クリプト限度と±8%参考見積を確認します。</p>
         <table><thead><tr><th>手段</th><th>個人向け</th></tr></thead><tbody>
         <tr><td><strong>送金</strong></td><td>既定。送金者氏名はアカウント名と同じ。国・メールは取込後に変更可。限度国が先頭。</td></tr>
         <tr><td><strong>口座振替</strong></td><td>本社と顧客設定がONのときのみ。入金手順は下記。</td></tr>
         <tr><td><strong>カード</strong></td><td>本社・通貨・顧客設定がすべてONのとき。決済後返金不可。灰色ボタンは無効。</td></tr>
         </tbody></table>
         <div class="info-box">表示は本社設定と顧客別設定の<strong>積集合</strong>です。</div>`,
-        `<span class="menu-path">USDT 采购</span>
+        `<span class="menu-path">加密货币采购</span>
         <p>列表默认区间为<strong>一周前 → 今天</strong>。仅输入金额不会自动计费，请点<strong>交易</strong>查看单笔限额与 ±8% 参考报价。</p>
         <table><thead><tr><th>方式</th><th>个人说明</th></tr></thead><tbody>
         <tr><td><strong>汇款</strong></td><td>默认。汇款人姓名与账户姓名相同；国家/邮箱可改。限额国家默认置顶。</td></tr>
@@ -294,7 +294,7 @@ export const CUSTOMER_INDIVIDUAL_MANUAL: ManualDoc = {
         <tr><td><strong>卡支付</strong></td><td>总部·币种·客户均开启时。扣款后不可退。灰色按钮=未启用。</td></tr>
         </tbody></table>
         <div class="info-box">显示为总部设置与客户开关的<strong>交集</strong>。</div>`,
-        `<span class="menu-path">ซื้อ USDT</span>
+        `<span class="menu-path">ซื้อคริปโต</span>
         <p>ช่วงรายการเริ่มต้นคือ<strong>1 สัปดาห์ก่อน → วันนี้</strong> กรอกจำนวนอย่างเดียวไม่คำนวณอัตโนมัติ กด<strong>ทำรายการ</strong>เพื่อดูวงเงินและช่วงอ้างอิง ±8%</p>
         <table><thead><tr><th>ช่องทาง</th><th>สำหรับบุคคล</th></tr></thead><tbody>
         <tr><td><strong>ธุรกรรมโอน</strong></td><td>ค่าเริ่มต้น ชื่อผู้ส่งตรงชื่อบัญชี ประเทศ/อีเมลแก้ได้ ประเทศวงเงินอยู่บนสุด</td></tr>
@@ -344,19 +344,19 @@ export const CUSTOMER_INDIVIDUAL_MANUAL: ManualDoc = {
       id: 'i-escrow-ops',
       title: L('무역 에스크로 · 운영자', 'Trade escrow · operators', '貿易エスクロー・運営者', '贸易托管·操作员', 'เอสโครว์ · ผู้ปฏิบัติงาน'),
       bodyHtml: L(
-        `<p><strong>무역 에스크로</strong> — 인증패스·승인 지갑 후 신청. 목록 기간 기본은 USDT와 동일(1주 전~오늘). 주요 상태 변경은 OTP 후 운영기록에 남습니다.</p>
+        `<p><strong>무역 에스크로</strong> — 인증패스·승인 지갑 후 신청. 목록 기간 기본은 크립토 매입과 동일(1주 전~오늘). 주요 상태 변경은 OTP 후 운영기록에 남습니다.</p>
         <p><strong>관리자·운영자</strong> — 본사가 멀티 사용자를 허용하면 대표 관리자 1명 + 운영자 최대 2명. 운영자는 내 지갑·사용자관리가 없습니다. 삭제는 없고 중지(비활성)만 가능합니다.</p>
         <div class="info-box">운영기록은 조회만 가능합니다. 삭제권한은 총본사에만 있습니다.</div>`,
-        `<p><strong>Trade escrow</strong> — apply after verification pass and approved wallet. Same default date range as USDT. Major status changes need OTP and are logged.</p>
+        `<p><strong>Trade escrow</strong> — apply after verification pass and approved wallet. Same default date range as crypto purchase. Major status changes need OTP and are logged.</p>
         <p><strong>Admin · operators</strong> — if HQ enables multi-user: 1 admin + up to 2 operators. Operators have no Wallets/Users menus. No delete — suspend only.</p>
         <div class="info-box">Operation history is view-only for merchants. Only HQ can delete logs.</div>`,
-        `<p><strong>貿易エスクロー</strong> — 認証パス・承認ウォレット後。一覧期間はUSDTと同じ。主な状態変更はOTP後に記録。</p>
+        `<p><strong>貿易エスクロー</strong> — 認証パス・承認ウォレット後。一覧期間はクリプト購入と同じ。主な状態変更はOTP後に記録。</p>
         <p><strong>管理者・運営者</strong> — 本社がマルチユーザー許可時、管理者1＋運営者最大2。運営者にマイウォレット・ユーザー管理なし。削除はなく停止のみ。</p>
         <div class="info-box">運営記録は閲覧のみ。削除は総本社のみ。</div>`,
-        `<p><strong>贸易托管</strong> — 认证通过且有已批钱包后申请。列表默认区间同 USDT。主要状态变更需 OTP 并记入运营记录。</p>
+        `<p><strong>贸易托管</strong> — 认证通过且有已批钱包后申请。列表默认区间同加密货币采购。主要状态变更需 OTP 并记入运营记录。</p>
         <p><strong>管理员·操作员</strong> — 总部开启多用户时：1 名管理员 + 最多 2 名操作员。操作员无我的钱包/用户管理。不可删除，仅可停用。</p>
         <div class="info-box">运营记录仅可查看。仅总部可删除。</div>`,
-        `<p><strong>เอสโครว์การค้า</strong> — สมัครหลังผ่านยืนยันและมีกระเป๋าที่อนุมัติ ช่วงวันเหมือน USDT การเปลี่ยนสถานะสำคัญต้อง OTP และบันทึกประวัติ</p>
+        `<p><strong>เอสโครว์การค้า</strong> — สมัครหลังผ่านยืนยันและมีกระเป๋าที่อนุมัติ ช่วงวันเหมือนการซื้อคริปโต การเปลี่ยนสถานะสำคัญต้อง OTP และบันทึกประวัติ</p>
         <p><strong>แอดมิน·ผู้ปฏิบัติงาน</strong> — หาก HQ เปิดหลายผู้ใช้: แอดมิน 1 + ผู้ปฏิบัติงานสูงสุด 2 คน ผู้ปฏิบัติงานไม่มีกระเป๋า/จัดการผู้ใช้ ลบไม่ได้ หยุดได้เท่านั้น</p>
         <div class="info-box">ประวัติการดำเนินงานดูได้อย่างเดียว ลบได้เฉพาะ HQ</div>`,
       ),

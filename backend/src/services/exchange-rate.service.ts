@@ -9,12 +9,12 @@ import {
 } from '../lib/fee-component';
 import { fetchUsdtFiatRateWithPolicy } from './exchange-rate-policy.service';
 
-/** 고객 매입 통화 (fiat per 1 USDT) */
+/** 고객 매입 통화 (fiat per 1 정산자산) */
 export type FiatCurrency = SymbolFeeCurrency;
 
 export const SUPPORTED_FIAT_CURRENCIES: FiatCurrency[] = ['KRW', 'JPY', 'THB', 'CNY', 'USD', 'EUR'];
 
-/** fiat per 1 USDT — 본사정책 통화별 기준가 소스 적용 */
+/** fiat per 1 정산자산(USDT|USDC) — 본사정책 통화별 기준가 소스 적용 */
 export async function fetchUsdtFiatRate(currency: FiatCurrency) {
   return fetchUsdtFiatRateWithPolicy(currency);
 }
@@ -28,11 +28,13 @@ export async function getAllExchangeRatesDisplay(): Promise<{
   source: string;
   fetchedAt: string;
   disclaimer: string;
+  settlementAsset: 'USDT' | 'USDC';
 }> {
   const displayCurrencies = ['KRW', 'JPY', 'THB', 'CNY'] as const;
   const results = await Promise.all(displayCurrencies.map((c) => fetchUsdtFiatRate(c)));
   const primarySource = results.find((r) => r.source !== 'fallback')?.source ?? 'fallback';
   const fetchedAt = results[0]?.fetchedAt.toISOString() ?? new Date().toISOString();
+  const settlementAsset = results[0]?.settlementAsset ?? 'USDT';
 
   return {
     rates: {
@@ -43,21 +45,31 @@ export async function getAllExchangeRatesDisplay(): Promise<{
     },
     source: primarySource,
     fetchedAt,
-    disclaimer: '참고 시세이며, 실제 거래 시점의 환율·가스비에 따라 수령 USDT가 달라질 수 있습니다.',
+    settlementAsset,
+    disclaimer:
+      settlementAsset === 'USDC'
+        ? '참고 시세이며, 실제 거래 시점의 환율·가스비에 따라 수령 USDC가 달라질 수 있습니다.'
+        : '참고 시세이며, 실제 거래 시점의 환율·가스비에 따라 수령 USDT가 달라질 수 있습니다.',
   };
 }
 
 export async function getExchangeRateDisplay(currency: FiatCurrency = 'KRW') {
-  const { rate, source, fetchedAt } = await fetchUsdtFiatRate(currency);
+  const { rate, source, fetchedAt, settlementAsset } = await fetchUsdtFiatRate(currency);
   const krwRate =
     currency === 'KRW' ? rate : (await fetchUsdtFiatRate('KRW')).rate;
   return {
     currency,
+    /** @deprecated use usdtFiatRate — kept for probes/legacy clients */
+    rate,
     usdtFiatRate: rate,
     usdtKrwRate: krwRate,
+    settlementAsset,
     source,
     fetchedAt: fetchedAt.toISOString(),
-    disclaimer: '참고 시세이며, 실제 거래 시점의 환율과 다를 수 있습니다.',
+    disclaimer:
+      settlementAsset === 'USDC'
+        ? '참고 시세이며, 실제 거래 시점의 환율과 다를 수 있습니다. (USDC)'
+        : '참고 시세이며, 실제 거래 시점의 환율과 다를 수 있습니다.',
   };
 }
 

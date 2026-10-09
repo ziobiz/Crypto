@@ -58,14 +58,16 @@ function ProfitAnalysisInner() {
                   <th>{t('simLogs.customer')}</th>
                   <th>{t('simLogs.date')}</th>
                   <th>{t('profit.expected')}</th>
+                  <th>{t('profit.actual')}</th>
                   <th>{t('profit.broker')}</th>
+                  <th>{t('profit.source')}</th>
                   <th>{t('profit.result')}</th>
                   <th />
                 </tr>
               </thead>
               <tbody>
                 {rows.length === 0 ? (
-                  <tr><td colSpan={7} className="pg-hint">{t('profit.empty')}</td></tr>
+                  <tr><td colSpan={9} className="pg-hint">{t('profit.empty')}</td></tr>
                 ) : (
                   rows.map((row) => (
                     <tr key={row.ticketId}>
@@ -78,12 +80,22 @@ function ProfitAnalysisInner() {
                       </td>
                       <td>{formatDate(row.createdAt)}</td>
                       <td className="font-semibold text-red-600">{row.expectedUsdtAmount.toFixed(4)}</td>
+                      <td className="font-mono text-sm">
+                        {row.actualUsdtAmount != null ? row.actualUsdtAmount.toFixed(4) : '—'}
+                      </td>
                       <td>
                         <input
                           className="pg-input w-28"
                           value={draft[row.ticketId] ?? (row.brokerUsdtAmount != null ? String(row.brokerUsdtAmount) : '')}
                           onChange={(e) => setDraft((d) => ({ ...d, [row.ticketId]: e.target.value }))}
                         />
+                      </td>
+                      <td className="text-xs text-slate-600">
+                        {row.profitSource === 'manual'
+                          ? t('profit.source.manual')
+                          : row.profitSource === 'auto'
+                            ? t('profit.source.auto')
+                            : '—'}
                       </td>
                       <td className={row.profitUsdt == null ? '' : row.profitUsdt >= 0 ? 'font-semibold text-green-700' : 'font-semibold text-red-700'}>
                         {row.profitUsdt == null ? '—' : row.profitUsdt.toFixed(4)}

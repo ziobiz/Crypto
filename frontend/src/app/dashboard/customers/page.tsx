@@ -25,7 +25,10 @@ import {
 } from '@/lib/api';
 import type { MessageKey } from '@/i18n/messages';
 import { CustomerExpressConfigEditor } from '@/components/hq-policy/CustomerExpressConfigEditor';
-import { WALLET_NETWORKS } from '@/constants/wallet-networks';
+import {
+  defaultNetworkForAsset,
+  networksForAsset,
+} from '@/constants/wallet-networks';
 import { ReferenceClocks } from '@/components/ReferenceClocks';
 import { SRateBadge } from '@/components/SRateBadge';
 import { ExpectedCompleteTierCard } from '@/components/ExpectedCompleteTierCard';
@@ -35,6 +38,7 @@ import { localizeFeeTypeLabel } from '@/lib/fee-type-label';
 import { formatDateDot } from '@/lib/format';
 import { useDoubleConfirm } from '@/hooks/useDoubleConfirm';
 import { InactiveReasonPresetPicker } from '@/components/InactiveReasonPresetPicker';
+import { CUSTOMER_TYPES_UI_ORDER } from '@/constants/ui-display-order';
 import {
   encodeInactivePresetReason,
   formatLoginNoticeDisplay,
@@ -58,7 +62,7 @@ const emptyCreate: CreateUserInput = {
   accountNumber: '',
   accountHolder: '',
   walletAddress: '',
-  walletNetwork: 'TRC20',
+  walletNetwork: defaultNetworkForAsset('USDT'),
   walletLabel: '',
   simulatorEnabled: true,
   simulatorRateMode: 'LIVE',
@@ -146,6 +150,8 @@ export default function CustomersPage() {
   const { requestConfirm, dialog: doubleConfirmDialog } = useDoubleConfirm();
   const router = useRouter();
   const isSuperAdmin = me?.role === 'SUPER_ADMIN';
+  const settlementAsset =
+    me?.sessionPolicy?.settlementAsset === 'USDC' ? 'USDC' : 'USDT';
   const canRegisterCustomer =
     isSuperAdmin ||
     CUSTOMER_REGISTER_ORG_TYPES.includes(
@@ -399,7 +405,10 @@ export default function CustomersPage() {
         role: 'CUSTOMER',
       });
       setModal(null);
-      setForm(emptyCreate);
+      setForm({
+        ...emptyCreate,
+        walletNetwork: defaultNetworkForAsset(settlementAsset),
+      });
       setMsg(t('customers.created'));
       load();
     } catch (err) {
@@ -421,7 +430,10 @@ export default function CustomersPage() {
           <button
             type="button"
             onClick={() => {
-              setForm(emptyCreate);
+              setForm({
+                ...emptyCreate,
+                walletNetwork: defaultNetworkForAsset(settlementAsset),
+              });
               setModal('create');
               setMsg('');
               void customerFeesApi
@@ -439,6 +451,7 @@ export default function CustomersPage() {
                     '';
                   setForm({
                     ...emptyCreate,
+                    walletNetwork: defaultNetworkForAsset(settlementAsset),
                     usdtFeeTypeCode: usdtDef,
                     tradeFeeTypeCode: tradeDef,
                   });
@@ -806,8 +819,11 @@ export default function CustomersPage() {
                   }
                   className="pg-input mt-1"
                 >
-                  <option value="INDIVIDUAL">{t('auth.individual')}</option>
-                  <option value="CORPORATE">{t('auth.corporate')}</option>
+                  {CUSTOMER_TYPES_UI_ORDER.map((type) => (
+                    <option key={type} value={type}>
+                      {type === 'CORPORATE' ? t('auth.corporate') : t('auth.individual')}
+                    </option>
+                  ))}
                 </select>
               </label>
               <div className="pg-inset-panel sm:col-span-2">
@@ -999,11 +1015,11 @@ export default function CustomersPage() {
                   </span>
                   <select
                     required
-                    value={form.walletNetwork ?? 'TRC20'}
+                    value={form.walletNetwork ?? defaultNetworkForAsset(settlementAsset)}
                     onChange={(e) => setForm({ ...form, walletNetwork: e.target.value })}
                     className="pg-input mt-1"
                   >
-                    {WALLET_NETWORKS.map((n) => (
+                    {networksForAsset(settlementAsset).map((n) => (
                       <option key={n.value} value={n.value}>
                         {n.label}
                       </option>

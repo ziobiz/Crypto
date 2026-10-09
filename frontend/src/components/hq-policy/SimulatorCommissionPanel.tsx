@@ -184,7 +184,7 @@ export function SimulatorCommissionPanel() {
   if (!risk) return null;
 
   const operatingLabel = operatingDefault
-    ? `${operatingDefault.name} · ${operatingDefault.poolPercent}% + ${operatingDefault.perTicketUsdt} USDT`
+    ? `${operatingDefault.name} · ${operatingDefault.poolPercent}% + ${operatingDefault.perTicketUsdt} ${t('hq.commission.unitCrypto')}`
     : t('hq.commission.simulatorOperatingFeeEmpty');
 
   return (

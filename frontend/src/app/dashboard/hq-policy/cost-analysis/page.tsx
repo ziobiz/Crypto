@@ -109,7 +109,15 @@ function CostAnalysisInner() {
             </label>
             <label className="block">
               <span className="pg-label">{t('cost.rate')}</span>
-              <input className="pg-input" readOnly value={preview ? `1 USDT = ${preview.exchangeRate.toLocaleString()} ${currency}` : t('cost.rateAuto')} />
+              <input
+                className="pg-input"
+                readOnly
+                value={
+                  preview
+                    ? `1 ${preview.settlementAsset === 'USDC' ? 'USDC' : 'USDT'} = ${preview.exchangeRate.toLocaleString()} ${currency}`
+                    : t('cost.rateAuto')
+                }
+              />
             </label>
             <label className="block">
               <span className="pg-label">{t('cost.correction')}</span>
@@ -122,8 +130,14 @@ function CostAnalysisInner() {
           </div>
           {preview && (
             <div className="pg-callout pg-callout-muted mt-3">
-              <p>{t('cost.gross')}: {preview.grossUsdt.toFixed(4)} USDT</p>
-              <p className="font-semibold text-green-700">{t('cost.fee')}: {preview.feeUsdt.toFixed(4)} USDT</p>
+              <p>
+                {t('cost.gross')}: {preview.grossUsdt.toFixed(4)}{' '}
+                {preview.settlementAsset === 'USDC' ? 'USDC' : 'USDT'}
+              </p>
+              <p className="font-semibold text-green-700">
+                {t('cost.fee')}: {preview.feeUsdt.toFixed(4)}{' '}
+                {preview.settlementAsset === 'USDC' ? 'USDC' : 'USDT'}
+              </p>
               <p className="pg-hint">{t('cost.formula')}</p>
             </div>
           )}

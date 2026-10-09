@@ -10,10 +10,12 @@ import {
   type HqCommissionPayload,
   type HqCommissionRiskConfig,
   type HqExchangeRateSourcePolicy,
+  type HqExchangeRateSourcesByAsset,
   type CurrencyTransactionLimits,
   type HqCurrencyAmountDisplayPolicy,
   type UsdtRiskLimitTier,
   type SymbolFeeCurrency,
+  type SettlementAsset,
 } from '@/lib/api';
 import type { MessageKey } from '@/i18n/messages';
 import { FormattedAmountInput } from '@/components/FormattedAmountInput';
@@ -32,8 +34,12 @@ import {
   saveRisk,
 } from '@/lib/hq-commission-shared';
 import type { LimitPaymentMethod } from '@/lib/api';
+import {
+  CUSTOMER_TYPES_UI_ORDER,
+  SETTLEMENT_ASSETS_UI_ORDER,
+} from '@/constants/ui-display-order';
 
-const LIMIT_CUSTOMER_TYPES = ['INDIVIDUAL', 'CORPORATE'] as const;
+const LIMIT_CUSTOMER_TYPES = CUSTOMER_TYPES_UI_ORDER;
 type LimitCustomerType = (typeof LIMIT_CUSTOMER_TYPES)[number];
 
 const LIMIT_METHOD_LABEL: Record<LimitPaymentMethod, MessageKey> = {
@@ -76,8 +82,12 @@ export default function HqRiskPage() {
   const { requestConfirm, dialog: doubleConfirmDialog } = useDoubleConfirm();
   const [data, setData] = useState<HqCommissionPayload | null>(null);
   const [risk, setRisk] = useState<HqCommissionRiskConfig | null>(null);
-  const [exchangeRateSources, setExchangeRateSources] = useState<HqExchangeRateSourcePolicy | null>(null);
-  const [exchangeRatePreview, setExchangeRatePreview] = useState<ExchangeRatePreviewRow[]>([]);
+  const [exchangeRateSourcesByAsset, setExchangeRateSourcesByAsset] =
+    useState<HqExchangeRateSourcesByAsset | null>(null);
+  const [exchangeRatePreviewByAsset, setExchangeRatePreviewByAsset] = useState<{
+    USDT: ExchangeRatePreviewRow[];
+    USDC: ExchangeRatePreviewRow[];
+  }>({ USDT: [], USDC: [] });
   const [savingRateSources, setSavingRateSources] = useState(false);
   const [rateSourcesMsg, setRateSourcesMsg] = useState('');
   const [editingLimitCurrency, setEditingLimitCurrency] = useState<SymbolFeeCurrency | null>(null);
@@ -101,30 +111,51 @@ export default function HqRiskPage() {
   const [quoteMsg, setQuoteMsg] = useState('');
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
-  const [limitCustomerType, setLimitCustomerType] = useState<LimitCustomerType>('INDIVIDUAL');
+  const [limitCustomerType, setLimitCustomerType] = useState<LimitCustomerType>('CORPORATE');
   const [limitPaymentMethod, setLimitPaymentMethod] =
     useState<LimitPaymentMethod>('BANK_TRANSFER');
 
-  const rateSourceLabel = (source: ExchangeRateSourceId | string) =>
-    t(`hq.commission.rateSource.${source}` as MessageKey);
+  const settlementAssetLabel = data?.settlementAsset === 'USDC' ? 'USDC' : 'USDT';
+  const rateSourceLabel = (source: ExchangeRateSourceId | string, asset: SettlementAsset) =>
+    t(`hq.commission.rateSource.${source}` as MessageKey, { asset });
 
-  function previewFor(currency: SymbolFeeCurrency) {
-    return exchangeRatePreview.find((row) => row.currency === currency);
+  function previewFor(asset: SettlementAsset, currency: SymbolFeeCurrency) {
+    return exchangeRatePreviewByAsset[asset].find((row) => row.currency === currency);
   }
 
-  function updateRateSource(currency: SymbolFeeCurrency, source: ExchangeRateSourceId) {
-    setExchangeRateSources((prev) => (prev ? { ...prev, [currency]: source } : prev));
+  function updateRateSource(
+    asset: SettlementAsset,
+    currency: SymbolFeeCurrency,
+    source: ExchangeRateSourceId,
+  ) {
+    setExchangeRateSourcesByAsset((prev) =>
+      prev
+        ? {
+            ...prev,
+            [asset]: { ...prev[asset], [currency]: source },
+          }
+        : prev,
+    );
   }
 
   async function saveRateSources() {
-    if (!exchangeRateSources) return;
+    if (!exchangeRateSourcesByAsset) return;
     setSavingRateSources(true);
     setRateSourcesMsg('');
     try {
-      const next = await hqPolicyApi.saveExchangeRateSources(exchangeRateSources);
+      const next = await hqPolicyApi.saveExchangeRateSources(exchangeRateSourcesByAsset);
       setData(next);
-      setExchangeRateSources(next.exchangeRateSources);
-      setExchangeRatePreview(next.exchangeRatePreview ?? []);
+      const byAsset = next.exchangeRateSourcesByAsset ?? {
+        USDT: next.exchangeRateSources,
+        USDC: next.exchangeRateSources,
+      };
+      setExchangeRateSourcesByAsset(byAsset);
+      setExchangeRatePreviewByAsset(
+        next.exchangeRatePreviewByAsset ?? {
+          USDT: next.exchangeRatePreview ?? [],
+          USDC: next.exchangeRatePreview ?? [],
+        },
+      );
       setRateSourcesMsg(t('hq.commission.rateSourcesSaved'));
     } catch (e) {
       setRateSourcesMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
@@ -147,8 +178,18 @@ export default function HqRiskPage() {
             0,
           defaultOtherFeeUsdt: commission.risk.defaultOtherFeeUsdt ?? 0,
         }));
-        setExchangeRateSources(commission.exchangeRateSources);
-        setExchangeRatePreview(commission.exchangeRatePreview ?? []);
+        setExchangeRateSourcesByAsset(
+          commission.exchangeRateSourcesByAsset ?? {
+            USDT: commission.exchangeRateSources,
+            USDC: commission.exchangeRateSources,
+          },
+        );
+        setExchangeRatePreviewByAsset(
+          commission.exchangeRatePreviewByAsset ?? {
+            USDT: commission.exchangeRatePreview ?? [],
+            USDC: commission.exchangeRatePreview ?? [],
+          },
+        );
         setCurrencyAmount({
           ...DEFAULT_CURRENCY_AMOUNT,
           ...(commission.currencyAmountDisplay ?? {}),
@@ -337,67 +378,97 @@ export default function HqRiskPage() {
     );
   }
 
-  if (!data || !risk || !exchangeRateSources) return <p className="pg-hint">{t('hq.loading')}</p>;
+  if (!data || !risk || !exchangeRateSourcesByAsset) return <p className="pg-hint">{t('hq.loading')}</p>;
+
+  const rateAssetCards: SettlementAsset[] = [...SETTLEMENT_ASSETS_UI_ORDER];
 
   return (
     <div className="pg-stack">
       {doubleConfirmDialog}
-      
-      {/* Exchange Rate Sources */}
+
+      {/* Exchange Rate Sources — USDC then USDT cards always visible */}
       <section className="pg-section">
-        <div className="pg-section-head">{t('hq.commission.rateSourceTitle')}</div>
-        <div className="pg-section-pad space-y-3">
-          <p className="pg-hint">{t('hq.commission.rateSourceDesc')}</p>
-          <div className="pg-card pg-table-wrap">
-            <table className="pg-table">
-              <thead>
-                <tr>
-                  <th>{t('hq.commission.rateSourceCurrency')}</th>
-                  <th>{t('hq.commission.rateSourceSelect')}</th>
-                  <th>{t('hq.commission.rateSourcePreview')}</th>
-                  <th>{t('hq.commission.rateSourceActual')}</th>
-                  <th>{t('hq.commission.rateSourceUpdated')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {FEE_CURRENCIES.map((currency) => {
-                  const preview = previewFor(currency);
-                  return (
-                    <tr key={currency}>
-                      <td className="font-mono font-semibold">{currency}</td>
-                      <td>
-                        <select
-                          value={exchangeRateSources[currency]}
-                          onChange={(e) =>
-                            updateRateSource(currency, e.target.value as ExchangeRateSourceId)
-                          }
-                          className="pg-input min-w-[12rem]"
-                        >
-                          {RATE_SOURCES.map((source) => (
-                            <option key={source} value={source}>
-                              {rateSourceLabel(source)}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="tabular-nums font-semibold text-blue-700">
-                        {preview?.rate != null
-                          ? preview.rate.toLocaleString(undefined, {
-                              maximumFractionDigits: currency === 'JPY' ? 2 : 0,
-                            })
-                          : '—'}
-                      </td>
-                      <td className="pg-muted text-xs">{preview ? rateSourceLabel(preview.actualSource.replace('_fallback', '')) : '—'}</td>
-                      <td className="pg-muted text-xs">
-                        {preview?.fetchedAt
-                          ? new Date(preview.fetchedAt).toLocaleString()
-                          : '—'}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+        <div className="pg-section-head">{t('hq.commission.rateSourceSectionTitle')}</div>
+        <div className="pg-section-pad space-y-4">
+          <p className="pg-hint">{t('hq.commission.rateSourceSectionDesc')}</p>
+          <div className="grid gap-4 xl:grid-cols-2">
+            {rateAssetCards.map((asset) => (
+              <div key={asset} className="pg-card space-y-3 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-semibold text-slate-800">
+                    {t('hq.commission.rateSourceTitle', { asset })}
+                  </p>
+                  {settlementAssetLabel === asset && (
+                    <span className="rounded bg-sky-100 px-2 py-0.5 text-[11px] font-medium text-sky-800">
+                      {t('hq.commission.rateSourceActiveSettlement')}
+                    </span>
+                  )}
+                </div>
+                <p className="pg-hint text-xs">{t('hq.commission.rateSourceDesc', { asset })}</p>
+                <div className="pg-table-wrap">
+                  <table className="pg-table">
+                    <thead>
+                      <tr>
+                        <th>{t('hq.commission.rateSourceCurrency')}</th>
+                        <th>{t('hq.commission.rateSourceSelect')}</th>
+                        <th>{t('hq.commission.rateSourcePreview', { asset })}</th>
+                        <th>{t('hq.commission.rateSourceActual')}</th>
+                        <th>{t('hq.commission.rateSourceUpdated')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {FEE_CURRENCIES.map((currency) => {
+                        const preview = previewFor(asset, currency);
+                        return (
+                          <tr key={`${asset}-${currency}`}>
+                            <td className="font-mono font-semibold">{currency}</td>
+                            <td>
+                              <select
+                                value={exchangeRateSourcesByAsset[asset][currency]}
+                                onChange={(e) =>
+                                  updateRateSource(
+                                    asset,
+                                    currency,
+                                    e.target.value as ExchangeRateSourceId,
+                                  )
+                                }
+                                className="pg-input min-w-[10rem]"
+                              >
+                                {RATE_SOURCES.map((source) => (
+                                  <option key={source} value={source}>
+                                    {rateSourceLabel(source, asset)}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="tabular-nums font-semibold text-blue-700">
+                              {preview?.rate != null
+                                ? preview.rate.toLocaleString(undefined, {
+                                    maximumFractionDigits: currency === 'JPY' ? 2 : 0,
+                                  })
+                                : '—'}
+                            </td>
+                            <td className="pg-muted text-xs">
+                              {preview
+                                ? rateSourceLabel(
+                                    preview.actualSource.replace('_fallback', ''),
+                                    asset,
+                                  )
+                                : '—'}
+                            </td>
+                            <td className="pg-muted text-xs">
+                              {preview?.fetchedAt
+                                ? new Date(preview.fetchedAt).toLocaleString()
+                                : '—'}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
           </div>
           {rateSourcesMsg && <p className="text-sm text-green-700">{rateSourcesMsg}</p>}
           {(data.localPremiums?.length ? data.localPremiums : data.kimchiPremium ? [{
@@ -423,7 +494,10 @@ export default function HqRiskPage() {
                 {t(`hq.commission.localPremium.${premium.currency}.title` as 'hq.commission.localPremium.KRW.title')}
               </p>
               <p className="mt-1">
-                {t(`hq.commission.localPremium.${premium.currency}.desc` as 'hq.commission.localPremium.KRW.desc')}
+                {t(
+                  `hq.commission.localPremium.${premium.currency}.desc` as 'hq.commission.localPremium.KRW.desc',
+                  { asset: settlementAssetLabel },
+                )}
               </p>
               <dl className="mt-2 grid gap-1 sm:grid-cols-2">
                 <div>
@@ -450,14 +524,17 @@ export default function HqRiskPage() {
                 <div>
                   <dt className="text-rose-700">{t('hq.commission.localPremium.fx')}</dt>
                   <dd className="font-mono tabular-nums">
-                    USD/{premium.currency} {premium.usdFiatRate.toLocaleString()} × USDT/USD {premium.usdtUsdRate.toFixed(4)}
+                    USD/{premium.currency} {premium.usdFiatRate.toLocaleString()} × {settlementAssetLabel}
+                    /USD {premium.usdtUsdRate.toFixed(4)}
                   </dd>
                 </div>
               </dl>
             </div>
           ))}
           {((data.localPremiums?.length ?? 0) > 0 || data.kimchiPremium) && (
-            <p className="text-xs text-rose-800">{t('hq.commission.localPremiumDesc')}</p>
+            <p className="text-xs text-rose-800">
+              {t('hq.commission.localPremiumDesc', { asset: settlementAssetLabel })}
+            </p>
           )}
           <div className="flex justify-end">
             <button

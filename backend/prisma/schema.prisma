@@ -134,6 +134,13 @@ enum CurrencyCode {
   THB
   CNY
   USDT
+  USDC
+}
+
+/// 고객 지갑 수령 자산 (본사 settlementAsset과 매칭)
+enum WalletAssetType {
+  USDT
+  USDC
 }
 
 /// USDT 시뮬레이터 수수료 체계 — LIVE=실제 정책, SAND=시뮬레이터 전용 정책
@@ -624,8 +631,10 @@ model Wallet {
   userId    String
   user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   label     String? // 지갑 별칭
-  address   String  // USDT 수령 주소
+  address   String  // 스테이블 수령 주소
   network   String  @default("TRC20") // TRC20, ERC20 등
+  /// 수령 자산 (본사 settlementAsset과 일치하는 지갑만 신청에 노출)
+  assetType WalletAssetType @default(USDT)
   isDefault Boolean @default(false)
   isActive  Boolean @default(true)
   /// 본사 가맹점 등록 시 넣은 기본 지갑. 주소 변경은 OTP·재확인 후 가능하며 새 주소는 승인 이력이 없으면 다시 승인 대상이다.
@@ -647,8 +656,9 @@ model Wallet {
 
   usdtPurchaseTickets UsdtPurchaseDetail[]
 
-  @@unique([userId, address, network])
+  @@unique([userId, address, network, assetType])
   @@index([userId])
+  @@index([userId, assetType])
   @@map("wallets")
 }
 
