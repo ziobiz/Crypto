@@ -167,11 +167,45 @@ const INVOICE_ITEM: NavItem = {
  * 총괄관리자 기준 마스터 트리.
  * 일반관리자·Organizer·정산관리자는 동일 구조를 쓰고 pageAccess로 숨김.
  */
+const MEMBERSHIP_ADMIN_ITEM: NavItem = {
+  href: '/dashboard/membership-admin',
+  labelKey: 'nav.membershipAdmin',
+  shortKey: 'nav.short.membershipAdmin',
+  icon: 'users',
+  children: [
+    {
+      href: '/dashboard/membership-admin/products',
+      labelKey: 'membershipAdmin.tab.products',
+      shortKey: 'membershipAdmin.tab.productsShort',
+      icon: 'users',
+    },
+    {
+      href: '/dashboard/membership-admin/benefits',
+      labelKey: 'membershipAdmin.tab.benefits',
+      shortKey: 'membershipAdmin.tab.benefitsShort',
+      icon: 'ledger',
+    },
+    {
+      href: '/dashboard/membership-admin/payments',
+      labelKey: 'membershipAdmin.tab.payments',
+      shortKey: 'membershipAdmin.tab.paymentsShort',
+      icon: 'ledger',
+    },
+    {
+      href: '/dashboard/membership-admin/policy',
+      labelKey: 'membershipAdmin.tab.policy',
+      shortKey: 'membershipAdmin.tab.policyShort',
+      icon: 'hq',
+    },
+  ],
+};
+
 const HQ_MASTER_NAV: NavItem[] = [
   { href: '/dashboard', labelKey: 'nav.dashboard', shortKey: 'nav.short.dashboard', icon: 'dashboard' },
   { href: '/dashboard/usdt', labelKey: 'nav.usdt', shortKey: 'nav.short.usdt', icon: 'usdt' },
   { href: '/dashboard/escrow', labelKey: 'nav.escrow', shortKey: 'nav.short.escrow', icon: 'escrow' },
   { href: '/dashboard/ledger', labelKey: 'nav.ledger', shortKey: 'nav.short.ledger', icon: 'ledger' },
+  MEMBERSHIP_ADMIN_ITEM,
   INVOICE_ITEM,
   OPS_ITEM,
   HQ_POLICY_ITEM,
@@ -186,6 +220,7 @@ export const NAV_ITEMS: Record<string, NavItem[]> = {
     { href: '/dashboard', labelKey: 'nav.dashboard', shortKey: 'nav.short.dashboard', icon: 'dashboard' },
     SIMULATOR_ITEM,
     { href: '/dashboard/usdt', labelKey: 'nav.usdt', shortKey: 'nav.short.usdt', icon: 'usdt' },
+    { href: '/dashboard/membership', labelKey: 'nav.membership', shortKey: 'nav.short.membership', icon: 'users' },
     { href: '/dashboard/escrow', labelKey: 'nav.escrow', shortKey: 'nav.short.escrow', icon: 'escrow' },
     { href: '/dashboard/kyc', labelKey: 'nav.kyc', shortKey: 'nav.short.kyc', icon: 'kyc' },
     { href: '/dashboard/wallets', labelKey: 'nav.wallets', shortKey: 'nav.short.wallets', icon: 'wallets' },
@@ -197,6 +232,7 @@ export const NAV_ITEMS: Record<string, NavItem[]> = {
     { href: '/dashboard', labelKey: 'nav.dashboard', shortKey: 'nav.short.dashboard', icon: 'dashboard' },
     SIMULATOR_ITEM,
     { href: '/dashboard/usdt', labelKey: 'nav.usdt', shortKey: 'nav.short.usdt', icon: 'usdt' },
+    { href: '/dashboard/membership', labelKey: 'nav.membership', shortKey: 'nav.short.membership', icon: 'users' },
     { href: '/dashboard/escrow', labelKey: 'nav.escrow', shortKey: 'nav.short.escrow', icon: 'escrow' },
     { href: '/dashboard/kyc', labelKey: 'nav.kyc', shortKey: 'nav.short.kyc', icon: 'kyc' },
     OPERATION_HISTORY_ITEM,

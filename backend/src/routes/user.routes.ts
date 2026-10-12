@@ -40,6 +40,7 @@ const createSchema = z.object({
   password: z.preprocess(emptyToUndef, z.string().min(6).optional()),
   name: z.string().min(1),
   phone: z.preprocess(emptyToUndef, z.string().optional()),
+  phoneCountryCode: z.preprocess(emptyToUndef, z.string().optional()),
   role: z.nativeEnum(UserRole),
   organizationId: z.preprocess(emptyToUndef, z.string().min(1).optional()),
   customerType: z.nativeEnum(CustomerType).optional(),
@@ -52,6 +53,11 @@ const createSchema = z.object({
   walletAddress: z.preprocess(emptyToUndef, z.string().min(10).optional()),
   walletNetwork: z.preprocess(emptyToUndef, z.string().optional()),
   walletLabel: z.preprocess(emptyToUndef, z.string().optional()),
+  /** 수령 지갑 자산(USDT|USDC|EURC). 미지정 시 본사 정산자산 */
+  walletAssetType: z.preprocess(
+    emptyToUndef,
+    z.enum(['USDT', 'USDC', 'EURC']).optional(),
+  ),
   reason: z.string().min(1, '등록 사유가 필요합니다'),
   feeShare: z.unknown().optional(),
   usdtFeeTypeCode: z.preprocess(emptyToUndef, z.string().min(1).optional()),
@@ -93,6 +99,7 @@ const updateSchema = z.object({
   legalFirstName: z.string().nullable().optional(),
   legalLastName: z.string().nullable().optional(),
   phone: z.string().nullable().optional(),
+  phoneCountryCode: z.string().nullable().optional(),
   role: z.nativeEnum(UserRole).optional(),
   organizationId: z.string().nullable().optional(),
   isActive: z.boolean().optional(),

@@ -2,7 +2,7 @@
 
 import { useT } from '@/context/LocaleProvider';
 import type { MemberGrade } from '@/lib/api';
-import { MEMBER_GRADES } from '@/lib/api';
+import { formatMemberGradeDisplayCode, MEMBER_GRADES } from '@/lib/api';
 import type { MessageKey } from '@/i18n/messages';
 
 export const MEMBER_GRADE_STYLE: Record<
@@ -57,28 +57,59 @@ export const MEMBER_GRADE_CODE: Record<MemberGrade, string> = {
   BLACK: 'BL',
 };
 
-export function MemberGradeChip({ grade }: { grade?: string | null }) {
+export function MemberGradeChip({
+  grade,
+  customerType,
+  paidUntil,
+}: {
+  grade?: string | null;
+  customerType?: string | null;
+  /** ISO date — shown when paid membership is still active */
+  paidUntil?: string | Date | null;
+}) {
   const t = useT();
   const g = normalizeMemberGradeUi(grade);
   const style = MEMBER_GRADE_STYLE[g];
+  const label = formatMemberGradeDisplayCode(g, customerType);
+  const until =
+    paidUntil != null && paidUntil !== ''
+      ? new Date(paidUntil)
+      : null;
+  const untilActive =
+    until != null && Number.isFinite(until.getTime()) && until.getTime() > Date.now();
   return (
-    <span className={`inline-flex items-center rounded px-2 py-0.5 text-xs font-semibold ${style.chip}`}>
-      {t(`memberGrade.${g}` as MessageKey)}
+    <span className={`inline-flex flex-wrap items-center gap-1 rounded px-2 py-0.5 text-xs font-semibold ${style.chip}`}>
+      <span>{label}</span>
+      {untilActive && (
+        <span className="font-normal opacity-90">
+          · {t('paidMembership.until')} {until!.toLocaleDateString()}
+        </span>
+      )}
     </span>
   );
 }
 
-/** 고객목록용 — 등급색 + 2글자 */
-export function MemberGradeCodeChip({ grade }: { grade?: string | null }) {
-  const t = useT();
+/** 고객목록용 — 등급색 + 표시코드(법인 B) */
+export function MemberGradeCodeChip({
+  grade,
+  customerType,
+}: {
+  grade?: string | null;
+  customerType?: string | null;
+}) {
   const g = normalizeMemberGradeUi(grade);
   const style = MEMBER_GRADE_STYLE[g];
+  const label = formatMemberGradeDisplayCode(g, customerType);
+  const short =
+    String(customerType).toUpperCase() === 'CORPORATE'
+      ? `${MEMBER_GRADE_CODE[g]}B`
+      : MEMBER_GRADE_CODE[g];
   return (
     <span
       className={`inline-flex min-w-[1.75rem] items-center justify-center rounded px-1.5 py-0.5 text-[11px] font-bold tracking-wide ${style.chip}`}
-      title={t(`memberGrade.${g}` as MessageKey)}
+      title={label}
     >
-      {MEMBER_GRADE_CODE[g]}
+      {short}
     </span>
   );
 }
@@ -89,6 +120,8 @@ type MemberGradeCardProps = {
   disabled?: boolean;
   showHint?: boolean;
   compact?: boolean;
+  customerType?: string | null;
+  paidUntil?: string | Date | null;
 };
 
 /** 고객 정보용 회원등급 카드 — 등급별 색상 */
@@ -98,6 +131,8 @@ export function MemberGradeCard({
   disabled,
   showHint = true,
   compact = false,
+  customerType,
+  paidUntil,
 }: MemberGradeCardProps) {
   const t = useT();
   const grade = normalizeMemberGradeUi(value);
@@ -116,7 +151,7 @@ export function MemberGradeCard({
         >
           {t('memberGrade.customer.title')}
         </p>
-        <MemberGradeChip grade={grade} />
+        <MemberGradeChip grade={grade} customerType={customerType} paidUntil={paidUntil} />
       </div>
       {showHint && (
         <p

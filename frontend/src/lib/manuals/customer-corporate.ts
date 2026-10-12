@@ -388,6 +388,54 @@ export const CUSTOMER_CORPORATE_MANUAL: ManualDoc = {
       ),
     },
     {
+      id: 'co-membership',
+      title: L('유료회원 (멤버십)', 'Paid membership', '有料会員', '付费会员', 'สมาชิกเสียเงิน'),
+      bodyHtml: L(
+        `<span class="menu-path">유료회원</span>
+        <p>법인 계정은 법인용 상품(표시명 <strong>PremiumB</strong> 등)만 보입니다.</p>
+        <ul>
+          <li>판매가 <strong>USD 기준</strong>, USDT·USDC 1:1, EURC 시세 환산.</li>
+          <li>기간: 일간(1–30일) 또는 월간(2–12개월).</li>
+          <li>카드 결제(ICOPAY) 우선, 크립토는 준비 중일 수 있음.</li>
+          <li><strong>결제 후 취소·환불 불가</strong>.</li>
+          <li>유료 활성 시 EXPRESS·유료 한도가 법인 한도보다 우선할 수 있습니다.</li>
+        </ul>`,
+        `<span class="menu-path">Paid membership</span>
+        <p>Corporate accounts see corporate products only (display names like <strong>PremiumB</strong>).</p>
+        <ul>
+          <li><strong>USD</strong> list price; USDT/USDC 1:1; EURC via EUR rate.</li>
+          <li>Period: days (1–30) or months (2–12).</li>
+          <li>Card (ICOPAY) first; crypto may be preparing.</li>
+          <li><strong>No cancel/refund after payment</strong>.</li>
+          <li>Active paid benefits (EXPRESS / paid limits) can override standard corporate limits.</li>
+        </ul>`,
+        `<span class="menu-path">有料会員</span>
+        <p>法人は法人商品のみ（表示 <strong>PremiumB</strong> など）。</p>
+        <ul>
+          <li>販売価格は<strong>USD</strong>。USDT/USDC=1:1、EURCは相場換算。</li>
+          <li>期間: 日(1–30)または月(2–12)。</li>
+          <li>カード優先。クリプトは準備中の場合あり。</li>
+          <li><strong>決済後の取消・返金不可</strong>。</li>
+        </ul>`,
+        `<span class="menu-path">付费会员</span>
+        <p>企业账户仅见企业商品（显示如 <strong>PremiumB</strong>）。</p>
+        <ul>
+          <li>售价以<strong>USD</strong>计；USDT/USDC 1:1；EURC 按汇率换算。</li>
+          <li>期限：天(1–30)或月(2–12)。</li>
+          <li>卡支付优先；加密可能仍在准备。</li>
+          <li><strong>付款后不可取消/退款</strong>。</li>
+        </ul>`,
+        `<span class="menu-path">สมาชิกเสียเงิน</span>
+        <p>บัญชีนิติเห็นเฉพาะสินค้านิติ (แสดงเช่น <strong>PremiumB</strong>)</p>
+        <ul>
+          <li>ราคา <strong>USD</strong> USDT/USDC = 1:1 EURC ตามเรท</li>
+          <li>ระยะ: วัน (1–30) หรือเดือน (2–12)</li>
+          <li>บัตรก่อน คริปโตอาจยังเตรียม</li>
+          <li><strong>ชำระแล้วคืนเงินไม่ได้</strong></li>
+        </ul>`,
+      ),
+    },
+    {
       id: 'co-faq',
       title: L('자주 묻는 질문', 'FAQ', 'よくある質問', '常见问题', 'คำถามที่พบบ่อย'),
       bodyHtml: L(

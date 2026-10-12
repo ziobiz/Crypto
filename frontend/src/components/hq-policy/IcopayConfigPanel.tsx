@@ -111,6 +111,12 @@ export function IcopayConfigPanel() {
       <div className="pg-card-head">{t('hq.icopay.title')}</div>
       <div className="pg-card-body space-y-3">
         <p className="pg-hint">{t('hq.icopay.desc')}</p>
+        <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-950 space-y-1">
+          <p className="font-semibold">{t('hq.icopay.uxTitle')}</p>
+          <p>{t('hq.icopay.uxPayUrl')}</p>
+          <p>{t('hq.icopay.uxPortalBranding')}</p>
+          <p>{t('hq.icopay.uxBuyerFields')}</p>
+        </p>
         <p className="rounded border border-sky-200 bg-sky-50 px-3 py-2 text-[12px] text-sky-950">
           <span className="font-medium">{LIVE.merchant}</span>
           <span className="mx-1 text-sky-700">·</span>
@@ -120,7 +126,7 @@ export function IcopayConfigPanel() {
             {t('hq.icopay.baseCurrency')}: {LIVE.baseCurrency}
           </span>
           <span className="mx-1 text-sky-700">·</span>
-          <span>IN (INLINE)</span>
+          <span>{t('hq.icopay.uxChannelNote')}</span>
         </p>
         <label className="flex items-center gap-2 text-sm">
           <input

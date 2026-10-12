@@ -16,6 +16,8 @@ import {
   type UsdtRiskLimitTier,
   type SymbolFeeCurrency,
   type SettlementAsset,
+  type CustomerTypeLimitKey,
+  type LimitPaymentMethod,
 } from '@/lib/api';
 import type { MessageKey } from '@/i18n/messages';
 import { FormattedAmountInput } from '@/components/FormattedAmountInput';
@@ -36,7 +38,6 @@ import {
   saveRisk,
   saveLimits,
 } from '@/lib/hq-commission-shared';
-import type { CustomerTypeLimitKey, LimitPaymentMethod } from '@/lib/api';
 import {
   CUSTOMER_TYPES_UI_ORDER,
   SETTLEMENT_ASSETS_UI_ORDER,
@@ -123,7 +124,6 @@ export default function HqRiskPage() {
     useState<LimitPaymentMethod>('BANK_TRANSFER');
   const [riskTierCustomerType, setRiskTierCustomerType] =
     useState<CustomerTypeLimitKey>('CORPORATE');
-
   const settlementAssetLabel = data?.settlementAsset === 'USDC' ? 'USDC' : 'USDT';
   const rateSourceLabel = (source: ExchangeRateSourceId | string, asset: SettlementAsset) =>
     t(`hq.commission.rateSource.${source}` as MessageKey, { asset });
@@ -497,14 +497,23 @@ export default function HqRiskPage() {
         <div className="pg-section-pad space-y-4">
           <p className="pg-hint">{t('hq.commission.rateSourceSectionDesc')}</p>
           <div className="grid gap-4 xl:grid-cols-2">
-            {rateAssetCards.map((asset) => (
-              <div key={asset} className="pg-card space-y-3 p-3">
+            {rateAssetCards.map((asset) => {
+              const isActiveSettlement = settlementAssetLabel === asset;
+              return (
+              <div
+                key={asset}
+                className={`pg-card space-y-3 p-3 ${
+                  isActiveSettlement
+                    ? 'border-sky-200 bg-sky-50 ring-1 ring-sky-100'
+                    : ''
+                }`}
+              >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="font-semibold text-slate-800">
                     {t('hq.commission.rateSourceTitle', { asset })}
                   </p>
-                  {settlementAssetLabel === asset && (
-                    <span className="rounded bg-sky-100 px-2 py-0.5 text-[11px] font-medium text-sky-800">
+                  {isActiveSettlement && (
+                    <span className="rounded bg-sky-200/70 px-2 py-0.5 text-[11px] font-medium text-sky-900">
                       {t('hq.commission.rateSourceActiveSettlement')}
                     </span>
                   )}
@@ -594,7 +603,8 @@ export default function HqRiskPage() {
                   </table>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
           {rateSourcesMsg && <p className="text-sm text-green-700">{rateSourcesMsg}</p>}
           {(data.localPremiums?.length ? data.localPremiums : data.kimchiPremium ? [{
@@ -1305,6 +1315,16 @@ export default function HqRiskPage() {
               {msg && <p className="pg-hint">{msg}</p>}
             </div>
           </div>
+        </div>
+      </section>
+
+      <section className="pg-section">
+        <div className="pg-section-head">{t('paidMembership.limitsTitle')}</div>
+        <div className="pg-section-pad space-y-2">
+          <p className="pg-hint text-sm">{t('paidMembership.limitsDesc')}</p>
+          <a className="pg-link text-sm font-semibold" href="/dashboard/membership-admin/benefits">
+            {t('nav.membershipAdmin')} → {t('membershipAdmin.tab.benefits')}
+          </a>
         </div>
       </section>
     </div>

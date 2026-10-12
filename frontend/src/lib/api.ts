@@ -1029,6 +1029,138 @@ export const MEMBER_GRADES = [
   'BLACK',
 ] as const;
 export type MemberGrade = (typeof MEMBER_GRADES)[number];
+export const PAID_MEMBER_GRADES = [
+  'PREMIUM',
+  'VIP',
+  'VVIP',
+  'PRESTIGE',
+  'BLACK',
+] as const;
+export type PaidMemberGrade = (typeof PAID_MEMBER_GRADES)[number];
+export type MembershipProductPayMeans = 'CARD' | 'CRYPTO' | 'BOTH';
+/** 멤버십 판매가 단위 — USDT/USDC/EURC 또는 법정통화 */
+export const MEMBERSHIP_PRICE_CURRENCIES = [
+  'USDT',
+  'USDC',
+  'EURC',
+  'USD',
+  'KRW',
+  'JPY',
+  'THB',
+  'CNY',
+  'EUR',
+] as const;
+export type MembershipPriceCurrency = (typeof MEMBERSHIP_PRICE_CURRENCIES)[number];
+export const MEMBERSHIP_CRYPTO_PRICE_CURRENCIES = ['USDT', 'USDC', 'EURC'] as const;
+export type PaidMembershipProduct = {
+  enabled: boolean;
+  price: number;
+  currency: MembershipPriceCurrency;
+  periodDays: number;
+  payMeans: MembershipProductPayMeans;
+};
+export type PaidMembershipCatalogItem = PaidMembershipProduct & {
+  id: string;
+  name: string;
+  customerType: 'INDIVIDUAL' | 'CORPORATE';
+  grade: PaidMemberGrade;
+};
+export type PaidMembershipProductsPolicy = {
+  items: PaidMembershipCatalogItem[];
+};
+export type PaidMembershipLimitsPolicy = Record<
+  'INDIVIDUAL' | 'CORPORATE',
+  Record<PaidMemberGrade, MethodTransactionLimitsPolicy>
+>;
+
+export function formatMemberGradeDisplayCode(
+  grade: string | null | undefined,
+  customerType?: string | null,
+): string {
+  const g = String(grade ?? 'STANDARD').toUpperCase();
+  const title = g.charAt(0) + g.slice(1).toLowerCase();
+  return String(customerType).toUpperCase() === 'CORPORATE' ? `${title}B` : title;
+}
+
+export function newMembershipProductId(): string {
+  return `mp_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export function defaultPaidMembershipProduct(grade: PaidMemberGrade): PaidMembershipProduct {
+  const prices: Record<PaidMemberGrade, number> = {
+    PREMIUM: 29,
+    VIP: 59,
+    VVIP: 99,
+    PRESTIGE: 149,
+    BLACK: 299,
+  };
+  return {
+    enabled: false,
+    price: prices[grade],
+    currency: 'USD',
+    /** 기본 상품군 기간: 12개월(월간) = 360일 */
+    periodDays: 360,
+    payMeans: 'CARD',
+  };
+}
+
+export function createDefaultCatalogItem(
+  partial?: Partial<PaidMembershipCatalogItem>,
+): PaidMembershipCatalogItem {
+  const grade =
+    partial?.grade && (PAID_MEMBER_GRADES as readonly string[]).includes(partial.grade)
+      ? partial.grade
+      : 'PREMIUM';
+  const customerType: 'INDIVIDUAL' | 'CORPORATE' =
+    String(partial?.customerType).toUpperCase() === 'CORPORATE' ? 'CORPORATE' : 'INDIVIDUAL';
+  const base = defaultPaidMembershipProduct(grade);
+  const title = grade.charAt(0) + grade.slice(1).toLowerCase();
+  return {
+    id: partial?.id?.trim() || newMembershipProductId(),
+    name: partial?.name?.trim() || (customerType === 'CORPORATE' ? `${title}B` : title),
+    customerType,
+    grade,
+    enabled: partial?.enabled === true,
+    price: Math.max(0, Number(partial?.price ?? base.price) || 0),
+    currency: partial?.currency ?? base.currency,
+    periodDays: partial?.periodDays ?? base.periodDays,
+    payMeans: partial?.payMeans ?? base.payMeans,
+  };
+}
+
+export function defaultPaidMembershipProductsPolicy(): PaidMembershipProductsPolicy {
+  return { items: [] };
+}
+
+export function normalizePaidMembershipProductsPolicyUi(
+  raw: unknown,
+): PaidMembershipProductsPolicy {
+  if (!raw || typeof raw !== 'object') return { items: [] };
+  const obj = raw as { items?: unknown };
+  if (Array.isArray(obj.items)) {
+    return {
+      items: obj.items
+        .filter((x): x is PaidMembershipCatalogItem => Boolean(x && typeof x === 'object'))
+        .map((x) => createDefaultCatalogItem(x)),
+    };
+  }
+  const legacy = raw as Record<string, Record<string, PaidMembershipProduct>>;
+  const items: PaidMembershipCatalogItem[] = [];
+  for (const type of ['INDIVIDUAL', 'CORPORATE'] as const) {
+    for (const g of PAID_MEMBER_GRADES) {
+      const row = legacy[type]?.[g];
+      if (!row) continue;
+      items.push(
+        createDefaultCatalogItem({
+          ...row,
+          grade: g,
+          customerType: type,
+        }),
+      );
+    }
+  }
+  return { items };
+}
 export const USDT_QUOTE_AUTO_DELAY_MINUTES = [
   0, 1, 3, 5, 10, 30, 60, 180, 360, 720, 1440, 2880, 4320,
 ] as const;
@@ -1264,6 +1396,7 @@ export interface ManagedUser {
   legalFirstName?: string | null;
   legalLastName?: string | null;
   phone?: string | null;
+  phoneCountryCode?: string | null;
   role: UserRoleType;
   isActive: boolean;
   totpEnabled?: boolean;
@@ -1314,6 +1447,8 @@ export interface ManagedUser {
   expressFeeMode?: ExpressFeeMode;
   expressFeeConfig?: unknown;
   memberGrade?: MemberGrade;
+  paidMemberUntil?: string | null;
+  paidMemberSource?: string | null;
   operatorsEnabled?: boolean;
   walletFeesVisible?: boolean;
   recruitingOrg?: { id: string; code: string; name: string };
@@ -1380,6 +1515,7 @@ export interface CreateUserInput {
   password: string;
   name: string;
   phone?: string;
+  phoneCountryCode?: string;
   role: UserRoleType;
   reason: string;
   organizationId?: string;
@@ -1393,6 +1529,8 @@ export interface CreateUserInput {
   walletAddress?: string;
   walletNetwork?: string;
   walletLabel?: string;
+  /** 수령 지갑 자산. 미지정 시 본사 정산자산 */
+  walletAssetType?: 'USDT' | 'USDC' | 'EURC';
   feeShare?: CustomerFeeShare;
   /** 고객 등록 시 USDT 매입 수수료 타입. 비우면 HQ 기본 타입 */
   usdtFeeTypeCode?: string;
@@ -1430,6 +1568,7 @@ export interface UpdateUserInput {
   legalFirstName?: string | null;
   legalLastName?: string | null;
   phone?: string | null;
+  phoneCountryCode?: string | null;
   role?: UserRoleType;
   organizationId?: string | null;
   isActive?: boolean;
@@ -1471,13 +1610,15 @@ export interface UpdateUserInput {
 export type WalletApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 export type SettlementAsset = 'USDT' | 'USDC';
+/** 수령 지갑 등록 가능 자산 (정산 USDT/USDC + EURC) */
+export type WalletReceiveAsset = 'USDT' | 'USDC' | 'EURC';
 
 export interface Wallet {
   id: string;
   label?: string;
   address: string;
   network: string;
-  assetType?: SettlementAsset;
+  assetType?: WalletReceiveAsset;
   isDefault: boolean;
   hqRegistered?: boolean;
   approvalStatus?: WalletApprovalStatus;
@@ -1501,7 +1642,7 @@ export interface WalletInput {
   label: string;
   address: string;
   network?: string;
-  assetType?: SettlementAsset;
+  assetType?: WalletReceiveAsset;
   isDefault?: boolean;
   fxFeePercent?: number;
   gasFeeAmount?: number;
@@ -2313,6 +2454,16 @@ export const hqPolicyApi = {
       method: 'PUT',
       body: JSON.stringify({ memberGrade }),
     }),
+  savePaidMembershipProducts: (products: PaidMembershipProductsPolicy) =>
+    request<HqCommissionPayload>('/api/hq-policy/commission/paid-membership-products', {
+      method: 'PUT',
+      body: JSON.stringify({ products }),
+    }),
+  savePaidMembershipLimits: (limits: PaidMembershipLimitsPolicy) =>
+    request<HqCommissionPayload>('/api/hq-policy/commission/paid-membership-limits', {
+      method: 'PUT',
+      body: JSON.stringify({ limits }),
+    }),
   saveExchangeRateSources: (
     exchangeRateSources: HqExchangeRateSourcePolicy | HqExchangeRateSourcesByAsset,
   ) =>
@@ -2491,6 +2642,29 @@ export const hqPolicyApi = {
       method: 'PUT',
       body: JSON.stringify({ config }),
     }),
+  getPgSettlementWallets: () =>
+    request<{ config: HqPgSettlementWalletsConfig }>(
+      '/api/hq-policy/accounts/pg-settlement-wallets',
+    ),
+  addPgSettlementWallet: (body: {
+    asset: 'USDT' | 'USDC' | 'EURC';
+    network: string;
+    address: string;
+    label?: string;
+    memo?: string;
+  }) =>
+    request<{ config: HqPgSettlementWalletsConfig }>(
+      '/api/hq-policy/accounts/pg-settlement-wallets',
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+      },
+    ),
+  removePgSettlementWallet: (id: string) =>
+    request<{ config: HqPgSettlementWalletsConfig }>(
+      `/api/hq-policy/accounts/pg-settlement-wallets/${encodeURIComponent(id)}`,
+      { method: 'DELETE' },
+    ),
   generateCurfexWebhookSecret: () =>
     request<{ config: HqCurfexConfig; webhookUrl?: string; webhookSecretOnce?: string }>(
       '/api/hq-policy/payment/curfex/webhook-secret',
@@ -2545,6 +2719,191 @@ export const hqPolicyApi = {
       `/api/hq-policy/ops/release-logs${qs ? `?${qs}` : ''}`,
     );
   },
+};
+
+export type MembershipAdminOrderRow = {
+  id: string;
+  orderNo: string;
+  customerType: string;
+  grade: MemberGrade;
+  displayCode: string;
+  periodDays: number;
+  amount: number;
+  currency: string;
+  payMeans: 'CARD' | 'CRYPTO';
+  status: string;
+  cryptoAsset: string | null;
+  cryptoNetwork: string | null;
+  icopayOrderId: string | null;
+  paidAt: string | null;
+  cancelledAt: string | null;
+  refundedAt: string | null;
+  failReason: string | null;
+  adminNote: string | null;
+  createdAt: string;
+  customer: { id: string; email: string; name: string } | null;
+  paidMemberUntil: string | null;
+  currentGrade: MemberGrade;
+};
+
+export type MembershipAdminOrderDetail = {
+  refundPolicy: { adminCancelRefundEnabled: boolean };
+  order: MembershipAdminOrderRow & {
+    customerProfile?: {
+      id: string;
+      customerType: string;
+      memberGrade: MemberGrade;
+      paidMemberUntil: string | null;
+      paidMemberSource: string | null;
+      user: { id: string; email: string; name: string; phone: string | null } | null;
+    };
+    displayCode: string;
+    icopaySessionId?: string | null;
+    icopayPayUrl?: string | null;
+    meta?: unknown;
+  };
+};
+
+export const membershipAdminApi = {
+  priceQuote: (query: { priceUsd: number; currency?: MembershipPriceCurrency }) => {
+    const params = new URLSearchParams();
+    params.set('priceUsd', String(query.priceUsd));
+    if (query.currency) params.set('currency', query.currency);
+    return request<{
+      priceUsd: number;
+      chargeCurrency: MembershipPriceCurrency;
+      chargeAmount: number;
+      equivalents: { USD: number; USDT: number; USDC: number; EURC: number };
+      usdToEurcRate: number;
+      rateSource: string;
+    }>(`/api/membership-admin/price-quote?${params.toString()}`);
+  },
+  listOrders: (query: {
+    page?: number;
+    limit?: number;
+    dateField?: 'createdAt' | 'paidAt';
+    dateFrom?: string;
+    dateTo?: string;
+    status?: string;
+    payMeans?: string;
+    cryptoAsset?: string;
+    searchField?: string;
+    keyword?: string;
+    sortDir?: 'asc' | 'desc';
+  }) => {
+    const params = new URLSearchParams();
+    if (query.page) params.set('page', String(query.page));
+    if (query.limit) params.set('limit', String(query.limit));
+    if (query.dateField) params.set('dateField', query.dateField);
+    if (query.dateFrom) params.set('dateFrom', query.dateFrom);
+    if (query.dateTo) params.set('dateTo', query.dateTo);
+    if (query.status) params.set('status', query.status);
+    if (query.payMeans) params.set('payMeans', query.payMeans);
+    if (query.cryptoAsset) params.set('cryptoAsset', query.cryptoAsset);
+    if (query.searchField) params.set('searchField', query.searchField);
+    if (query.keyword) params.set('keyword', query.keyword);
+    if (query.sortDir) params.set('sortDir', query.sortDir);
+    const qs = params.toString();
+    return request<{
+      total: number;
+      page: number;
+      limit: number;
+      refundPolicy: { adminCancelRefundEnabled: boolean };
+      items: MembershipAdminOrderRow[];
+    }>(`/api/membership-admin/orders${qs ? `?${qs}` : ''}`);
+  },
+  getOrder: (orderNo: string) =>
+    request<MembershipAdminOrderDetail>(
+      `/api/membership-admin/orders/${encodeURIComponent(orderNo)}`,
+    ),
+  getRefundPolicy: () =>
+    request<{ policy: { adminCancelRefundEnabled: boolean } }>(
+      '/api/membership-admin/refund-policy',
+    ),
+  saveRefundPolicy: (policy: { adminCancelRefundEnabled: boolean }) =>
+    request<{ policy: { adminCancelRefundEnabled: boolean } }>(
+      '/api/membership-admin/refund-policy',
+      { method: 'PUT', body: JSON.stringify(policy) },
+    ),
+  cancelOrder: (orderNo: string, note?: string) =>
+    request<{ order: unknown }>(
+      `/api/membership-admin/orders/${encodeURIComponent(orderNo)}/cancel`,
+      { method: 'POST', body: JSON.stringify({ note }) },
+    ),
+  refundOrder: (
+    orderNo: string,
+    body?: { note?: string; revokeBenefits?: boolean },
+  ) =>
+    request<MembershipAdminOrderDetail>(
+      `/api/membership-admin/orders/${encodeURIComponent(orderNo)}/refund`,
+      { method: 'POST', body: JSON.stringify(body ?? {}) },
+    ),
+};
+
+export const membershipApi = {
+  products: () =>
+    request<{
+      customerType: 'INDIVIDUAL' | 'CORPORATE';
+      status: {
+        active: boolean;
+        grade: MemberGrade;
+        paidMemberUntil: string | null;
+        paidMemberSource: string | null;
+        displayCode: string;
+      };
+      products: Array<
+        PaidMembershipProduct & {
+          id: string;
+          name: string;
+          grade: PaidMemberGrade;
+          displayCode?: string;
+          cryptoCheckoutReady: boolean;
+          priceUsd?: number;
+          chargeAmount?: number;
+          equivalents?: { USD: number; USDT: number; USDC: number; EURC: number };
+          usdToEurcRate?: number;
+        }
+      >;
+      refundPolicy: string;
+    }>('/api/membership/products'),
+  me: () =>
+    request<{
+      active: boolean;
+      grade: MemberGrade;
+      paidMemberUntil: string | null;
+      paidMemberSource: string | null;
+      displayCode: string;
+    }>('/api/membership/me'),
+  purchase: (body: {
+    productId?: string;
+    grade?: PaidMemberGrade;
+    payMeans: 'CARD' | 'CRYPTO';
+    lang?: string;
+  }) =>
+    request<{
+      order: {
+        id: string;
+        orderNo: string;
+        grade: MemberGrade;
+        amount: number;
+        currency: string;
+        periodDays: number;
+        payMeans: 'CARD' | 'CRYPTO';
+        status: string;
+      };
+      icopayCheckout: { payUrl: string; sessionId?: string } | null;
+      cryptoPending: boolean;
+    }>('/api/membership/purchase', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  syncOrder: (orderNo: string) =>
+    request<{ order: unknown; synced: boolean; paid: boolean }>(
+      `/api/membership/orders/${encodeURIComponent(orderNo)}/sync`,
+      { method: 'POST' },
+    ),
+  getOrder: (orderNo: string) =>
+    request<{ order: unknown }>(`/api/membership/orders/${encodeURIComponent(orderNo)}`),
 };
 
 export type AdminChangeLogItem = {
@@ -3044,6 +3403,8 @@ export interface HqCommissionPayload {
   expressFee?: HqExpressPolicy;
   settlementAsset?: SettlementAsset;
   memberGrade?: HqMemberGradePolicy;
+  paidMembershipProducts?: PaidMembershipProductsPolicy;
+  paidMembershipLimits?: PaidMembershipLimitsPolicy;
   simulatorRisk?: HqCommissionRiskConfig;
   simulatorFeeTiers?: SymbolFeeTierRow[];
   exchangeRateSources: HqExchangeRateSourcePolicy;
@@ -3210,6 +3571,21 @@ export interface HqEmailOtpConfig {
 }
 
 export type IcopayBrokerEnv = 'LIVE' | 'SANDBOX' | 'LOCAL_MOCK';
+
+/** PG 정산 지갑 메모 1건 (결제사 연동 없음) */
+export interface HqPgSettlementWallet {
+  id: string;
+  asset: 'USDT' | 'USDC' | 'EURC';
+  network: string;
+  address: string;
+  label?: string;
+  memo?: string;
+  createdAt: string;
+}
+
+export interface HqPgSettlementWalletsConfig {
+  items: HqPgSettlementWallet[];
+}
 
 export interface HqIcopayConfig {
   enabled: boolean;

@@ -8,6 +8,7 @@ import {
   type HqPlatformConfig,
 } from '@/lib/api';
 import { DepositAccountsEditor } from '@/components/hq-policy/DepositAccountsEditor';
+import { PgSettlementWalletsEditor } from '@/components/hq-policy/PgSettlementWalletsEditor';
 import { PolicyTableActions } from '@/components/policy/PolicyTableActions';
 
 type CollectionMode = 'FIXED' | 'VIRTUAL' | 'DIRECT';
@@ -178,6 +179,13 @@ export default function HqAccountsPage() {
             </button>
           </PolicyTableActions>
           {msg && <p className="pg-hint">{msg}</p>}
+        </div>
+      </section>
+
+      <section className="pg-section">
+        <div className="pg-section-head">{t('hq.accounts.pgWallet.title')}</div>
+        <div className="pg-section-pad">
+          <PgSettlementWalletsEditor />
         </div>
       </section>
     </div>

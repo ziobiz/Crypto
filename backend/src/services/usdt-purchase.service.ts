@@ -172,6 +172,7 @@ async function loadExpressProfile(
       expressFeeMode: true,
       expressFeeConfig: true,
       memberGrade: true,
+      paidMemberUntil: true,
     },
   });
 }

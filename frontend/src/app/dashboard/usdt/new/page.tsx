@@ -639,6 +639,9 @@ export default function UsdtNewPage() {
       <p className="pg-hint">
         {isCard ? t('usdt.cardFlowHint') : t('usdt.manualFlowHint')}
       </p>
+      {isCard && (
+        <p className="pg-hint text-xs text-slate-700">{t('usdt.icopayRedirectHint')}</p>
+      )}
       {depositCtx?.individualCountryLimit && (
         <div className="pg-callout pg-callout-muted text-sm">
           {t('usdt.individualLimitHint', {

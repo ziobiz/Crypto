@@ -137,10 +137,11 @@ enum CurrencyCode {
   USDC
 }
 
-/// 고객 지갑 수령 자산 (본사 settlementAsset과 매칭)
+/// 고객 지갑 수령 자산 (USDT/USDC=정산매칭, EURC=추가 등록 가능)
 enum WalletAssetType {
   USDT
   USDC
+  EURC
 }
 
 /// USDT 시뮬레이터 수수료 체계 — LIVE=실제 정책, SAND=시뮬레이터 전용 정책
@@ -480,6 +481,10 @@ model CustomerProfile {
 
   /// 관리자 지정 회원 등급 (개인·법인 공통). EXPRESS 보너스 적용
   memberGrade MemberGrade @default(STANDARD)
+  /// 유료회원 혜택 만료 시각 (null 또는 과거 = 비활성). 활성 시 등급 EXPRESS·유료 한도 최우선
+  paidMemberUntil DateTime?
+  /// SHOP_CARD | SHOP_CRYPTO | ADMIN | … — 최근 유료 부여 경로
+  paidMemberSource String?
 
   /// 본사 허용 시에만 관리자 1 + 운영자 2 멀티계정 활성화
   operatorsEnabled Boolean @default(false)
@@ -505,6 +510,7 @@ model CustomerProfile {
   tickets TransactionTicket[]
   feePolicies CustomerFeePolicy[]
   feeHistories CustomerFeeHistory[]
+  membershipOrders MembershipOrder[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -513,7 +519,59 @@ model CustomerProfile {
   @@index([referredByUserId])
   @@index([introducedByUserId])
   @@index([businessNumber])
+  @@index([paidMemberUntil])
   @@map("customer_profiles")
+}
+
+enum MembershipOrderStatus {
+  PENDING
+  PAID
+  FAILED
+  EXPIRED
+  CANCELLED
+  REFUNDED
+}
+
+enum MembershipPayMeans {
+  CARD
+  CRYPTO
+}
+
+/// 유료회원 등급 구매 주문 (ICOPAY 카드/추후 크립토)
+model MembershipOrder {
+  id               String                @id @default(cuid())
+  orderNo          String                @unique
+  customerProfileId String
+  customerProfile  CustomerProfile       @relation(fields: [customerProfileId], references: [id], onDelete: Cascade)
+  customerType     CustomerType
+  grade            MemberGrade
+  periodDays       Int
+  amount           Float
+  currency         String
+  payMeans         MembershipPayMeans    @default(CARD)
+  status           MembershipOrderStatus @default(PENDING)
+  icopayOrderId    String?
+  icopaySessionId  String?
+  icopayPayUrl     String?
+  /// CRYPTO 슬롯 — ICOPAY 연동 시 자산(USDT|USDC|EURC)
+  cryptoAsset      String?
+  /// CRYPTO 슬롯 — 네트워크(TRC20|ERC20 등)
+  cryptoNetwork    String?
+  paidAt           DateTime?
+  cancelledAt      DateTime?
+  refundedAt       DateTime?
+  failReason       String?
+  adminNote        String?
+  meta             Json?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  @@index([customerProfileId, status])
+  @@index([icopayOrderId])
+  @@index([status, createdAt])
+  @@index([payMeans, createdAt])
+  @@index([paidAt])
+  @@map("membership_orders")
 }
 
 /// HQ 운영수수료 타입 템플릿 (A/B/DEFAULT 등)

@@ -28,7 +28,11 @@ import { CustomerExpressConfigEditor } from '@/components/hq-policy/CustomerExpr
 import {
   defaultNetworkForAsset,
   networksForAsset,
+  WALLET_RECEIVE_ASSETS_UI_ORDER,
+  type WalletReceiveAsset,
 } from '@/constants/wallet-networks';
+import { PHONE_COUNTRY_CODES } from '@/constants/phone-country-codes';
+import { defaultPhoneCountryCode } from '@/constants/locale-phone';
 import { ReferenceClocks } from '@/components/ReferenceClocks';
 import { SRateBadge } from '@/components/SRateBadge';
 import { ExpectedCompleteTierCard } from '@/components/ExpectedCompleteTierCard';
@@ -54,6 +58,7 @@ const emptyCreate: CreateUserInput = {
   password: '',
   name: '',
   phone: '',
+  phoneCountryCode: '+82',
   role: 'CUSTOMER',
   reason: '',
   recruitingOrgId: '',
@@ -62,8 +67,9 @@ const emptyCreate: CreateUserInput = {
   accountNumber: '',
   accountHolder: '',
   walletAddress: '',
-  walletNetwork: defaultNetworkForAsset('USDT'),
+  walletNetwork: defaultNetworkForAsset('USDC'),
   walletLabel: '',
+  walletAssetType: 'USDC',
   simulatorEnabled: true,
   simulatorRateMode: 'LIVE',
   usdtFeeTypeCode: '',
@@ -245,6 +251,7 @@ export default function CustomersPage() {
       setEditForm({
         name: detail.name,
         phone: detail.phone ?? '',
+        phoneCountryCode: detail.phoneCountryCode ?? defaultPhoneCountryCode(locale),
         recruitingOrgId: detail.customerProfile?.recruitingOrg?.id,
         isActive: detail.isActive,
         simulatorEnabled: detail.customerProfile?.simulatorEnabled !== false,
@@ -407,6 +414,7 @@ export default function CustomersPage() {
       setModal(null);
       setForm({
         ...emptyCreate,
+        walletAssetType: settlementAsset,
         walletNetwork: defaultNetworkForAsset(settlementAsset),
       });
       setMsg(t('customers.created'));
@@ -432,6 +440,7 @@ export default function CustomersPage() {
             onClick={() => {
               setForm({
                 ...emptyCreate,
+                walletAssetType: settlementAsset,
                 walletNetwork: defaultNetworkForAsset(settlementAsset),
               });
               setModal('create');
@@ -451,6 +460,7 @@ export default function CustomersPage() {
                     '';
                   setForm({
                     ...emptyCreate,
+                    walletAssetType: settlementAsset,
                     walletNetwork: defaultNetworkForAsset(settlementAsset),
                     usdtFeeTypeCode: usdtDef,
                     tradeFeeTypeCode: tradeDef,
@@ -584,7 +594,10 @@ export default function CustomersPage() {
                       : t('auth.individual')}
                   </td>
                   <td>
-                    <MemberGradeCodeChip grade={u.customerProfile?.memberGrade} />
+                    <MemberGradeCodeChip
+                      grade={u.customerProfile?.memberGrade}
+                      customerType={u.customerProfile?.customerType}
+                    />
                   </td>
                   <td>{u.customerProfile?.recruitingOrg?.name ?? '—'}</td>
                   <td className="whitespace-nowrap tabular-nums">{formatDateDot(u.createdAt)}</td>
@@ -780,14 +793,35 @@ export default function CustomersPage() {
                   className="pg-input mt-1"
                 />
               </label>
-              <label className="pg-field">
-                <span className="pg-field-label">{t('auth.phone')}</span>
-                <input
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  className="pg-input mt-1"
-                />
-              </label>
+              <div className="pg-field grid grid-cols-[7.5rem_1fr] gap-2">
+                <label>
+                  <span className="pg-field-label">
+                    {t('usdt.phoneCountryCode')}
+                    <span className="pg-field-required"> *</span>
+                  </span>
+                  <select
+                    required
+                    className="pg-input mt-1 w-full"
+                    value={form.phoneCountryCode ?? '+82'}
+                    onChange={(e) => setForm({ ...form, phoneCountryCode: e.target.value })}
+                  >
+                    {PHONE_COUNTRY_CODES.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span className="pg-field-label">{t('auth.phone')}</span>
+                  <input
+                    value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    className="pg-input mt-1"
+                    inputMode="tel"
+                  />
+                </label>
+              </div>
               <label className="pg-field">
                 <span className="pg-field-label">
                   {t('users.recruitOrg')}
@@ -922,6 +956,7 @@ export default function CustomersPage() {
               <MemberGradeCard
                 value={(form.memberGrade as string) ?? 'STANDARD'}
                 onChange={(g) => setForm({ ...form, memberGrade: g })}
+                customerType={(form.customerType as string) ?? 'INDIVIDUAL'}
               />
               <div className="pg-inset-panel space-y-2">
                 <p className="pg-inset-title">{t('express.customer.title')}</p>
@@ -988,13 +1023,68 @@ export default function CustomersPage() {
               </div>
               <div className="pg-inset-panel">
                 <p className="pg-inset-title">{t('users.walletSection')}</p>
+                <p className="pg-hint text-xs mb-2">
+                  {t('users.walletSettlementHint', { asset: settlementAsset })}
+                </p>
                 <label className="pg-field">
-                  <span className="pg-field-label">{t('wallets.label')}</span>
+                  <span className="pg-field-label">
+                    {t('wallets.label')}
+                    <span className="pg-field-required"> *</span>
+                  </span>
                   <input
+                    required
                     value={form.walletLabel ?? ''}
                     onChange={(e) => setForm({ ...form, walletLabel: e.target.value })}
                     className="pg-input mt-1"
+                    placeholder={t('wallets.labelPlaceholder')}
                   />
+                </label>
+                <label className="pg-field">
+                  <span className="pg-field-label">
+                    {t('users.walletAsset')}
+                    <span className="pg-field-required"> *</span>
+                  </span>
+                  <select
+                    required
+                    value={form.walletAssetType ?? settlementAsset}
+                    onChange={(e) => {
+                      const next = e.target.value as WalletReceiveAsset;
+                      setForm({
+                        ...form,
+                        walletAssetType: next,
+                        walletNetwork: defaultNetworkForAsset(next),
+                      });
+                    }}
+                    className="pg-input mt-1"
+                  >
+                    {WALLET_RECEIVE_ASSETS_UI_ORDER.map((a) => (
+                      <option key={a} value={a}>
+                        {a}
+                        {a === settlementAsset ? ` (${t('users.walletAssetSettlement')})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="pg-field">
+                  <span className="pg-field-label">
+                    {t('users.walletNetwork')}
+                    <span className="pg-field-required"> *</span>
+                  </span>
+                  <select
+                    required
+                    value={
+                      form.walletNetwork ??
+                      defaultNetworkForAsset(form.walletAssetType ?? settlementAsset)
+                    }
+                    onChange={(e) => setForm({ ...form, walletNetwork: e.target.value })}
+                    className="pg-input mt-1"
+                  >
+                    {networksForAsset(form.walletAssetType ?? settlementAsset).map((n) => (
+                      <option key={n.value} value={n.value}>
+                        {n.label}
+                      </option>
+                    ))}
+                  </select>
                 </label>
                 <label className="pg-field">
                   <span className="pg-field-label">
@@ -1005,26 +1095,11 @@ export default function CustomersPage() {
                     required
                     value={form.walletAddress ?? ''}
                     onChange={(e) => setForm({ ...form, walletAddress: e.target.value })}
-                    className="pg-input mt-1"
+                    className="pg-input mt-1 font-mono text-sm"
+                    placeholder={t('wallets.addressPlaceholder', {
+                      asset: form.walletAssetType ?? settlementAsset,
+                    })}
                   />
-                </label>
-                <label className="pg-field">
-                  <span className="pg-field-label">
-                    {t('users.walletNetwork')}
-                    <span className="pg-field-required"> *</span>
-                  </span>
-                  <select
-                    required
-                    value={form.walletNetwork ?? defaultNetworkForAsset(settlementAsset)}
-                    onChange={(e) => setForm({ ...form, walletNetwork: e.target.value })}
-                    className="pg-input mt-1"
-                  >
-                    {networksForAsset(settlementAsset).map((n) => (
-                      <option key={n.value} value={n.value}>
-                        {n.label}
-                      </option>
-                    ))}
-                  </select>
                 </label>
               </div>
               <div className="pg-inset-panel">
@@ -1297,6 +1372,7 @@ export default function CustomersPage() {
             <div className="pg-modal-head">
               <h2 className="pg-modal-title">{t('customers.editTitle')}</h2>
               <p className="pg-modal-sub">{editing.email}</p>
+              <p className="mt-1 text-[11px] text-slate-500">{t('customers.emailLockedHint')}</p>
             </div>
             <div className="pg-modal-body">
               <label className="pg-field">
@@ -1311,14 +1387,39 @@ export default function CustomersPage() {
                   className="pg-input mt-1"
                 />
               </label>
-              <label className="pg-field">
-                <span className="pg-field-label">{t('auth.phone')}</span>
-                <input
-                  value={editForm.phone ?? ''}
-                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-                  className="pg-input mt-1"
-                />
-              </label>
+              <div className="pg-field grid grid-cols-[7.5rem_1fr] gap-2">
+                <label>
+                  <span className="pg-field-label">
+                    {t('usdt.phoneCountryCode')}
+                    <span className="pg-field-required"> *</span>
+                  </span>
+                  <select
+                    required
+                    className="pg-input mt-1 w-full"
+                    value={editForm.phoneCountryCode ?? '+82'}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, phoneCountryCode: e.target.value })
+                    }
+                  >
+                    {PHONE_COUNTRY_CODES.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span className="pg-field-label">{t('auth.phone')}</span>
+                  <input
+                    value={editForm.phone ?? ''}
+                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                    className="pg-input mt-1"
+                    inputMode="tel"
+                    placeholder="01012345678"
+                  />
+                </label>
+              </div>
+              <p className="pg-hint text-[11px] -mt-2">{t('customers.phoneEditableHint')}</p>
               <label className="pg-field">
                 <span className="pg-field-label">
                   {t('users.recruitOrg')}
@@ -1434,6 +1535,7 @@ export default function CustomersPage() {
               <MemberGradeCard
                 value={(editForm.memberGrade as string) ?? 'STANDARD'}
                 onChange={(g) => setEditForm({ ...editForm, memberGrade: g })}
+                customerType={(editForm.customerType as string) ?? 'INDIVIDUAL'}
               />
               <div className="pg-inset-panel space-y-2">
                 <p className="pg-inset-title">{t('express.customer.title')}</p>

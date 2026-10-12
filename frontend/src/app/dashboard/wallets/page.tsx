@@ -7,6 +7,8 @@ import { api, ApiError, Wallet, type SettlementAsset } from '@/lib/api';
 import {
   defaultNetworkForAsset,
   networksForAsset,
+  WALLET_RECEIVE_ASSETS_UI_ORDER,
+  type WalletReceiveAsset,
 } from '@/constants/wallet-networks';
 import { ContentCard } from '@/components/layout/ContentCard';
 import { CopyButton } from '@/components/CopyButton';
@@ -22,13 +24,11 @@ import {
   MobileStackList,
 } from '@/components/layout/MobileStackList';
 
-import { SETTLEMENT_ASSETS_UI_ORDER } from '@/constants/ui-display-order';
-
 const MAX_WALLETS_PER_ASSET = 6;
-/** USDC 먼저, USDT 다음 (관리자 UI 통일 규칙) */
-const ASSET_TABS: SettlementAsset[] = [...SETTLEMENT_ASSETS_UI_ORDER];
+/** USDC → USDT → EURC */
+const ASSET_TABS: WalletReceiveAsset[] = [...WALLET_RECEIVE_ASSETS_UI_ORDER];
 
-function emptyForm(asset: SettlementAsset = 'USDC') {
+function emptyForm(asset: WalletReceiveAsset = 'USDC') {
   return {
     label: '',
     address: '',
@@ -73,14 +73,19 @@ type EditDraft = {
   label: string;
   address: string;
   network: string;
-  assetType: SettlementAsset;
+  assetType: WalletReceiveAsset;
 };
 
-function tabClass(asset: SettlementAsset, active: boolean) {
+function tabClass(asset: WalletReceiveAsset, active: boolean) {
   if (asset === 'USDC') {
     return active
       ? 'rounded-md px-3 py-1.5 text-xs font-bold bg-sky-600 text-white shadow-sm'
       : 'rounded-md px-3 py-1.5 text-xs font-bold bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100';
+  }
+  if (asset === 'EURC') {
+    return active
+      ? 'rounded-md px-3 py-1.5 text-xs font-bold bg-violet-600 text-white shadow-sm'
+      : 'rounded-md px-3 py-1.5 text-xs font-bold bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100';
   }
   return active
     ? 'rounded-md px-3 py-1.5 text-xs font-bold bg-rose-600 text-white shadow-sm'
@@ -94,7 +99,7 @@ function WalletsBody() {
   const { requestConfirm, dialog: doubleConfirmDialog } = useDoubleConfirm();
   const settlementAsset: SettlementAsset =
     user?.sessionPolicy?.settlementAsset === 'USDT' ? 'USDT' : 'USDC';
-  const [assetTab, setAssetTab] = useState<SettlementAsset>(settlementAsset);
+  const [assetTab, setAssetTab] = useState<WalletReceiveAsset>(settlementAsset);
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [form, setForm] = useState(() => emptyForm(settlementAsset));
   const [editModal, setEditModal] = useState<EditDraft | null>(null);
@@ -128,11 +133,12 @@ function WalletsBody() {
   const countByAsset = useMemo(() => {
     const usdt = wallets.filter((w) => (w.assetType ?? 'USDT') === 'USDT').length;
     const usdc = wallets.filter((w) => (w.assetType ?? 'USDT') === 'USDC').length;
-    return { USDT: usdt, USDC: usdc };
+    const eurc = wallets.filter((w) => w.assetType === 'EURC').length;
+    return { USDT: usdt, USDC: usdc, EURC: eurc };
   }, [wallets]);
   const tabAtLimit = tabWallets.length >= MAX_WALLETS_PER_ASSET;
 
-  function switchTab(next: SettlementAsset) {
+  function switchTab(next: WalletReceiveAsset) {
     setAssetTab(next);
     setEditModal(null);
     setError('');
@@ -155,7 +161,7 @@ function WalletsBody() {
           : (w.label ?? ''),
       address: w.address,
       network: w.network,
-      assetType: (w.assetType ?? 'USDT') as SettlementAsset,
+      assetType: (w.assetType ?? 'USDT') as WalletReceiveAsset,
     });
   }
 

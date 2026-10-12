@@ -34,6 +34,7 @@ import {
   isIcopayTerminalFailedStatus,
   parseIcopayWebhookBody,
   prepareIcopayCheckout,
+  assertIcopayBuyerContact,
   type IcopayBuyerInput,
 } from './icopay.service';
 import {
@@ -346,12 +347,13 @@ export async function createUsdtCardPurchase(
       legalLastName: true,
     },
   });
-  const buyerPhone = input.card.phone?.trim() || dbUser?.phone?.trim() || '';
-  const buyerPhoneCc =
-    input.card.phoneCountryCode?.trim() || dbUser?.phoneCountryCode?.trim() || '';
-  if (!buyerPhone || !buyerPhoneCc) {
-    throw new AppError(400, 'Phone number with country code is required', 'PHONE_REQUIRED');
-  }
+  const buyerContact = assertIcopayBuyerContact({
+    email: input.card.email || dbUser?.email,
+    phone: input.card.phone?.trim() || dbUser?.phone?.trim(),
+    phoneCountryCode: input.card.phoneCountryCode?.trim() || dbUser?.phoneCountryCode?.trim(),
+  });
+  const buyerPhone = buyerContact.phone;
+  const buyerPhoneCc = buyerContact.phoneCountryCode;
   /** 카드 buyer 성명은 프로필 법적 성명만 사용 — 클라이언트가 보낸 이름은 무시 (사기 방지) */
   const firstName = normalizeLegalNamePart(dbUser?.legalFirstName);
   const lastName = normalizeLegalNamePart(dbUser?.legalLastName);
@@ -556,7 +558,7 @@ export async function createUsdtCardPurchase(
       lang: input.lang,
       resultUrl: `${ICOPAY_BROWSER_RESULT_URL}?orderNo=${encodeURIComponent(orderId)}&ticketId=${encodeURIComponent(ticket.id)}`,
       buyer: {
-        email: input.card.email || dbUser?.email || '',
+        email: buyerContact.email,
         phone: buyerPhone,
         phoneCountryCode: buyerPhoneCc,
         cardholderName: `${firstName} ${lastName}`.trim(),
@@ -760,6 +762,41 @@ export async function handleIcopayWebhook(body: unknown) {
   if (!parsed.orderNo) {
     return { success: false, error: 'orderNo missing' };
   }
+
+  /** 유료회원 주문 — USDT 카드 티켓과 동일 웹훅 */
+  const membershipOrder = await prisma.membershipOrder.findFirst({
+    where: {
+      OR: [{ orderNo: parsed.orderNo }, { icopayOrderId: parsed.orderNo }],
+    },
+  });
+  if (membershipOrder) {
+    const status = parsed.paymentStatus || 'UNKNOWN';
+    const { applyMembershipOrderPaymentOutcome } = await import(
+      './membership-purchase.service'
+    );
+    if (isIcopayPaidStatus(status) || String(status).toUpperCase() === 'Y') {
+      const result = await applyMembershipOrderPaymentOutcome({
+        orderNo: parsed.orderNo,
+        paid: true,
+      });
+      return {
+        success: true,
+        membership: true,
+        orderNo: parsed.orderNo,
+        paid: result.found && result.order.status === 'PAID',
+      };
+    }
+    if (isIcopayTerminalFailedStatus(status)) {
+      await applyMembershipOrderPaymentOutcome({
+        orderNo: parsed.orderNo,
+        paid: false,
+        reason: status,
+      });
+      return { success: true, membership: true, orderNo: parsed.orderNo, paid: false };
+    }
+    return { success: true, membership: true, pending: true, orderNo: parsed.orderNo };
+  }
+
   const ticket = await prisma.transactionTicket.findFirst({
     where: {
       OR: [

@@ -27,6 +27,8 @@ import { asyncHandler } from './middleware/asyncHandler';
 import merchantRoutes from './routes/merchant.routes';
 import webhooksRoutes from './routes/webhooks.routes';
 import tradeReceiptRoutes from './routes/trade-receipt.routes';
+import membershipRoutes from './routes/membership.routes';
+import membershipAdminRoutes from './routes/membership-admin.routes';
 
 export { crawlerOpenGraphMiddleware } from './lib/open-graph';
 
@@ -139,6 +141,8 @@ export function createApiApp(): express.Application {
   app.use('/api/cost-analysis', costAnalysisRoutes);
   app.use('/api/merchant', merchantRoutes);
   app.use('/api/trade-receipts', tradeReceiptRoutes);
+  app.use('/api/membership', membershipRoutes);
+  app.use('/api/membership-admin', membershipAdminRoutes);
 
   app.post(
     '/api/internal/deploy-release',

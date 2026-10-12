@@ -23,6 +23,15 @@ export type IcopayPrepareInput = {
   buyer: IcopayBuyerInput;
   /** 결제 완료 후 브라우저 복귀 URL (ICOPAY 가맹 Result URL과 동일 계열) */
   resultUrl?: string;
+  /**
+   * ICOPAY Unified Checkout 결제수단.
+   * 생략 = 카드(기존). CRYPTO = 크립토(본사 가맹 CRYPTO/BOTH + 수탁 주소 필요).
+   */
+  payMeans?: 'CARD' | 'CRYPTO';
+  /** CRYPTO일 때 자산 코드(USDT|USDC|EURC). currency와 동일하게 맞출 것 */
+  assetCode?: string;
+  /** CRYPTO일 때 네트워크 TRC20|ERC20 — 생략 시 본사 기본 */
+  networkCode?: string;
 };
 
 /** TINPASS 카드 결제 복귀·성공 안내 페이지 */
@@ -92,6 +101,53 @@ export function mapAppLangToIcopay(lang?: string): string {
   if (u === 'CH' || u === 'ZH' || u === 'CHN') return 'CHN';
   if (u === 'TH' || u === 'THA') return 'THA';
   return 'ENG';
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * prepare buyer 연락처 필수 검증 — 빈 값·더미 전화 금지.
+ * ICOPAY 결제창 노출은 가맹 콘솔 설정; TINPASS는 값을 반드시 전달.
+ */
+export function assertIcopayBuyerContact(input: {
+  email?: string | null;
+  phone?: string | null;
+  phoneCountryCode?: string | null;
+}): { email: string; phone: string; phoneCountryCode: string } {
+  const email = String(input.email ?? '').trim();
+  const phoneRaw = String(input.phone ?? '').trim();
+  const phoneCountryCode = String(input.phoneCountryCode ?? '')
+    .trim()
+    .replace(/^\+/, '');
+  const phoneDigits = localPhoneDigits(phoneRaw);
+
+  if (!email || !EMAIL_RE.test(email)) {
+    throw new AppError(
+      400,
+      'A valid email is required for card payment',
+      'BUYER_EMAIL_REQUIRED',
+    );
+  }
+  if (!phoneDigits || phoneDigits.length < 7) {
+    throw new AppError(
+      400,
+      'A valid phone number is required for card payment',
+      'BUYER_PHONE_REQUIRED',
+    );
+  }
+  if (!phoneCountryCode || !/^\d{1,4}$/.test(phoneCountryCode)) {
+    throw new AppError(
+      400,
+      'Phone country code is required for card payment',
+      'BUYER_PHONE_CC_REQUIRED',
+    );
+  }
+
+  return {
+    email,
+    phone: phoneDigits,
+    phoneCountryCode,
+  };
 }
 
 const MASK = '********';
@@ -316,7 +372,8 @@ export async function prepareIcopayCheckout(
     String(input.resultUrl || '').trim() ||
     `${ICOPAY_BROWSER_RESULT_URL}?orderNo=${encodeURIComponent(orderNo)}`;
 
-  const payload = {
+  const payMeans = input.payMeans === 'CRYPTO' ? 'CRYPTO' : undefined;
+  const payload: Record<string, unknown> = {
     compId,
     orderNo,
     amount: Math.round(input.amount * 100) / 100,
@@ -335,6 +392,11 @@ export async function prepareIcopayCheckout(
       lastName: name.lastName,
     },
   };
+  if (payMeans) {
+    payload.payMeans = payMeans;
+    if (input.assetCode) payload.assetCode = String(input.assetCode).toUpperCase();
+    if (input.networkCode) payload.networkCode = String(input.networkCode).toUpperCase();
+  }
 
   const res = await fetch(`${apiBase(config)}/api/middleware/v1/merchant/checkout/prepare`, {
     method: 'POST',

@@ -64,6 +64,7 @@ export function TransactionFilterBar({
   dateFieldOptions,
   searchFieldOptions,
   statusOptions,
+  afterKeyword,
   hqCountry,
   onHqCountryChange,
   summary,
@@ -79,6 +80,8 @@ export function TransactionFilterBar({
   dateFieldOptions: FilterOption[];
   searchFieldOptions: FilterOption[];
   statusOptions: FilterOption[];
+  /** 검색어와 상태구분 사이 슬롯 (결제수단·크립토자산 등) */
+  afterKeyword?: ReactNode;
   /** PG 「본사설정」— 국가 선택 시 서비스기준시간 변경 */
   hqCountry?: string;
   onHqCountryChange?: (country: string) => void;
@@ -177,6 +180,7 @@ export function TransactionFilterBar({
                 placeholder={t('list.searchPlaceholder')}
               />
             </label>
+            {afterKeyword}
             <label className="min-w-[8rem]">
               <span className="pg-label">{t('filter.status')}</span>
               <select

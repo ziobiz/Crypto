@@ -13,11 +13,13 @@ import { assertCustomerTradeAllowed } from '../services/customer-access.service'
 import {
   changeMerchantWalletAddress,
   defaultNetworkForAsset,
+  normalizeReceiveWalletAsset,
   registerMerchantWallet,
   renameMerchantWalletNickname,
   requestMerchantWalletDeletion,
+  type ReceiveWalletAsset,
 } from '../services/wallet-policy.service';
-import { getSettlementAsset, normalizeSettlementAsset } from '../services/settlement-asset.service';
+import { getSettlementAsset } from '../services/settlement-asset.service';
 
 const router = Router();
 
@@ -33,7 +35,7 @@ const createWalletSchema = z.object({
   label: z.string().trim().min(1).max(40),
   address: z.string().min(10),
   network: z.string().optional(),
-  assetType: z.enum(['USDT', 'USDC']).optional(),
+  assetType: z.enum(['USDT', 'USDC', 'EURC']).optional(),
   isDefault: z.boolean().optional(),
   ...feeFields,
 });
@@ -46,7 +48,7 @@ const updateWalletSchema = z.object({
   label: z.string().trim().min(1).max(40).optional(),
   address: z.string().min(10).optional(),
   network: z.string().optional(),
-  assetType: z.enum(['USDT', 'USDC']).optional(),
+  assetType: z.enum(['USDT', 'USDC', 'EURC']).optional(),
   isDefault: z.boolean().optional(),
   fxFeePercent: z.number().min(0).max(100).optional(),
   gasFeeAmount: z.number().min(0).optional(),
@@ -114,7 +116,8 @@ function serializeWalletWithFees(
   feesVisible: boolean,
 ) {
   if (!feesVisible) return serializeWalletPublic(w);
-  const gasPolicy = (w.assetType ?? 'USDT') === 'USDC' ? gasPolicyUsdc : gasPolicyUsdt;
+  const gasPolicy =
+    (w.assetType ?? 'USDT') === 'USDT' ? gasPolicyUsdt : gasPolicyUsdc;
   return {
     ...serializeWallet(w),
     feesVisible: true as const,
@@ -130,12 +133,12 @@ router.get(
   '/',
   asyncHandler(async (req, res) => {
     const ownerId = merchantScopeUserId(req.user!);
-    /** assetType 또는 forApply=1 일 때만 본사 정산자산으로 필터 (관리 목록은 전체) */
-    let assetFilter: 'USDT' | 'USDC' | undefined;
-    if (req.query.assetType != null && String(req.query.assetType).trim() !== '') {
-      assetFilter = normalizeSettlementAsset(req.query.assetType);
-    } else if (String(req.query.forApply ?? '') === '1') {
+    /** forApply=1 → 본사 정산자산만. assetType 지정 → 해당 수령자산. 없으면 전체 */
+    let assetFilter: ReceiveWalletAsset | undefined;
+    if (String(req.query.forApply ?? '') === '1') {
       assetFilter = await getSettlementAsset();
+    } else if (req.query.assetType != null && String(req.query.assetType).trim() !== '') {
+      assetFilter = normalizeReceiveWalletAsset(req.query.assetType);
     }
     const { ensurePrimaryWalletForAsset } = await import('../services/wallet-policy.service');
     if (assetFilter) {
@@ -182,7 +185,7 @@ router.post(
     const data = createWalletSchema.parse(req.body);
     const ownerId = merchantScopeUserId(req.user!);
     const assetType = data.assetType
-      ? normalizeSettlementAsset(data.assetType)
+      ? normalizeReceiveWalletAsset(data.assetType)
       : await getSettlementAsset();
     const network = data.network || defaultNetworkForAsset(assetType);
     const wallet = await registerMerchantWallet(ownerId, {

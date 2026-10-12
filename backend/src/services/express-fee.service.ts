@@ -90,6 +90,7 @@ export type ExpressCustomerProfile = {
   expressFeeMode?: string | null;
   expressFeeConfig?: unknown;
   memberGrade?: string | null;
+  paidMemberUntil?: Date | string | null;
 };
 
 /** 고객 유효 EXPRESS 정책 (FOLLOW_HQ / CUSTOM / DISABLED) */
@@ -183,9 +184,16 @@ export async function resolveExpressSelectionForCustomer(
 ): Promise<ResolvedExpressSelectionWithGrade | null> {
   const resolved = await resolveExpressPolicyForCustomer(profile);
   const gradePolicy = await getHqMemberGradePolicy();
+  const { isPaidMembershipActive } = await import('./paid-membership.service');
+  /** 유료 기간 활성일 때만 회원등급 EXPRESS 혜택 — 아니면 STANDARD */
+  const paidActive = isPaidMembershipActive({
+    memberGrade: profile?.memberGrade,
+    paidMemberUntil: profile?.paidMemberUntil,
+  });
+  const effectiveGrade = paidActive ? profile?.memberGrade : 'STANDARD';
   const { grade, benefit } = benefitForMemberGrade(
     gradePolicy,
-    profile?.memberGrade,
+    effectiveGrade,
     resolved.customerType,
   );
   const options = listAvailableExpressOptions(resolved.policy, benefit);

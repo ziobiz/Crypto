@@ -60,7 +60,14 @@ import {
   normalizeMemberGradePolicy,
   type HqExpressPolicy,
   type HqMemberGradePolicy,
+  type HqPgSettlementWalletsConfig,
 } from '../constants/hq-policy';
+import {
+  addPgSettlementWallet,
+  getPgSettlementWalletsConfig,
+  removePgSettlementWallet,
+  type PgSettlementWalletInput,
+} from './pg-settlement-wallet.service';
 import {
   defaultEmailOtpConfig,
   getEmailOtpConfig,
@@ -725,8 +732,46 @@ export const hqPolicyService = {
       ).getUsdtQuoteResponsePolicy(),
       expressFee: await getHqExpressPolicy(),
       memberGrade: await getHqMemberGradePolicy(),
+      paidMembershipProducts: await (
+        await import('./paid-membership.service')
+      ).getPaidMembershipProducts(),
+      paidMembershipLimits: await (
+        await import('./paid-membership.service')
+      ).getPaidMembershipLimits(),
       settlementAsset,
     };
+  },
+
+  async savePaidMembershipProducts(
+    audit: AuditContext,
+    policy: import('../constants/hq-policy').PaidMembershipProductsPolicy,
+  ) {
+    const { normalizePaidMembershipProductsPolicy } = await import('./paid-membership.service');
+    const normalized = normalizePaidMembershipProductsPolicy(policy);
+    await putConfigWithAudit(audit, {
+      key: HQ_CONFIG_KEYS.paidMembershipProducts,
+      value: normalized,
+      description: '유료회원 상품',
+      entityType: 'HQ_PAID_MEMBERSHIP_PRODUCTS',
+      summary: '유료회원 상품 저장',
+    });
+    return this.getCommissionPayload();
+  },
+
+  async savePaidMembershipLimits(
+    audit: AuditContext,
+    policy: import('../constants/hq-policy').PaidMembershipLimitsPolicy,
+  ) {
+    const { normalizePaidMembershipLimitsPolicy } = await import('./paid-membership.service');
+    const normalized = normalizePaidMembershipLimitsPolicy(policy);
+    await putConfigWithAudit(audit, {
+      key: HQ_CONFIG_KEYS.paidMembershipLimits,
+      value: normalized,
+      description: '유료회원 한도',
+      entityType: 'HQ_PAID_MEMBERSHIP_LIMITS',
+      summary: '유료회원 한도 저장',
+    });
+    return this.getCommissionPayload();
   },
 
   async saveSettlementAsset(
@@ -1412,6 +1457,47 @@ export const hqPolicyService = {
       userAgent: audit.userAgent,
     });
     return { config: after };
+  },
+
+  async getPgSettlementWallets() {
+    return { config: await getPgSettlementWalletsConfig() };
+  },
+
+  async addPgSettlementWallet(audit: AuditContext, input: PgSettlementWalletInput) {
+    const before = await getPgSettlementWalletsConfig();
+    const after = await addPgSettlementWallet(input);
+    const added = after.items[0];
+    await logAdminChange({
+      actor: audit.actor,
+      action: AdminChangeAction.CREATE,
+      entityType: 'HQ_PG_SETTLEMENT_WALLET',
+      entityId: HQ_CONFIG_KEYS.pgSettlementWallets,
+      entityLabel: 'PG 정산 지갑 메모',
+      summary: `PG 정산 지갑 메모 등록 ${added?.asset ?? ''} ${added?.network ?? ''} (관리자: ${audit.actor.email})`,
+      before,
+      after,
+      ipAddress: audit.ipAddress,
+      userAgent: audit.userAgent,
+    });
+    return { config: after };
+  },
+
+  async removePgSettlementWallet(audit: AuditContext, id: string) {
+    const before = await getPgSettlementWalletsConfig();
+    const after = await removePgSettlementWallet(id);
+    await logAdminChange({
+      actor: audit.actor,
+      action: AdminChangeAction.DELETE,
+      entityType: 'HQ_PG_SETTLEMENT_WALLET',
+      entityId: HQ_CONFIG_KEYS.pgSettlementWallets,
+      entityLabel: 'PG 정산 지갑 메모',
+      summary: `PG 정산 지갑 메모 삭제 id=${id} (관리자: ${audit.actor.email})`,
+      before,
+      after,
+      ipAddress: audit.ipAddress,
+      userAgent: audit.userAgent,
+    });
+    return { config: after as HqPgSettlementWalletsConfig };
   },
 
   async saveCurfex(audit: AuditContext, config: HqCurfexConfig) {

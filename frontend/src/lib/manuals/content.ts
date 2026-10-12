@@ -38,6 +38,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <tr><td>무역 에스크로</td><td>에스크로 계약·상태 관리</td></tr>
         <tr><td>수수료 장부</td><td>조직 수수료 정산 내역</td></tr>
         <tr><td>운영관리</td><td>좌측 펼침: 고객관리 · 수수료관리 · 조직관리 · 사용자관리 · 기록관리. 본사정책 등 다른 펼침 메뉴로 이동하면 접힘</td></tr>
+        <tr><td>멤버십관리</td><td>유료회원 상품·혜택·결제내역·취소/환불정책 (USDT 구매 결제와 분리)</td></tr>
         <tr><td>본사정책</td><td>좌측에서 한 번 누르면 펼침·다시 누르면 접힘(운영관리와 동시에 펼치지 않음). 하위: 접근·조직항목·수수료·플랫폼·운영·삭제·시뮬레이터·분석·메뉴얼</td></tr>
         <tr><td>크립토 시뮬레이터</td><td>입금액/받을 크립토·네트워크·수수료 미리 계산 (본사정책 아래)</td></tr>
         <tr><td>기록 시뮬레이터</td><td>고객 시뮬레이터 사용 분석(위)과 목록(아래)</td></tr>
@@ -53,6 +54,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <tr><td>Trade escrow</td><td>Contracts & status</td></tr>
         <tr><td>Ledger</td><td>Commission settlement</td></tr>
         <tr><td>Operations</td><td>Left expand: Customers · Fee management · Organizations · Users · Records. Collapses when you open another expandable group (e.g. HQ Policy)</td></tr>
+        <tr><td>Membership admin</td><td>Paid membership products, benefits, payments, cancel/refund (separate from USDT purchase payments)</td></tr>
         <tr><td>HQ Policy</td><td>Click once to expand, again to collapse (not open together with Operations). Children: access, columns, fees, platform, ops, deletion, simulators, analysis, manuals</td></tr>
         <tr><td>Crypto simulator</td><td>Preview deposit / receive CRYPTO, network, fees (under HQ Policy)</td></tr>
         <tr><td>Record simulator</td><td>Usage analysis on top, customer run list below</td></tr>
@@ -67,6 +69,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <tr><td>クリプト購入</td><td>購入チケット照会・承認・送金</td></tr>
         <tr><td>貿易エスクロー</td><td>エスクロー契約・状態管理</td></tr>
         <tr><td>手数料台帳</td><td>組織手数料の精算履歴</td></tr>
+        <tr><td>メンバーシップ管理</td><td>有料会員の商品・特典・決済履歴・取消/返金（USDT購入決済とは分離）</td></tr>
         <tr><td>ユーザー管理</td><td>組織スタッフ(総本社・組織)のみ。加盟店代表・運営者は顧客管理のマルチユーザーと加盟店「ユーザー管理」</td></tr>
         <tr><td>顧客管理</td><td>利用会員・有効状態・認証パス/未認証・書類確認</td></tr>
         <tr><td>組織管理</td><td>本社・総販・支店・代理店・営業店の作成</td></tr>
@@ -84,6 +87,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <tr><td>加密货币采购</td><td>采购单查询、审批、汇款</td></tr>
         <tr><td>贸易托管</td><td>托管合同与状态管理</td></tr>
         <tr><td>手续费台账</td><td>组织手续费结算明细</td></tr>
+        <tr><td>会员管理</td><td>付费会员商品、权益、支付记录、取消/退款（与 USDT 采购支付分离）</td></tr>
         <tr><td>用户管理</td><td>仅组织员工（总部·组织）。加盟商代表/操作员在客户管理的多用户与加盟商「用户管理」</td></tr>
         <tr><td>客户管理</td><td>终端会员、启用状态、认证通过/未认证、文件核对</td></tr>
         <tr><td>组织管理</td><td>创建总部、总经销、分公司、代理、营业点</td></tr>
@@ -101,6 +105,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <tr><td>ซื้อคริปโต</td><td>ดูตั๋ว อนุมัติ โอน</td></tr>
         <tr><td>เอสโครว์การค้า</td><td>สัญญาเอสโครว์และสถานะ</td></tr>
         <tr><td>บัญชีค่าธรรมเนียม</td><td>ประวัติเคลียร์ค่าคอมองค์กร</td></tr>
+        <tr><td>จัดการสมาชิกภาพ</td><td>สินค้า สิทธิ ประวัติชำระ ยกเลิก/คืนเงินสมาชิกเสียเงิน (แยกจากชำระซื้อ USDT)</td></tr>
         <tr><td>จัดการผู้ใช้</td><td>เฉพาะพนักงานองค์กร (HQ·องค์กร) แอดมิน/ผู้ปฏิบัติงานร้านอยู่ที่จัดการลูกค้า (หลายผู้ใช้) และเมนูจัดการผู้ใช้ของร้าน</td></tr>
         <tr><td>จัดการลูกค้า</td><td>สมาชิกผู้ใช้ สถานะใช้งาน ผ่านการยืนยัน/ยังไม่ยืนยัน และเอกสาร</td></tr>
         <tr><td>จัดการองค์กร</td><td>สร้าง HQ ตัวแทนหลัก สาขา เอเย่นต์ สำนักงานขาย</td></tr>
@@ -632,6 +637,67 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li>「ใช้ค่าธรรมเนียมเริ่มต้น LIVE」โหลดค่า LIVE จาก HQ แล้วใส่ส่วนเพิ่ม Sandbox สำหรับทดสอบ SAND ของร้านค้า/HQ</li>
           <li>gas ตามเครือข่ายก็มี「รีเซ็ตส่วนเพิ่ม gas เป็น 0」/「ใช้ gas เริ่มต้น LIVE」เช่นกัน หลังใช้ต้องบันทึก</li>
         </ul>`
+      ),
+    },
+    {
+      id: 'hq-membership',
+      title: L(
+        '멤버십관리 (유료회원)',
+        'Membership admin (paid plans)',
+        'メンバーシップ管理（有料会員）',
+        '会员管理（付费会员）',
+        'จัดการสมาชิกภาพ (สมาชิกเสียเงิน)',
+      ),
+      bodyHtml: L(
+        `<span class="menu-path">멤버십관리</span>
+        <p>유료회원 상품을 쇼핑몰처럼 등록·판매하고, 결제·혜택·취소정책을 한곳에서 관리합니다. <strong>USDT(크립토) 매입 결제내역과는 절대 합치지 않습니다.</strong></p>
+        <ul>
+          <li><strong>판매등록</strong> — 법인·개인을 탭이 아닌 <strong>위·아래 카드</strong>로 한 페이지에 모두 표시. 상품 추가/삭제, 판매 on/off, <strong>판매가 USD 기준</strong>, 청구 단위, 기간(<strong>일간</strong>/<strong>월간</strong>, 신규 기본 12개월), CARD/CRYPTO/BOTH</li>
+          <li><strong>가격</strong> — USD:USDT:USDC = 1:1:1. EURC는 USD×EUR 시세로 환산·표시·청구</li>
+          <li><strong>혜택</strong> — EXPRESS 수수료·유료 한도(법인·개인 위·아래 카드, 「일반 한도 복사」 후 등급별 수정, 유료 활성 시 일반 한도보다 우선)</li>
+          <li><strong>결제내역</strong> — 멤버십 카드·크립토만. 검색어와 상태 사이에 결제수단·크립토자산 필터(검색 적용). 취소·환불 포함, <strong>비고</strong>에 실패/취소 사유</li>
+          <li><strong>취소·환불정책</strong> — 고객은 환불불가 고지. 관리자 수동 취소/환불은 스위치로만 허용(ICOPAY 실환불은 추후)</li>
+          <li><strong>크립토</strong> — ICOPAY 연동 전까지 슬롯·필터만 준비. 검증관리에도 안내가 있습니다.</li>
+        </ul>
+        <div class="check-box">법인 표시명은 PremiumB처럼 <strong>B</strong> 접미. 저장 enum은 STANDARD/PREMIUM… 그대로입니다.</div>`,
+        `<span class="menu-path">Membership admin</span>
+        <p>Register and sell paid membership like products; manage payments, benefits, and cancel policy in one place. <strong>Never merge with USDT purchase payment history.</strong></p>
+        <ul>
+          <li><strong>Sales registration</strong> — corporate and individual as <strong>stacked cards</strong> (not tabs) on one page; add/remove, sell on/off, <strong>USD list price</strong>, charge unit, period (<strong>Daily</strong>/<strong>Monthly</strong>, new default 12 months), CARD/CRYPTO/BOTH</li>
+          <li><strong>Pricing</strong> — USD:USDT:USDC = 1:1:1; EURC = USD × EUR rate</li>
+          <li><strong>Benefits</strong> — EXPRESS fees and paid limits (corporate/individual stacked cards, “Copy general limits” then edit per grade; override standard limits while active)</li>
+          <li><strong>Payments</strong> — membership card/crypto only; pay means/crypto between keyword and status (applied on search); cancel/refund included; <strong>Remarks</strong> for non-success reasons</li>
+          <li><strong>Cancel/refund</strong> — customers: no refund. Admin manual cancel/refund only when the HQ switch is on (ICOPAY cash refund later)</li>
+          <li><strong>Crypto</strong> — slots/filters ready until ICOPAY crypto checkout is linked</li>
+        </ul>
+        <div class="check-box">Corporate display names use a <strong>B</strong> suffix (e.g. PremiumB). Stored enum stays STANDARD/PREMIUM…</div>`,
+        `<span class="menu-path">メンバーシップ管理</span>
+        <p>有料会員を商品として登録・販売し、決済・特典・取消ポリシーを一括管理。<strong>USDT購入の決済履歴とは統合しません。</strong></p>
+        <ul>
+          <li><strong>販売登録</strong> — 法人・個人をタブではなく<strong>上下カード</strong>で同一ページ表示。追加/削除、販売on/off、<strong>販売価格USD</strong>、請求単位、期間(<strong>日間</strong>/<strong>月間</strong>、新規既定12か月)、CARD/CRYPTO/BOTH</li>
+          <li><strong>価格</strong> — USD:USDT:USDC=1:1:1。EURCはUSD×EUR相場で換算</li>
+          <li><strong>特典</strong> — EXPRESS・有料限度(法人・個人上下カード、「一般限度をコピー」後に等級調整、有料中は通常限度より優先)</li>
+          <li><strong>決済履歴</strong> — カード/クリプトのみ。検索語と状態の間に決済手段・クリプト(検索適用)。取消/返金表示、<strong>備考</strong>に失敗・取消理由</li>
+          <li><strong>取消・返金</strong> — 顧客は返金不可。管理者手動のみスイッチで許可</li>
+        </ul>`,
+        `<span class="menu-path">会员管理</span>
+        <p>将付费会员作为商品登记销售，集中管理支付、权益与取消策略。<strong>不与 USDT 采购支付记录合并。</strong></p>
+        <ul>
+          <li><strong>销售登记</strong> — 企业与个人以<strong>上下卡片</strong>（非选项卡）同页显示；添加/删除、销售开关、<strong>USD 售价</strong>、计费单位、期限(<strong>日间</strong>/<strong>月间</strong>，新默认12个月)、CARD/CRYPTO/BOTH</li>
+          <li><strong>价格</strong> — USD:USDT:USDC=1:1:1；EURC 按 EUR 汇率换算</li>
+          <li><strong>权益</strong> — EXPRESS 与付费限额（企业/个人上下卡片，「复制普通限额」后按等级调整，有效期内优先）</li>
+          <li><strong>支付记录</strong> — 仅会员卡/加密；支付方式·加密资产在搜索与状态之间并参与搜索；含取消/退款；<strong>备注</strong>显示非成功原因</li>
+          <li><strong>取消/退款</strong> — 客户不可退；管理员手动需 HQ 开关</li>
+        </ul>`,
+        `<span class="menu-path">จัดการสมาชิกภาพ</span>
+        <p>ลงทะเบียนและขายสมาชิกเสียเงินเหมือนสินค้า จัดการชำระ สิทธิ และนโยบายยกเลิกในที่เดียว <strong>ห้ามรวมกับประวัติชำระซื้อ USDT</strong></p>
+        <ul>
+          <li><strong>ลงทะเบียนขาย</strong> — นิติ·บุคคลเป็น<strong>การ์ดบน–ล่าง</strong>ในหน้าเดียว (ไม่ใช้แท็บ) เพิ่ม/ลบ เปิด/ปิดขาย <strong>ราคา USD</strong> หน่วยเรียกเก็บ ระยะ (<strong>รายวัน</strong>/<strong>รายเดือน</strong> ค่าเริ่มต้น 12 เดือน) CARD/CRYPTO/BOTH</li>
+          <li><strong>ราคา</strong> — USD:USDT:USDC = 1:1:1 EURC แปลงด้วยเรท EUR</li>
+          <li><strong>สิทธิ</strong> — EXPRESS และวงเงินเสียเงิน (การ์ดนิติ/บุคคล 「คัดลอกวงเงินทั่วไป」แล้วปรับต่อระดับ ช่วงมีผลมาก่อนวงเงินทั่วไป)</li>
+          <li><strong>ประวัติชำระ</strong> — เฉพาะบัตร/คริปโต ช่องทาง·คริปโตอยู่ระหว่างคำค้นกับสถานะและใช้ค้นหา รวมยกเลิก/คืนเงิน <strong>หมายเหตุ</strong>แสดงเหตุผลที่ไม่สำเร็จ</li>
+          <li><strong>ยกเลิก/คืนเงิน</strong> — ลูกค้าคืนไม่ได้ แอดมินทำมือได้เมื่อเปิดสวิตช์ HQ</li>
+        </ul>`,
       ),
     },
     {
@@ -1325,46 +1391,51 @@ export const ORG_OPS_MANUAL: ManualDoc = {
       id: 'o1',
       title: L('접근 범위', 'Access scope', 'アクセス範囲', '访问范围', 'ขอบเขตการเข้าถึง'),
       bodyHtml: L(
-        `<p>조직 스태프(<strong>ORG_STAFF</strong>)는 소속 조직 경로 하위 데이터를 조회·처리합니다. <strong>본사정책</strong>은 총본사 전용입니다.</p>
+        `<p>조직 스태프(<strong>ORG_STAFF</strong>)는 소속 조직 경로 하위 데이터를 조회·처리합니다. <strong>본사정책</strong>·<strong>멤버십관리(상품·환불 스위치)</strong>는 총본사 전용입니다.</p>
         <ul>
           <li>크립토 매입 / 무역 에스크로 / 수수료 장부</li>
           <li><strong>사용자관리</strong> — 조직 직원만</li>
-          <li><strong>고객관리</strong> — 이용 회원, 활성 상태, 인증 상태, 서류 열람</li>
+          <li><strong>고객관리</strong> — 이용 회원, 활성 상태, 인증 상태, 서류 열람, 회원등급·유료 만료 표시</li>
           <li>조직 관리 / 이용메뉴얼</li>
         </ul>
+        <div class="info-box">유료회원 상품·가격(USD)·결제내역·취소정책은 총본사 <strong>멤버십관리</strong>에서만 설정합니다. 조직은 고객의 등급·만료를 조회합니다.</div>
         <div class="info-box">하위 조직(지사·대리점·영업점 등)은 <strong>조직 관리</strong>에서 등록하거나, 사용자 등록 시 「신규 조직 등록」으로 만들 수 있습니다.</div>`,
-        `<p>Org staff (<strong>ORG_STAFF</strong>) work within their org path. <strong>HQ Policy</strong> is HQ-only.</p>
+        `<p>Org staff (<strong>ORG_STAFF</strong>) work within their org path. <strong>HQ Policy</strong> and <strong>Membership admin</strong> (products / refund switch) are HQ-only.</p>
         <ul>
           <li>USDT / escrow / ledger</li>
           <li><strong>Users</strong> — org staff accounts only</li>
-          <li><strong>Customers</strong> — members, active status, verification status, documents</li>
+          <li><strong>Customers</strong> — members, status, verification, documents, grade &amp; paid-until</li>
           <li>Organizations / manuals</li>
         </ul>
-        <div class="info-box">Create child orgs (branch, agency, sales office, etc.) under <strong>Organizations</strong>, or via “Register new org” when creating a user.</div>`,
-        `<p>組織スタッフ(<strong>ORG_STAFF</strong>)は所属組織パス配下のデータを照会・処理します。<strong>本社ポリシー</strong>は総本社専用です。</p>
+        <div class="info-box">Paid membership products, USD pricing, payments, and cancel policy are set only under HQ <strong>Membership admin</strong>. Orgs view customer grade/expiry.</div>
+        <div class="info-box">Create child orgs under <strong>Organizations</strong>, or via “Register new org” when creating a user.</div>`,
+        `<p>組織スタッフ(<strong>ORG_STAFF</strong>)は所属組織パス配下を処理します。<strong>本社ポリシー</strong>・<strong>メンバーシップ管理</strong>は総本社専用です。</p>
         <ul>
           <li>クリプト購入 / 貿易エスクロー / 手数料台帳</li>
           <li><strong>ユーザー管理</strong> — 組織スタッフのみ</li>
-          <li><strong>顧客管理</strong> — 利用会員、有効状態、認証状態、書類閲覧</li>
+          <li><strong>顧客管理</strong> — 会員・状態・認証・書類、等級・有料期限</li>
           <li>組織管理 / 利用マニュアル</li>
         </ul>
-        <div class="info-box">下位組織(支店・代理店・営業店など)は<strong>組織管理</strong>で登録するか、ユーザー登録時の「新規組織登録」で作れます。</div>`,
-        `<p>组织员工（<strong>ORG_STAFF</strong>）可查询·处理所属组织路径下的数据。<strong>总部策略</strong>仅总部可用。</p>
+        <div class="info-box">有料会員の商品・USD価格・決済・取消は総本社の<strong>メンバーシップ管理</strong>のみ。組織は等級・期限を確認します。</div>
+        <div class="info-box">下位組織は<strong>組織管理</strong>またはユーザー登録の「新規組織登録」で作成できます。</div>`,
+        `<p>组织员工（<strong>ORG_STAFF</strong>）处理所属路径数据。<strong>总部策略</strong>与<strong>会员管理</strong>仅总部可用。</p>
         <ul>
           <li>加密货币采购 / 贸易托管 / 手续费台账</li>
           <li><strong>用户管理</strong> — 仅组织员工</li>
-          <li><strong>客户管理</strong> — 终端会员、启用状态、认证状态、文件查阅</li>
+          <li><strong>客户管理</strong> — 会员、状态、认证、文件、等级与付费到期</li>
           <li>组织管理 / 使用手册</li>
         </ul>
-        <div class="info-box">下级组织（分公司·代理·营业点等）在<strong>组织管理</strong>中登记，或在用户注册时通过「新组织登记」创建。</div>`,
-        `<p>พนักงานองค์กร (<strong>ORG_STAFF</strong>) ดูและจัดการข้อมูลในเส้นทางองค์กรของตน <strong>HQ Policy</strong> เป็นของสำนักงานใหญ่เท่านั้น</p>
+        <div class="info-box">付费会员商品、USD 定价、支付与取消政策仅在总部<strong>会员管理</strong>设置。组织可查看客户等级/到期日。</div>
+        <div class="info-box">下级组织在<strong>组织管理</strong>登记，或在用户注册时「新组织登记」。</div>`,
+        `<p>พนักงานองค์กร (<strong>ORG_STAFF</strong>) จัดการข้อมูลในเส้นทางตน <strong>HQ Policy</strong> และ <strong>จัดการสมาชิกภาพ</strong> เป็นของ HQ เท่านั้น</p>
         <ul>
-          <li>ซื้อคริปโต / เอสโครว์การค้า / บัญชีค่าธรรมเนียม</li>
+          <li>ซื้อคริปโต / เอสโครว์ / บัญชีค่าธรรมเนียม</li>
           <li><strong>จัดการผู้ใช้</strong> — เฉพาะพนักงานองค์กร</li>
-          <li><strong>จัดการลูกค้า</strong> — สมาชิกผู้ใช้ สถานะใช้งาน สถานะยืนยัน และเอกสาร</li>
-          <li>จัดการองค์กร / คู่มือใช้งาน</li>
+          <li><strong>จัดการลูกค้า</strong> — สมาชิก สถานะ ยืนยัน เอกสาร ระดับและวันหมดอายุเสียเงิน</li>
+          <li>จัดการองค์กร / คู่มือ</li>
         </ul>
-        <div class="info-box">องค์กรย่อย (สาขา·เอเย่นต์·สำนักงานขาย ฯลฯ) ลงทะเบียนที่ <strong>จัดการองค์กร</strong> หรือตอนสร้างผู้ใช้ด้วย「ลงทะเบียนองค์กรใหม่」</div>`
+        <div class="info-box">สินค้าสมาชิกภาพ ราคา USD ประวัติชำระ และนโยบายยกเลิกตั้งได้ที่ <strong>จัดการสมาชิกภาพ</strong> ของ HQ เท่านั้น องค์กรดูระดับ/วันหมดอายุลูกค้า</div>
+        <div class="info-box">องค์กรย่อยลงทะเบียนที่ <strong>จัดการองค์กร</strong> หรือตอนสร้างผู้ใช้</div>`
       ),
     },
     {

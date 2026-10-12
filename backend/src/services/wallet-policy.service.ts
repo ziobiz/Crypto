@@ -5,28 +5,47 @@ import { validateWalletAddressFormat } from '../lib/wallet-address';
 import { recordMerchantOperation } from './merchant-operation-log.service';
 import type { SettlementAsset } from './settlement-asset.service';
 
-/** 자산(USDT/USDC)별 활성 지갑 상한 */
+/** 자산(USDT/USDC/EURC)별 활성 지갑 상한 */
 export const MAX_CUSTOMER_WALLETS = 6;
 
-/** USDT: TRON 주력. USDC: Circle TRON 미지원 → TRC20 불가 */
+export const RECEIVE_WALLET_ASSETS = ['USDT', 'USDC', 'EURC'] as const;
+export type ReceiveWalletAsset = (typeof RECEIVE_WALLET_ASSETS)[number];
+
+/** USDT: TRON 주력. USDC/EURC: Circle TRON 미지원 → TRC20 불가 */
 export const WALLET_NETWORKS_BY_ASSET = {
   USDT: ['TRC20', 'ERC20', 'BEP20', 'POLYGON', 'ARBITRUM', 'SOL', 'OPTIMISM', 'AVAX', 'BASE'],
   USDC: ['SOL', 'BASE', 'ERC20', 'BEP20', 'POLYGON', 'ARBITRUM', 'OPTIMISM', 'AVAX'],
+  EURC: ['SOL', 'BASE', 'ERC20', 'BEP20', 'POLYGON', 'ARBITRUM', 'OPTIMISM', 'AVAX'],
 } as const;
 
-export function defaultNetworkForAsset(asset: 'USDT' | 'USDC'): string {
-  return asset === 'USDC' ? 'SOL' : 'TRC20';
+export function normalizeReceiveWalletAsset(raw: unknown): ReceiveWalletAsset {
+  const v = String(raw ?? 'USDT').trim().toUpperCase();
+  if (v === 'USDC') return 'USDC';
+  if (v === 'EURC') return 'EURC';
+  return 'USDT';
 }
 
-export function assertNetworkForAsset(network: string, asset: 'USDT' | 'USDC') {
-  const net = normalizeWalletNetwork(network) || defaultNetworkForAsset(asset);
-  const allowed = WALLET_NETWORKS_BY_ASSET[asset] as readonly string[];
+export function defaultNetworkForAsset(asset: ReceiveWalletAsset | string): string {
+  const a = normalizeReceiveWalletAsset(asset);
+  if (a === 'USDC' || a === 'EURC') return 'SOL';
+  return 'TRC20';
+}
+
+/** feeCurrency(CurrencyCode) — EURC는 스키마에 없어 USDC로 수수료 스냅샷 */
+export function feeCurrencyForWalletAsset(asset: ReceiveWalletAsset): 'USDT' | 'USDC' {
+  return asset === 'USDT' ? 'USDT' : 'USDC';
+}
+
+export function assertNetworkForAsset(network: string, asset: ReceiveWalletAsset | string) {
+  const a = normalizeReceiveWalletAsset(asset);
+  const net = normalizeWalletNetwork(network) || defaultNetworkForAsset(a);
+  const allowed = WALLET_NETWORKS_BY_ASSET[a] as readonly string[];
   if (!allowed.includes(net)) {
     throw new AppError(
       400,
-      asset === 'USDC'
-        ? 'USDC does not support this network (TRC20/Tron is unavailable for native USDC)'
-        : 'Unsupported network for USDT wallet',
+      a === 'USDT'
+        ? 'Unsupported network for USDT wallet'
+        : `${a} does not support this network (TRC20/Tron is unavailable)`,
       'WALLET_NETWORK_ASSET',
     );
   }
@@ -120,7 +139,7 @@ export async function ensurePrimaryWalletForAsset(
   userId: string,
   assetType?: WalletAssetType | string | null,
 ) {
-  const asset = (assetType === 'USDC' ? 'USDC' : 'USDT') as WalletAssetType;
+  const asset = normalizeReceiveWalletAsset(assetType) as WalletAssetType;
   const rows = await prisma.wallet.findMany({
     where: {
       userId,
@@ -183,7 +202,7 @@ export async function registerMerchantWallet(
     fees: FeeInput;
   } & AuditBits,
 ) {
-  const assetType = (input.assetType === 'USDC' ? 'USDC' : 'USDT') as WalletAssetType;
+  const assetType = normalizeReceiveWalletAsset(input.assetType) as WalletAssetType;
   const network = assertNetworkForAsset(input.network, assetType);
   const format = validateWalletAddressFormat(network, input.address);
   if (!format.ok) {
@@ -199,7 +218,7 @@ export async function registerMerchantWallet(
     );
   }
 
-  /** 자산별 한도(USDT 6 + USDC 6) */
+  /** 자산별 한도(USDT/USDC/EURC 각 6) */
   const activeCount = await prisma.wallet.count({
     where: { userId: ownerId, isActive: true, assetType },
   });
@@ -251,7 +270,7 @@ export async function registerMerchantWallet(
           transferFeeAmount: input.fees.transferFeeAmount,
           otherFeeAmount: input.fees.otherFeeAmount,
           platformFeeAmount: input.fees.platformFeeAmount,
-          feeCurrency: assetType,
+          feeCurrency: feeCurrencyForWalletAsset(assetType),
         },
       });
 
@@ -299,16 +318,13 @@ export async function changeMerchantWalletAddress(
     throw new AppError(400, '삭제 요청 중인 지갑은 주소를 바꿀 수 없습니다', 'WALLET_DELETE_PENDING');
   }
 
-  /** 자산(USDT/USDC)은 등록 후 변경 불가 — 요청 값이 와도 무시하고 기존 고정 */
-  const assetType = (existing.assetType === 'USDC' ? 'USDC' : 'USDT') as WalletAssetType;
-  if (
-    input.assetType === 'USDC' ||
-    input.assetType === 'USDT'
-  ) {
-    if (input.assetType !== assetType) {
+  /** 자산(USDT/USDC/EURC)은 등록 후 변경 불가 — 요청 값이 와도 무시하고 기존 고정 */
+  const assetType = normalizeReceiveWalletAsset(existing.assetType) as WalletAssetType;
+  if (input.assetType != null && String(input.assetType).trim() !== '') {
+    if (normalizeReceiveWalletAsset(input.assetType) !== assetType) {
       throw new AppError(
         400,
-        'Wallet asset (USDT/USDC) cannot be changed after registration',
+        'Wallet asset (USDT/USDC/EURC) cannot be changed after registration',
         'WALLET_ASSET_LOCKED',
       );
     }

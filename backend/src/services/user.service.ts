@@ -155,6 +155,8 @@ const userSelect = {
       expressFeeMode: true,
       expressFeeConfig: true,
       memberGrade: true,
+      paidMemberUntil: true,
+      paidMemberSource: true,
       operatorsEnabled: true,
       walletFeesVisible: true,
       recruitingOrg: { select: { id: true, code: true, name: true, path: true } },
@@ -513,6 +515,7 @@ export const userService = {
       walletAddress?: string;
       walletNetwork?: string;
       walletLabel?: string;
+      walletAssetType?: 'USDT' | 'USDC' | 'EURC';
       reason: string;
       feeShare?: unknown;
       usdtFeeTypeCode?: string;
@@ -549,6 +552,13 @@ export const userService = {
     const registerReason = assertReason(data.reason, '사용자 등록 사유가 필요합니다');
 
     const email = normalizeEmail(data.email);
+    if (data.phone?.trim() && !data.phoneCountryCode?.trim()) {
+      throw new AppError(
+        400,
+        'Phone country code is required when phone is set',
+        'PHONE_COUNTRY_REQUIRED',
+      );
+    }
     const phoneCanon =
       data.phone && data.phoneCountryCode
         ? canonicalizePhone(data.phoneCountryCode, data.phone)
@@ -592,7 +602,10 @@ export const userService = {
         throw new AppError(400, '입금 통장 정보(은행명·계좌번호·예금주)가 필요합니다', 'VALIDATION');
       }
       if (!data.walletAddress?.trim()) {
-        throw new AppError(400, 'USDT 수령 지갑 주소가 필요합니다', 'VALIDATION');
+        throw new AppError(400, '크립토 수령 지갑 주소가 필요합니다', 'VALIDATION');
+      }
+      if (!data.walletLabel?.trim()) {
+        throw new AppError(400, '지갑 닉네임이 필요합니다', 'VALIDATION');
       }
       await assertOrgInScope(actor, data.recruitingOrgId);
     }
@@ -608,13 +621,18 @@ export const userService = {
       const {
         assertNetworkForAsset,
         defaultNetworkForAsset,
+        feeCurrencyForWalletAsset,
+        normalizeReceiveWalletAsset,
         normalizeWalletAddress,
       } = await import('./wallet-policy.service');
       const { validateWalletAddressFormat } = await import('../lib/wallet-address');
       const settlementAsset = await getSettlementAsset();
+      const walletAsset = data.walletAssetType
+        ? normalizeReceiveWalletAsset(data.walletAssetType)
+        : settlementAsset;
       const network = assertNetworkForAsset(
-        data.walletNetwork?.trim() || defaultNetworkForAsset(settlementAsset),
-        settlementAsset,
+        data.walletNetwork?.trim() || defaultNetworkForAsset(walletAsset),
+        walletAsset,
       );
       const walletFormat = validateWalletAddressFormat(network, data.walletAddress ?? '');
       if (!walletFormat.ok) {
@@ -705,10 +723,10 @@ export const userService = {
           },
           wallets: {
             create: {
-              label: data.walletLabel?.trim() || `메인 ${settlementAsset} 지갑`,
+              label: data.walletLabel?.trim() || `메인 ${walletAsset} 지갑`,
               address: walletAddressNormalized,
               network,
-              assetType: settlementAsset,
+              assetType: walletAsset,
               isDefault: true,
               hqRegistered: true,
               approvalStatus: 'APPROVED',
@@ -716,7 +734,7 @@ export const userService = {
               gasFeeAmount: 0,
               transferFeeAmount: hqFees.transferFeeUsdt,
               otherFeeAmount: hqFees.otherFeeUsdt,
-              feeCurrency: settlementAsset,
+              feeCurrency: feeCurrencyForWalletAsset(walletAsset),
             },
           },
         },
@@ -798,6 +816,7 @@ export const userService = {
       legalFirstName?: string | null;
       legalLastName?: string | null;
       phone?: string | null;
+      phoneCountryCode?: string | null;
       role?: UserRole;
       organizationId?: string | null;
       isActive?: boolean;
@@ -873,14 +892,28 @@ export const userService = {
 
     if (existing.role === UserRole.CUSTOMER && existing.customerProfile) {
       const nextType = data.customerType ?? existing.customerProfile.customerType;
-      const nextPhone =
-        data.phone !== undefined
-          ? data.phone && existing.phoneCountryCode
-            ? (canonicalizePhone(existing.phoneCountryCode, data.phone)?.phone ?? data.phone)
-            : data.phone
-          : existing.phone;
+      const nextCcRaw =
+        data.phoneCountryCode !== undefined
+          ? data.phoneCountryCode
+          : existing.phoneCountryCode;
+      const nextPhoneRaw = data.phone !== undefined ? data.phone : existing.phone;
+      const phoneCanon =
+        nextPhoneRaw && nextCcRaw
+          ? canonicalizePhone(nextCcRaw, nextPhoneRaw)
+          : null;
+      const nextPhone = phoneCanon?.phone ?? (nextPhoneRaw ? String(nextPhoneRaw).trim() : nextPhoneRaw);
+      const nextCc = phoneCanon?.phoneCountryCode ?? (nextCcRaw ? String(nextCcRaw).trim() : nextCcRaw);
+      if (nextPhoneRaw && !nextCc) {
+        throw new AppError(
+          400,
+          'Phone country code is required when phone is set',
+          'PHONE_COUNTRY_REQUIRED',
+        );
+      }
       const phoneChanging =
-        data.phone !== undefined && String(nextPhone ?? '') !== String(existing.phone ?? '');
+        (data.phone !== undefined && String(nextPhone ?? '') !== String(existing.phone ?? '')) ||
+        (data.phoneCountryCode !== undefined &&
+          String(nextCc ?? '') !== String(existing.phoneCountryCode ?? ''));
       const typeChanging =
         data.customerType !== undefined && data.customerType !== existing.customerProfile.customerType;
       if (phoneChanging || typeChanging) {
@@ -888,7 +921,7 @@ export const userService = {
         await assertCustomerContactAvailable({
           email: existing.email,
           phone: nextPhone,
-          phoneCountryCode: existing.phoneCountryCode,
+          phoneCountryCode: nextCc,
           customerType: nextType,
           excludeUserId: id,
         });
@@ -1103,16 +1136,31 @@ export const userService = {
       legalLastName = v;
     }
 
+    const updateCcRaw =
+      data.phoneCountryCode !== undefined ? data.phoneCountryCode : existing.phoneCountryCode;
+    const updatePhoneRaw = data.phone !== undefined ? data.phone : existing.phone;
+    const updateCanon =
+      updatePhoneRaw && updateCcRaw
+        ? canonicalizePhone(updateCcRaw, updatePhoneRaw)
+        : null;
+    const updatePhone =
+      data.phone !== undefined || data.phoneCountryCode !== undefined
+        ? (updateCanon?.phone ?? (updatePhoneRaw ? String(updatePhoneRaw).trim() : updatePhoneRaw))
+        : undefined;
+    const updateCc =
+      data.phoneCountryCode !== undefined || (data.phone !== undefined && updateCanon)
+        ? (updateCanon?.phoneCountryCode ??
+          (updateCcRaw ? String(updateCcRaw).trim() : updateCcRaw))
+        : undefined;
+
     const user = await prisma.user.update({
       where: { id },
       data: {
         name: data.name,
         ...(legalFirstName !== undefined ? { legalFirstName } : {}),
         ...(legalLastName !== undefined ? { legalLastName } : {}),
-        phone:
-          data.phone && existing.phoneCountryCode
-            ? (canonicalizePhone(existing.phoneCountryCode, data.phone)?.phone ?? data.phone)
-            : data.phone,
+        ...(updatePhone !== undefined ? { phone: updatePhone } : {}),
+        ...(updateCc !== undefined ? { phoneCountryCode: updateCc } : {}),
         role: data.role,
         organizationId: data.role === UserRole.CUSTOMER ? null : data.organizationId,
         isActive: data.isActive,

@@ -3,6 +3,294 @@ import type { PlatformReleaseNote } from './version';
 /** 본사정책 → 검증관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
 export const PLATFORM_RELEASE_NOTES: PlatformReleaseNote[] = [
   {
+    version: '2.6.244',
+    kind: 'minor',
+    date: '2026-10-12',
+    items: {
+      KR: [
+        '고객 상세(KYC) 화면에 전화 국가번호·번호 수정·저장 추가. 이메일은 변경 불가. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'Customer detail (KYC) page: edit/save phone country code and number. Email remains locked. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        '顧客詳細(KYC)画面に電話国番号・番号の編集・保存を追加。メールは変更不可。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        '客户详情(KYC)页：可编辑/保存电话区号与号码。邮箱仍不可改。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'หน้ารายละเอียดลูกค้า(KYC): แก้/บันทึกรหัสประเทศและเบอร์โทร อีเมลแก้ไม่ได้ KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.243',
+    kind: 'minor',
+    date: '2026-10-12',
+    items: {
+      KR: [
+        '고객관리: 이메일은 변경 불가(안내), 전화·국가번호만 수정. samsung.th 전화 +82 / 01020237899. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'Customer admin: email locked (notice); phone/country editable only. samsung.th set to +82 / 01020237899. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        '顧客管理: メール変更不可(案内)、電話・国番号のみ編集。samsung.thを+82/01020237899に設定。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        '客户管理：邮箱不可改(提示)，仅可改电话/区号。samsung.th 设为 +82/01020237899。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'จัดการลูกค้า: อีเมลแก้ไม่ได้ แก้ได้แค่โทร/รหัสประเทศ ตั้ง samsung.th เป็น +82/01020237899 KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.242',
+    kind: 'minor',
+    date: '2026-10-12',
+    items: {
+      KR: [
+        '고객관리: 등록·수정에 전화 국가번호 필수. 기존 누락분 백필(다케다=일본 +81, samsung.th=+66 등). KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'Customer admin: require phone country code on create/edit; backfill missing (Takeda=+81 JP, samsung.th=+66, etc.). KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        '顧客管理: 登録・編集で電話国番号必須。欠落分バックフィル(武田=+81、samsung.th=+66等)。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        '客户管理：登记/编辑必填电话国家区号；回填缺失(武田=+81、samsung.th=+66等)。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'จัดการลูกค้า: บังคับรหัสประเทศโทร ตอนลงทะเบียน/แก้ไข เติมค่าที่ขาด (Takeda=+81, samsung.th=+66) KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.241',
+    kind: 'minor',
+    date: '2026-10-12',
+    items: {
+      KR: [
+        'ICOPAY: payUrl UX 유지·가맹 로고/buyer 필드 운영 안내. 카드 결제 전 이메일·전화·국가번호 필수 검증(임시 전화 제거). 멤버십·USDT 결제 직전 안내. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'ICOPAY: keep payUrl UX; HQ ops notes for portal logo/buyer fields; require email/phone/country before card prepare (no dummy phone); membership & USDT pre-pay hints. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        'ICOPAY: payUrl UX維持・加盟ロゴ/buyer案内。カードprepare前にメール・電話・国番号必須(仮電話削除)。会員・USDT決済前案内。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        'ICOPAY：保持 payUrl UX；总部运营说明(商户 Logo/buyer)；卡支付前必填邮箱/电话/区号(去除假电话)；会员与 USDT 支付前提示。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'ICOPAY: คง payUrl หมายเหตุโลโก้/buyer ที่ HQ บังคับอีเมล/โทร/รหัสประเทศก่อนชำระบัตร คำใบ้สมาชิกและ USDT KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.240',
+    kind: 'minor',
+    date: '2026-10-12',
+    items: {
+      KR: ['유료회원 상점: 「결제 후 취소·환불 불가」안내를 빨간색으로 노출. KR·US·JP·CH·TH.'],
+      US: ['Paid membership shop: show no-cancel/refund notice in red. KR/US/JP/CH/TH.'],
+      JP: ['有料会員ショップ: 「決済後の取消・返金不可」を赤文字で表示。KR/US/JP/CH/TH。'],
+      CH: ['付费会员商店：将「付款后不可取消/退款」以红色显示。KR/US/JP/CH/TH。'],
+      TH: ['ร้านสมาชิกเสียเงิน: แสดงข้อความไม่ยกเลิก/คืนเงินเป็นสีแดง KR/US/JP/CH/TH'],
+    },
+  },
+  {
+    version: '2.6.239',
+    kind: 'minor',
+    date: '2026-10-12',
+    items: {
+      KR: ['PG 정산 지갑 메모 표: 제목·내용 가운데 정렬. KR·US·JP·CH·TH.'],
+      US: ['PG settlement wallet memo table: center-align headers and cells. KR/US/JP/CH/TH.'],
+      JP: ['PG精算ウォレットメモ表: 見出し・内容を中央揃え。KR/US/JP/CH/TH。'],
+      CH: ['PG 结算钱包备忘表：标题与内容居中对齐。KR/US/JP/CH/TH。'],
+      TH: ['ตารางบันทึกกระเป๋า PG: จัดกึ่งกลางหัวข้อและเนื้อหา KR/US/JP/CH/TH'],
+    },
+  },
+  {
+    version: '2.6.238',
+    kind: 'minor',
+    date: '2026-10-12',
+    items: {
+      KR: [
+        '본사정책 메뉴「계좌·지갑 관리」로 명칭 변경. PG 정산 지갑 메모(USDT/USDC/EURC·네트워크 드롭다운·주소) 등록·조회(결제사 연동 없음). KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'HQ menu renamed Accounts & wallets. PG settlement wallet memo (USDT/USDC/EURC · network dropdown · address); register & view only — no PG API link. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        '本社メニュー「口座・ウォレット管理」に改称。PG精算ウォレットメモ(USDT/USDC/EURC・ネットワークDD・アドレス)登録・照会(決済連携なし)。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        '总部菜单更名为「账户·钱包管理」。PG 结算钱包备忘(USDT/USDC/EURC·网络下拉·地址)登记查阅(不对接支付公司)。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'เมนู HQ เปลี่ยนเป็นจัดการบัญชี·กระเป๋า บันทึกกระเป๋าชำระ PG (USDT/USDC/EURC·เครือข่าย·ที่อยู่) ดูได้ ไม่เชื่อม PG KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.237',
+    kind: 'minor',
+    date: '2026-10-12',
+    items: {
+      KR: [
+        '고객 지갑: 관리자 등록 시 닉네임·거래크립토(USDT/USDC/EURC)·네트워크·주소. 본사 정산자산 기본 안내. 내 지갑 EURC 탭. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'Customer wallets: admin register nickname → trade crypto (USDT/USDC/EURC) → network → address; settlement-asset default hint; EURC tab. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        '顧客ウォレット: 管理者登録でニックネーム・取引クリプト(USDT/USDC/EURC)・ネットワーク・アドレス。精算資産既定案内、EURCタブ。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        '客户钱包：管理员登记昵称→交易加密(USDT/USDC/EURC)→网络→地址；结算资产默认提示；EURC 标签。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'กระเป๋าลูกค้า: แอดมินลงทะเบียน ชื่อเล่น→คริปโต(USDT/USDC/EURC)→เครือข่าย→ที่อยู่ คำใบ้สินทรัพย์ชำระ แท็บ EURC KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.236',
+    kind: 'minor',
+    date: '2026-10-12',
+    items: {
+      KR: [
+        '유료회원 한도: 법인·개인 위·아래 카드, 본사 일반 한도 복사(이 등급/유형 전체). KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'Paid membership limits: corporate/individual stacked cards; copy HQ general limits (grade or all grades in type). KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        '有料会員限度: 法人・個人上下カード、本社一般限度のコピー(等級/類型全等級)。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        '付费会员限额：企业/个人上下卡片；复制总部普通限额（本等级或类型全部等级）。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'วงเงินสมาชิกเสียเงิน: การ์ดนิติ/บุคคล คัดลอกวงเงินทั่วไป HQ (ระดับนี้/ทุกระดับ) KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.235',
+    kind: 'minor',
+    date: '2026-10-12',
+    items: {
+      KR: [
+        '멤버십 판매등록: 법인·개인 탭 제거, 위·아래 카드로 한 페이지에 모두 표시·편집. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'Membership sales registration: corporate and individual as stacked cards on one page (no tabs). KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        'メンバーシップ販売登録: 法人・個人タブを廃止し上下カードで同一ページ表示・編集。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        '会员销售登记：取消企业/个人选项卡，改为同页上下卡片全部显示编辑。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'ลงทะเบียนขายสมาชิกภาพ: เลิกแท็บนิติ/บุคคล แสดงเป็นกา์ดบน–ล่างในหน้าเดียว KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.234',
+    kind: 'minor',
+    date: '2026-10-12',
+    items: {
+      KR: [
+        '멤버십 판매등록: 신규 상품 기본 기간 월간 12개월. 기간 구분 명칭「일간」「월간」. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'Membership sales: new products default to Monthly 12 months; period labels Daily/Monthly. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        'メンバーシップ販売登録: 新規商品の既定期間は月間12か月。期間区分名「日間」「月間」。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        '会员销售登记：新商品默认月间 12 个月；期限区分改为「日间」「月间」。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'ลงทะเบียนขายสมาชิกภาพ: สินค้าใหม่ค่าเริ่มต้นรายเดือน 12 เดือน ชื่อช่วง「รายวัน」「รายเดือน」 KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.233',
+    kind: 'minor',
+    date: '2026-10-12',
+    items: {
+      KR: [
+        '멤버십 결제내역: 결제수단·크립토자산을 검색어와 상태 사이로 이동·검색 적용, 취소/환불 내역 표시, 비고(실패·취소 사유) 컬럼. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'Membership payments: pay means/crypto between keyword and status (applied on search), cancel/refund rows visible, Remarks column for non-success reasons. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        'メンバーシップ決済履歴: 決済手段・クリプトを検索語と状態の間へ移動し検索適用、取消/返金表示、備考(失敗・取消理由)列。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        '会员支付记录：支付方式/加密资产移至搜索与状态之间并参与搜索，显示取消/退款，备注列显示非成功原因。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'ประวัติชำระสมาชิกภาพ: ย้ายช่องทาง/คริปโตไว้ระหว่างคำค้นกับสถานะและใช้ค้นหา แสดงยกเลิก/คืนเงิน คอลัมน์หมายเหตุเหตุผลที่ไม่สำเร็จ KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.232',
+    kind: 'minor',
+    date: '2026-10-12',
+    items: {
+      KR: [
+        '멤버십관리: 「상품등록」→「판매등록」명칭 변경, 판매 상품 추가·삭제 카탈로그. 고객 유료회원 샵은 productId 결제. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'Membership admin: renamed to Sales registration; add/remove product catalog. Customer shop purchases by productId. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        'メンバーシップ管理: 「商品登録」→「販売登録」、販売商品の追加・削除カタログ。顧客ショップはproductId決済。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        '会员管理：「商品登记」改为「销售登记」，可添加/删除销售商品目录。客户商城按 productId 购买。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'จัดการสมาชิกภาพ: เปลี่ยนชื่อเป็น「ลงทะเบียนขาย」 เพิ่ม/ลบแคตตาล็อกสินค้าขาย ร้านลูกค้าซื้อด้วย productId KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.231',
+    kind: 'minor',
+    date: '2026-10-12',
+    items: {
+      KR: [
+        '멤버십관리: 상품 기간 일(1–30)/개월(2–12), 판매가 USD 기준·USDT/USDC 1:1·EURC 시세 환산, 결제내역·관리자 환불 스위치. 총본사·조직·개인/기업 이용메뉴얼 반영. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'Membership admin: period days(1–30)/months(2–12), USD list price with USDT/USDC 1:1 and EURC FX, payments + admin refund switch. HQ/org/individual/corporate manuals updated. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        'メンバーシップ管理: 期間日(1–30)/月(2–12)、販売価格USD基準・USDT/USDC 1:1・EURC相場換算、決済履歴・管理者返金スイッチ。総本社・組織・個人/法人マニュアル反映。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        '会员管理：期限天(1–30)/月(2–12)，售价以 USD 计、USDT/USDC 1:1、EURC 汇率换算，支付记录与管理员退款开关。总部/组织/个人/企业手册已更新。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'จัดการสมาชิกภาพ: ระยะวัน(1–30)/เดือน(2–12) ราคา USD USDT/USDC 1:1 EURC ตามเรท ประวัติชำระ+สวิตช์คืนเงินแอดมิน อัปเดตคู่มือ HQ/องค์กร/บุคคล/นิติ KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
     version: '2.6.230',
     kind: 'minor',
     date: '2026-10-09',

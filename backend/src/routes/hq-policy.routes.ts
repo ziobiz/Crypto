@@ -224,6 +224,36 @@ router.put(
 );
 
 router.put(
+  '/commission/paid-membership-products',
+  asyncHandler(async (req, res) => {
+    const body = req.body as {
+      products?: import('../constants/hq-policy').PaidMembershipProductsPolicy;
+    };
+    if (!body.products) {
+      res.status(400).json({ error: 'products required' });
+      return;
+    }
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await hqPolicyService.savePaidMembershipProducts(audit, body.products));
+  }),
+);
+
+router.put(
+  '/commission/paid-membership-limits',
+  asyncHandler(async (req, res) => {
+    const body = req.body as {
+      limits?: import('../constants/hq-policy').PaidMembershipLimitsPolicy;
+    };
+    if (!body.limits) {
+      res.status(400).json({ error: 'limits required' });
+      return;
+    }
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await hqPolicyService.savePaidMembershipLimits(audit, body.limits));
+  }),
+);
+
+router.put(
   '/commission/simulator/risk',
   asyncHandler(async (req, res) => {
     const body = req.body as { risk?: HqCommissionRiskConfig };
@@ -658,6 +688,40 @@ router.post(
       webhookUrl: publicCurfexWebhookUrl(),
       webhookSecretOnce: full.webhookSecret,
     });
+  }),
+);
+
+router.get(
+  '/accounts/pg-settlement-wallets',
+  asyncHandler(async (_req, res) => {
+    res.json(await hqPolicyService.getPgSettlementWallets());
+  }),
+);
+
+router.post(
+  '/accounts/pg-settlement-wallets',
+  asyncHandler(async (req, res) => {
+    const body = req.body as {
+      asset?: string;
+      network?: string;
+      address?: string;
+      label?: string;
+      memo?: string;
+    };
+    if (!body.address?.trim()) {
+      res.status(400).json({ error: 'address required' });
+      return;
+    }
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await hqPolicyService.addPgSettlementWallet(audit, body));
+  }),
+);
+
+router.delete(
+  '/accounts/pg-settlement-wallets/:id',
+  asyncHandler(async (req, res) => {
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await hqPolicyService.removePgSettlementWallet(audit, req.params.id));
   }),
 );
 

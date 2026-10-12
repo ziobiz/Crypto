@@ -362,6 +362,54 @@ export const CUSTOMER_INDIVIDUAL_MANUAL: ManualDoc = {
       ),
     },
     {
+      id: 'i-membership',
+      title: L('유료회원 (멤버십)', 'Paid membership', '有料会員', '付费会员', 'สมาชิกเสียเงิน'),
+      bodyHtml: L(
+        `<span class="menu-path">유료회원</span>
+        <p>본인이 가입한 유형(개인)에 열린 유료 등급을 구매할 수 있습니다.</p>
+        <ul>
+          <li>판매가는 <strong>USD 기준</strong>으로 표시되며, USDT·USDC는 1:1, EURC는 시세 환산됩니다.</li>
+          <li>기간은 일간(1–30일) 또는 월간(2–12개월)로 안내됩니다.</li>
+          <li>결제는 카드(ICOPAY)가 1차이며, 크립토는 준비 중일 수 있습니다.</li>
+          <li><strong>결제 후 취소·환불은 불가</strong>합니다(화면 고지).</li>
+          <li>유료 기간 중에는 등급 EXPRESS 수수료·유료 한도가 적용될 수 있습니다.</li>
+        </ul>`,
+        `<span class="menu-path">Paid membership</span>
+        <ul>
+          <li>Buy grades enabled for your individual type.</li>
+          <li>List price is <strong>USD</strong>; USDT/USDC are 1:1; EURC uses the live EUR rate.</li>
+          <li>Period is shown in days (1–30) or months (2–12).</li>
+          <li>Card (ICOPAY) is primary; crypto may still be preparing.</li>
+          <li><strong>No cancel/refund after payment</strong> (as shown on screen).</li>
+          <li>While active, grade EXPRESS fees and paid limits may apply.</li>
+        </ul>`,
+        `<span class="menu-path">有料会員</span>
+        <ul>
+          <li>個人向けに販売中の等級を購入できます。</li>
+          <li>販売価格は<strong>USD基準</strong>。USDT/USDCは1:1、EURCは相場換算。</li>
+          <li>期間は日(1–30)または月(2–12)。</li>
+          <li>カード(ICOPAY)が主、クリプトは準備中の場合あり。</li>
+          <li><strong>決済後の取消・返金不可</strong>。</li>
+        </ul>`,
+        `<span class="menu-path">付费会员</span>
+        <ul>
+          <li>可购买对个人开放的付费等级。</li>
+          <li>售价以<strong>USD</strong>计；USDT/USDC 为 1:1；EURC 按行情换算。</li>
+          <li>期限为天(1–30)或月(2–12)。</li>
+          <li>卡支付(ICOPAY)为主；加密可能仍在准备。</li>
+          <li><strong>付款后不可取消/退款</strong>。</li>
+        </ul>`,
+        `<span class="menu-path">สมาชิกเสียเงิน</span>
+        <ul>
+          <li>ซื้อระดับที่เปิดขายสำหรับบุคคล</li>
+          <li>ราคาอิง <strong>USD</strong> USDT/USDC = 1:1 EURC แปลงตามเรท</li>
+          <li>ระยะเป็นวัน (1–30) หรือเดือน (2–12)</li>
+          <li>บัตร (ICOPAY) เป็นหลัก คริปโตอาจยังเตรียม</li>
+          <li><strong>หลังชำระแล้วยกเลิก/คืนเงินไม่ได้</strong></li>
+        </ul>`,
+      ),
+    },
+    {
       id: 'i-faq',
       title: L('자주 묻는 질문', 'FAQ', 'よくある質問', '常见问题', 'คำถามที่พบบ่อย'),
       bodyHtml: L(

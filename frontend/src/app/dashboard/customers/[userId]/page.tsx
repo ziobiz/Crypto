@@ -32,10 +32,8 @@ import {
   type InactiveNoticePresetId,
 } from '@/lib/inactive-notice-presets';
 import type { MessageKey } from '@/i18n/messages';
-import {
-  CUSTOMER_TYPES_UI_ORDER,
-  SETTLEMENT_ASSETS_UI_ORDER,
-} from '@/constants/ui-display-order';
+import { CUSTOMER_TYPES_UI_ORDER } from '@/constants/ui-display-order';
+import { WALLET_RECEIVE_ASSETS_UI_ORDER } from '@/constants/wallet-networks';
 import { CustomerWalletQrCard } from '@/components/ScheduleDelayPanel';
 import {
   MemberGradeCard,
@@ -43,6 +41,8 @@ import {
   normalizeMemberGradeUi,
 } from '@/components/MemberGradeCard';
 import { LIMIT_COUNTRIES, type LimitCountryCode } from '@/constants/limit-countries';
+import { PHONE_COUNTRY_CODES } from '@/constants/phone-country-codes';
+import { defaultPhoneCountryCode } from '@/constants/locale-phone';
 
 function statusKey(status: string): MessageKey {
   if (status === 'PENDING') return 'kyc.status.PENDING';
@@ -116,6 +116,8 @@ export default function CustomerKycDetailPage() {
   const [memberGrade, setMemberGrade] = useState<MemberGrade>('STANDARD');
   const [legalFirstName, setLegalFirstName] = useState('');
   const [legalLastName, setLegalLastName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [phoneCountryCode, setPhoneCountryCode] = useState('+82');
 
   const load = () => {
     api.kyc.getByUser(userId).then(setKyc).catch(console.error);
@@ -137,7 +139,16 @@ export default function CustomerKycDetailPage() {
     if (!profile) return;
     setLegalFirstName(profile.legalFirstName ?? '');
     setLegalLastName(profile.legalLastName ?? '');
-  }, [profile?.id, profile?.legalFirstName, profile?.legalLastName]);
+    setPhone(profile.phone ?? '');
+    setPhoneCountryCode(profile.phoneCountryCode ?? defaultPhoneCountryCode(locale));
+  }, [
+    profile?.id,
+    profile?.legalFirstName,
+    profile?.legalLastName,
+    profile?.phone,
+    profile?.phoneCountryCode,
+    locale,
+  ]);
 
   useEffect(() => {
     if (!profile?.customerProfile) return;
@@ -594,6 +605,7 @@ export default function CustomerKycDetailPage() {
         msg !== t('customers.customerType.saved') &&
         msg !== t('customers.approval.saved') &&
         msg !== t('customers.legalName.saved') &&
+        msg !== t('customers.phone.saved') &&
         msg !== t('kyc.reviewSaved') &&
         msg !== t('users.saved') && (
           <p className="text-xs text-red-600">{msg}</p>
@@ -610,11 +622,71 @@ export default function CustomerKycDetailPage() {
       {msg === t('customers.legalName.saved') && (
         <p className="text-xs text-emerald-700">{msg}</p>
       )}
+      {msg === t('customers.phone.saved') && (
+        <p className="text-xs text-emerald-700">{msg}</p>
+      )}
       <div className="pg-card">
         <div className="pg-card-body space-y-1.5 text-xs">
           <p>
             <strong>{kyc.user?.name ?? profile?.name}</strong> ({kyc.user?.email ?? profile?.email})
           </p>
+          <p className="text-[11px] text-slate-500">{t('customers.emailLockedHint')}</p>
+          {profile && (
+            <div className="mt-2 rounded border border-sky-200 bg-sky-50/70 p-2 space-y-2">
+              <p className="font-medium text-sky-950">{t('customers.phone.title')}</p>
+              <p className="text-[11px] text-sky-900/90">{t('customers.phoneEditableHint')}</p>
+              <div className="grid grid-cols-[7.5rem_1fr] gap-2">
+                <label className="block">
+                  <span className="text-[11px] text-slate-600">{t('usdt.phoneCountryCode')}</span>
+                  <select
+                    className="pg-input mt-0.5 w-full"
+                    value={phoneCountryCode}
+                    onChange={(e) => setPhoneCountryCode(e.target.value)}
+                  >
+                    {PHONE_COUNTRY_CODES.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-[11px] text-slate-600">{t('auth.phone')}</span>
+                  <input
+                    className="pg-input mt-0.5 w-full"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    inputMode="tel"
+                    placeholder="01012345678"
+                  />
+                </label>
+              </div>
+              <button
+                type="button"
+                className="pg-btn pg-btn-secondary text-xs"
+                disabled={loading || (Boolean(phone.trim()) && !phoneCountryCode.trim())}
+                onClick={async () => {
+                  if (!profile) return;
+                  setLoading(true);
+                  setMsg('');
+                  try {
+                    const next = await api.users.update(profile.id, {
+                      phone: phone.trim() || null,
+                      phoneCountryCode: phoneCountryCode.trim() || null,
+                    });
+                    setProfile(next);
+                    setMsg(t('customers.phone.saved'));
+                  } catch (e) {
+                    setMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+              >
+                {t('customers.phone.save')}
+              </button>
+            </div>
+          )}
           {profile && (
             <div className="mt-2 rounded border border-amber-200 bg-amber-50/70 p-2 space-y-2">
               <p className="font-medium text-amber-950">{t('customers.legalName.title')}</p>
@@ -707,7 +779,11 @@ export default function CustomerKycDetailPage() {
           {profile?.customerProfile && (
             <p className="flex flex-wrap items-center gap-2">
               <span>{t('memberGrade.customer.title')}:</span>
-              <MemberGradeChip grade={profile.customerProfile.memberGrade} />
+              <MemberGradeChip
+                grade={profile.customerProfile.memberGrade}
+                customerType={profile.customerProfile.customerType}
+                paidUntil={profile.customerProfile.paidMemberUntil}
+              />
             </p>
           )}
           <p className="text-[11px] text-slate-500">{t('customers.approval.hint')}</p>
@@ -854,6 +930,8 @@ export default function CustomerKycDetailPage() {
               value={memberGrade}
               onChange={setMemberGrade}
               disabled={loading || !canEditCustomer}
+              customerType={profile.customerProfile.customerType}
+              paidUntil={profile.customerProfile.paidMemberUntil}
             />
             {canEditCustomer && (
               <button
@@ -1457,7 +1535,7 @@ export default function CustomerKycDetailPage() {
             {(profile.wallets ?? []).length === 0 ? (
               <p className="pg-hint">{t('wallets.empty')}</p>
             ) : (
-              SETTLEMENT_ASSETS_UI_ORDER.map((asset) => {
+              WALLET_RECEIVE_ASSETS_UI_ORDER.map((asset) => {
                 const rows = (profile.wallets ?? []).filter(
                   (w) => (w.assetType ?? 'USDT') === asset,
                 );

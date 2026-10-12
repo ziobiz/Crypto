@@ -35,6 +35,7 @@ export const HQ_PAGE_CATALOG = [
   { path: '/dashboard/usdt', label: 'USDT 매입', group: 'main' },
   { path: '/dashboard/escrow', label: '무역 에스크로', group: 'main' },
   { path: '/dashboard/ledger', label: '수수료 장부', group: 'main' },
+  { path: '/dashboard/membership-admin', label: '멤버십관리', group: 'main' },
   { path: '/dashboard/invoices/live', label: '인보이스 실거래', group: 'invoices' },
   { path: '/dashboard/invoices/official', label: '인보이스 공식거래', group: 'invoices' },
   { path: '/dashboard/invoices/simulator', label: '인보이스 시뮬레이터', group: 'invoices' },
@@ -48,7 +49,7 @@ export const HQ_PAGE_CATALOG = [
   { path: '/dashboard/hq-policy/org-columns', label: '조직·화면', group: 'hqPolicy' },
   { path: '/dashboard/hq-policy/commission', label: '수수료관리', group: 'hqPolicy' },
   { path: '/dashboard/hq-policy/risk', label: '리스크관리', group: 'hqPolicy' },
-  { path: '/dashboard/hq-policy/accounts', label: '계좌관리', group: 'hqPolicy' },
+  { path: '/dashboard/hq-policy/accounts', label: '계좌·지갑 관리', group: 'hqPolicy' },
   { path: '/dashboard/hq-policy/services', label: '서비스관리', group: 'hqPolicy' },
   { path: '/dashboard/hq-policy/platform', label: '플랫폼', group: 'hqPolicy' },
   { path: '/dashboard/hq-policy/ops', label: '운영관리', group: 'hqPolicy' },
@@ -126,9 +127,141 @@ export const HQ_CONFIG_KEYS = {
   expressFee: 'hq.commission.express_fee',
   /** 회원 등급(개인·법인 공통) EXPRESS 보너스 */
   memberGrade: 'hq.commission.member_grade',
+  /** 유료회원 상품(등급×유형 판매 on/off·가격·기간·결제수단) */
+  paidMembershipProducts: 'hq.paid_membership.products',
+  /** 유료회원 한도(유형×등급×결제수단×통화) — 유료 활성 시 최우선 */
+  paidMembershipLimits: 'hq.paid_membership.limits',
+  /** 유료회원 취소·환불 정책 (기본 환불불가, 관리자 수동만 스위치) */
+  paidMembershipRefundPolicy: 'hq.paid_membership.refund_policy',
   /** 본사 정산 자산 USDT | USDC */
   settlementAsset: 'hq.settlement.asset',
+  /**
+   * PG(ICOPAY 등)에 등록한 정산 수탁 지갑 메모 대장.
+   * 결제사 API 연동 없음 — 운영 확인·감사용 기록만.
+   */
+  pgSettlementWallets: 'hq.accounts.pg_settlement_wallets',
 } as const;
+
+/** PG 정산 지갑 메모 1건 (연동 없음) */
+export type HqPgSettlementWallet = {
+  id: string;
+  asset: 'USDT' | 'USDC' | 'EURC';
+  network: string;
+  address: string;
+  /** 표시용 별칭 (선택) */
+  label?: string;
+  /** 자유 메모 (선택) */
+  memo?: string;
+  createdAt: string;
+};
+
+export type HqPgSettlementWalletsConfig = {
+  items: HqPgSettlementWallet[];
+};
+
+/** 고객 셀프 환불 없음. 관리자 수동 취소/환불만 스위치로 허용 */
+export type PaidMembershipRefundPolicy = {
+  /** false(기본) = 관리자 화면도 액션 비활성 */
+  adminCancelRefundEnabled: boolean;
+};
+
+export function defaultPaidMembershipRefundPolicy(): PaidMembershipRefundPolicy {
+  return { adminCancelRefundEnabled: false };
+}
+
+export function normalizePaidMembershipRefundPolicy(
+  raw: unknown,
+): PaidMembershipRefundPolicy {
+  const d = defaultPaidMembershipRefundPolicy();
+  if (!raw || typeof raw !== 'object') return d;
+  const o = raw as Partial<PaidMembershipRefundPolicy>;
+  return {
+    adminCancelRefundEnabled: o.adminCancelRefundEnabled === true,
+  };
+}
+
+/** 유료 판매 가능 등급 (STANDARD는 무료 기본·비판매) */
+export const PAID_MEMBER_GRADES = [
+  'PREMIUM',
+  'VIP',
+  'VVIP',
+  'PRESTIGE',
+  'BLACK',
+] as const;
+export type PaidMemberGrade = (typeof PAID_MEMBER_GRADES)[number];
+
+export type MembershipProductPayMeans = 'CARD' | 'CRYPTO' | 'BOTH';
+
+/** 멤버십 판매가 단위 — 법정통화 + 스테이블(USDT/USDC/EURC) 명시 */
+export const MEMBERSHIP_PRICE_CURRENCIES = [
+  'USDT',
+  'USDC',
+  'EURC',
+  'USD',
+  'KRW',
+  'JPY',
+  'THB',
+  'CNY',
+  'EUR',
+] as const;
+export type MembershipPriceCurrency = (typeof MEMBERSHIP_PRICE_CURRENCIES)[number];
+
+export const MEMBERSHIP_CRYPTO_PRICE_CURRENCIES = ['USDT', 'USDC', 'EURC'] as const;
+export type MembershipCryptoPriceCurrency =
+  (typeof MEMBERSHIP_CRYPTO_PRICE_CURRENCIES)[number];
+
+export function isMembershipPriceCurrency(raw: string): raw is MembershipPriceCurrency {
+  return (MEMBERSHIP_PRICE_CURRENCIES as readonly string[]).includes(raw);
+}
+
+export function isMembershipCryptoPriceCurrency(
+  raw: string,
+): raw is MembershipCryptoPriceCurrency {
+  return (MEMBERSHIP_CRYPTO_PRICE_CURRENCIES as readonly string[]).includes(raw);
+}
+
+/** 등급별 기본 필드(레거시 호환) */
+export type PaidMembershipProduct = {
+  enabled: boolean;
+  /** 판매가 기준 금액 — 항상 USD. USDT/USDC=1:1, EURC는 시세 환산 */
+  price: number;
+  /** 실제 청구·표시 단위 (USDT|USDC|EURC|USD|KRW…) */
+  currency: MembershipPriceCurrency;
+  /** 1–30일 또는 개월×30일(2–12개월) */
+  periodDays: number;
+  payMeans: MembershipProductPayMeans;
+};
+
+/** 판매등록 카탈로그 항목 — HQ가 추가·삭제 */
+export type PaidMembershipCatalogItem = PaidMembershipProduct & {
+  id: string;
+  /** 판매 상품명 (고객·관리자 표시) */
+  name: string;
+  customerType: CustomerTypeLimitKey;
+  grade: PaidMemberGrade;
+};
+
+/**
+ * 판매등록 정책.
+ * - items: 신규 카탈로그(추가/삭제 가능)
+ * - INDIVIDUAL/CORPORATE: 구형 등급 매트릭스(로드 시 items로 이관)
+ */
+export type PaidMembershipProductsPolicy = {
+  items: PaidMembershipCatalogItem[];
+} & Partial<
+  Record<CustomerTypeLimitKey, Partial<Record<PaidMemberGrade, Partial<PaidMembershipProduct>>>>
+>;
+
+/** 유료등급별 한도 — 결제수단×고객유형×통화 (기존 Method 구조의 고객유형 자리에 등급 한 겹) */
+export type PaidMembershipGradeLimits = Record<
+  PaidMemberGrade,
+  MethodTransactionLimitsPolicy
+>;
+
+export type PaidMembershipLimitsPolicy = Record<
+  CustomerTypeLimitKey,
+  PaidMembershipGradeLimits
+>;
 
 /** 자동 확정 지연(분). 0 = 즉시 */
 export const USDT_QUOTE_AUTO_DELAY_MINUTES = [

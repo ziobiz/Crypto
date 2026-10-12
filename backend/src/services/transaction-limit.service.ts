@@ -158,7 +158,8 @@ export function checkTransactionAmount(
   };
 }
 
-/** 한도 설정(FIAT) — 통화 행이 활성이면 항상 적용. 리스크 on/off와 무관(기본 안전망). */
+/** 한도 설정(FIAT) — 통화 행이 활성이면 항상 적용. 리스크 on/off와 무관(기본 안전망).
+ * 유료회원 활성 시 해당 등급 유료 한도표가 최우선. */
 export async function validateCustomerTransactionAmount(input: {
   customerId: string;
   customerType: CustomerType;
@@ -171,8 +172,30 @@ export async function validateCustomerTransactionAmount(input: {
   const paymentMethod = resolveLimitPaymentMethod(input.paymentMethod);
   const typeKey = toCustomerTypeKey(input.customerType);
   const riskOn = isRiskEnabledForCustomerType(risk, typeKey);
+
+  const {
+    isPaidMembershipActive,
+    getPaidGradeLimitsForCustomer,
+  } = await import('./paid-membership.service');
+  const profile = await prisma.customerProfile.findUnique({
+    where: { id: input.customerId },
+    select: { memberGrade: true, paidMemberUntil: true },
+  });
+  const paidActive =
+    profile != null &&
+    isPaidMembershipActive({
+      memberGrade: profile.memberGrade,
+      paidMemberUntil: profile.paidMemberUntil,
+    });
+  const paidMethods =
+    paidActive && profile
+      ? await getPaidGradeLimitsForCustomer(input.customerType, profile.memberGrade)
+      : null;
+
   const methodLimits =
-    risk.methodTransactionLimits?.[paymentMethod] ?? risk.transactionLimits;
+    paidMethods?.[paymentMethod] ??
+    risk.methodTransactionLimits?.[paymentMethod] ??
+    risk.transactionLimits;
   const limits = methodLimits[typeKey][input.currency];
 
   /** 통화 행 비활성 → 해당 통화 FIAT 한도 미적용 */
@@ -261,8 +284,28 @@ export async function getCustomerTransactionLimitSummary(
   const method = resolveLimitPaymentMethod(paymentMethod);
   const typeKey = toCustomerTypeKey(customerType);
   const riskOn = isRiskEnabledForCustomerType(risk, typeKey);
+  const {
+    isPaidMembershipActive,
+    getPaidGradeLimitsForCustomer,
+  } = await import('./paid-membership.service');
+  const profile = await prisma.customerProfile.findUnique({
+    where: { id: customerId },
+    select: { memberGrade: true, paidMemberUntil: true },
+  });
+  const paidActive =
+    profile != null &&
+    isPaidMembershipActive({
+      memberGrade: profile.memberGrade,
+      paidMemberUntil: profile.paidMemberUntil,
+    });
+  const paidMethods =
+    paidActive && profile
+      ? await getPaidGradeLimitsForCustomer(customerType, profile.memberGrade)
+      : null;
   const methodLimits =
-    risk.methodTransactionLimits?.[method] ?? risk.transactionLimits;
+    paidMethods?.[method] ??
+    risk.methodTransactionLimits?.[method] ??
+    risk.transactionLimits;
   const limits = methodLimits[typeKey][currency];
   const rowEnabled = limits.enabled !== false;
   const totals = await getCustomerFiatTotals(customerId, currency, new Date(), method);

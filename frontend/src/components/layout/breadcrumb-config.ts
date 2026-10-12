@@ -108,6 +108,18 @@ const RULES: RouteRule[] = [
     meta: { titleKey: 'hq.tab.commission', trail: [{ labelKey: 'nav.hqPolicy', href: D.hq }] },
   },
   {
+    test: (p) => p.startsWith('/dashboard/hq-policy/paid-membership'),
+    meta: { titleKey: 'nav.membershipAdmin', trail: [] },
+  },
+  {
+    test: (p) => p.startsWith('/dashboard/membership-admin'),
+    meta: { titleKey: 'nav.membershipAdmin', trail: [] },
+  },
+  {
+    test: (p) => p.startsWith('/dashboard/membership'),
+    meta: { titleKey: 'nav.membership', trail: [] },
+  },
+  {
     test: (p) => p.startsWith('/dashboard/hq-policy/risk'),
     meta: { titleKey: 'hq.tab.risk', trail: [{ labelKey: 'nav.hqPolicy', href: D.hq }] },
   },
