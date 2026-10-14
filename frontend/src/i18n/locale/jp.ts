@@ -300,7 +300,7 @@ export const JP: Record<string, string> = {
     '公開登録は個人顧客のみです。法人会員は本社・営業店で登録します。',
   'auth.audience.registerDisabled': '現在、公開会員登録は受け付けていません。',
   'auth.audience.corporateHint':
-    '法人会員はパスワード・OTP初期化不可。管理者に依頼してください。',
+    '法人会員はパスワード・OTP初期化不可。\n管理者にお問い合わせください。',
   'auth.audience.staffTitle': '管理者ログイン',
   'auth.audience.staffHint':
     '本社・組織スタッフ専用です。加盟店(法人・個人)は tinpass.com でログインしてください。',

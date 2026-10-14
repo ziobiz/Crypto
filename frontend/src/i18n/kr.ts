@@ -300,7 +300,7 @@ export const KR = {
     '공개 가입은 개인고객만 가능합니다. 기업회원은 본사·영업점에서 등록합니다.',
   'auth.audience.registerDisabled': '현재 공개 회원가입이 받아지지 않습니다.',
   'auth.audience.corporateHint':
-    '기업회원은 비밀번호·OTP 초기화 불가. 관리자에게 요청하세요.',
+    '기업회원은 비밀번호·OTP 초기화 불가.\n관리자에게 문의하세요.',
   'auth.audience.staffTitle': '관리자 로그인',
   'auth.audience.staffHint':
     '본사·조직 직원 전용입니다. 가맹점(기업·개인)은 tinpass.com 에서 로그인하세요.',

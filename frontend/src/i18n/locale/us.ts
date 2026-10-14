@@ -300,7 +300,7 @@ export const US: Record<string, string> = {
     'Public signup is for individual customers only. Corporate accounts are registered by HQ or a sales office.',
   'auth.audience.registerDisabled': 'Public registration is currently closed.',
   'auth.audience.corporateHint':
-    'Corporate accounts cannot reset password or OTP. Contact an administrator.',
+    'Corporate accounts cannot reset password or OTP.\nPlease contact an administrator.',
   'auth.audience.staffTitle': 'Admin login',
   'auth.audience.staffHint':
     'HQ and organization staff only. Merchants (corporate/individual) sign in at tinpass.com.',

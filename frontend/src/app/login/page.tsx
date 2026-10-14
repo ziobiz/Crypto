@@ -543,7 +543,7 @@ export default function LoginPage() {
             ) : (
               <>
                 {audience === 'corporate' && (
-                  <p className="mt-4 text-xs leading-relaxed text-slate-500">
+                  <p className="mt-4 whitespace-pre-line text-xs leading-relaxed text-slate-500">
                     {t('auth.audience.corporateHint')}
                   </p>
                 )}

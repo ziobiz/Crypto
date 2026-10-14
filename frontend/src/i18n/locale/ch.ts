@@ -303,7 +303,7 @@ export const CH: Record<string, string> = {
   'auth.audience.registerHint': '公开注册仅限个人客户。企业会员由总部或营业点登记。',
   'auth.audience.registerDisabled': '当前不接受公开注册。',
   'auth.audience.corporateHint':
-    '企业会员不可重置密码或 OTP。请向管理员申请。',
+    '企业会员不可重置密码或 OTP。\n请联系管理员。',
   'auth.audience.staffTitle': '管理员登录',
   'auth.audience.staffHint':
     '仅限总部/组织员工。商户（企业/个人）请在 tinpass.com 登录。',
