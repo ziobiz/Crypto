@@ -1,14 +1,20 @@
 import { CustomerType, MemberGrade } from '@prisma/client';
 import {
+  EXPRESS_QUOTA_TIERS,
+  EXPRESS_TIERS,
   HQ_CONFIG_KEYS,
   MEMBER_GRADES,
+  PAID_MEMBER_GRADE_RANK,
   PAID_MEMBER_GRADES,
   type CustomerTypeLimitKey,
+  type ExpressQuotaByTier,
+  type ExpressTier,
   type MemberGrade as HqMemberGrade,
   type MembershipProductPayMeans,
   type MethodTransactionLimitsPolicy,
   type PaidMemberGrade,
   type PaidMembershipCatalogItem,
+  type PaidMembershipExpressQuotasPolicy,
   type PaidMembershipLimitsPolicy,
   type PaidMembershipProduct,
   type PaidMembershipProductsPolicy,
@@ -16,6 +22,7 @@ import {
   normalizeMemberGrade,
   type MembershipPriceCurrency,
 } from '../constants/hq-policy';
+import { AppError } from '../lib/errors';
 import {
   defaultMethodTransactionLimitsPolicy,
   normalizeMethodTransactionLimits,
@@ -338,4 +345,133 @@ export async function getPaidGradeLimitsForCustomer(
   return policy[typeKey][grade] ?? null;
 }
 
-export { MEMBER_GRADES };
+function emptyQuotaByTier(): ExpressQuotaByTier {
+  const out: ExpressQuotaByTier = {};
+  for (const tier of EXPRESS_QUOTA_TIERS) out[tier] = 0;
+  return out;
+}
+
+export function defaultPaidMembershipExpressQuotasPolicy(): PaidMembershipExpressQuotasPolicy {
+  const gradeMap = {} as Record<PaidMemberGrade, ExpressQuotaByTier>;
+  for (const g of PAID_MEMBER_GRADES) gradeMap[g] = emptyQuotaByTier();
+  return {
+    INDIVIDUAL: { ...gradeMap },
+    CORPORATE: Object.fromEntries(
+      PAID_MEMBER_GRADES.map((g) => [g, emptyQuotaByTier()]),
+    ) as Record<PaidMemberGrade, ExpressQuotaByTier>,
+  };
+}
+
+export function normalizeExpressQuotaByTier(raw: unknown): ExpressQuotaByTier {
+  const out = emptyQuotaByTier();
+  if (!raw || typeof raw !== 'object') return out;
+  const obj = raw as Record<string, unknown>;
+  for (const tier of EXPRESS_QUOTA_TIERS) {
+    const n = Number(obj[tier]);
+    out[tier] = Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+  }
+  return out;
+}
+
+export function normalizePaidMembershipExpressQuotasPolicy(
+  raw?: unknown,
+): PaidMembershipExpressQuotasPolicy {
+  const defaults = defaultPaidMembershipExpressQuotasPolicy();
+  if (!raw || typeof raw !== 'object') return defaults;
+  const obj = raw as Partial<
+    Record<CustomerTypeLimitKey, Partial<Record<PaidMemberGrade, unknown>>>
+  >;
+  const out = defaultPaidMembershipExpressQuotasPolicy();
+  for (const type of ['INDIVIDUAL', 'CORPORATE'] as const) {
+    for (const grade of PAID_MEMBER_GRADES) {
+      const row = obj[type]?.[grade];
+      if (row != null) out[type][grade] = normalizeExpressQuotaByTier(row);
+    }
+  }
+  return out;
+}
+
+export async function getPaidMembershipExpressQuotas(): Promise<PaidMembershipExpressQuotasPolicy> {
+  const row = await prisma.systemConfig.findUnique({
+    where: { key: HQ_CONFIG_KEYS.paidMembershipExpressQuotas },
+  });
+  return normalizePaidMembershipExpressQuotasPolicy(row?.value);
+}
+
+export async function savePaidMembershipExpressQuotas(
+  policy: PaidMembershipExpressQuotasPolicy,
+): Promise<PaidMembershipExpressQuotasPolicy> {
+  const normalized = normalizePaidMembershipExpressQuotasPolicy(policy);
+  await prisma.systemConfig.upsert({
+    where: { key: HQ_CONFIG_KEYS.paidMembershipExpressQuotas },
+    create: {
+      key: HQ_CONFIG_KEYS.paidMembershipExpressQuotas,
+      value: normalized as object,
+    },
+    update: { value: normalized as object },
+  });
+  return normalized;
+}
+
+export function quotasForGrade(
+  policy: PaidMembershipExpressQuotasPolicy,
+  customerType: CustomerType | CustomerTypeLimitKey,
+  grade: string | null | undefined,
+): ExpressQuotaByTier {
+  if (!isPaidMemberGrade(grade)) return emptyQuotaByTier();
+  const typeKey: CustomerTypeLimitKey =
+    String(customerType).toUpperCase() === 'CORPORATE' ? 'CORPORATE' : 'INDIVIDUAL';
+  return normalizeExpressQuotaByTier(policy[typeKey][grade]);
+}
+
+export function parseQuotaJson(raw: unknown): ExpressQuotaByTier {
+  return normalizeExpressQuotaByTier(raw);
+}
+
+export function remainingQuotaForTier(
+  remaining: ExpressQuotaByTier | null | undefined,
+  tier: string | null | undefined,
+): number {
+  const t = String(tier ?? '').toUpperCase() as ExpressTier;
+  if (!(EXPRESS_TIERS as readonly string[]).includes(t) || t === 'BASIC') return 0;
+  const n = Number(remaining?.[t] ?? 0);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+}
+
+/** 유료 활성 + 해당 티어 잔여 > 0 → 이번 EXPRESS 무료 */
+export function isExpressQuotaFree(input: {
+  memberGrade?: string | null;
+  paidMemberUntil?: Date | string | null;
+  expressQuotaRemaining?: unknown;
+  tier?: string | null;
+}): boolean {
+  if (!isPaidMembershipActive(input)) return false;
+  return remainingQuotaForTier(parseQuotaJson(input.expressQuotaRemaining), input.tier) > 0;
+}
+
+export function assertMembershipRepurchaseGrade(input: {
+  currentGrade?: string | null;
+  paidMemberUntil?: Date | string | null;
+  nextGrade: string;
+}): void {
+  if (!isPaidMemberGrade(input.nextGrade)) {
+    throw new AppError(400, 'Invalid membership grade', 'INVALID_MEMBER_GRADE');
+  }
+  const active = isPaidMembershipActive({
+    memberGrade: input.currentGrade,
+    paidMemberUntil: input.paidMemberUntil,
+  });
+  if (!active || !isPaidMemberGrade(input.currentGrade)) return;
+
+  const cur = PAID_MEMBER_GRADE_RANK[input.currentGrade];
+  const next = PAID_MEMBER_GRADE_RANK[input.nextGrade];
+  if (next >= cur) return; // 동일·상위 무제한
+  if (next === cur - 1) return; // 다운그레이드 1단계만
+  throw new AppError(
+    400,
+    'Downgrade allowed only one grade step while membership is active',
+    'MEMBERSHIP_DOWNGRADE_LIMIT',
+  );
+}
+
+export { MEMBER_GRADES, EXPRESS_QUOTA_TIERS };

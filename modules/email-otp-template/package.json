@@ -1,0 +1,22 @@
+{
+  "name": "@tinpass/email-otp-template",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Branded HTML email OTP / verification-code template kit (Wirex-style card) with KR/US/JP/CH/TH",
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./template": "./src/template.ts",
+    "./i18n": "./src/i18n.ts",
+    "./types": "./src/types.ts"
+  },
+  "keywords": [
+    "email",
+    "otp",
+    "verification",
+    "html-template",
+    "i18n",
+    "tinpass"
+  ]
+}

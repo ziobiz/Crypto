@@ -59,8 +59,15 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
     (user.role === 'CUSTOMER' || user.role === 'CUSTOMER_OPERATOR'
       ? NAV_ITEMS.CUSTOMER
       : NAV_ITEMS.SUPER_ADMIN);
+  /** 개인 고객은 사용자관리(운영자) 숨김. 법인도 멀티유저 OFF면 숨김. */
+  const isIndividualCustomer =
+    user.role === 'CUSTOMER' &&
+    String(user.customerProfile?.customerType || '').toUpperCase() === 'INDIVIDUAL';
+  const hideMerchantUsers =
+    user.role === 'CUSTOMER' &&
+    (isIndividualCustomer || user.operatorsEnabled !== true);
   const items = filterNavByPageAccess(
-    user.role === 'CUSTOMER' && user.operatorsEnabled !== true
+    hideMerchantUsers
       ? rawItems.filter((item) => item.href !== '/dashboard/merchant-users')
       : rawItems,
     user.pageAccess,

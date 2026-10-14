@@ -66,22 +66,22 @@ export const CUSTOMER_CORPORATE_MANUAL: ManualDoc = {
       title: L('빠른 시작 순서', 'Quick start order', 'かんたん開始の順番', '快速开工顺序', 'ลำดับเริ่มงานแบบเร็ว'),
       bodyHtml: L(
         `<div class="flow">
-          <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc"><strong>계정 수령</strong> — 관리자가 등록한 이메일·임시 비밀번호로 로그인. 최초 로그인 시 비밀번호 변경이 필요할 수 있습니다.</span></div>
+          <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc"><strong>계정 수령</strong> — <strong>https://tinpass.com/login</strong> 에서 기업회원으로, 본사가 등록한 이메일·임시 비밀번호로 로그인. 최초 로그인 시 비밀번호 변경이 필요할 수 있습니다.</span></div>
           <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc"><strong>Google OTP</strong> — 켜져 있으면 앱 코드를 입력합니다.</span></div>
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc"><strong>인증센터</strong> — 6개월 거래 예정 보고서 + 법인 서류를 올립니다. 양식은 이용메뉴얼에서 내려받습니다.</span></div>
           <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc"><strong>내 지갑</strong> — 최대 5개. OTP + 두 번 확인. 새 주소는 본사 승인 후 매입에서 선택. 삭제는 본사 승인 후.</span></div>
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc"><strong>(선택) 운영자</strong> — 본사가 멀티 사용자를 허용하면 관리자가 OTP로 운영자 최대 2명 등록.</span></div>
-          <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>크립토 시뮬레이터</strong> — 네트워크·금액으로 수수료 미리보기 (참고용).</span></div>
+          <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>시뮬레이터</strong> — 네트워크·금액으로 수수료 미리보기 (참고용).</span></div>
           <div class="flow-row"><span class="flow-num">7</span><span class="flow-desc"><strong>인증패스 후</strong> 계좌이체·송금·카드(허용 시)로 크립토 매입 또는 무역 에스크로. 필요 시 인보이스를 확인·미리보기합니다.</span></div>
         </div>
         <div class="warn-box">인증패스·승인 지갑 없이는 매입·에스크로가 진행되지 않습니다. 시뮬레이터는 확정 금액이 아닙니다.</div>`,
         `<div class="flow">
-          <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc"><strong>Receive credentials</strong> — sign in with the email and temporary password from your admin. You may need to change the password on first login.</span></div>
+          <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc"><strong>Receive credentials</strong> — sign in at <strong>https://tinpass.com/login</strong> (corporate member) with the email and temporary password from HQ. First login may require a new password.</span></div>
           <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc"><strong>Google OTP</strong> if enabled.</span></div>
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc"><strong>Verification</strong> — forecast + corporate documents (templates in Usage manuals).</span></div>
           <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc"><strong>My wallets</strong> — up to 5; OTP + two confirms; HQ approval for new addresses; HQ approval to delete.</span></div>
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc"><strong>(Optional) Operators</strong> — if HQ enabled multi-user, admin adds up to 2 operators with OTP.</span></div>
-          <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>Crypto simulator</strong> — fee preview (reference only).</span></div>
+          <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>Simulator</strong> — fee preview (reference only).</span></div>
           <div class="flow-row"><span class="flow-num">7</span><span class="flow-desc">After a <strong>verification pass</strong>, purchase via bank transfer / remittance / card (when allowed), or trade escrow. Use invoices to preview when needed.</span></div>
         </div>
         <div class="warn-box">Without a pass and an approved wallet, purchase/escrow stay blocked. The simulator is not binding.</div>`,
@@ -91,7 +91,7 @@ export const CUSTOMER_CORPORATE_MANUAL: ManualDoc = {
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc"><strong>認証センター</strong> — 報告書＋法人書類。様式は利用マニュアルから。</span></div>
           <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc"><strong>マイウォレット</strong> — 最大5。OTP+2回確認。新アドレスは本社承認後。削除も本社承認後。</span></div>
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc"><strong>(任意) 運営者</strong> — 本社がマルチユーザー許可時、管理者がOTPで最大2名登録。</span></div>
-          <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>クリプトシミュレーター</strong> — 手数料試算(参考)。</span></div>
+          <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>シミュレーター</strong> — 手数料試算(参考)。</span></div>
           <div class="flow-row"><span class="flow-num">7</span><span class="flow-desc"><strong>認証パス後</strong>に振替・送金・カード(許可時)で購入、またはエスクロー。必要ならインボイスを確認。</span></div>
         </div>
         <div class="warn-box">認証パス・承認ウォレットがないと進めません。シミュレーターは確定金額ではありません。</div>`,
@@ -101,7 +101,7 @@ export const CUSTOMER_CORPORATE_MANUAL: ManualDoc = {
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc"><strong>认证中心</strong> — 预估报告 + 企业文件。模板在使用手册。</span></div>
           <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc"><strong>我的钱包</strong> — 最多 5；OTP+两次确认；新地址需总部批准；删除亦需总部批准。</span></div>
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc"><strong>(可选) 操作员</strong> — 总部开启多用户后，管理员用 OTP 最多登记 2 名。</span></div>
-          <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>加密货币模拟器</strong> — 手续费预览（参考）。</span></div>
+          <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>模拟器</strong> — 手续费预览（参考）。</span></div>
           <div class="flow-row"><span class="flow-num">7</span><span class="flow-desc"><strong>认证通过后</strong>用转账/汇款/卡（若允许）采购，或贸易托管。需要时查看发票预览。</span></div>
         </div>
         <div class="warn-box">无认证通过与已批钱包则无法继续。模拟器不是确定金额。</div>`,
@@ -111,7 +111,7 @@ export const CUSTOMER_CORPORATE_MANUAL: ManualDoc = {
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc"><strong>ศูนย์ยืนยัน</strong> — รายงาน 6 เดือน + เอกสารนิติ แบบฟอร์มจากคู่มือใช้งาน</span></div>
           <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc"><strong>กระเป๋าของฉัน</strong> — สูงสุด 5 OTP+ยืนยันสองครั้ง ที่อยู่ใหม่/ลบต้อง HQ อนุมัติ</span></div>
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc"><strong>(ถ้ามี) ผู้ปฏิบัติงาน</strong> — หาก HQ เปิดหลายผู้ใช้ แอดมินเพิ่มได้สูงสุด 2 คนด้วย OTP</span></div>
-          <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>ตัวจำลองคริปโต</strong> — ดูค่าธรรมเนียม (อ้างอิง)</span></div>
+          <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>ตัวจำลอง</strong> — ดูค่าธรรมเนียม (อ้างอิง)</span></div>
           <div class="flow-row"><span class="flow-num">7</span><span class="flow-desc">หลัง<strong>ผ่านยืนยัน</strong> ซื้อด้วยโอนบัญชี/ธุรกรรมโอน/บัตร (ถ้าอนุญาต) หรือเอสโครว์ และดูใบแจ้งหนี้เมื่อต้องการ</span></div>
         </div>
         <div class="warn-box">ไม่มีผ่านยืนยันและกระเป๋าที่อนุมัติจะทำต่อไม่ได้ ตัวจำลองไม่ใช่ยอดผูกพัน</div>`,
@@ -389,9 +389,9 @@ export const CUSTOMER_CORPORATE_MANUAL: ManualDoc = {
     },
     {
       id: 'co-membership',
-      title: L('유료회원 (멤버십)', 'Paid membership', '有料会員', '付费会员', 'สมาชิกเสียเงิน'),
+      title: L('유료회원가입 (멤버십)', 'Paid membership signup', '有料会員登録', '付费会员注册', 'สมัครสมาชิกเสียเงิน'),
       bodyHtml: L(
-        `<span class="menu-path">유료회원</span>
+        `<span class="menu-path">유료회원가입</span>
         <p>법인 계정은 법인용 상품(표시명 <strong>PremiumB</strong> 등)만 보입니다.</p>
         <ul>
           <li>판매가 <strong>USD 기준</strong>, USDT·USDC 1:1, EURC 시세 환산.</li>

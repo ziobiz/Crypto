@@ -1,0 +1,52 @@
+// --- paste into host schema.prisma ---
+// User 모델에 아래 relation 추가:
+//   webauthnCredentials WebAuthnCredential[]
+//   loginQrTickets      LoginQrTicket[]
+
+/// 개인 고객 WebAuthn(플랫폼 바이오 / Passkey)
+model WebAuthnCredential {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialId String    @unique @map("credential_id")
+  publicKey    Bytes     @map("public_key")
+  counter      BigInt    @default(0)
+  deviceType   String?   @map("device_type")
+  backedUp     Boolean   @default(false) @map("backed_up")
+  transports   Json?
+  deviceLabel  String?   @map("device_label")
+  createdAt    DateTime  @default(now())
+  lastUsedAt   DateTime? @map("last_used_at")
+
+  @@index([userId])
+  @@map("webauthn_credentials")
+}
+
+/// 단기 WebAuthn challenge (등록·로그인)
+model WebAuthnChallenge {
+  id        String   @id @default(cuid())
+  userId    String
+  purpose   String // register | login
+  challenge String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId, purpose, expiresAt])
+  @@map("webauthn_challenges")
+}
+
+/// PC 로그인용 QR ticket (폰에서 승인)
+model LoginQrTicket {
+  id         String    @id @default(cuid())
+  userId     String?
+  user       User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status     String    @default("PENDING") // PENDING | APPROVED | EXPIRED | CONSUMED
+  expiresAt  DateTime
+  approvedAt DateTime?
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([status, expiresAt])
+  @@index([userId])
+  @@map("login_qr_tickets")
+}

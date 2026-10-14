@@ -146,6 +146,14 @@ export default function MembershipAdminProductsPage() {
     }));
   }
 
+  function startAllForType(customerType: CustomerTypeKey) {
+    setProducts((prev) => ({
+      items: prev.items.map((it) =>
+        it.customerType === customerType ? { ...it, enabled: true } : it,
+      ),
+    }));
+  }
+
   function saveProducts() {
     requestConfirm({
       title: t('paidMembership.hq.saveProducts'),
@@ -190,6 +198,13 @@ export default function MembershipAdminProductsPage() {
               onClick={() => addProduct(customerType)}
             >
               {t('membershipAdmin.products.add')}
+            </button>
+            <button
+              type="button"
+              className="pg-btn pg-btn-secondary text-xs"
+              onClick={() => startAllForType(customerType)}
+            >
+              {t('membershipAdmin.products.startAll')}
             </button>
             <button
               type="button"

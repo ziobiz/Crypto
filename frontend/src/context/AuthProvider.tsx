@@ -9,9 +9,19 @@ import {
   type ReactNode,
 } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, ApiError, clearToken, MeResponse, setToken } from '@/lib/api';
+import { api, ApiError, clearToken, getToken, MeResponse, setToken } from '@/lib/api';
 import { clearMaskedPaths } from '@/lib/auth-session';
 import { touchActivity, useIdleTimeout } from '@/hooks/useIdleTimeout';
+import {
+  getAdminWebOrigin,
+  getMemberWebOrigin,
+  isAdminWebHost,
+  isMemberWebHost,
+  isMerchantRole,
+  isOrgStaffRole,
+  redirectWithAuthHandoff,
+  shouldEnforceHostSplit,
+} from '@/lib/site-host';
 
 interface AuthContextValue {
   user: MeResponse | null;
@@ -80,14 +90,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const completeLogin = async (token: string) => {
     setToken(token);
     touchActivity();
+    const nextRaw =
+      typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search).get('next') ||
+          sessionStorage.getItem('crypto_login_next')
+        : null;
+    const next =
+      nextRaw && nextRaw.startsWith('/') && !nextRaw.startsWith('//') ? nextRaw : '/dashboard';
+    sessionStorage.removeItem('crypto_login_next');
     for (let i = 0; i < 3; i++) {
       try {
         const me = await api.me();
+        if (shouldEnforceHostSplit()) {
+          if (isAdminWebHost() && isMerchantRole(me.role)) {
+            clearToken();
+            setUser(null);
+            throw new ApiError(403, 'Merchant accounts use tinpass.com', 'MERCHANT_USE_MEMBER_HOST');
+          }
+          if (isMemberWebHost() && isOrgStaffRole(me.role)) {
+            const tkn = getToken() || token;
+            redirectWithAuthHandoff(getAdminWebOrigin(), tkn, next);
+            return;
+          }
+        }
         setUser(me);
         clearMaskedPaths();
-        router.push('/dashboard');
+        router.push(next);
         return;
       } catch (e) {
+        if (e instanceof ApiError && e.code === 'MERCHANT_USE_MEMBER_HOST') {
+          throw e;
+        }
         const status = e instanceof ApiError ? e.status : 0;
         if (status === 401 || status === 403) {
           clearToken();
@@ -98,7 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
     clearMaskedPaths();
-    router.push('/dashboard');
+    router.push(next);
   };
 
   const login = async (email: string, password: string) => {

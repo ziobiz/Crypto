@@ -47,7 +47,29 @@ import { hqPolicyService } from '../services/hq-policy.service';
 import {
   findUserByLoginEmail,
   findUserByLoginEmailAndPassword,
+  findUsersMatchingLoginPassword,
+  isMerchantLoginRole,
+  isOrgStaffLoginRole,
+  isPublicAccountRecoveryEligible,
+  resolveLoginCustomerType,
 } from '../services/user-lookup.service';
+import {
+  beginAuthentication,
+  beginRegistration,
+  countWebAuthnCredentials,
+  deleteCredential,
+  finishAuthentication,
+  finishRegistration,
+  listWebAuthnCredentials,
+  resolveIndividualCustomerUserId,
+} from '../services/webauthn.service';
+import {
+  approveQrTicket,
+  consumeApprovedQrTicket,
+  createAnonymousQrTicket,
+  createBoundQrTicket,
+  getQrTicketStatus,
+} from '../services/login-qr.service';
 import { assertCustomerContactAvailable } from '../services/register-contact.service';
 import {
   clientCountryFromRequest,
@@ -73,7 +95,23 @@ const loginSchema = z.object({
   email: z.string().email().transform(normalizeEmail),
   password: z.string().min(1).transform((s) => s.trim()),
   turnstileToken: z.string().optional(),
+  /** 회원 로그인 UI 유형 — OTP 전에 역할·고객유형을 검증한다 */
+  audience: z.enum(['corporate', 'individual', 'staff']).optional(),
 });
+
+function adminWebLoginUrl(): string {
+  const base = (process.env.ADMIN_WEB_URL || process.env.NEXT_PUBLIC_ADMIN_WEB_URL || 'https://admin.tinpass.com')
+    .trim()
+    .replace(/\/$/, '');
+  return `${base}/login`;
+}
+
+function memberWebLoginUrl(): string {
+  const base = (process.env.MEMBER_WEB_URL || process.env.NEXT_PUBLIC_MEMBER_WEB_URL || 'https://tinpass.com')
+    .trim()
+    .replace(/\/$/, '');
+  return `${base}/login`;
+}
 
 function userResponse(user: {
   id: string;
@@ -119,13 +157,81 @@ async function issueSession(userId: string) {
 router.post(
   '/login',
   asyncHandler(async (req, res) => {
-    const { email, password, turnstileToken } = loginSchema.parse(req.body);
+    const { email, password, turnstileToken, audience } = loginSchema.parse(req.body);
     await assertTurnstile(turnstileToken, clientIp(req));
 
-    const user = await findUserByLoginEmailAndPassword(email, password);
+    const preferredType =
+      audience === 'corporate'
+        ? CustomerType.CORPORATE
+        : audience === 'individual'
+          ? CustomerType.INDIVIDUAL
+          : null;
+    const matched = await findUsersMatchingLoginPassword(email, password);
+    if (matched.length === 0) {
+      throw new AppError(401, 'Invalid email or password', 'INVALID_CREDENTIALS');
+    }
 
+    let user =
+      preferredType != null
+        ? matched.find((u) => u.customerProfile?.customerType === preferredType) ?? null
+        : null;
+    if (!user && audience === 'staff') {
+      user = matched.find((u) => isOrgStaffLoginRole(u.role)) ?? null;
+    }
+    if (!user) {
+      user = await findUserByLoginEmailAndPassword(email, password, preferredType);
+    }
     if (!user) {
       throw new AppError(401, 'Invalid email or password', 'INVALID_CREDENTIALS');
+    }
+
+    /** 기업/개인 회원 로그인: 관리자·조직 직원은 OTP 전에 차단하고 admin 호스트로 안내 */
+    if (audience === 'corporate' || audience === 'individual') {
+      if (isOrgStaffLoginRole(user.role)) {
+        throw new AppError(
+          403,
+          'Staff accounts must sign in on the admin site',
+          'STAFF_USE_ADMIN_HOST',
+          { adminUrl: adminWebLoginUrl() },
+        );
+      }
+      if (!isMerchantLoginRole(user.role)) {
+        throw new AppError(403, 'Invalid account type for member login', 'AUDIENCE_MISMATCH');
+      }
+      const customerType = await resolveLoginCustomerType(user);
+      const expected =
+        audience === 'corporate' ? CustomerType.CORPORATE : CustomerType.INDIVIDUAL;
+      if (customerType !== expected) {
+        // 같은 이메일로 다른 유형이 있으면 그쪽으로 재선택
+        const alt = matched.find(
+          (u) =>
+            isMerchantLoginRole(u.role) &&
+            u.customerProfile?.customerType === expected,
+        );
+        if (alt) {
+          user = alt;
+        } else {
+          throw new AppError(
+            403,
+            audience === 'corporate'
+              ? 'Corporate member login only'
+              : 'Individual member login only',
+            audience === 'corporate' ? 'CORPORATE_AUDIENCE_ONLY' : 'INDIVIDUAL_AUDIENCE_ONLY',
+          );
+        }
+      }
+    }
+
+    /** 관리자 호스트(staff): 가맹 회원은 회원 사이트로 */
+    if (audience === 'staff') {
+      if (isMerchantLoginRole(user.role)) {
+        throw new AppError(
+          403,
+          'Merchant accounts must sign in on the member site',
+          'MERCHANT_USE_MEMBER_HOST',
+          { memberUrl: memberWebLoginUrl() },
+        );
+      }
     }
 
     if (!user.isActive) {
@@ -163,11 +269,15 @@ router.post(
         return;
       }
 
+      const individualId = await resolveIndividualCustomerUserId(user.id);
+      const webauthnCount = individualId ? await countWebAuthnCredentials(user.id) : 0;
       res.json({
         otpRequired: true,
         otpToken: signOtpToken(user.id),
         otpMethod: 'totp',
         maskedEmail: maskEmail(user.email),
+        webauthnAvailable: webauthnCount > 0,
+        qrLoginAvailable: Boolean(individualId),
       });
       return;
     }
@@ -452,7 +562,7 @@ router.post(
 
     const user = await findUserByLoginEmail(email);
     const cfg = await getEmailOtpConfig();
-    if (user?.isActive) {
+    if (user?.isActive && isPublicAccountRecoveryEligible(user)) {
       await createEmailVerificationChallenge(
         user.email,
         'PASSWORD_RESET',
@@ -490,7 +600,7 @@ router.post(
     }
 
     const user = await findUserByLoginEmail(body.email);
-    if (!user || !user.isActive) {
+    if (!user || !user.isActive || !isPublicAccountRecoveryEligible(user)) {
       throw new AppError(400, 'Invalid code or email', 'INVALID_RESET');
     }
     if (isInitialPassword(user.email, body.newPassword)) {
@@ -527,7 +637,7 @@ router.post(
 
     const user = await findUserByLoginEmail(email);
     const cfg = await getEmailOtpConfig();
-    if (user?.isActive && user.totpEnabled) {
+    if (user?.isActive && user.totpEnabled && isPublicAccountRecoveryEligible(user)) {
       await createEmailVerificationChallenge(
         user.email,
         'OTP_RESET',
@@ -559,7 +669,12 @@ router.post(
     await assertTurnstile(body.turnstileToken, clientIp(req));
 
     const user = await findUserByLoginEmail(body.email);
-    if (!user || !user.isActive || !user.totpEnabled) {
+    if (
+      !user ||
+      !user.isActive ||
+      !user.totpEnabled ||
+      !isPublicAccountRecoveryEligible(user)
+    ) {
       throw new AppError(400, 'Invalid code or email', 'INVALID_RESET');
     }
 
@@ -1429,6 +1544,170 @@ router.get(
     }
 
     res.json({ role: user.role, stats: {} });
+  }),
+);
+
+/** 개인 고객: WebAuthn 등록 options (로그인 후) */
+router.post(
+  '/webauthn/register/options',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const auth = req.user!;
+    const user = await prisma.user.findUnique({
+      where: { id: auth.id },
+      select: { email: true, name: true },
+    });
+    if (!user) throw new AppError(404, 'User not found', 'NOT_FOUND');
+    const options = await beginRegistration(auth.id, user.email, user.name);
+    res.json(options);
+  }),
+);
+
+router.post(
+  '/webauthn/register/verify',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const auth = req.user!;
+    const body = z
+      .object({
+        response: z.any(),
+        deviceLabel: z.string().max(80).optional(),
+      })
+      .parse(req.body);
+    await finishRegistration(auth.id, body.response, body.deviceLabel);
+    res.json({ ok: true, credentials: await listWebAuthnCredentials(auth.id) });
+  }),
+);
+
+router.get(
+  '/webauthn/credentials',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const auth = req.user!;
+    const individual = await resolveIndividualCustomerUserId(auth.id);
+    if (!individual) {
+      res.json({ eligible: false, credentials: [] });
+      return;
+    }
+    res.json({ eligible: true, credentials: await listWebAuthnCredentials(auth.id) });
+  }),
+);
+
+/** 삭제: Google OTP 필수 (계정당 바이오 1개 정책) */
+router.post(
+  '/webauthn/credentials/:id/delete',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const body = z
+      .object({
+        code: z
+          .string()
+          .min(1)
+          .transform((s) => s.replace(/\D/g, ''))
+          .pipe(z.string().length(6, 'OTP must be 6 digits')),
+      })
+      .parse(req.body ?? {});
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      select: { totpEnabled: true, totpSecret: true },
+    });
+    if (!user?.totpEnabled || !user.totpSecret) {
+      throw new AppError(400, 'Google OTP is not enabled', 'OTP_NOT_ENABLED');
+    }
+    if (!verifyTotpCode(user.totpSecret, body.code)) {
+      throw new AppError(401, 'Invalid OTP code', 'INVALID_OTP_CODE');
+    }
+    await deleteCredential(req.user!.id, String(req.params.id));
+    res.json({ ok: true, credentials: await listWebAuthnCredentials(req.user!.id) });
+  }),
+);
+
+/** 2FA 단계: 바이오 인증 options */
+router.post(
+  '/webauthn/login/options',
+  asyncHandler(async (req, res) => {
+    const { otpToken } = z.object({ otpToken: z.string().min(1) }).parse(req.body);
+    const payload = verifyOtpToken(otpToken);
+    const options = await beginAuthentication(payload.sub);
+    res.json(options);
+  }),
+);
+
+router.post(
+  '/webauthn/login/verify',
+  asyncHandler(async (req, res) => {
+    const body = z
+      .object({
+        otpToken: z.string().min(1),
+        response: z.any(),
+      })
+      .parse(req.body);
+    const payload = verifyOtpToken(body.otpToken);
+    await finishAuthentication(payload.sub, body.response);
+    res.json(await issueSession(payload.sub));
+  }),
+);
+
+/** PC QR: 2FA 단계에서 user 바인딩 ticket */
+router.post(
+  '/qr/create',
+  asyncHandler(async (req, res) => {
+    const { otpToken } = z.object({ otpToken: z.string().min(1) }).parse(req.body);
+    const payload = verifyOtpToken(otpToken);
+    res.json(await createBoundQrTicket(payload.sub));
+  }),
+);
+
+/** PC QR: 폰이 이미 로그인된 경우 (이메일/비번 없이) */
+router.post(
+  '/qr/create-anonymous',
+  asyncHandler(async (_req, res) => {
+    res.json(await createAnonymousQrTicket());
+  }),
+);
+
+router.get(
+  '/qr/status',
+  asyncHandler(async (req, res) => {
+    const ticket = String(req.query.ticket || '');
+    if (!ticket) throw new AppError(400, 'ticket required', 'VALIDATION');
+    res.json(await getQrTicketStatus(ticket));
+  }),
+);
+
+router.get(
+  '/qr/info',
+  asyncHandler(async (req, res) => {
+    const ticket = String(req.query.ticket || '');
+    if (!ticket) throw new AppError(400, 'ticket required', 'VALIDATION');
+    const status = await getQrTicketStatus(ticket);
+    const row = await prisma.loginQrTicket.findUnique({
+      where: { id: ticket },
+      select: { userId: true, status: true, expiresAt: true },
+    });
+    res.json({
+      ...status,
+      boundUser: Boolean(row?.userId),
+    });
+  }),
+);
+
+router.post(
+  '/qr/approve',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const { ticket } = z.object({ ticket: z.string().min(1) }).parse(req.body);
+    await approveQrTicket(ticket, req.user!.id);
+    res.json({ ok: true });
+  }),
+);
+
+router.post(
+  '/qr/exchange',
+  asyncHandler(async (req, res) => {
+    const { ticket } = z.object({ ticket: z.string().min(1) }).parse(req.body);
+    const userId = await consumeApprovedQrTicket(ticket);
+    res.json(await issueSession(userId));
   }),
 );
 

@@ -22,7 +22,7 @@ DATABASE_URL="postgresql://crypto:Line2025%21%21@localhost:5432/crypto_workflow?
 PORT=4000
 NODE_ENV=production
 
-CORS_ORIGIN=https://api.tinpass.com,https://tinpass.com,https://www.tinpass.com
+CORS_ORIGIN=https://api.tinpass.com,https://tinpass.com,https://www.tinpass.com,https://admin.tinpass.com
 
 JWT_SECRET=CryptoWorkflow2026ZiobizSecretKey32
 JWT_EXPIRES_IN=7d

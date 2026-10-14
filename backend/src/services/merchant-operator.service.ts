@@ -40,6 +40,7 @@ async function assertOwnedOperator(actor: AuthUser, operatorId: string) {
   if (!actor.operatorsEnabled) {
     throw new AppError(403, 'Multi-user is not enabled for this merchant', 'FORBIDDEN');
   }
+  await assertActorCorporateMerchant(actor);
   const op = await prisma.user.findFirst({
     where: {
       id: operatorId,
@@ -59,6 +60,18 @@ async function assertOwnedOperator(actor: AuthUser, operatorId: string) {
   return op;
 }
 
+async function assertActorCorporateMerchant(actor: AuthUser) {
+  if (!actor.customerProfileId) {
+    throw new AppError(403, 'Customer profile required', 'FORBIDDEN');
+  }
+  const profile = await prisma.customerProfile.findUnique({
+    where: { id: actor.customerProfileId },
+    select: { customerType: true },
+  });
+  const { assertCorporateForOperators } = await import('../lib/individual-operator-policy');
+  assertCorporateForOperators(profile?.customerType);
+}
+
 export async function listMerchantOperators(actor: AuthUser) {
   if (!isMerchantAdmin(actor)) {
     throw new AppError(403, 'Merchant admin only', 'FORBIDDEN');
@@ -66,6 +79,7 @@ export async function listMerchantOperators(actor: AuthUser) {
   if (!actor.operatorsEnabled) {
     throw new AppError(403, 'Multi-user is not enabled for this merchant', 'FORBIDDEN');
   }
+  await assertActorCorporateMerchant(actor);
   const rows = await prisma.user.findMany({
     where: {
       merchantAdminUserId: actor.id,
@@ -176,6 +190,7 @@ export async function createMerchantOperator(
   if (!actor.customerProfileId) {
     throw new AppError(403, 'Customer profile required', 'FORBIDDEN');
   }
+  await assertActorCorporateMerchant(actor);
 
   const totalCount = await prisma.user.count({
     where: {
@@ -363,6 +378,64 @@ export function assertMerchantCanManageOperators(actor: AuthUser): void {
   if (!isMerchantAdmin(actor)) {
     throw new AppError(403, 'Merchant admin only', 'FORBIDDEN');
   }
+}
+
+/** 가맹점 대표관리자 → 소속 운영자 비밀번호 초기화 (본인 계정은 불가, 본사만) */
+export async function resetMerchantOperatorPassword(
+  actor: AuthUser,
+  operatorId: string,
+  meta?: { ipAddress?: string; userAgent?: string },
+) {
+  if (!actor.operatorsEnabled) {
+    throw new AppError(403, 'Multi-user is not enabled for this merchant', 'FORBIDDEN');
+  }
+  const op = await assertOwnedOperator(actor, operatorId);
+  const initialPassword = initialPasswordFromEmail(op.email);
+  const passwordHash = await bcrypt.hash(initialPassword, 10);
+  await prisma.user.update({
+    where: { id: op.id },
+    data: { passwordHash, passwordMustChange: true },
+  });
+  await recordMerchantOperation({
+    actorId: actor.id,
+    merchantAdminUserId: actor.id,
+    action: 'OPERATOR_RESET_PASSWORD',
+    entityType: 'User',
+    entityId: op.id,
+    summary: `Reset password for operator ${op.email}`,
+    after: { passwordReset: true, passwordMustChange: true },
+    otpVerified: true,
+    ipAddress: meta?.ipAddress,
+    userAgent: meta?.userAgent,
+  });
+  return { ok: true as const, initialPasswordHint: 'emailLocalPart+1!' };
+}
+
+/** 가맹점 대표관리자 → 소속 운영자 OTP 초기화 (재로그인 시 재등록) */
+export async function resetMerchantOperatorOtp(
+  actor: AuthUser,
+  operatorId: string,
+  meta?: { ipAddress?: string; userAgent?: string },
+) {
+  if (!actor.operatorsEnabled) {
+    throw new AppError(403, 'Multi-user is not enabled for this merchant', 'FORBIDDEN');
+  }
+  const op = await assertOwnedOperator(actor, operatorId);
+  const { clearUserTotp } = await import('./otp.service');
+  await clearUserTotp(op.id);
+  await recordMerchantOperation({
+    actorId: actor.id,
+    merchantAdminUserId: actor.id,
+    action: 'OPERATOR_RESET_OTP',
+    entityType: 'User',
+    entityId: op.id,
+    summary: `Reset OTP for operator ${op.email}`,
+    after: { totpEnabled: false },
+    otpVerified: true,
+    ipAddress: meta?.ipAddress,
+    userAgent: meta?.userAgent,
+  });
+  return { ok: true as const, totpEnabled: false };
 }
 
 export function merchantAdminIdOrSelf(actor: AuthUser): string {

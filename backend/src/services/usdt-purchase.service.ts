@@ -129,6 +129,7 @@ import {
   settleExpressFee,
   type ExpressCustomerProfile,
 } from './express-fee.service';
+import { consumeExpressQuotaInTx } from './express-quota.service';
 import { getSettlementAsset } from './settlement-asset.service';
 import { defaultNetworkForAsset } from './wallet-policy.service';
 
@@ -136,6 +137,7 @@ function withExpressFeeRates(
   fees: ResolvedTransactionFees,
   express: (ResolvedExpressSelection & {
     memberGradeBenefit?: { discountPercent?: number; discountUsdt?: number };
+    expressQuotaFree?: boolean;
   }) | null,
 ): ResolvedTransactionFees {
   if (!express) {
@@ -144,6 +146,15 @@ function withExpressFeeRates(
       expressFeeUsdt: 0,
       expressFeePercent: 0,
       expressTier: undefined,
+    };
+  }
+  /** 유료 쿼터 잔여 → EXPRESS 0 (할인 미적용) */
+  if (express.expressQuotaFree) {
+    return {
+      ...fees,
+      expressFeeUsdt: 0,
+      expressFeePercent: 0,
+      expressTier: express.tier,
     };
   }
   const discPct = Math.min(100, Math.max(0, Number(express.memberGradeBenefit?.discountPercent) || 0));
@@ -173,6 +184,7 @@ async function loadExpressProfile(
       expressFeeConfig: true,
       memberGrade: true,
       paidMemberUntil: true,
+      expressQuotaRemaining: true,
     },
   });
 }
@@ -902,6 +914,8 @@ export async function createUsdtPurchaseTicket(
       expressFeeMode: true,
       expressFeeConfig: true,
       memberGrade: true,
+      paidMemberUntil: true,
+      expressQuotaRemaining: true,
     },
   });
   if (!customerProfile) {
@@ -1187,6 +1201,7 @@ export async function createUsdtPurchaseTicket(
                   expressPolicySnapshot: expressSelection.policySnapshot as object,
                   memberGradeSnapshot: expressSelection.memberGrade,
                   memberGradeBenefitSnapshot: expressSelection.memberGradeBenefit as object,
+                  expressQuotaUsed: false,
                 }
               : {}),
             walletId: wallet.id,
@@ -1208,6 +1223,25 @@ export async function createUsdtPurchaseTicket(
         note: usdtApplyHistoryNote(useQuoteFlow, useDirectRemit, expressSelection?.tier),
       },
     });
+
+    if (
+      expressSelection?.expressQuotaFree &&
+      user.customerProfileId &&
+      expressSelection.tier &&
+      expressSelection.tier !== 'BASIC'
+    ) {
+      const used = await consumeExpressQuotaInTx(
+        tx,
+        user.customerProfileId,
+        expressSelection.tier,
+      );
+      if (used) {
+        await tx.usdtPurchaseDetail.update({
+          where: { ticketId: created.id },
+          data: { expressQuotaUsed: true },
+        });
+      }
+    }
 
     if (!useQuoteFlow) {
       await tx.usdtPurchaseDetail.update({
@@ -1857,6 +1891,8 @@ export async function getUsdtDepositContext(user: AuthUser) {
             expressFeeMode: true,
             expressFeeConfig: true,
             memberGrade: true,
+            paidMemberUntil: true,
+            expressQuotaRemaining: true,
           },
         })
       : Promise.resolve(null),

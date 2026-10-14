@@ -37,7 +37,7 @@ export async function createEmailVerificationChallenge(
     data: { email, purpose, codeHash, expiresAt },
   });
 
-  await sendOtpEmail(cfg, email, code, userName, minutes, localeHint);
+  await sendOtpEmail(cfg, email, code, userName, minutes, localeHint, purpose);
   return { expiresAt, expiresInSeconds: minutes * 60 };
 }
 

@@ -1,0 +1,261 @@
+{
+  "auth.bioTitle": {
+    "KR": "생체 인증",
+    "US": "Biometric sign-in",
+    "JP": "生体認証",
+    "CH": "生物识别登录",
+    "TH": "ยืนยันด้วยไบโอ"
+  },
+  "auth.bioHint": {
+    "KR": "등록된 Face ID / 지문으로 인증하세요. 실패 시 OTP로 전환됩니다.",
+    "US": "Use Face ID / fingerprint. On failure, continue with OTP.",
+    "JP": "登録済みの Face ID / 指紋で認証します。失敗時は OTP に切り替えます。",
+    "CH": "使用已注册的 Face ID / 指纹。失败时改用 OTP。",
+    "TH": "ใช้ Face ID / ลายนิ้วมือที่ลงทะเบียนไว้ หากล้มเหลวให้ใช้ OTP"
+  },
+  "auth.bioUse": {
+    "KR": "생체 인증하기",
+    "US": "Use biometrics",
+    "JP": "生体認証する",
+    "CH": "使用生物识别",
+    "TH": "ใช้ไบโอเมตริก"
+  },
+  "auth.bioFailed": {
+    "KR": "생체 인증에 실패했습니다. OTP로 진행해 주세요.",
+    "US": "Biometric failed. Please use OTP.",
+    "JP": "生体認証に失敗しました。OTP で続行してください。",
+    "CH": "生物识别失败，请使用 OTP。",
+    "TH": "ไบโอเมตริกล้มเหลว กรุณาใช้ OTP"
+  },
+  "auth.bioUseOtp": {
+    "KR": "OTP로 인증",
+    "US": "Use OTP",
+    "JP": "OTP で認証",
+    "CH": "使用 OTP",
+    "TH": "ใช้ OTP"
+  },
+  "auth.bioUseQr": {
+    "KR": "휴대폰 QR로 로그인",
+    "US": "Sign in with phone QR",
+    "JP": "スマホ QR でログイン",
+    "CH": "手机二维码登录",
+    "TH": "เข้าสู่ระบบด้วย QR มือถือ"
+  },
+  "auth.bioHintBannerTitle": {
+    "KR": "생체 로그인을 사용할 수 있습니다",
+    "US": "Biometric sign-in is available",
+    "JP": "生体ログインを利用できます",
+    "CH": "可使用生物识别登录",
+    "TH": "ใช้ไบโอเข้าสู่ระบบได้"
+  },
+  "auth.bioHintBannerBody": {
+    "KR": "Face ID·지문으로 더 빠르게 로그인할 수 있습니다. 내 계정에서 「이 기기에서 생체 등록」을 선택하세요. (한 번만 안내)",
+    "US": "Sign in faster with Face ID or fingerprint. Open My Account and choose “Register biometrics on this device”. (Shown once)",
+    "JP": "Face ID・指紋でより速くログインできます。マイアカウントで「この端末で生体登録」を選んでください。（一度だけ表示）",
+    "CH": "可用 Face ID / 指纹更快登录。请到“我的账户”选择“在此设备注册生物识别”。（仅提示一次）",
+    "TH": "เข้าสู่ระบบเร็วขึ้นด้วย Face ID หรือลายนิ้วมือ ไปที่บัญชีของฉันแล้วเลือก “ลงทะเบียนไบโอบนอุปกรณ์นี้” (แจ้งครั้งเดียว)"
+  },
+  "auth.bioHintBannerCta": {
+    "KR": "설정하기",
+    "US": "Set up",
+    "JP": "設定する",
+    "CH": "去设置",
+    "TH": "ตั้งค่า"
+  },
+  "auth.bioHintBannerDismiss": {
+    "KR": "나중에",
+    "US": "Later",
+    "JP": "あとで",
+    "CH": "以后再说",
+    "TH": "ไว้ทีหลัง"
+  },
+  "auth.qrTitle": {
+    "KR": "휴대폰 QR 로그인",
+    "US": "Phone QR sign-in",
+    "JP": "スマホ QR ログイン",
+    "CH": "手机二维码登录",
+    "TH": "เข้าสู่ระบบด้วย QR มือถือ"
+  },
+  "auth.qrHint": {
+    "KR": "휴대폰 카메라로 QR을 스캔한 뒤, 같은 계정으로 승인하세요.",
+    "US": "Scan this QR with your phone camera, then approve with the same account.",
+    "JP": "スマホのカメラで QR を読み取り、同じアカウントで承認してください。",
+    "CH": "用手机相机扫描二维码，并用同一账户批准。",
+    "TH": "สแกน QR ด้วยกล้องมือถือ แล้วอนุมัติด้วยบัญชีเดียวกัน"
+  },
+  "auth.qrWaiting": {
+    "KR": "휴대폰 승인 대기 중…",
+    "US": "Waiting for phone approval…",
+    "JP": "スマホの承認待ち…",
+    "CH": "等待手机批准…",
+    "TH": "รอการอนุมัติจากมือถือ…"
+  },
+  "auth.qrExpired": {
+    "KR": "QR이 만료되었습니다. 다시 생성해 주세요.",
+    "US": "QR expired. Please generate a new one.",
+    "JP": "QR の有効期限が切れました。再生成してください。",
+    "CH": "二维码已过期，请重新生成。",
+    "TH": "QR หมดอายุแล้ว สร้างใหม่"
+  },
+  "auth.qrRefresh": {
+    "KR": "QR 다시 만들기",
+    "US": "Generate new QR",
+    "JP": "QR を再生成",
+    "CH": "重新生成二维码",
+    "TH": "สร้าง QR ใหม่"
+  },
+  "auth.qrOnLogin": {
+    "KR": "휴대폰 QR로 PC 로그인",
+    "US": "PC sign-in with phone QR",
+    "JP": "スマホ QR で PC ログイン",
+    "CH": "用手机二维码登录电脑",
+    "TH": "เข้าสู่ระบบ PC ด้วย QR มือถือ"
+  },
+  "auth.qrApproveTitle": {
+    "KR": "PC 로그인 승인",
+    "US": "Approve PC sign-in",
+    "JP": "PC ログイン承認",
+    "CH": "批准电脑登录",
+    "TH": "อนุมัติเข้าสู่ระบบ PC"
+  },
+  "auth.qrApproveHint": {
+    "KR": "이 휴대폰에서 PC 로그인을 승인합니다.",
+    "US": "Approve signing in on the PC from this phone.",
+    "JP": "このスマホから PC ログインを承認します。",
+    "CH": "在此手机批准电脑端登录。",
+    "TH": "อนุมัติการเข้าสู่ระบบบน PC จากมือถือนี้"
+  },
+  "auth.qrApproveBtn": {
+    "KR": "PC 로그인 승인",
+    "US": "Approve PC sign-in",
+    "JP": "PC ログインを承認",
+    "CH": "批准电脑登录",
+    "TH": "อนุมัติเข้าสู่ระบบ PC"
+  },
+  "auth.qrApproveDone": {
+    "KR": "승인되었습니다. PC 화면을 확인해 주세요.",
+    "US": "Approved. Check the PC screen.",
+    "JP": "承認しました。PC 画面を確認してください。",
+    "CH": "已批准，请查看电脑屏幕。",
+    "TH": "อนุมัติแล้ว ดูที่หน้าจอ PC"
+  },
+  "auth.qrApproveNeedLogin": {
+    "KR": "승인하려면 먼저 이 휴대폰에서 로그인하세요.",
+    "US": "Sign in on this phone first to approve.",
+    "JP": "承認するには、先にこのスマホでログインしてください。",
+    "CH": "请先在此手机登录后再批准。",
+    "TH": "ต้องเข้าสู่ระบบบนมือถือนี้ก่อนจึงจะอนุมัติได้"
+  },
+  "auth.qrApproveFailed": {
+    "KR": "승인에 실패했습니다.",
+    "US": "Approval failed.",
+    "JP": "承認に失敗しました。",
+    "CH": "批准失败。",
+    "TH": "อนุมัติล้มเหลว"
+  },
+  "account.bioTitle": {
+    "KR": "생체 로그인 (개인)",
+    "US": "Biometric sign-in (individual)",
+    "JP": "生体ログイン（個人）",
+    "CH": "生物识别登录（个人）",
+    "TH": "เข้าสู่ระบบด้วยไบโอ (บุคคล)"
+  },
+  "account.bioHint": {
+    "KR": "OTP는 필수 백업입니다. Face ID/지문을 등록하면 로그인 시 생체 인증이 우선 적용됩니다.",
+    "US": "OTP remains the required backup. After registering Face ID/fingerprint, biometrics are tried first at login.",
+    "JP": "OTP は必須のバックアップです。Face ID/指紋を登録すると、ログイン時に生体認証が優先されます。",
+    "CH": "OTP 为必留备份。注册 Face ID/指纹后，登录时优先生物识别。",
+    "TH": "OTP เป็นสำรองที่จำเป็น หลังลงทะเบียน Face ID/ลายนิ้วมือ จะลองไบโอก่อนตอนเข้าสู่ระบบ"
+  },
+  "account.bioRegister": {
+    "KR": "이 기기에서 생체 등록",
+    "US": "Register biometrics on this device",
+    "JP": "この端末で生体登録",
+    "CH": "在此设备注册生物识别",
+    "TH": "ลงทะเบียนไบโอบนอุปกรณ์นี้"
+  },
+  "account.bioRegistering": {
+    "KR": "등록 중…",
+    "US": "Registering…",
+    "JP": "登録中…",
+    "CH": "注册中…",
+    "TH": "กำลังลงทะเบียน…"
+  },
+  "account.bioRegistered": {
+    "KR": "생체 인증이 등록되었습니다.",
+    "US": "Biometrics registered.",
+    "JP": "生体認証を登録しました。",
+    "CH": "已注册生物识别。",
+    "TH": "ลงทะเบียนไบโอแล้ว"
+  },
+  "account.bioRegisterDone": {
+    "KR": "이 기기에서 생체 등록 완료",
+    "US": "Biometrics registered on this device",
+    "JP": "この端末で生体登録済み",
+    "CH": "此设备已完成生物识别注册",
+    "TH": "ลงทะเบียนไบโอบนอุปกรณ์นี้แล้ว"
+  },
+  "account.bioLimitOne": {
+    "KR": "생체 인증은 계정당 1개만 등록할 수 있습니다. 기기 변경 시 OTP로 삭제한 뒤 다시 등록하세요.",
+    "US": "Only one biometric can be registered per account. To change devices, delete it with OTP and register again.",
+    "JP": "生体認証はアカウントあたり1件のみです。端末変更時は OTP で削除してから再登録してください。",
+    "CH": "每个账户仅可注册 1 个生物识别。更换设备时请用 OTP 删除后再注册。",
+    "TH": "ไบโอได้บัญชีละ 1 รายการเท่านั้น เปลี่ยนเครื่องให้ลบด้วย OTP แล้วลงทะเบียนใหม่"
+  },
+  "account.bioDeleteOtpHint": {
+    "KR": "삭제를 위해 Google OTP 6자리를 입력하세요.",
+    "US": "Enter your 6-digit Google OTP to delete.",
+    "JP": "削除するには Google OTP 6桁を入力してください。",
+    "CH": "请输入 6 位 Google OTP 以删除。",
+    "TH": "กรอก Google OTP 6 หลักเพื่อลบ"
+  },
+  "account.bioDeleteConfirmOtp": {
+    "KR": "OTP 확인 후 삭제",
+    "US": "Confirm OTP & delete",
+    "JP": "OTP 確認して削除",
+    "CH": "验证 OTP 并删除",
+    "TH": "ยืนยัน OTP แล้วลบ"
+  },
+  "account.bioDeleted": {
+    "KR": "생체 등록을 삭제했습니다. 필요하면 다시 등록할 수 있습니다.",
+    "US": "Biometric removed. You can register again if needed.",
+    "JP": "生体登録を削除しました。必要なら再登録できます。",
+    "CH": "已删除生物识别。需要时可重新注册。",
+    "TH": "ลบไบโอแล้ว สามารถลงทะเบียนใหม่ได้หากต้องการ"
+  },
+  "account.bioNone": {
+    "KR": "등록된 기기가 없습니다.",
+    "US": "No devices registered.",
+    "JP": "登録済み端末はありません。",
+    "CH": "暂无已注册设备。",
+    "TH": "ยังไม่มีอุปกรณ์ที่ลงทะเบียน"
+  },
+  "account.bioDelete": {
+    "KR": "삭제",
+    "US": "Remove",
+    "JP": "削除",
+    "CH": "删除",
+    "TH": "ลบ"
+  },
+  "account.bioDeleteConfirm": {
+    "KR": "이 기기의 생체 로그인을 삭제할까요?",
+    "US": "Remove biometric sign-in for this device?",
+    "JP": "この端末の生体ログインを削除しますか？",
+    "CH": "删除此设备的生物识别登录？",
+    "TH": "ลบไบโอเข้าสู่ระบบของอุปกรณ์นี้?"
+  },
+  "account.bioNotEligible": {
+    "KR": "생체 로그인은 개인 고객만 사용할 수 있습니다.",
+    "US": "Biometric sign-in is for individual customers only.",
+    "JP": "生体ログインは個人顧客のみ利用できます。",
+    "CH": "生物识别登录仅限个人客户。",
+    "TH": "ไบโอเข้าสู่ระบบใช้ได้เฉพาะลูกค้าบุคคล"
+  },
+  "account.bioFailed": {
+    "KR": "생체 등록에 실패했습니다.",
+    "US": "Biometric registration failed.",
+    "JP": "生体登録に失敗しました。",
+    "CH": "生物识别注册失败。",
+    "TH": "ลงทะเบียนไบโอล้มเหลว"
+  }
+}

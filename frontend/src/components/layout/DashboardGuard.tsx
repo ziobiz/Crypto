@@ -9,6 +9,18 @@ import { PageFrame } from '@/components/layout/PageFrame';
 import { DashboardErrorBoundary } from '@/components/DashboardErrorBoundary';
 import { WorkflowDisplayProvider } from '@/context/WorkflowDisplayProvider';
 import { pendingIcopayReturnPath } from '@/lib/icopay-return';
+import { BioHintBanner } from '@/components/auth/BioHintBanner';
+import { getToken } from '@/lib/api';
+import {
+  getAdminWebOrigin,
+  getMemberWebOrigin,
+  isAdminWebHost,
+  isMemberWebHost,
+  isMerchantRole,
+  isOrgStaffRole,
+  redirectWithAuthHandoff,
+  shouldEnforceHostSplit,
+} from '@/lib/site-host';
 
 export function DashboardGuard({ children }: { children: React.ReactNode }) {
   const { user, loading, refresh } = useAuth();
@@ -16,6 +28,7 @@ export function DashboardGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const t = useT();
   const retried = useRef(false);
+  const hostRedirected = useRef(false);
 
   useEffect(() => {
     if (loading) return;
@@ -30,6 +43,23 @@ export function DashboardGuard({ children }: { children: React.ReactNode }) {
     }
     router.replace('/login');
   }, [user, loading, router, refresh]);
+
+  /** admin.tinpass.com ↔ tinpass.com 역할 호스트 분리 */
+  useEffect(() => {
+    if (loading || !user || hostRedirected.current) return;
+    if (!shouldEnforceHostSplit()) return;
+    const token = getToken();
+    if (!token) return;
+    if (isAdminWebHost() && isMerchantRole(user.role)) {
+      hostRedirected.current = true;
+      redirectWithAuthHandoff(getMemberWebOrigin(), token, pathname || '/dashboard');
+      return;
+    }
+    if (isMemberWebHost() && isOrgStaffRole(user.role)) {
+      hostRedirected.current = true;
+      redirectWithAuthHandoff(getAdminWebOrigin(), token, pathname || '/dashboard');
+    }
+  }, [loading, user, pathname]);
 
   /** ICOPAY 결제 후 대시보드·목록 등 임의 복귀 → 결제 결과 페이지로 강제 이동 */
   useEffect(() => {
@@ -55,7 +85,10 @@ export function DashboardGuard({ children }: { children: React.ReactNode }) {
       <DashboardErrorBoundary label="shell">
         <AppShell>
           <DashboardErrorBoundary label="page">
-            <PageFrame>{children}</PageFrame>
+            <PageFrame>
+              <BioHintBanner />
+              {children}
+            </PageFrame>
           </DashboardErrorBoundary>
         </AppShell>
       </DashboardErrorBoundary>

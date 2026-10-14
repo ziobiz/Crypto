@@ -254,6 +254,21 @@ router.put(
 );
 
 router.put(
+  '/commission/paid-membership-express-quotas',
+  asyncHandler(async (req, res) => {
+    const body = req.body as {
+      quotas?: import('../constants/hq-policy').PaidMembershipExpressQuotasPolicy;
+    };
+    if (!body.quotas) {
+      res.status(400).json({ error: 'quotas required' });
+      return;
+    }
+    const audit = auditFromRequest(req.user!, req);
+    res.json(await hqPolicyService.savePaidMembershipExpressQuotas(audit, body.quotas));
+  }),
+);
+
+router.put(
   '/commission/simulator/risk',
   asyncHandler(async (req, res) => {
     const body = req.body as { risk?: HqCommissionRiskConfig };

@@ -1,0 +1,29 @@
+{
+  "name": "@tinpass/customer-auth-2fa",
+  "version": "1.2.0",
+  "private": true,
+  "description": "Individual customer WebAuthn biometric + OTP fallback + PC QR login kit",
+  "license": "UNLICENSED",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./webauthn": "./src/webauthn.ts",
+    "./login-qr": "./src/login-qr.ts",
+    "./adapters": "./src/adapters.ts",
+    "./types": "./src/types.ts",
+    "./frontend/api": "./frontend/api-client.ts",
+    "./frontend/types": "./frontend/types.ts"
+  },
+  "peerDependencies": {
+    "@simplewebauthn/server": "^13.0.0",
+    "@simplewebauthn/browser": "^13.0.0"
+  },
+  "keywords": [
+    "webauthn",
+    "passkey",
+    "biometric",
+    "otp",
+    "qr-login",
+    "tinpass"
+  ]
+}

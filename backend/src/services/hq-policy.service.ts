@@ -352,6 +352,13 @@ function normalizePlatformConfig(raw: Partial<HqPlatformConfig>): HqPlatformConf
     depositReceivingAccounts: normalizeDepositReceivingAccounts(merged.depositReceivingAccounts),
     baseTimezone: normalizeIanaTimezone(merged.baseTimezone, 'Asia/Seoul'),
     serviceTimezone: normalizeIanaTimezone(merged.serviceTimezone, 'Asia/Seoul'),
+    corsOrigins: (() => {
+      const list = Array.isArray(merged.corsOrigins) ? [...merged.corsOrigins] : [...base.corsOrigins];
+      for (const origin of base.corsOrigins) {
+        if (!list.includes(origin)) list.push(origin);
+      }
+      return list;
+    })(),
   };
 }
 
@@ -421,6 +428,7 @@ function defaultPlatform(): HqPlatformConfig {
       'https://api.tinpass.com',
       'https://tinpass.com',
       'https://www.tinpass.com',
+      'https://admin.tinpass.com',
     ],
     sslCertPath: '/etc/letsencrypt/live/api.tinpass.com/fullchain.pem',
     redirectRootToPrimary: false,
@@ -738,6 +746,9 @@ export const hqPolicyService = {
       paidMembershipLimits: await (
         await import('./paid-membership.service')
       ).getPaidMembershipLimits(),
+      paidMembershipExpressQuotas: await (
+        await import('./paid-membership.service')
+      ).getPaidMembershipExpressQuotas(),
       settlementAsset,
     };
   },
@@ -770,6 +781,24 @@ export const hqPolicyService = {
       description: '유료회원 한도',
       entityType: 'HQ_PAID_MEMBERSHIP_LIMITS',
       summary: '유료회원 한도 저장',
+    });
+    return this.getCommissionPayload();
+  },
+
+  async savePaidMembershipExpressQuotas(
+    audit: AuditContext,
+    policy: import('../constants/hq-policy').PaidMembershipExpressQuotasPolicy,
+  ) {
+    const { normalizePaidMembershipExpressQuotasPolicy } = await import(
+      './paid-membership.service'
+    );
+    const normalized = normalizePaidMembershipExpressQuotasPolicy(policy);
+    await putConfigWithAudit(audit, {
+      key: HQ_CONFIG_KEYS.paidMembershipExpressQuotas,
+      value: normalized,
+      description: '유료회원 EXPRESS 기간 무료 횟수',
+      entityType: 'HQ_PAID_MEMBERSHIP_EXPRESS_QUOTAS',
+      summary: '유료회원 EXPRESS 쿼터 저장',
     });
     return this.getCommissionPayload();
   },

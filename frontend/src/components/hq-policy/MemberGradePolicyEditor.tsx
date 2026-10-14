@@ -114,29 +114,49 @@ export function MemberGradePolicyEditor({ value, onChange }: MemberGradePolicyEd
             <div className="pg-card pg-table-wrap overflow-x-auto">
               <table className="pg-table text-xs">
                 <thead>
+                  {/* 1행: 청구 수수료율 | 회원 할인율 */}
                   <tr>
                     <th
-                      rowSpan={2}
-                      className="sticky left-0 z-10 bg-[var(--pg-surface,white)] whitespace-nowrap"
+                      rowSpan={3}
+                      className="sticky left-0 z-10 bg-[var(--pg-surface,white)] whitespace-nowrap align-middle"
                     >
                       {t('memberGrade.customer.title')}
                     </th>
+                    <th
+                      colSpan={EXPRESS_TIERS.length * 2}
+                      className="whitespace-nowrap text-center bg-slate-100"
+                    >
+                      {t('memberGrade.hq.groupCharge')}
+                    </th>
+                    <th colSpan={2} className="whitespace-nowrap text-center bg-sky-50">
+                      {t('memberGrade.hq.groupDiscount')}
+                    </th>
+                  </tr>
+                  {/* 2행: ULTRA~BASIC | 할인% · 할인 크립토 */}
+                  <tr>
                     {EXPRESS_TIERS.map((tier) => (
-                      <th key={tier} colSpan={2} className="whitespace-nowrap font-mono text-center">
+                      <th
+                        key={tier}
+                        colSpan={2}
+                        className="whitespace-nowrap font-mono text-center"
+                      >
                         {tier}
                       </th>
                     ))}
-                    <th rowSpan={2} className="whitespace-nowrap">
+                    <th rowSpan={2} className="whitespace-nowrap align-middle bg-sky-50/80">
                       {t('memberGrade.discountPercent')}
                     </th>
-                    <th rowSpan={2} className="whitespace-nowrap">
+                    <th rowSpan={2} className="whitespace-nowrap align-middle bg-sky-50/80">
                       {t('memberGrade.discountUsdt')}
                     </th>
                   </tr>
+                  {/* 3행: 티어별 크립토 / % */}
                   <tr>
                     {EXPRESS_TIERS.map((tier) => (
                       <Fragment key={`${type}-${tier}-sub`}>
-                        <th className="whitespace-nowrap font-normal">{t('hq.commission.unitCrypto')}</th>
+                        <th className="whitespace-nowrap font-normal">
+                          {t('hq.commission.unitCrypto')}
+                        </th>
                         <th className="whitespace-nowrap font-normal">%</th>
                       </Fragment>
                     ))}

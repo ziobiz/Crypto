@@ -91,6 +91,7 @@ export type ExpressCustomerProfile = {
   expressFeeConfig?: unknown;
   memberGrade?: string | null;
   paidMemberUntil?: Date | string | null;
+  expressQuotaRemaining?: unknown;
 };
 
 /** 고객 유효 EXPRESS 정책 (FOLLOW_HQ / CUSTOM / DISABLED) */
@@ -176,6 +177,9 @@ export type ResolvedExpressSelectionWithGrade = ResolvedExpressSelection & {
   memberGrade: MemberGrade;
   memberGradeBenefit: MemberGradeExpressBenefit;
   rates: ResolvedExpressRates;
+  /** 유료 잔여 쿼터로 이번 티어 EXPRESS 수수료 0 */
+  expressQuotaFree: boolean;
+  expressQuotaRemainingForTier: number;
 };
 
 export async function resolveExpressSelectionForCustomer(
@@ -184,7 +188,12 @@ export async function resolveExpressSelectionForCustomer(
 ): Promise<ResolvedExpressSelectionWithGrade | null> {
   const resolved = await resolveExpressPolicyForCustomer(profile);
   const gradePolicy = await getHqMemberGradePolicy();
-  const { isPaidMembershipActive } = await import('./paid-membership.service');
+  const {
+    isPaidMembershipActive,
+    isExpressQuotaFree,
+    remainingQuotaForTier,
+    parseQuotaJson,
+  } = await import('./paid-membership.service');
   /** 유료 기간 활성일 때만 회원등급 EXPRESS 혜택 — 아니면 STANDARD */
   const paidActive = isPaidMembershipActive({
     memberGrade: profile?.memberGrade,
@@ -205,25 +214,46 @@ export async function resolveExpressSelectionForCustomer(
     options.find((o) => o.tier === 'BASIC') ||
     options[options.length - 1]!;
 
-  const rates: ResolvedExpressRates = {
-    feeUsdt: picked.feeUsdt,
-    feePercent: picked.feePercent,
-  };
+  const quotaRemaining = parseQuotaJson(profile?.expressQuotaRemaining);
+  const quotaLeft = remainingQuotaForTier(quotaRemaining, picked.tier);
+  const quotaFree = isExpressQuotaFree({
+    memberGrade: profile?.memberGrade,
+    paidMemberUntil: profile?.paidMemberUntil,
+    expressQuotaRemaining: profile?.expressQuotaRemaining,
+    tier: picked.tier,
+  });
+
+  /** 쿼터 무료면 표시·청구 요율 0 (할인은 소진 후에만) */
+  const rates: ResolvedExpressRates = quotaFree
+    ? { feeUsdt: 0, feePercent: 0 }
+    : { feeUsdt: picked.feeUsdt, feePercent: picked.feePercent };
+
+  const optionsWithQuota = options.map((o) => {
+    const free = isExpressQuotaFree({
+      memberGrade: profile?.memberGrade,
+      paidMemberUntil: profile?.paidMemberUntil,
+      expressQuotaRemaining: profile?.expressQuotaRemaining,
+      tier: o.tier,
+    });
+    return free ? { ...o, feeUsdt: 0, feePercent: 0 } : o;
+  });
 
   return {
     enabled: true,
     tier: picked.tier,
-    feeUsdt: picked.feeUsdt,
-    feePercent: picked.feePercent,
+    feeUsdt: rates.feeUsdt,
+    feePercent: rates.feePercent,
     maxHours: picked.maxHours,
     calendarDays: picked.calendarDays,
     source: resolved.source,
     customerType: resolved.customerType,
-    options,
+    options: optionsWithQuota,
     policySnapshot: resolved.policy,
     memberGrade: grade,
     memberGradeBenefit: benefit,
     rates,
+    expressQuotaFree: quotaFree,
+    expressQuotaRemainingForTier: quotaLeft,
   };
 }
 

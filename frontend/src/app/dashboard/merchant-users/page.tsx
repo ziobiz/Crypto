@@ -27,13 +27,18 @@ type OperatorRow = {
 export default function MerchantUsersPage() {
   const { user } = useAuth();
   const t = useT();
-  const isAdmin = user?.role === 'CUSTOMER' && user.operatorsEnabled === true;
+  const isIndividual =
+    String(user?.customerProfile?.customerType || '').toUpperCase() === 'INDIVIDUAL';
+  const isAdmin =
+    user?.role === 'CUSTOMER' && user.operatorsEnabled === true && !isIndividual;
 
   if (!isAdmin) {
     return (
       <div className="pg-stack">
         <h1 className="pg-page-title">{t('merchantUsers.title')}</h1>
-        <p className="pg-error">{t('merchantUsers.adminOnly')}</p>
+        <p className="pg-error">
+          {isIndividual ? t('customers.operators.individualForbidden') : t('merchantUsers.adminOnly')}
+        </p>
       </div>
     );
   }
@@ -107,6 +112,38 @@ function MerchantUsersPanel() {
         active ? api.merchant.deactivateOperator(id) : api.merchant.activateOperator(id),
       );
       if (result.cancelled) return;
+      load();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : t('common.saveFailed'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function resetOperatorPassword(id: string) {
+    setSaving(true);
+    setError('');
+    setMsg('');
+    try {
+      const result = await runWithOtp(() => api.merchant.resetOperatorPassword(id));
+      if (result.cancelled) return;
+      setMsg(t('merchantUsers.resetPasswordDone'));
+      load();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : t('common.saveFailed'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function resetOperatorOtp(id: string) {
+    setSaving(true);
+    setError('');
+    setMsg('');
+    try {
+      const result = await runWithOtp(() => api.merchant.resetOperatorOtp(id));
+      if (result.cancelled) return;
+      setMsg(t('merchantUsers.resetOtpDone'));
       load();
     } catch (e) {
       setError(e instanceof ApiError ? e.message : t('common.saveFailed'));
@@ -257,6 +294,22 @@ function MerchantUsersPanel() {
                       onClick={() => toggle(op.id, op.isActive)}
                     >
                       {op.isActive ? t('merchantUsers.deactivate') : t('merchantUsers.activate')}
+                    </button>
+                    <button
+                      type="button"
+                      className="pg-btn pg-btn-secondary text-[11px]"
+                      disabled={saving}
+                      onClick={() => void resetOperatorPassword(op.id)}
+                    >
+                      {t('merchantUsers.resetPassword')}
+                    </button>
+                    <button
+                      type="button"
+                      className="pg-btn pg-btn-secondary text-[11px]"
+                      disabled={saving}
+                      onClick={() => void resetOperatorOtp(op.id)}
+                    >
+                      {t('merchantUsers.resetOtp')}
                     </button>
                   </td>
                 </tr>

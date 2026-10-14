@@ -1,0 +1,68 @@
+/**
+ * One-time soft banner for individual customers without WebAuthn credentials.
+ * Host: render inside dashboard shell after login.
+ *
+ * Dismiss key: localStorage `tinpass_bio_hint_dismissed:{userId}`
+ * (rename prefix per product). Shown once; never nagging modals.
+ *
+ * Copy this file into the host app and wire useAuth / useT / api.
+ */
+
+/*
+'use client';
+
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+
+const storageKey = (userId: string) => `tinpass_bio_hint_dismissed:${userId}`;
+
+export function BioHintBanner(props: {
+  user: { id: string; role: string; customerType?: string | null } | null;
+  t: (key: string) => string;
+  fetchCredentials: () => Promise<{ eligible: boolean; credentials: unknown[] }>;
+  accountHref?: string;
+}) {
+  const { user, t, fetchCredentials, accountHref = '/dashboard/account' } = props;
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const roleOk = user.role === 'CUSTOMER' || user.role === 'CUSTOMER_OPERATOR';
+    if (!roleOk || String(user.customerType || '').toUpperCase() !== 'INDIVIDUAL') return;
+    if (localStorage.getItem(storageKey(user.id))) return;
+    let cancelled = false;
+    void fetchCredentials()
+      .then((res) => {
+        if (!cancelled && res.eligible && res.credentials.length === 0) setVisible(true);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [user, fetchCredentials]);
+
+  if (!visible || !user) return null;
+
+  const dismiss = () => {
+    localStorage.setItem(storageKey(user.id), new Date().toISOString());
+    setVisible(false);
+  };
+
+  return (
+    <div role="status" className="bio-hint-banner">
+      <div>
+        <p>{t('auth.bioHintBannerTitle')}</p>
+        <p>{t('auth.bioHintBannerBody')}</p>
+      </div>
+      <div>
+        <Link href={accountHref} onClick={dismiss}>
+          {t('auth.bioHintBannerCta')}
+        </Link>
+        <button type="button" onClick={dismiss}>
+          {t('auth.bioHintBannerDismiss')}
+        </button>
+      </div>
+    </div>
+  );
+}
+*/

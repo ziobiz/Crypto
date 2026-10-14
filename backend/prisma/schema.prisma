@@ -349,6 +349,8 @@ model User {
   statusChanges   TicketStatusHistory[] @relation("StatusChangedBy")
   scheduleDelays  TicketScheduleDelay[] @relation("ScheduleDelayCreatedBy")
   otpChallenges   OtpLoginChallenge[]
+  webauthnCredentials WebAuthnCredential[]
+  loginQrTickets  LoginQrTicket[]
   adminChangeLogs AdminChangeLog[] @relation("AdminChangeLogs")
   platformReleaseLogs PlatformReleaseLog[] @relation("PlatformReleaseLogs")
   createdUsers    User[] @relation("UserCreatedBy")
@@ -485,6 +487,10 @@ model CustomerProfile {
   paidMemberUntil DateTime?
   /// SHOP_CARD | SHOP_CRYPTO | ADMIN | … — 최근 유료 부여 경로
   paidMemberSource String?
+  /// 유료 활성화 시 부여된 EXPRESS 티어별 무료 총 횟수 { ULTRA: n, … }
+  expressQuotaGranted Json?
+  /// 기간 내 잔여 무료 횟수 { ULTRA: n, … }. 소진 후는 회원 할인율만 적용
+  expressQuotaRemaining Json?
 
   /// 본사 허용 시에만 관리자 1 + 운영자 2 멀티계정 활성화
   operatorsEnabled Boolean @default(false)
@@ -875,6 +881,8 @@ model UsdtPurchaseDetail {
   /// 신청 시점 회원 등급 + 혜택 스냅샷
   memberGradeSnapshot      String?
   memberGradeBenefitSnapshot Json?
+  /// 이 건에서 유료 EXPRESS 무료 쿼터 1회를 차감했는지
+  expressQuotaUsed         Boolean @default(false)
   /// 완료 시 SLA 재계산
   expressActualTier        String?
   expressFeeSettledUsdt    Decimal? @db.Decimal(18, 8)
@@ -1266,6 +1274,55 @@ model OtpLoginChallenge {
 
   @@index([userId, expiresAt])
   @@map("otp_login_challenges")
+}
+
+/// 개인 고객 WebAuthn(플랫폼 바이오 / Passkey)
+model WebAuthnCredential {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialId String   @unique @map("credential_id")
+  publicKey    Bytes    @map("public_key")
+  counter      BigInt   @default(0)
+  deviceType   String?  @map("device_type")
+  backedUp     Boolean  @default(false) @map("backed_up")
+  transports   Json?
+  deviceLabel  String?  @map("device_label")
+  createdAt    DateTime @default(now())
+  lastUsedAt   DateTime? @map("last_used_at")
+
+  @@index([userId])
+  @@map("webauthn_credentials")
+}
+
+/// 단기 WebAuthn challenge (등록·로그인)
+model WebAuthnChallenge {
+  id        String   @id @default(cuid())
+  userId    String
+  purpose   String   // register | login
+  challenge String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId, purpose, expiresAt])
+  @@map("webauthn_challenges")
+}
+
+/// PC 로그인용 QR ticket (폰에서 승인)
+model LoginQrTicket {
+  id          String    @id @default(cuid())
+  /// 2FA 단계면 userId 고정. 익명 QR이면 승인 시 설정
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status      String    @default("PENDING") // PENDING | APPROVED | EXPIRED | CONSUMED
+  expiresAt   DateTime
+  approvedAt  DateTime?
+  consumedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([status, expiresAt])
+  @@index([userId])
+  @@map("login_qr_tickets")
 }
 
 /// PG — 회원가입·OTP 등록 시 이메일 인증 (가입 시 인증받은 이메일로 발송)

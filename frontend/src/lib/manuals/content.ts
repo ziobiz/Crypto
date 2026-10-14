@@ -40,13 +40,14 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <tr><td>운영관리</td><td>좌측 펼침: 고객관리 · 수수료관리 · 조직관리 · 사용자관리 · 기록관리. 본사정책 등 다른 펼침 메뉴로 이동하면 접힘</td></tr>
         <tr><td>멤버십관리</td><td>유료회원 상품·혜택·결제내역·취소/환불정책 (USDT 구매 결제와 분리)</td></tr>
         <tr><td>본사정책</td><td>좌측에서 한 번 누르면 펼침·다시 누르면 접힘(운영관리와 동시에 펼치지 않음). 하위: 접근·조직항목·수수료·플랫폼·운영·삭제·시뮬레이터·분석·메뉴얼</td></tr>
-        <tr><td>크립토 시뮬레이터</td><td>입금액/받을 크립토·네트워크·수수료 미리 계산 (본사정책 아래)</td></tr>
+        <tr><td>시뮬레이터</td><td>입금액/받을 크립토·네트워크·수수료 미리 계산 (본사정책 아래)</td></tr>
         <tr><td>기록 시뮬레이터</td><td>고객 시뮬레이터 사용 분석(위)과 목록(아래)</td></tr>
         <tr><td>거래분석</td><td>중계 입금·지갑 수령 크립토 수기 입력, 환율 자동, 수수료 역산</td></tr>
         <tr><td>수익분석</td><td>크립토 매입 건의 예상 크립토와 중계 크립토 비교</td></tr>
         <tr><td>이용메뉴얼</td><td>본 문서 및 조직·개인/기업 고객 메뉴얼</td></tr>
         </tbody></table>
-        <div class="info-box">총본사·본사·총판 등 조직은 <strong>조직 관리</strong>에서 만듭니다. 사용자 등록의 「신규 조직 등록」으로도 만들 수 있습니다.</div>`,
+        <div class="info-box">총본사·본사·총판 등 조직은 <strong>조직 관리</strong>에서 만듭니다. 사용자 등록의 「신규 조직 등록」으로도 만들 수 있습니다.</div>
+        <div class="info-box"><strong>로그인 URL 분리</strong> — 본사·조직 직원은 <strong>https://admin.tinpass.com/login</strong> 만 사용합니다. 가맹점(기업·개인)과 개인 신규가입은 <strong>https://tinpass.com/login</strong> 입니다. DNS에 <code>admin.tinpass.com</code> A레코드가 서버 IP를 가리켜야 합니다.</div>`,
         `<p>HQ (<strong>SUPER_ADMIN</strong>) can access every left-nav item and <strong>HQ Policy</strong>.</p>
         <table><thead><tr><th>Menu</th><th>Description</th></tr></thead><tbody>
         <tr><td>Dashboard</td><td>Rates, summary, quick actions</td></tr>
@@ -56,13 +57,14 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <tr><td>Operations</td><td>Left expand: Customers · Fee management · Organizations · Users · Records. Collapses when you open another expandable group (e.g. HQ Policy)</td></tr>
         <tr><td>Membership admin</td><td>Paid membership products, benefits, payments, cancel/refund (separate from USDT purchase payments)</td></tr>
         <tr><td>HQ Policy</td><td>Click once to expand, again to collapse (not open together with Operations). Children: access, columns, fees, platform, ops, deletion, simulators, analysis, manuals</td></tr>
-        <tr><td>Crypto simulator</td><td>Preview deposit / receive CRYPTO, network, fees (under HQ Policy)</td></tr>
+        <tr><td>Simulator</td><td>Preview deposit / receive CRYPTO, network, fees (under HQ Policy)</td></tr>
         <tr><td>Record simulator</td><td>Usage analysis on top, customer run list below</td></tr>
         <tr><td>Trade analysis</td><td>Manual broker deposit & received CRYPTO; auto rate; reverse fee</td></tr>
         <tr><td>Profit analysis</td><td>Compare expected CRYPTO vs broker CRYPTO per purchase ticket</td></tr>
         <tr><td>Manuals</td><td>This document & org guides + individual/corporate customer manuals</td></tr>
         </tbody></table>
-        <div class="info-box">Org staff and customers cannot open HQ Policy. Ask HQ when needed. Create orgs under <strong>Organizations</strong> (or “Register new org” on user create).</div>`,
+        <div class="info-box">Org staff and customers cannot open HQ Policy. Ask HQ when needed. Create orgs under <strong>Organizations</strong> (or “Register new org” on user create).</div>
+        <div class="info-box"><strong>Login URLs</strong> — HQ/org staff use <strong>https://admin.tinpass.com/login</strong> only. Merchants (corporate/individual) and new individual signup use <strong>https://tinpass.com/login</strong>. DNS A for <code>admin.tinpass.com</code> must point to the server IP.</div>`,
         `<p>総本社(<strong>SUPER_ADMIN</strong>)は左メニュー全項目と<strong>本社ポリシー</strong>にアクセスできます。</p>
         <table><thead><tr><th>メニュー</th><th>説明</th></tr></thead><tbody>
         <tr><td>ダッシュボード</td><td>相場・要約・クイック申請</td></tr>
@@ -74,13 +76,14 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <tr><td>顧客管理</td><td>利用会員・有効状態・認証パス/未認証・書類確認</td></tr>
         <tr><td>組織管理</td><td>本社・総販・支店・代理店・営業店の作成</td></tr>
         <tr><td>本社ポリシー</td><td>左メニューで1回押すと展開・再クリックで折りたたみ。下位: アクセス・組織項目・手数料・プラットフォーム・運営・削除・シミュレーター・分析・マニュアル</td></tr>
-        <tr><td>クリプトシミュレーター</td><td>入金額/受取クリプト・ネットワーク・手数料の試算(本社ポリシー下)</td></tr>
+        <tr><td>シミュレーター</td><td>入金額/受取クリプト・ネットワーク・手数料の試算(本社ポリシー下)</td></tr>
         <tr><td>記録シミュレーター</td><td>顧客シミュレーター利用分析(上)と一覧(下)</td></tr>
         <tr><td>取引分析</td><td>仲介入金・受取クリプト手入力、為替自動、手数料逆算</td></tr>
         <tr><td>収益分析</td><td>購入件の予想クリプトと仲介クリプトの比較</td></tr>
         <tr><td>利用マニュアル</td><td>本ドキュメントおよび組織・個人/法人顧客マニュアル</td></tr>
         </tbody></table>
-        <div class="info-box">組織は<strong>組織管理</strong>で作成します。ユーザー登録の「新規組織登録」でも作れます。組織スタッフ・顧客は本社ポリシーに入れません。</div>`,
+        <div class="info-box">組織は<strong>組織管理</strong>で作成します。ユーザー登録の「新規組織登録」でも作れます。組織スタッフ・顧客は本社ポリシーに入れません。</div>
+        <div class="info-box"><strong>ログインURL分離</strong> — 本社・組織スタッフは <strong>https://admin.tinpass.com/login</strong> のみ。加盟店(法人・個人)と個人新規登録は <strong>https://tinpass.com/login</strong>。<code>admin.tinpass.com</code> のDNS AをサーバーIPへ向けてください。</div>`,
         `<p>总部（<strong>SUPER_ADMIN</strong>）可访问全部左侧菜单与<strong>总部策略</strong>。</p>
         <table><thead><tr><th>菜单</th><th>说明</th></tr></thead><tbody>
         <tr><td>仪表盘</td><td>行情、摘要、快捷申请</td></tr>
@@ -92,13 +95,14 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <tr><td>客户管理</td><td>终端会员、启用状态、认证通过/未认证、文件核对</td></tr>
         <tr><td>组织管理</td><td>创建总部、总经销、分公司、代理、营业点</td></tr>
         <tr><td>总部策略</td><td>左侧点一次展开、再点收起。子项：访问、组织字段、手续费、平台、运营、删除、模拟器、分析、手册</td></tr>
-        <tr><td>加密货币模拟器</td><td>入金/到账加密货币、网络、手续费预览（在总部策略下）</td></tr>
+        <tr><td>模拟器</td><td>入金/到账加密货币、网络、手续费预览（在总部策略下）</td></tr>
         <tr><td>记录模拟器</td><td>客户模拟器使用分析（上）与列表（下）</td></tr>
         <tr><td>交易分析</td><td>手工录入中介入金与到账加密货币，自动汇率，反算手续费</td></tr>
         <tr><td>收益分析</td><td>比较采购单预计加密货币 与中介加密货币</td></tr>
         <tr><td>使用手册</td><td>本文档及组织·客户手册</td></tr>
         </tbody></table>
-        <div class="info-box">组织在<strong>组织管理</strong>中创建，也可在用户注册时「新组织登记」。组织员工与客户无法打开总部策略。</div>`,
+        <div class="info-box">组织在<strong>组织管理</strong>中创建，也可在用户注册时「新组织登记」。组织员工与客户无法打开总部策略。</div>
+        <div class="info-box"><strong>登录地址分离</strong> — 总部/组织员工仅用 <strong>https://admin.tinpass.com/login</strong>。商户（企业/个人）与个人新注册用 <strong>https://tinpass.com/login</strong>。请将 <code>admin.tinpass.com</code> 的 DNS A 指向服务器 IP。</div>`,
         `<p>สำนักงานใหญ่ (<strong>SUPER_ADMIN</strong>) เข้าเมนูซ้ายทั้งหมดและ <strong>HQ Policy</strong> ได้</p>
         <table><thead><tr><th>เมนู</th><th>คำอธิบาย</th></tr></thead><tbody>
         <tr><td>แดชบอร์ด</td><td>เรท สรุป การสมัครด่วน</td></tr>
@@ -110,13 +114,14 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <tr><td>จัดการลูกค้า</td><td>สมาชิกผู้ใช้ สถานะใช้งาน ผ่านการยืนยัน/ยังไม่ยืนยัน และเอกสาร</td></tr>
         <tr><td>จัดการองค์กร</td><td>สร้าง HQ ตัวแทนหลัก สาขา เอเย่นต์ สำนักงานขาย</td></tr>
         <tr><td>HQ Policy</td><td>คลิกครั้งหนึ่งในเมนูซ้ายเพื่อขยาย คลิกอีกครั้งเพื่อพับ เมนูย่อย: สิทธิ์ คอลัมน์ ค่าธรรมเนียม แพลตฟอร์ม การจัดการตรวจสอบ การลบ ตัวจำลอง วิเคราะห์ คู่มือ</td></tr>
-        <tr><td>ตัวจำลองคริปโต</td><td>คำนวณยอดฝาก/คริปโตที่รับ เครือข่าย ค่าธรรมเนียม (ใต้ HQ Policy)</td></tr>
+        <tr><td>ตัวจำลอง</td><td>คำนวณยอดฝาก/คริปโตที่รับ เครือข่าย ค่าธรรมเนียม (ใต้ HQ Policy)</td></tr>
         <tr><td>ตัวจำลองบันทึก</td><td>วิเคราะห์การใช้งาน (บน) และรายการ (ล่าง)</td></tr>
         <tr><td>วิเคราะห์ธุรกรรม</td><td>กรอกยอดตัวกลางและ คริปโตที่รับเอง เรทอัตโนมัติ ค่าธรรมเนียมย้อนกลับ</td></tr>
         <tr><td>วิเคราะห์กำไร</td><td>เทียบ คริปโตที่คาดกับ คริปโตตัวกลางต่อตั๋ว</td></tr>
         <tr><td>คู่มือใช้งาน</td><td>เอกสารนี้และคู่มือองค์กร/ลูกค้า</td></tr>
         </tbody></table>
-        <div class="info-box">สร้างองค์กรที่ <strong>จัดการองค์กร</strong> หรือตอนลงทะเบียนผู้ใช้ 「ลงทะเบียนองค์กรใหม่」 พนักงานองค์กรและลูกค้าเข้า HQ Policy ไม่ได้</div>`
+        <div class="info-box">สร้างองค์กรที่ <strong>จัดการองค์กร</strong> หรือตอนลงทะเบียนผู้ใช้ 「ลงทะเบียนองค์กรใหม่」 พนักงานองค์กรและลูกค้าเข้า HQ Policy ไม่ได้</div>
+        <div class="info-box"><strong>แยก URL เข้าสู่ระบบ</strong> — พนักงาน HQ/องค์กรใช้ <strong>https://admin.tinpass.com/login</strong> เท่านั้น ร้านค้า (นิติบุคคล/บุคคล) และสมัครบุคคลใหม่ใช้ <strong>https://tinpass.com/login</strong> ตั้ง DNS A ของ <code>admin.tinpass.com</code> ชี้ไป IP เซิร์ฟเวอร์</div>`
       ),
     },
     {
@@ -134,7 +139,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li>목록에 <strong>S RATE</strong>(청록=LIVE / 주황=SAND), <strong>시뮬레이터</strong>(활성/비활성), <strong>멀티</strong>(활성/비활성), <strong>수수료</strong>(활성/비활성) 열이 있습니다. 수수료는 멀티와 인증 사이이며, 상세의 수수료 노출과 같습니다.</li>
           <li><strong>수정</strong> — 이름·휴대폰·모집 영업점·시뮬레이터 사용·S RATE·활성 상태·(선택) 새 비밀번호. 행을 더블클릭해도 수정 창이 열립니다.</li>
           <li><strong>비밀번호 초기화</strong> · <strong>OTP 초기화</strong> — 사용자관리와 동일 규칙(아래 「비밀번호·OTP 초기화」).</li>
-          <li><strong>고객 상세 카드</strong> — 크립토 시뮬레이터(LIVE/SAND·활성/비활성), 멀티 사용자(활성/비활성), <strong>수수료 노출</strong>(활성/비활성)을 카드별로 저장합니다.</li>
+          <li><strong>고객 상세 카드</strong> — 시뮬레이터(LIVE/SAND·활성/비활성), 멀티 사용자(활성/비활성), <strong>수수료 노출</strong>(활성/비활성)을 카드별로 저장합니다.</li>
           <li><strong>멀티 사용자 허용</strong> — 상세에서 활성으로 켜야 가맹점 대표가 운영자(최대 2명)를 만들 수 있습니다. 비활성이면 기존 운영자는 중지되고 로그인할 수 없습니다. 개인·법인 동일합니다. 가맹점 메뉴 이름은 <strong>사용자관리</strong>입니다(본사 사용자관리와 다른 화면).</li>
           <li><strong>수수료 노출</strong> — 비활성(기본)이면 가맹점 「내 지갑」 수수료에 숫자가 없고 <strong>본사설정에따름</strong>만 보입니다. 활성이면 가스·플랫폼 수수료가 표시됩니다.</li>
           <li><strong>청구방식</strong> — 본사설정따름 / 통합 / 항목별 / 하이브리드. 크립토 상세 「수수료 내역」과 신청 도식이 이 값을 따릅니다.</li>
@@ -166,7 +171,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li>The list shows <strong>S RATE</strong> (teal = LIVE / orange = SAND), <strong>simulator</strong> (Active/Inactive), <strong>Multi</strong> (Active/Inactive), and <strong>Fees</strong> (Active/Inactive) between Multi and Verification. Fees matches the detail Fee display card.</li>
           <li><strong>Edit</strong> — name, phone, recruiting office, simulator, S RATE, active status, optional new password. Double-click a row to open edit.</li>
           <li><strong>Password reset</strong> · <strong>OTP reset</strong> — same rules as Users (see “Password & OTP reset” below).</li>
-          <li><strong>Customer detail cards</strong> — save Crypto simulator (LIVE/SAND and Active/Inactive), multi-user (Active/Inactive), and <strong>Fee display</strong> (Active/Inactive) separately.</li>
+          <li><strong>Customer detail cards</strong> — save Simulator (LIVE/SAND and Active/Inactive), multi-user (Active/Inactive), and <strong>Fee display</strong> (Active/Inactive) separately.</li>
           <li><strong>Allow multi-user</strong> — set Active on the detail card so the merchant admin can add operators (max 2). Inactive deactivates existing operators. Same for individual and corporate. The merchant menu is named <strong>Users</strong> (not the HQ Users screen).</li>
           <li><strong>Fee display</strong> — Inactive (default): merchant My wallets shows <strong>Follow HQ settings</strong> instead of fee amounts. Active: gas and platform fees are shown.</li>
           <li><strong>Billing method</strong> — Follow HQ / integrated / itemized / hybrid. crypto detail fee section and apply diagram follow this value.</li>
@@ -192,7 +197,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li>一覧に<strong>S RATE</strong>(ティール=LIVE / オレンジ=SAND)、<strong>シミュレーター</strong>(有効/無効)、<strong>マルチ</strong>(有効/無効)、<strong>手数料</strong>(有効/無効)があります。手数料はマルチと認証の間で、詳細の手数料表示と同じです。</li>
           <li><strong>修正</strong> — 名前・電話・募集営業店・シミュレーター・S RATE・有効状態・(任意)新パスワード。行ダブルクリックでも開きます。</li>
           <li><strong>パスワード初期化</strong> · <strong>OTP初期化</strong> — ユーザー管理と同じ(下記参照)。</li>
-          <li><strong>顧客詳細カード</strong> — クリプトシミュレーター(LIVE/SAND・有効/無効)、マルチユーザー(有効/無効)、<strong>手数料表示</strong>(有効/無効)をカードごとに保存します。</li>
+          <li><strong>顧客詳細カード</strong> — シミュレーター(LIVE/SAND・有効/無効)、マルチユーザー(有効/無効)、<strong>手数料表示</strong>(有効/無効)をカードごとに保存します。</li>
           <li><strong>マルチユーザー許可</strong> — 詳細で有効にすると加盟店代表が運営者(最大2名)を作れます。無効にすると既存運営者は停止されログイン不可。個人・法人とも同じ。加盟店メニュー名は<strong>ユーザー管理</strong>(総本社のユーザー管理とは別)。</li>
           <li><strong>手数料表示</strong> — 無効(既定)なら加盟店「マイウォレット」手数料は数字なしで<strong>本社設定に従う</strong>のみ。有効ならガス・プラットフォーム手数料を表示。</li>
           <li><strong>請求方式</strong> — 本社設定に従う / 統合 / 項目別 / ハイブリッド。クリプト詳細の手数料内訳と申請図がこの値に従います。</li>
@@ -216,7 +221,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li>列表含<strong>S RATE</strong>(青绿=LIVE / 橙=SAND)、<strong>模拟器</strong>(启用/停用)、<strong>多用户</strong>(启用/停用)、<strong>手续费</strong>(启用/停用，位于多用户与认证之间，与详情手续费显示相同)。</li>
           <li><strong>编辑</strong> — 姓名、手机、招募营业点、模拟器、S RATE、启用状态、(可选)新密码。双击行可打开编辑。</li>
           <li><strong>密码初始化</strong> · <strong>OTP 初始化</strong> — 与用户管理相同(见下文)。</li>
-          <li><strong>客户详情卡片</strong> — 分别保存 加密货币模拟器(LIVE/SAND 与启用/停用)、多用户(启用/停用)、<strong>手续费显示</strong>(启用/停用)。</li>
+          <li><strong>客户详情卡片</strong> — 分别保存 模拟器(LIVE/SAND 与启用/停用)、多用户(启用/停用)、<strong>手续费显示</strong>(启用/停用)。</li>
           <li><strong>允许多用户</strong> — 详情中设为启用后，加盟商代表才能添加操作员(最多 2 名)。停用后现有操作员无法登录。个人与法人相同。加盟商菜单名为<strong>用户管理</strong>（与总部用户管理不同）。</li>
           <li><strong>手续费显示</strong> — 停用(默认)时，商户「我的钱包」手续费不显示数字，只显示<strong>遵循总部设置</strong>。启用后显示 Gas 与平台手续费。</li>
           <li><strong>计费方式</strong> — 跟随总部 / 合并 / 分项 / 混合。加密货币详情手续费与申请图示遵循此值。</li>
@@ -240,7 +245,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li>รายการมี <strong>S RATE</strong> (เขียวน้ำทะเล=LIVE / ส้ม=SAND), <strong>ตัวจำลอง</strong> (เปิด/ปิด), <strong>หลายผู้ใช้</strong> (เปิด/ปิด) และ <strong>ค่าธรรมเนียม</strong> (เปิด/ปิด อยู่ระหว่างหลายผู้ใช้กับการยืนยัน ตามการ์ดแสดงค่าธรรมเนียม)</li>
           <li><strong>แก้ไข</strong> — ชื่อ โทรศัพท์ สำนักงานรับสมัคร ตัวจำลอง S RATE สถานะใช้งาน (ไม่บังคับ) รหัสใหม่ ดับเบิลคลิกแถวเพื่อแก้ไข</li>
           <li><strong>รีเซ็ตรหัสผ่าน</strong> · <strong>รีเซ็ต OTP</strong> — กฎเดียวกับจัดการผู้ใช้ (ดูด้านล่าง)</li>
-          <li><strong>การ์ดหน้ารายละเอียดลูกค้า</strong> — บันทึกตัวจำลองคริปโต (LIVE/SAND และเปิด/ปิด), หลายผู้ใช้ (เปิด/ปิด) และ<strong>แสดงค่าธรรมเนียม</strong> (เปิด/ปิด) คนละการ์ด</li>
+          <li><strong>การ์ดหน้ารายละเอียดลูกค้า</strong> — บันทึกตัวจำลอง (LIVE/SAND และเปิด/ปิด), หลายผู้ใช้ (เปิด/ปิด) และ<strong>แสดงค่าธรรมเนียม</strong> (เปิด/ปิด) คนละการ์ด</li>
           <li><strong>อนุญาตหลายผู้ใช้</strong> — เปิดในหน้ารายละเอียด ตัวแทนร้านจึงเพิ่มผู้ปฏิบัติงานได้สูงสุด 2 คน ถ้าปิด ผู้ปฏิบัติงานเดิมหยุดและเข้าสู่ระบบไม่ได้ บุคคลและนิติบุคคลเหมือนกัน เมนูร้านชื่อ<strong>จัดการผู้ใช้</strong> (ไม่ใช่หน้า Users ของ HQ)</li>
           <li><strong>แสดงค่าธรรมเนียม</strong> — ถ้าปิด (ค่าเริ่ม) กระเป๋าของฉันจะไม่โชว์ตัวเลข แสดงแค่<strong>ตามการตั้งค่า HQ</strong> ถ้าเปิดจะโชว์แก๊สและค่าธรรมเนียมแพลตฟอร์ม</li>
           <li><strong>วิธีเรียกเก็บ</strong> — ตาม HQ / รวม / แยกรายการ / ไฮบริด รายละเอียดค่าธรรมเนียมคริปโต และแผนภาพคำขอใช้ค่านี้</li>
@@ -274,7 +279,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li><strong>플랫폼 도메인·SSL</strong> — 브랜드(사이트 이름·브라우저 탭)·입금 수취 계좌(통화별 이체/카드)·도메인·이메일·SSL. 이메일·OTP 숫자 표에 <strong>민감작업 OTP 유지시간(분)</strong>(기본 10분, 1~60). 가맹점 사용자관리·내 지갑 등 민감작업에 적용됩니다. 6자리를 모두 넣고 맞으면 확인 버튼을 누르지 않아도 진행됩니다.</li>
           <li><strong>검증관리</strong> — 변경이력, 업데이트 내용/이력, 결제관리</li>
           <li><strong>삭제관리</strong> — 삭제 정책·처리</li>
-          <li><strong>크립토 시뮬레이터 / 기록 시뮬레이터</strong> — 본사정책 하위. 기록은 사용 분석이 목록 위</li>
+          <li><strong>시뮬레이터 / 기록 시뮬레이터</strong> — 본사정책 하위. 기록은 사용 분석이 목록 위</li>
           <li><strong>거래분석 / 수익분석</strong> — 총본사 관리자·Organizer만. 진입 시 Google OTP 6자리. 맞으면 확인 버튼을 누르지 않아도 진행됩니다. 유지시간은 플랫폼 「민감작업 OTP 유지시간」(기본 10분). Organizer는 지정 admin만 부여</li>
           <li><strong>이용메뉴얼</strong> — 본 문서</li>
         </ul>
@@ -289,7 +294,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li><strong>Platform</strong> — brand (site name, browser tab), deposit accounts (transfer/card per currency), domain, email, SSL. Email/OTP numeric table includes <strong>Sensitive action OTP duration (minutes)</strong> (default 10, range 1–60) for merchant Users, wallets, and similar. Six correct digits proceed without tapping Verify.</li>
           <li><strong>Verification Mgmt</strong> — change log, release notes/history, payment</li>
           <li><strong>Deletion</strong> — deletion policy and processing</li>
-          <li><strong>Crypto simulator / Record simulator</strong> — under HQ Policy. Analysis sits above the log list</li>
+          <li><strong>Simulator / Record simulator</strong> — under HQ Policy. Analysis sits above the log list</li>
           <li><strong>Trade analysis / Profit analysis</strong> — HQ admin and Organizer only. Enter Google OTP 6 digits on entry; correct codes proceed without Verify. Duration is Platform Sensitive action OTP (default 10 min). Only the designated HQ admin can assign Organizer</li>
           <li><strong>Manuals</strong> — this document</li>
         </ul>
@@ -304,7 +309,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li><strong>プラットフォーム ドメイン・SSL</strong> — ブランド(サイト名・タブ)・入金受取口座(通貨別振込/カード)・ドメイン・メール・SSL。メール・OTP数値表に<strong>機密操作OTP維持時間（分）</strong>(既定10分、1〜60)。加盟店ユーザー管理・マイウォレット等に適用。6桁が正しければ確認ボタンなしで進みます。</li>
           <li><strong>検証管理</strong> — 変更履歴、更新内容/履歴、決済管理</li>
           <li><strong>削除管理</strong> — 削除方針・処理</li>
-          <li><strong>クリプトシミュレーター / 記録シミュレーター</strong> — 本社ポリシー下。記録は利用分析が一覧の上</li>
+          <li><strong>シミュレーター / 記録シミュレーター</strong> — 本社ポリシー下。記録は利用分析が一覧の上</li>
           <li><strong>取引分析 / 収益分析</strong> — 総本社管理者・Organizerのみ。入場時Google OTP 6桁。正しければ確認ボタンなし。維持時間はプラットフォーム機密操作OTP（既定10分）。Organizerは指定adminのみ付与</li>
           <li><strong>利用マニュアル</strong> — 本文書</li>
         </ul>
@@ -319,7 +324,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li><strong>平台域名·SSL</strong> — 品牌（站点名·浏览器标签）、入金收款账户（按币种转账/卡）、域名、邮箱、SSL。邮箱·OTP 数字表含<strong>敏感操作 OTP 保持时间（分钟）</strong>（默认 10，1–60），用于加盟商用户管理、我的钱包等。输入正确 6 位后无需点确认即可继续。</li>
           <li><strong>验证管理</strong> — 变更历史、更新内容/历史、支付管理</li>
           <li><strong>删除管理</strong> — 删除策略与处理</li>
-          <li><strong>加密货币模拟器 / 记录模拟器</strong> — 在总部政策下；记录页分析在列表上方</li>
+          <li><strong>模拟器 / 记录模拟器</strong> — 在总部政策下；记录页分析在列表上方</li>
           <li><strong>交易分析 / 收益分析</strong> — 仅总部管理员与 Organizer。进入时输入 Google OTP 6 位，正确则无需点确认。保持时间见平台敏感操作 OTP（默认 10 分钟）。仅指定管理员可授予 Organizer</li>
           <li><strong>使用手册</strong> — 本文档</li>
         </ul>
@@ -334,7 +339,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li><strong>แพลตฟอร์ม โดเมน·SSL</strong> — แบรนด์ (ชื่อไซต์·แท็บ) บัญชีรับเงิน (โอน/บัตรตามสกุล) โดเมน อีเมล SSL ตารางตัวเลขอีเมล/OTP มี<strong>ระยะเวลา OTP งานสำคัญ (นาที)</strong> (ค่าเริ่ม 10, 1–60) สำหรับจัดการผู้ใช้และกระเป๋าของร้าน กรอก 6 หลักถูกต้องแล้วไม่ต้องกดยืนยัน</li>
           <li><strong>การจัดการตรวจสอบ</strong> — ประวัติการเปลี่ยนแปลง บันทึกอัปเดต การชำระเงิน</li>
           <li><strong>การลบ</strong> — นโยบายและการจัดการลบ</li>
-          <li><strong>ตัวจำลองคริปโต / ตัวจำลองบันทึก</strong> — ใต้ HQ Policy วิเคราะห์อยู่บนรายการ</li>
+          <li><strong>ตัวจำลอง / ตัวจำลองบันทึก</strong> — ใต้ HQ Policy วิเคราะห์อยู่บนรายการ</li>
           <li><strong>วิเคราะห์ธุรกรรม / วิเคราะห์กำไร</strong> — เฉพาะผู้ดูแล HQ และ Organizer กรอก Google OTP 6 หลักตอนเข้า ถูกละไม่ต้องกดยืนยัน ระยะเวลาตามแพลตฟอร์ม OTP งานสำคัญ (ค่าเริ่ม 10 นาที) มอบ Organizer ได้เฉพาะแอดมินที่กำหนด</li>
           <li><strong>คู่มือ</strong> — เอกสารนี้</li>
         </ul>
@@ -389,7 +394,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
       bodyHtml: L(
         `<span class="menu-path">본사정책 → 플랫폼 → 브랜드 카드</span>
         <ul>
-          <li>로그인 창은 고객·관리자 공통 하나이므로, LINE·WhatsApp 미리보기도 <strong>하나</strong>입니다.</li>
+          <li>회원 로그인(<code>tinpass.com</code>)과 관리자 로그인(<code>admin.tinpass.com</code>)이 분리되어 있습니다. LINE·WhatsApp 미리보기(OG)는 플랫폼 브랜드 설정을 공유합니다.</li>
           <li><strong>제목</strong> — 사이트 이름</li>
           <li><strong>설명</strong> — 배경 브랜드 문구 (같은 칸을 그대로 사용)</li>
           <li><strong>이미지</strong> — 링크 미리보기 이미지(없으면 첫화면 로고)</li>
@@ -398,7 +403,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <div class="info-box">브랜드 설정 저장 후 LINE은 캐시 때문에 재수집이 필요할 수 있습니다.</div>`,
         `<span class="menu-path">HQ Policy → Platform → Brand card</span>
         <ul>
-          <li>There is one shared login for customers and admins, so there is also <strong>one</strong> LINE/WhatsApp preview.</li>
+          <li>Member login (<code>tinpass.com</code>) and admin login (<code>admin.tinpass.com</code>) are separate. LINE/WhatsApp link preview (OG) still uses the shared platform brand settings.</li>
           <li><strong>Title</strong> — site name</li>
           <li><strong>Description</strong> — background brand text (same field)</li>
           <li><strong>Image</strong> — link preview image (falls back to landing logo)</li>
@@ -642,11 +647,11 @@ export const HQ_OPS_MANUAL: ManualDoc = {
     {
       id: 'hq-membership',
       title: L(
-        '멤버십관리 (유료회원)',
-        'Membership admin (paid plans)',
-        'メンバーシップ管理（有料会員）',
-        '会员管理（付费会员）',
-        'จัดการสมาชิกภาพ (สมาชิกเสียเงิน)',
+        '멤버십관리 (유료회원가입)',
+        'Membership admin (paid membership signup)',
+        'メンバーシップ管理（有料会員登録）',
+        '会员管理（付费会员注册）',
+        'จัดการสมาชิกภาพ (สมัครสมาชิกเสียเงิน)',
       ),
       bodyHtml: L(
         `<span class="menu-path">멤버십관리</span>
@@ -1111,9 +1116,9 @@ export const HQ_OPS_MANUAL: ManualDoc = {
     },
     {
       id: 'hq-sim',
-      title: L('크립토 시뮬레이터 · 기록', 'Crypto simulator · records', 'クリプトシミュレーター・記録', '加密货币模拟器·记录', 'ตัวจำลองคริปโต · บันทึก'),
+      title: L('시뮬레이터 · 기록', 'Simulator · records', 'シミュレーター・記録', '模拟器·记录', 'ตัวจำลอง · บันทึก'),
       bodyHtml: L(
-        `<span class="menu-path">본사정책 → 크립토 시뮬레이터 / 기록 시뮬레이터</span>
+        `<span class="menu-path">본사정책 → 시뮬레이터 / 기록 시뮬레이터</span>
         <p>총본사 메뉴는 본사정책 아래에 있습니다. 고객·조직은 업무 메뉴의 시뮬레이터를 씁니다.</p>
         <ul>
           <li>출금 <strong>네트워크를 반드시 선택</strong>한 뒤 입금액 또는 받을 크립토로 계산합니다.</li>
@@ -1132,7 +1137,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li><strong>Sandbox</strong> — LIVE 구간·가스에 Sandbox 추가 기본 수수료를 더합니다. 구간 표는 LIVE 미러(읽기 전용), 값은 <strong>합계 (LIVE)</strong>로 표시됩니다.</li>
         </ul>
         <div class="info-box">Sandbox 수수료 편집은 <span class="menu-path">수수료관리 → 시뮬레이터용 수수료</span>에서 합니다(「수수료 정책」 참고).</div>`,
-        `<span class="menu-path">HQ Policy → Crypto simulator / Record simulator</span>
+        `<span class="menu-path">HQ Policy → Simulator / Record simulator</span>
         <p>HQ menus sit under HQ Policy. Customers and orgs use the work-menu simulator.</p>
         <ul>
           <li>Choose a withdrawal <strong>network</strong>, then calculate from deposit or target CRYPTO.</li>
@@ -1151,7 +1156,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li><strong>Sandbox</strong> — LIVE tiers + gas plus Sandbox basic add-ons. Tier table mirrors LIVE (read-only); values show as <strong>combined (LIVE)</strong>.</li>
         </ul>
         <div class="info-box">Edit Sandbox fees under <span class="menu-path">Fees → Simulator fees</span> (see “Fee policy”).</div>`,
-        `<span class="menu-path">本社ポリシー → クリプトシミュレーター / 記録シミュレーター</span>
+        `<span class="menu-path">本社ポリシー → シミュレーター / 記録シミュレーター</span>
         <p>総本社メニューは本社ポリシー配下です。顧客・組織は業務メニューのシミュレーターを使います。</p>
         <ul>
           <li>出金<strong>ネットワークを必ず選択</strong>してから、入金額または受取クリプトで計算します。</li>
@@ -1170,7 +1175,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li><strong>Sandbox</strong> — LIVE段階・ガスにSandbox追加基本手数料を加算。段階表はLIVEミラー(読取専用)、値は<strong>合計 (LIVE)</strong>表示。</li>
         </ul>
         <div class="info-box">Sandbox手数料の編集は<span class="menu-path">手数料管理 → シミュレーター用手数料</span>です（「手数料ポリシー」参照）。</div>`,
-        `<span class="menu-path">总部策略 → 加密货币模拟器 / 记录模拟器</span>
+        `<span class="menu-path">总部策略 → 模拟器 / 记录模拟器</span>
         <p>总部菜单在总部策略下。客户与组织使用业务菜单中的模拟器。</p>
         <ul>
           <li>必须先选择提现<strong>网络</strong>，再按入金额或目标加密货币 计算。</li>
@@ -1189,7 +1194,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
           <li><strong>Sandbox</strong> — 在 LIVE 档位·燃气上叠加 Sandbox 附加基本手续费。档位表为 LIVE 镜像（只读），显示为<strong>合计 (LIVE)</strong>。</li>
         </ul>
         <div class="info-box">Sandbox 手续费在<span class="menu-path">手续费管理 → 模拟器用手续费</span>编辑（见「手续费政策」）。</div>`,
-        `<span class="menu-path">HQ Policy → ตัวจำลองคริปโต / ตัวจำลองบันทึก</span>
+        `<span class="menu-path">HQ Policy → ตัวจำลอง / ตัวจำลองบันทึก</span>
         <p>เมนู HQ อยู่ใต้ HQ Policy ลูกค้าและองค์กรใช้ตัวจำลองในเมนูงาน</p>
         <ul>
           <li>ต้องเลือก<strong>เครือข่าย</strong>ถอนก่อน แล้วคำนวณจากยอดฝากหรือคริปโตที่จะรับ</li>

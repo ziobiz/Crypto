@@ -308,6 +308,11 @@ export default function CustomerKycDetailPage() {
     try {
       const next = await api.users.update(profile.id, { customerType });
       setProfile(next);
+      if (customerType === 'INDIVIDUAL') {
+        setOperatorsEnabled(false);
+      } else {
+        setOperatorsEnabled(next.customerProfile?.operatorsEnabled === true);
+      }
       setMsg(t('customers.customerType.saved'));
     } catch (err) {
       setMsg(err instanceof Error ? err.message : t('users.saveFailed'));
@@ -1353,32 +1358,90 @@ export default function CustomerKycDetailPage() {
         <div className="pg-card">
           <div className="pg-card-head text-xs">{t('customers.operators.enable')}</div>
           <div className="pg-card-body space-y-2 text-xs">
-            <p className="text-[11px] leading-relaxed text-slate-500">{t('customers.operators.hint')}</p>
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="font-medium text-slate-800">{t('customers.col.multi')}</span>
-              <select
-                className="pg-select h-8 w-[7.5rem] shrink-0 px-2 py-1 text-xs"
-                disabled={loading || !canEditCustomer}
-                value={operatorsEnabled ? 'on' : 'off'}
-                onChange={(e) => setOperatorsEnabled(e.target.value === 'on')}
-                aria-label={t('customers.col.multi')}
-              >
-                <option value="on">{t('users.active')}</option>
-                <option value="off">{t('users.inactive')}</option>
-              </select>
-            </div>
-            {msg === t('customers.operators.saved') && (
-              <p className="text-green-700">{msg}</p>
-            )}
-            {canEditCustomer && (
-              <button
-                type="button"
-                disabled={loading || !opsDirty}
-                onClick={saveOperatorsSettings}
-                className="pg-btn pg-btn-primary text-xs disabled:opacity-50"
-              >
-                {loading ? t('common.saving') : t('customers.operators.save')}
-              </button>
+            {customerType === 'INDIVIDUAL' ? (
+              <>
+                <p className="text-[11px] leading-relaxed text-slate-500">
+                  {t('customers.operators.individualForbidden')}
+                </p>
+                {profile.customerProfile.operatorsEnabled === true && (
+                  <p className="text-[11px] leading-relaxed text-amber-700">
+                    {t('customers.operators.legacyDeactivateHint')}
+                  </p>
+                )}
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="font-medium text-slate-800">{t('customers.col.multi')}</span>
+                  <select
+                    className="pg-select h-8 w-[7.5rem] shrink-0 px-2 py-1 text-xs"
+                    disabled={loading || !canEditCustomer || !operatorsEnabled}
+                    value={operatorsEnabled ? 'on' : 'off'}
+                    onChange={(e) => setOperatorsEnabled(e.target.value === 'on')}
+                    aria-label={t('customers.col.multi')}
+                  >
+                    <option value="on">{t('users.active')}</option>
+                    <option value="off">{t('users.inactive')}</option>
+                  </select>
+                </div>
+                {canEditCustomer && operatorsEnabled && (
+                  <button
+                    type="button"
+                    disabled={loading || !opsDirty}
+                    onClick={() => {
+                      setOperatorsEnabled(false);
+                      void (async () => {
+                        setLoading(true);
+                        setMsg('');
+                        try {
+                          const next = await api.users.update(profile.id, {
+                            operatorsEnabled: false,
+                          });
+                          setProfile(next);
+                          setOperatorsEnabled(false);
+                          setMsg(t('customers.operators.saved'));
+                        } catch (err) {
+                          setMsg(err instanceof Error ? err.message : t('users.saveFailed'));
+                        } finally {
+                          setLoading(false);
+                        }
+                      })();
+                    }}
+                    className="pg-btn pg-btn-primary text-xs disabled:opacity-50"
+                  >
+                    {loading ? t('common.saving') : t('customers.operators.save')}
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="text-[11px] leading-relaxed text-slate-500">
+                  {t('customers.operators.hint')}
+                </p>
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="font-medium text-slate-800">{t('customers.col.multi')}</span>
+                  <select
+                    className="pg-select h-8 w-[7.5rem] shrink-0 px-2 py-1 text-xs"
+                    disabled={loading || !canEditCustomer}
+                    value={operatorsEnabled ? 'on' : 'off'}
+                    onChange={(e) => setOperatorsEnabled(e.target.value === 'on')}
+                    aria-label={t('customers.col.multi')}
+                  >
+                    <option value="on">{t('users.active')}</option>
+                    <option value="off">{t('users.inactive')}</option>
+                  </select>
+                </div>
+                {msg === t('customers.operators.saved') && (
+                  <p className="text-green-700">{msg}</p>
+                )}
+                {canEditCustomer && (
+                  <button
+                    type="button"
+                    disabled={loading || !opsDirty}
+                    onClick={saveOperatorsSettings}
+                    className="pg-btn pg-btn-primary text-xs disabled:opacity-50"
+                  >
+                    {loading ? t('common.saving') : t('customers.operators.save')}
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>

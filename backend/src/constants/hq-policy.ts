@@ -55,7 +55,7 @@ export const HQ_PAGE_CATALOG = [
   { path: '/dashboard/hq-policy/ops', label: '운영관리', group: 'hqPolicy' },
   { path: '/dashboard/hq-policy/ops/workflow', label: '진행상태·처리시한', group: 'hqPolicy' },
   { path: '/dashboard/hq-policy/deletion', label: '삭제관리', group: 'hqPolicy' },
-  { path: '/dashboard/simulator', label: 'USDT 시뮬레이터', group: 'hqPolicy' },
+  { path: '/dashboard/simulator', label: '시뮬레이터', group: 'hqPolicy' },
   { path: '/dashboard/simulator-logs', label: '기록 시뮬레이터', group: 'hqPolicy' },
   { path: '/dashboard/hq-policy/cost-analysis', label: '거래분석', group: 'hqPolicy' },
   { path: '/dashboard/hq-policy/profit-analysis', label: '수익분석', group: 'hqPolicy' },
@@ -131,6 +131,8 @@ export const HQ_CONFIG_KEYS = {
   paidMembershipProducts: 'hq.paid_membership.products',
   /** 유료회원 한도(유형×등급×결제수단×통화) — 유료 활성 시 최우선 */
   paidMembershipLimits: 'hq.paid_membership.limits',
+  /** 유료회원 EXPRESS 티어별 기간 총 무료 횟수 (유형×등급×티어) */
+  paidMembershipExpressQuotas: 'hq.paid_membership.express_quotas',
   /** 유료회원 취소·환불 정책 (기본 환불불가, 관리자 수동만 스위치) */
   paidMembershipRefundPolicy: 'hq.paid_membership.refund_policy',
   /** 본사 정산 자산 USDT | USDC */
@@ -189,6 +191,15 @@ export const PAID_MEMBER_GRADES = [
   'BLACK',
 ] as const;
 export type PaidMemberGrade = (typeof PAID_MEMBER_GRADES)[number];
+
+/** 유료 등급 순위 (업그레이드·1단계 다운 판정) */
+export const PAID_MEMBER_GRADE_RANK: Record<PaidMemberGrade, number> = {
+  PREMIUM: 1,
+  VIP: 2,
+  VVIP: 3,
+  PRESTIGE: 4,
+  BLACK: 5,
+};
 
 export type MembershipProductPayMeans = 'CARD' | 'CRYPTO' | 'BOTH';
 
@@ -1072,6 +1083,26 @@ export const EXPRESS_TIERS = [
   'BASIC',
 ] as const;
 export type ExpressTier = (typeof EXPRESS_TIERS)[number];
+
+/** 쿼터 대상 티어 (BASIC=0원이라 제외) */
+export const EXPRESS_QUOTA_TIERS = [
+  'ULTRA',
+  'PRIORITY',
+  'HALF',
+  'DAY',
+  'D1',
+  'D2',
+] as const satisfies readonly ExpressTier[];
+export type ExpressQuotaTier = (typeof EXPRESS_QUOTA_TIERS)[number];
+
+/** 티어별 기간 총 무료 EXPRESS 횟수 */
+export type ExpressQuotaByTier = Partial<Record<ExpressTier, number>>;
+
+/** HQ: 고객유형 × 유료등급 × 티어 무료 횟수 */
+export type PaidMembershipExpressQuotasPolicy = Record<
+  'INDIVIDUAL' | 'CORPORATE',
+  Record<PaidMemberGrade, ExpressQuotaByTier>
+>;
 
 export type ExpressFeeMode = 'FOLLOW_HQ' | 'CUSTOM' | 'DISABLED';
 

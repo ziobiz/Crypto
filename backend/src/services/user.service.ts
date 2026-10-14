@@ -708,7 +708,10 @@ export const userService = {
               expressFeeConfig:
                 data.expressFeeMode === 'CUSTOM' ? (data.expressFeeConfig as object) ?? undefined : undefined,
               memberGrade: data.memberGrade ?? 'STANDARD',
-              operatorsEnabled: data.operatorsEnabled === true,
+              // 개인은 운영자 불가. 법인은 본사 허용 시에만 ON
+              operatorsEnabled:
+                (data.customerType ?? CustomerType.INDIVIDUAL) === CustomerType.CORPORATE &&
+                data.operatorsEnabled === true,
               walletFeesVisible: data.walletFeesVisible === true,
             },
           },
@@ -987,6 +990,11 @@ export const userService = {
     }
     if (data.customerType !== undefined && existing.customerProfile) {
       customerProfileUpdate.customerType = data.customerType;
+      // 개인↔법인 전환: 바이오 credential은 유지(법인 기간 중지·개인 복귀 시 재활성).
+      // 개인이 되면 운영자 멀티유저 강제 OFF.
+      if (data.customerType === CustomerType.INDIVIDUAL) {
+        customerProfileUpdate.operatorsEnabled = false;
+      }
     }
     // feeShare 수정은 고객관리 > 수수료관리에서만 수행
     if (data.simulatorEnabled !== undefined && existing.customerProfile) {
@@ -1055,6 +1063,12 @@ export const userService = {
       customerProfileUpdate.memberGrade = data.memberGrade;
     }
     if (data.operatorsEnabled !== undefined && existing.customerProfile) {
+      const typeAfter =
+        data.customerType ?? existing.customerProfile.customerType;
+      if (data.operatorsEnabled === true && typeAfter !== CustomerType.CORPORATE) {
+        const { assertCorporateForOperators } = await import('../lib/individual-operator-policy');
+        assertCorporateForOperators(typeAfter);
+      }
       customerProfileUpdate.operatorsEnabled = data.operatorsEnabled;
     }
     if (data.walletFeesVisible !== undefined && existing.customerProfile) {
@@ -1171,11 +1185,15 @@ export const userService = {
       select: userSelect,
     });
 
-    if (data.operatorsEnabled === false && existing.customerProfile) {
-      await prisma.user.updateMany({
-        where: { merchantAdminUserId: id, role: UserRole.CUSTOMER_OPERATOR },
-        data: { isActive: false },
-      });
+    const typeBecameIndividual =
+      data.customerType === CustomerType.INDIVIDUAL &&
+      existing.customerProfile &&
+      existing.customerProfile.customerType !== CustomerType.INDIVIDUAL;
+    const operatorsTurnedOff =
+      data.operatorsEnabled === false && existing.customerProfile;
+    if (typeBecameIndividual || operatorsTurnedOff) {
+      const { deactivateMerchantOperators } = await import('../lib/individual-operator-policy');
+      await deactivateMerchantOperators(id);
     }
 
     if (statusChanging && statusReason) {

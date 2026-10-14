@@ -20,10 +20,13 @@ import {
 } from './card-payment-policy.service';
 import type { PaidMemberGrade } from '../constants/hq-policy';
 import {
+  assertMembershipRepurchaseGrade,
   findCatalogItem,
+  getPaidMembershipExpressQuotas,
   getPaidMembershipProducts,
   isPaidMemberGrade,
   listCatalogItems,
+  quotasForGrade,
 } from './paid-membership.service';
 import {
   quoteMembershipPrice,
@@ -105,6 +108,8 @@ export async function createMembershipPurchase(input: {
     select: {
       id: true,
       customerType: true,
+      memberGrade: true,
+      paidMemberUntil: true,
     },
   });
   if (!profile) {
@@ -126,6 +131,11 @@ export async function createMembershipPurchase(input: {
     throw new AppError(400, 'This membership is not for sale', 'PRODUCT_DISABLED');
   }
   const grade = product.grade;
+  assertMembershipRepurchaseGrade({
+    currentGrade: profile.memberGrade,
+    paidMemberUntil: profile.paidMemberUntil,
+    nextGrade: grade,
+  });
 
   const payMeans = input.payMeans === 'CRYPTO' ? 'CRYPTO' : 'CARD';
   const quote = await quoteMembershipPrice(product.price, product.currency);
@@ -280,7 +290,10 @@ export async function createMembershipPurchase(input: {
   };
 }
 
-/** 결제 성공 시 등급·유료 만료 연장 (잔여 기간 있으면 가산) */
+/**
+ * 결제 성공 시 등급·유료 기간·EXPRESS 쿼터 리셋.
+ * 구매 시점부터 periodDays (잔여 기간 가산 없음). 쿼터도 해당 등급 총량으로 재부여.
+ */
 export async function activatePaidMembershipFromOrder(orderId: string) {
   const order = await prisma.membershipOrder.findUnique({ where: { id: orderId } });
   if (!order) {
@@ -292,14 +305,24 @@ export async function activatePaidMembershipFromOrder(orderId: string) {
 
   const profile = await prisma.customerProfile.findUnique({
     where: { id: order.customerProfileId },
-    select: { paidMemberUntil: true },
+    select: { customerType: true, memberGrade: true, paidMemberUntil: true },
   });
+  if (profile) {
+    assertMembershipRepurchaseGrade({
+      currentGrade: profile.memberGrade,
+      paidMemberUntil: profile.paidMemberUntil,
+      nextGrade: order.grade,
+    });
+  }
+
   const now = Date.now();
-  const base =
-    profile?.paidMemberUntil && profile.paidMemberUntil.getTime() > now
-      ? profile.paidMemberUntil.getTime()
-      : now;
-  const until = new Date(base + order.periodDays * 24 * 60 * 60 * 1000);
+  const until = new Date(now + order.periodDays * 24 * 60 * 60 * 1000);
+  const quotaPolicy = await getPaidMembershipExpressQuotas();
+  const quotas = quotasForGrade(
+    quotaPolicy,
+    profile?.customerType ?? order.customerType,
+    order.grade,
+  );
 
   await prisma.$transaction([
     prisma.membershipOrder.update({
@@ -316,6 +339,8 @@ export async function activatePaidMembershipFromOrder(orderId: string) {
         paidMemberUntil: until,
         paidMemberSource:
           order.payMeans === MembershipPayMeans.CRYPTO ? 'SHOP_CRYPTO' : 'SHOP_CARD',
+        expressQuotaGranted: quotas as object,
+        expressQuotaRemaining: quotas as object,
       },
     }),
   ]);

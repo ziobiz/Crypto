@@ -2,11 +2,24 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { startRegistration } from '@simplewebauthn/browser';
 import { useAuth } from '@/context/AuthProvider';
 import { useT } from '@/context/LocaleProvider';
-import { api, ApiError, type CustomerAccountProfile } from '@/lib/api';
+import {
+  api,
+  ApiError,
+  type CustomerAccountProfile,
+  type WebAuthnCredentialRow,
+} from '@/lib/api';
 import { ContentCard } from '@/components/layout/ContentCard';
+import { OtpCodeInput } from '@/components/OtpCodeInput';
 import { displayWalletTitle } from '@/lib/wallet-label';
+import {
+  clearStoredDeviceCredentialId,
+  currentWebauthnDeviceLabel,
+  findThisDeviceCredential,
+  setStoredDeviceCredentialId,
+} from '@/lib/webauthn-device';
 
 export default function AccountPage() {
   const t = useT();
@@ -22,6 +35,30 @@ export default function AccountPage() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [bioEligible, setBioEligible] = useState(false);
+  const [bioCreds, setBioCreds] = useState<WebAuthnCredentialRow[]>([]);
+  const [bioBusy, setBioBusy] = useState(false);
+  const [thisDeviceRegistered, setThisDeviceRegistered] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [deleteOtp, setDeleteOtp] = useState('');
+
+  const syncThisDevice = (userId: string, credentials: WebAuthnCredentialRow[]) => {
+    const mine = findThisDeviceCredential(userId, credentials);
+    setThisDeviceRegistered(Boolean(mine));
+  };
+
+  const loadBio = async () => {
+    try {
+      const res = await api.webauthnCredentials();
+      setBioEligible(res.eligible);
+      setBioCreds(res.credentials);
+      if (user?.id) syncThisDevice(user.id, res.credentials);
+    } catch {
+      setBioEligible(false);
+      setBioCreds([]);
+      setThisDeviceRegistered(false);
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -30,9 +67,8 @@ export default function AccountPage() {
       return;
     }
     setLoading(true);
-    api.account
-      .get()
-      .then((p) => {
+    Promise.all([api.account.get(), loadBio()])
+      .then(([p]) => {
         setProfile(p);
         setNickname(p.name);
       })
@@ -60,6 +96,70 @@ export default function AccountPage() {
       setErr(e instanceof ApiError ? e.message : t('common.saveFailed'));
     } finally {
       setSavingName(false);
+    }
+  }
+
+  async function registerBio() {
+    if (!user?.id || bioCreds.length > 0 || thisDeviceRegistered) return;
+    setErr('');
+    setMsg('');
+    setBioBusy(true);
+    try {
+      const options = await api.webauthnRegisterOptions();
+      const att = await startRegistration({ optionsJSON: options as never });
+      const label = currentWebauthnDeviceLabel();
+      const res = await api.webauthnRegisterVerify(att, label || undefined);
+      setBioCreds(res.credentials);
+      const mine =
+        findThisDeviceCredential(user.id, res.credentials) ||
+        res.credentials.find((c) => c.deviceLabel === label) ||
+        res.credentials[0];
+      if (mine) {
+        setStoredDeviceCredentialId(user.id, mine.id);
+        setThisDeviceRegistered(true);
+      }
+      setMsg(t('account.bioRegistered'));
+    } catch (e) {
+      if (e instanceof ApiError && e.code === 'WEBAUTHN_LIMIT') {
+        setErr(t('account.bioLimitOne'));
+        void loadBio();
+      } else {
+        setErr(t('account.bioFailed'));
+      }
+    } finally {
+      setBioBusy(false);
+    }
+  }
+
+  function startDeleteBio(id: string) {
+    setErr('');
+    setMsg('');
+    setDeleteTargetId(id);
+    setDeleteOtp('');
+  }
+
+  async function confirmDeleteBio(code: string) {
+    if (!user?.id || !deleteTargetId || code.length < 6) return;
+    setErr('');
+    setMsg('');
+    setBioBusy(true);
+    try {
+      const res = await api.webauthnDeleteCredential(deleteTargetId, code);
+      setBioCreds(res.credentials);
+      clearStoredDeviceCredentialId(user.id);
+      setThisDeviceRegistered(false);
+      setDeleteTargetId(null);
+      setDeleteOtp('');
+      setMsg(t('account.bioDeleted'));
+    } catch (e) {
+      if (e instanceof ApiError && (e.code === 'INVALID_OTP_CODE' || e.code === 'INVALID_OTP')) {
+        setErr(t('auth.otpInvalid'));
+      } else {
+        setErr(e instanceof ApiError ? e.message : t('account.bioFailed'));
+      }
+      setDeleteOtp('');
+    } finally {
+      setBioBusy(false);
     }
   }
 
@@ -195,6 +295,99 @@ export default function AccountPage() {
         <p className="mt-3 text-[11px] leading-relaxed text-amber-800/90">{t('account.legalNameReadonly')}</p>
         <p className="mt-1 text-[11px] leading-relaxed text-slate-500">{t('account.otpReadonly')}</p>
       </ContentCard>
+
+      {profile.customerType === 'INDIVIDUAL' && (
+        <ContentCard>
+          <h2 className="text-sm font-semibold text-slate-900">{t('account.bioTitle')}</h2>
+          <p className="mt-1 text-[11px] text-slate-500">{t('account.bioHint')}</p>
+          {!bioEligible ? (
+            <p className="mt-3 text-sm text-slate-600">{t('account.bioNotEligible')}</p>
+          ) : (
+            <>
+              <p className="mt-2 text-[11px] text-slate-500">{t('account.bioLimitOne')}</p>
+              {bioCreds.length > 0 ? (
+                <p className="mt-4 inline-flex rounded-md border border-slate-200 bg-slate-100 px-3 py-2 text-sm font-medium text-slate-500">
+                  {t('account.bioRegisterDone')}
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  className="pg-btn pg-btn-primary mt-4"
+                  disabled={bioBusy}
+                  onClick={() => void registerBio()}
+                >
+                  {bioBusy ? t('account.bioRegistering') : t('account.bioRegister')}
+                </button>
+              )}
+              {bioCreds.length === 0 ? (
+                <p className="mt-3 pg-hint">{t('account.bioNone')}</p>
+              ) : (
+                <ul className="mt-3 space-y-2">
+                  {bioCreds.map((c) => (
+                    <li
+                      key={c.id}
+                      className="rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2 text-sm"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="font-medium text-slate-900">
+                            {c.deviceLabel || c.deviceType || c.id.slice(0, 8)}
+                          </p>
+                          <p className="text-[11px] text-slate-500">
+                            {new Date(c.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                        {deleteTargetId !== c.id && (
+                          <button
+                            type="button"
+                            className="pg-btn pg-btn-secondary text-xs"
+                            disabled={bioBusy}
+                            onClick={() => startDeleteBio(c.id)}
+                          >
+                            {t('account.bioDelete')}
+                          </button>
+                        )}
+                      </div>
+                      {deleteTargetId === c.id && (
+                        <div className="mt-3 space-y-2 border-t border-slate-200 pt-3">
+                          <p className="text-xs text-slate-600">{t('account.bioDeleteOtpHint')}</p>
+                          <OtpCodeInput
+                            value={deleteOtp}
+                            onChange={setDeleteOtp}
+                            onComplete={(code) => void confirmDeleteBio(code)}
+                            disabled={bioBusy}
+                          />
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              className="pg-btn pg-btn-primary text-xs"
+                              disabled={bioBusy || deleteOtp.length < 6}
+                              onClick={() => void confirmDeleteBio(deleteOtp)}
+                            >
+                              {bioBusy ? t('auth.otpVerifying') : t('account.bioDeleteConfirmOtp')}
+                            </button>
+                            <button
+                              type="button"
+                              className="pg-btn pg-btn-secondary text-xs"
+                              disabled={bioBusy}
+                              onClick={() => {
+                                setDeleteTargetId(null);
+                                setDeleteOtp('');
+                              }}
+                            >
+                              {t('common.cancel')}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </ContentCard>
+      )}
 
       <ContentCard>
         <h2 className="text-sm font-semibold text-slate-900">{t('account.section.password')}</h2>

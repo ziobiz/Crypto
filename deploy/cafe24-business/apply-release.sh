@@ -65,6 +65,13 @@ if [ -f "$ZIP" ]; then
 fi
 if [ -f backend/.env ]; then
   sed -i 's/\r$//' backend/.env
+  # admin.tinpass.com CORS — .env 전체를 덮지 않고 항목만 보강
+  if grep -q '^CORS_ORIGIN=' backend/.env; then
+    if ! grep -q 'admin.tinpass.com' backend/.env; then
+      sed -i 's|^CORS_ORIGIN=\(.*\)|CORS_ORIGIN=\1,https://admin.tinpass.com|' backend/.env
+      echo "==> Appended https://admin.tinpass.com to CORS_ORIGIN"
+    fi
+  fi
   set -a
   # shellcheck disable=SC1091
   source backend/.env
@@ -102,3 +109,4 @@ mv "$ZIP" "$BACKUP"
 echo ""
 echo "Backup: $BACKUP"
 echo "Done: https://tinpass.com/login"
+echo "Admin: https://admin.tinpass.com/login"

@@ -76,6 +76,8 @@ export type LoginResponse =
       otpToken: string;
       otpMethod: 'totp';
       maskedEmail: string;
+      webauthnAvailable?: boolean;
+      qrLoginAvailable?: boolean;
     }
   | { mustChangePassword: true; changeToken: string; email: string }
   | {
@@ -85,21 +87,106 @@ export type LoginResponse =
       smtpConfigured?: boolean;
     };
 
+export type WebAuthnCredentialRow = {
+  id: string;
+  deviceLabel: string | null;
+  deviceType: string | null;
+  createdAt: string;
+  lastUsedAt: string | null;
+};
+
+export type QrTicketCreate = {
+  ticket: string;
+  expiresAt: string;
+  approveUrl: string;
+};
+
 export const api = {
   branding: () => request<BrandingResponse>('/api/branding'),
 
   workflowDisplay: () => request<HqWorkflowDisplayConfig>('/api/dashboard/workflow-display'),
 
-  login: (email: string, password: string, turnstileToken?: string) =>
+  login: (
+    email: string,
+    password: string,
+    turnstileToken?: string,
+    audience?: 'corporate' | 'individual' | 'staff',
+  ) =>
     request<LoginResponse>('/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password, turnstileToken }),
+      body: JSON.stringify({ email, password, turnstileToken, audience }),
     }),
 
   verifyOtp: (otpToken: string, code: string) =>
     request<{ token: string; user: User }>('/api/auth/otp/verify', {
       method: 'POST',
       body: JSON.stringify({ otpToken, code }),
+    }),
+
+  webauthnRegisterOptions: () =>
+    request<Record<string, unknown>>('/api/auth/webauthn/register/options', { method: 'POST', body: '{}' }),
+
+  webauthnRegisterVerify: (response: unknown, deviceLabel?: string) =>
+    request<{ ok: boolean; credentials: WebAuthnCredentialRow[] }>(
+      '/api/auth/webauthn/register/verify',
+      { method: 'POST', body: JSON.stringify({ response, deviceLabel }) },
+    ),
+
+  webauthnCredentials: () =>
+    request<{ eligible: boolean; credentials: WebAuthnCredentialRow[] }>(
+      '/api/auth/webauthn/credentials',
+    ),
+
+  webauthnDeleteCredential: (id: string, code: string) =>
+    request<{ ok: boolean; credentials: WebAuthnCredentialRow[] }>(
+      `/api/auth/webauthn/credentials/${encodeURIComponent(id)}/delete`,
+      { method: 'POST', body: JSON.stringify({ code }) },
+    ),
+
+  webauthnLoginOptions: (otpToken: string) =>
+    request<Record<string, unknown>>('/api/auth/webauthn/login/options', {
+      method: 'POST',
+      body: JSON.stringify({ otpToken }),
+    }),
+
+  webauthnLoginVerify: (otpToken: string, response: unknown) =>
+    request<{ token: string; user: User }>('/api/auth/webauthn/login/verify', {
+      method: 'POST',
+      body: JSON.stringify({ otpToken, response }),
+    }),
+
+  qrCreate: (otpToken: string) =>
+    request<QrTicketCreate>('/api/auth/qr/create', {
+      method: 'POST',
+      body: JSON.stringify({ otpToken }),
+    }),
+
+  qrCreateAnonymous: () =>
+    request<QrTicketCreate>('/api/auth/qr/create-anonymous', {
+      method: 'POST',
+      body: '{}',
+    }),
+
+  qrStatus: (ticket: string) =>
+    request<{ status: string; expiresAt: string }>(
+      `/api/auth/qr/status?ticket=${encodeURIComponent(ticket)}`,
+    ),
+
+  qrInfo: (ticket: string) =>
+    request<{ status: string; expiresAt: string; boundUser: boolean }>(
+      `/api/auth/qr/info?ticket=${encodeURIComponent(ticket)}`,
+    ),
+
+  qrApprove: (ticket: string) =>
+    request<{ ok: boolean }>('/api/auth/qr/approve', {
+      method: 'POST',
+      body: JSON.stringify({ ticket }),
+    }),
+
+  qrExchange: (ticket: string) =>
+    request<{ token: string; user: User }>('/api/auth/qr/exchange', {
+      method: 'POST',
+      body: JSON.stringify({ ticket }),
     }),
 
   changePassword: (changeToken: string, newPassword: string, confirmPassword: string) =>
@@ -368,6 +455,16 @@ export const api = {
       request<MerchantOperator>(`/api/merchant/operators/${id}/deactivate`, { method: 'PATCH' }),
     activateOperator: (id: string) =>
       request<MerchantOperator>(`/api/merchant/operators/${id}/activate`, { method: 'PATCH' }),
+    resetOperatorPassword: (id: string) =>
+      request<{ ok: boolean; initialPasswordHint: string }>(
+        `/api/merchant/operators/${id}/reset-password`,
+        { method: 'POST', body: '{}' },
+      ),
+    resetOperatorOtp: (id: string) =>
+      request<{ ok: boolean; totpEnabled: boolean }>(`/api/merchant/operators/${id}/reset-otp`, {
+        method: 'POST',
+        body: '{}',
+      }),
     getOperatorPageAccess: (id: string) =>
       request<MerchantOperatorPageAccess>(`/api/merchant/operators/${id}/page-access`),
     saveOperatorPageAccess: (id: string, overrides: Record<string, string> | null) =>
@@ -2464,6 +2561,11 @@ export const hqPolicyApi = {
       method: 'PUT',
       body: JSON.stringify({ limits }),
     }),
+  savePaidMembershipExpressQuotas: (quotas: PaidMembershipExpressQuotasPolicy) =>
+    request<HqCommissionPayload>('/api/hq-policy/commission/paid-membership-express-quotas', {
+      method: 'PUT',
+      body: JSON.stringify({ quotas }),
+    }),
   saveExchangeRateSources: (
     exchangeRateSources: HqExchangeRateSourcePolicy | HqExchangeRateSourcesByAsset,
   ) =>
@@ -3135,6 +3237,62 @@ export const EXPRESS_TIERS = [
 ] as const;
 export type ExpressTier = (typeof EXPRESS_TIERS)[number];
 
+export const EXPRESS_QUOTA_TIERS = [
+  'ULTRA',
+  'PRIORITY',
+  'HALF',
+  'DAY',
+  'D1',
+  'D2',
+] as const satisfies readonly ExpressTier[];
+export type ExpressQuotaTier = (typeof EXPRESS_QUOTA_TIERS)[number];
+export type ExpressQuotaByTier = Partial<Record<ExpressTier, number>>;
+export type PaidMembershipExpressQuotasPolicy = Record<
+  'INDIVIDUAL' | 'CORPORATE',
+  Record<PaidMemberGrade, ExpressQuotaByTier>
+>;
+
+export function defaultExpressQuotaByTier(): ExpressQuotaByTier {
+  const out: ExpressQuotaByTier = {};
+  for (const tier of EXPRESS_QUOTA_TIERS) out[tier] = 0;
+  return out;
+}
+
+export function defaultPaidMembershipExpressQuotasPolicy(): PaidMembershipExpressQuotasPolicy {
+  const gradeMap = {} as Record<PaidMemberGrade, ExpressQuotaByTier>;
+  for (const g of PAID_MEMBER_GRADES) gradeMap[g] = defaultExpressQuotaByTier();
+  return {
+    INDIVIDUAL: { ...gradeMap },
+    CORPORATE: Object.fromEntries(
+      PAID_MEMBER_GRADES.map((g) => [g, defaultExpressQuotaByTier()]),
+    ) as Record<PaidMemberGrade, ExpressQuotaByTier>,
+  };
+}
+
+export function normalizePaidMembershipExpressQuotasPolicyUi(
+  raw?: unknown,
+): PaidMembershipExpressQuotasPolicy {
+  const defaults = defaultPaidMembershipExpressQuotasPolicy();
+  if (!raw || typeof raw !== 'object') return defaults;
+  const obj = raw as Partial<
+    Record<'INDIVIDUAL' | 'CORPORATE', Partial<Record<PaidMemberGrade, ExpressQuotaByTier>>>
+  >;
+  const out = defaultPaidMembershipExpressQuotasPolicy();
+  for (const type of ['INDIVIDUAL', 'CORPORATE'] as const) {
+    for (const grade of PAID_MEMBER_GRADES) {
+      const row = obj[type]?.[grade];
+      if (!row || typeof row !== 'object') continue;
+      const next = defaultExpressQuotaByTier();
+      for (const tier of EXPRESS_QUOTA_TIERS) {
+        const n = Number((row as ExpressQuotaByTier)[tier]);
+        next[tier] = Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+      }
+      out[type][grade] = next;
+    }
+  }
+  return out;
+}
+
 export type ExpressTierFeeConfig = {
   feeUsdt: number | null;
   feePercent: number | null;
@@ -3405,6 +3563,7 @@ export interface HqCommissionPayload {
   memberGrade?: HqMemberGradePolicy;
   paidMembershipProducts?: PaidMembershipProductsPolicy;
   paidMembershipLimits?: PaidMembershipLimitsPolicy;
+  paidMembershipExpressQuotas?: PaidMembershipExpressQuotasPolicy;
   simulatorRisk?: HqCommissionRiskConfig;
   simulatorFeeTiers?: SymbolFeeTierRow[];
   exchangeRateSources: HqExchangeRateSourcePolicy;

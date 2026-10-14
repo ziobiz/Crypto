@@ -845,12 +845,15 @@ export default function CustomersPage() {
                 <span className="pg-field-label">{t('auth.customerType')}</span>
                 <select
                   value={form.customerType ?? 'INDIVIDUAL'}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const customerType = e.target.value as 'INDIVIDUAL' | 'CORPORATE';
                     setForm({
                       ...form,
-                      customerType: e.target.value as 'INDIVIDUAL' | 'CORPORATE',
-                    })
-                  }
+                      customerType,
+                      operatorsEnabled:
+                        customerType === 'CORPORATE' ? form.operatorsEnabled === true : false,
+                    });
+                  }}
                   className="pg-input mt-1"
                 >
                   {CUSTOMER_TYPES_UI_ORDER.map((type) => (
@@ -1118,20 +1121,26 @@ export default function CustomersPage() {
                     </span>
                   </span>
                 </label>
-                <label className="mt-3 flex items-start gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    className="mt-1"
-                    checked={form.operatorsEnabled === true}
-                    onChange={(e) => setForm({ ...form, operatorsEnabled: e.target.checked })}
-                  />
-                  <span>
-                    <span className="font-medium">{t('customers.operators.enable')}</span>
-                    <span className="mt-0.5 block text-xs text-slate-500">
-                      {t('customers.operators.hint')}
+                {form.customerType === 'CORPORATE' ? (
+                  <label className="mt-3 flex items-start gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={form.operatorsEnabled === true}
+                      onChange={(e) => setForm({ ...form, operatorsEnabled: e.target.checked })}
+                    />
+                    <span>
+                      <span className="font-medium">{t('customers.operators.enable')}</span>
+                      <span className="mt-0.5 block text-xs text-slate-500">
+                        {t('customers.operators.hint')}
+                      </span>
                     </span>
-                  </span>
-                </label>
+                  </label>
+                ) : (
+                  <p className="mt-3 text-xs text-slate-500">
+                    {t('customers.operators.individualForbidden')}
+                  </p>
+                )}
                 <label className="mt-3 block text-sm">
                   <span className="pg-field-label">{t('customers.sRate.title')}</span>
                   <div className="mt-1.5 flex flex-wrap items-center gap-3">
@@ -1657,14 +1666,37 @@ export default function CustomersPage() {
                   />
                   {t('customers.simulator.enable')}
                 </label>
-                <label className="mt-2 flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={editForm.operatorsEnabled === true}
-                    onChange={(e) => setEditForm({ ...editForm, operatorsEnabled: e.target.checked })}
-                  />
-                  {t('customers.operators.enable')}
-                </label>
+                {editForm.customerType === 'CORPORATE' ? (
+                  <label className="mt-2 flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={editForm.operatorsEnabled === true}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, operatorsEnabled: e.target.checked })
+                      }
+                    />
+                    {t('customers.operators.enable')}
+                  </label>
+                ) : (
+                  <p className="mt-2 text-xs text-slate-500">
+                    {t('customers.operators.individualForbidden')}
+                    {editForm.operatorsEnabled === true ? (
+                      <>
+                        {' '}
+                        {t('customers.operators.legacyDeactivateHint')}
+                        <button
+                          type="button"
+                          className="ml-2 underline"
+                          onClick={() =>
+                            setEditForm({ ...editForm, operatorsEnabled: false })
+                          }
+                        >
+                          {t('customers.operators.off')}
+                        </button>
+                      </>
+                    ) : null}
+                  </p>
+                )}
                 <label className="pg-field mt-2">
                   <span className="pg-field-label">{t('customers.sRate.title')}</span>
                   <div className="mt-1.5 flex flex-wrap items-center gap-3">

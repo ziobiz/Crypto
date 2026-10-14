@@ -30,6 +30,7 @@ import {
   networksForAsset,
   type SettlementWalletAsset,
 } from '@/constants/wallet-networks';
+import { getMemberWebOrigin, isAdminWebHost } from '@/lib/site-host';
 
 export default function RegisterPage() {
   const t = useT();
@@ -61,6 +62,12 @@ function RegisterForm() {
     branding?.individualRegisterNoticeEnabled,
     branding?.individualRegisterNoticeI18n,
   );
+
+  useEffect(() => {
+    if (!isAdminWebHost()) return;
+    const q = typeof window !== 'undefined' ? window.location.search : '';
+    window.location.replace(`${getMemberWebOrigin()}/register${q}`);
+  }, []);
 
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');

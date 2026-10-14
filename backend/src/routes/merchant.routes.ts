@@ -73,6 +73,34 @@ router.patch(
   }),
 );
 
+router.post(
+  '/operators/:id/reset-password',
+  requireRoles(UserRole.CUSTOMER),
+  requireSensitiveOtp,
+  asyncHandler(async (req, res) => {
+    res.json(
+      await merchantOperatorService.resetMerchantOperatorPassword(req.user!, req.params.id, {
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent') ?? undefined,
+      }),
+    );
+  }),
+);
+
+router.post(
+  '/operators/:id/reset-otp',
+  requireRoles(UserRole.CUSTOMER),
+  requireSensitiveOtp,
+  asyncHandler(async (req, res) => {
+    res.json(
+      await merchantOperatorService.resetMerchantOperatorOtp(req.user!, req.params.id, {
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent') ?? undefined,
+      }),
+    );
+  }),
+);
+
 router.get(
   '/operators/:id/page-access',
   requireRoles(UserRole.CUSTOMER),

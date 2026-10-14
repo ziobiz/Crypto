@@ -1,5 +1,5 @@
 #!/bin/bash
-# tinpass.com / api.tinpass.com — Let's Encrypt SSL + Nginx HTTPS
+# tinpass.com / admin.tinpass.com / api.tinpass.com — Let's Encrypt SSL + Nginx HTTPS
 #
 #   cd /var/www/crypto-workflow
 #   sudo bash deploy/cafe24-business/setup-ssl-tinpass.sh
@@ -7,12 +7,13 @@
 # 환경변수 (선택):
 #   CERTBOT_EMAIL=admin@example.com
 #   CERTBOT_STAGING=1   # 테스트용
+# DNS: admin.tinpass.com A 레코드가 서버 IP를 가리켜야 인증서에 포함됩니다.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
 
-DOMAINS=(api.tinpass.com tinpass.com www.tinpass.com)
+DOMAINS=(api.tinpass.com tinpass.com www.tinpass.com admin.tinpass.com)
 EMAIL="${CERTBOT_EMAIL:-ziobizm@gmail.com}"
 NGINX_CONF="/etc/nginx/conf.d/crypto-workflow-tinpass.conf"
 SSL_TEMPLATE="$ROOT/deploy/cafe24-business/nginx/crypto-workflow-tinpass-ssl.conf.template"
@@ -49,37 +50,46 @@ for name in api.tinpass.com tinpass.com; do
   fi
 done
 
-echo "==> Obtain / expand certificate (tinpass.com + api.tinpass.com)"
-CERTBOT_ARGS=(
-  certonly
-  --webroot
-  -w /var/www/certbot
-  --email "$EMAIL"
-  --agree-tos
-  --no-eff-email
-  --non-interactive
-  --keep-until-expiring
-)
-if [ -n "${CERTBOT_STAGING:-}" ]; then
-  CERTBOT_ARGS+=(--staging)
-fi
-if [ -n "$CERT_NAME" ]; then
-  CERTBOT_ARGS+=(--cert-name "$CERT_NAME" --expand)
-else
-  CERT_NAME="api.tinpass.com"
-  CERTBOT_ARGS+=(--cert-name "$CERT_NAME")
-fi
-for d in "${DOMAINS[@]}"; do
-  CERTBOT_ARGS+=(-d "$d")
-done
+echo "==> Obtain / expand certificate (tinpass.com + admin + api)"
+run_certbot() {
+  local -a domains=("$@")
+  local -a args=(
+    certonly
+    --webroot
+    -w /var/www/certbot
+    --email "$EMAIL"
+    --agree-tos
+    --no-eff-email
+    --non-interactive
+    --keep-until-expiring
+  )
+  if [ -n "${CERTBOT_STAGING:-}" ]; then
+    args+=(--staging)
+  fi
+  if [ -n "$CERT_NAME" ]; then
+    args+=(--cert-name "$CERT_NAME" --expand)
+  else
+    CERT_NAME="api.tinpass.com"
+    args+=(--cert-name "$CERT_NAME")
+  fi
+  for d in "${domains[@]}"; do
+    args+=(-d "$d")
+  done
+  certbot "${args[@]}"
+}
 
-if ! certbot "${CERTBOT_ARGS[@]}"; then
+if ! run_certbot "${DOMAINS[@]}"; then
   echo ""
-  echo "certbot failed. Check:"
-  echo "  1) DNS A record: tinpass.com, www.tinpass.com, api.tinpass.com → server IP"
-  echo "  2) Port 80 open (ufw allow 80)"
-  echo "  3) curl -I http://tinpass.com/.well-known/acme-challenge/test"
-  exit 1
+  echo "WARN: certbot with admin.tinpass.com failed — retry without admin (DNS A may be missing)."
+  echo "  Add DNS A: admin.tinpass.com → server IP, then re-run this script."
+  if ! run_certbot api.tinpass.com tinpass.com www.tinpass.com; then
+    echo ""
+    echo "certbot failed. Check:"
+    echo "  1) DNS A record: tinpass.com, www.tinpass.com, api.tinpass.com (+ admin.tinpass.com) → server IP"
+    echo "  2) Port 80 open (ufw allow 80)"
+    echo "  3) curl -I http://tinpass.com/.well-known/acme-challenge/test"
+    exit 1
+  fi
 fi
 
 if [ ! -f "/etc/letsencrypt/live/$CERT_NAME/fullchain.pem" ]; then
@@ -125,6 +135,7 @@ echo ""
 echo "=============================================="
 echo " SSL OK"
 echo "  https://tinpass.com/login"
+echo "  https://admin.tinpass.com/login"
 echo "  https://api.tinpass.com/login"
 openssl x509 -enddate -noout -in "/etc/letsencrypt/live/$CERT_NAME/fullchain.pem"
 echo "=============================================="

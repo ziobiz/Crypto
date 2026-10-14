@@ -18,13 +18,10 @@ import {
   type SymbolFeeTierRow,
   type SymbolFeeTiersByCustomerType,
   type HqExpressPolicy,
-  type HqMemberGradePolicy,
   type SettlementAsset,
   defaultExpressPolicy,
-  defaultMemberGradePolicy,
 } from '@/lib/api';
 import { ExpressFeePolicyEditor } from '@/components/hq-policy/ExpressFeePolicyEditor';
-import { MemberGradePolicyEditor } from '@/components/hq-policy/MemberGradePolicyEditor';
 import type { MessageKey } from '@/i18n/messages';
 import { FormattedAmountInput } from '@/components/FormattedAmountInput';
 import { formatAmountInput } from '@/lib/format';
@@ -322,9 +319,6 @@ export default function HqCommissionPage() {
   const [settlementAsset, setSettlementAsset] = useState<SettlementAsset>('USDT');
   const [savingSettlement, setSavingSettlement] = useState(false);
   const [settlementMsg, setSettlementMsg] = useState('');
-  const [memberGrade, setMemberGrade] = useState<HqMemberGradePolicy>(defaultMemberGradePolicy());
-  const [savingMemberGrade, setSavingMemberGrade] = useState(false);
-  const [memberGradeMsg, setMemberGradeMsg] = useState('');
   const [feeCurrency, setFeeCurrency] = useState<SymbolFeeCurrency>('KRW');
   const [savingTiers, setSavingTiers] = useState(false);
   const [tiersMsg, setTiersMsg] = useState('');
@@ -374,7 +368,6 @@ export default function HqCommissionPage() {
         setFeeTiersByCustomerType(normalizeFeeTiersByCustomerType(commission));
         setExpressFee(commission.expressFee ?? defaultExpressPolicy());
         setSettlementAsset(commission.settlementAsset === 'USDC' ? 'USDC' : 'USDT');
-        setMemberGrade(commission.memberGrade ?? defaultMemberGradePolicy());
       })
       .catch((e) => setError(e instanceof Error ? e.message : t('common.loadFailed')));
   }, [t]);
@@ -1258,36 +1251,15 @@ export default function HqCommissionPage() {
                 </button>
                 {expressMsg && <span className="pg-hint">{expressMsg}</span>}
               </div>
-            </div>
-          </div>
-
-          <div className="pg-card">
-            <div className="pg-card-body space-y-4">
-              <MemberGradePolicyEditor value={memberGrade} onChange={setMemberGrade} />
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  disabled={savingMemberGrade}
-                  className="pg-btn pg-btn-primary disabled:opacity-50"
-                  onClick={async () => {
-                    setSavingMemberGrade(true);
-                    setMemberGradeMsg('');
-                    try {
-                      const next = await hqPolicyApi.saveMemberGrade(memberGrade);
-                      setData(next);
-                      setMemberGrade(next.memberGrade ?? memberGrade);
-                      setMemberGradeMsg(t('memberGrade.hq.saved'));
-                    } catch (e) {
-                      setMemberGradeMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
-                    } finally {
-                      setSavingMemberGrade(false);
-                    }
-                  }}
+              <p className="pg-hint text-xs">
+                {t('paidMembership.hq.expressLinkFromCommission')}{' '}
+                <Link
+                  href="/dashboard/membership-admin/benefits"
+                  className="font-medium text-sky-700 underline underline-offset-2"
                 >
-                  {savingMemberGrade ? t('hq.saving') : t('memberGrade.hq.save')}
-                </button>
-                {memberGradeMsg && <span className="pg-hint">{memberGradeMsg}</span>}
-              </div>
+                  {t('paidMembership.hq.expressLinkLabel')}
+                </Link>
+              </p>
             </div>
           </div>
         </div>

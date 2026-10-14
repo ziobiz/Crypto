@@ -2,9 +2,12 @@ import nodemailer from 'nodemailer';
 import type { HqEmailOtpConfig } from '../constants/hq-policy';
 import { AppError } from '../lib/errors';
 import {
+  DEFAULT_OTP_MAIL_BRAND,
+  mapEmailVerifyPurposeToMail,
   renderOtpMail,
   resolveOtpMailLocale,
   type OtpMailLocale,
+  type OtpMailPurpose,
 } from '../constants/otp-mail-i18n';
 
 function buildTransport(cfg: HqEmailOtpConfig) {
@@ -29,19 +32,24 @@ export async function sendOtpEmail(
   userName: string,
   expireMinutes?: number,
   localeHint?: string | null,
+  purpose: OtpMailPurpose | string = 'LOGIN',
 ): Promise<void> {
   const minutes = String(expireMinutes ?? (cfg.otpExpireMinutes || 5));
   const locale: OtpMailLocale = resolveOtpMailLocale(localeHint);
+  const mailPurpose = mapEmailVerifyPurposeToMail(purpose);
   const rendered = renderOtpMail(locale, {
     name: userName,
     code,
     minutes,
+    purpose: mailPurpose,
+    brand: DEFAULT_OTP_MAIL_BRAND,
   });
 
-  // HQ custom templates are Korean-centric — only apply for KR; other locales use built-in i18n.
+  // HQ custom templates are Korean-centric — only override subject/text for KR.
+  // HTML always uses the branded card so UI stays consistent.
   let subject = rendered.subject;
   let text = rendered.text;
-  let html = rendered.html;
+  const html = rendered.html;
   if (locale === 'KR') {
     if (cfg.otpEmailSubject?.trim()) {
       subject = cfg.otpEmailSubject.replace(/\{code\}/g, code).replace(/\{name\}/g, userName);
@@ -71,7 +79,9 @@ export async function sendOtpEmail(
       text,
       html,
     });
-    console.log(`[OTP/email] sent to ${to} locale=${locale} messageId=${info.messageId || '-'}`);
+    console.log(
+      `[OTP/email] sent to ${to} locale=${locale} purpose=${mailPurpose} messageId=${info.messageId || '-'}`,
+    );
   } catch (err) {
     console.error('[OTP/email] send failed:', err);
     throw new AppError(502, 'Failed to send verification email', 'EMAIL_SEND_FAILED');
@@ -79,7 +89,7 @@ export async function sendOtpEmail(
 }
 
 export async function sendTestEmail(cfg: HqEmailOtpConfig, to: string): Promise<void> {
-  await sendOtpEmail(cfg, to, '123456', 'Test User', undefined, 'US');
+  await sendOtpEmail(cfg, to, '123456', 'Test User', undefined, 'US', 'LOGIN');
 }
 
 export async function sendGenericEmail(
@@ -90,7 +100,7 @@ export async function sendGenericEmail(
   html?: string,
 ): Promise<void> {
   const from = cfg.fromAddress || process.env.SMTP_FROM || 'noreply@tinpass.com';
-  const fromName = cfg.fromName || 'Crypto Workflow';
+  const fromName = cfg.fromName || 'TINPASS';
 
   const transport = buildTransport(cfg);
   if (!transport) {

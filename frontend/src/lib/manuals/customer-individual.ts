@@ -68,11 +68,11 @@ export const CUSTOMER_INDIVIDUAL_MANUAL: ManualDoc = {
         `<p>아래 순서를 지키면 막히는 일이 줄어듭니다.</p>
         <div class="flow">
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc"><strong>개인 회원가입</strong> — 이메일·휴대폰(국가번호)·비밀번호. 추천인이 있으면 이메일·이름·전화로 검색해 확인합니다. 없으면 본사 직속으로 연결됩니다.</span></div>
-          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc"><strong>로그인</strong> — Google OTP가 켜져 있으면 앱 코드를 입력합니다.</span></div>
+          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc"><strong>로그인</strong> — <strong>https://tinpass.com/login</strong> 개인회원. Google OTP가 켜져 있으면 앱 코드를 입력합니다. (본사·조직 직원은 admin.tinpass.com)</span></div>
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc"><strong>본사 승인 대기</strong> — 승인 전에는 매입·에스크로 실행이 막힐 수 있습니다. 승인되면 거래 실행이 열립니다.</span></div>
           <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc"><strong>인증센터</strong> — 6개월 거래 예정 보고서 등 서류를 올립니다. 양식은 이용메뉴얼에서 내려받습니다.</span></div>
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc"><strong>내 지갑</strong> — 최대 5개. 등록·주소 변경·삭제 요청은 OTP + 두 번 확인. 새 주소는 본사 승인 후 매입에서 선택합니다.</span></div>
-          <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>크립토 시뮬레이터</strong> — 네트워크·금액으로 수수료·수령액을 미리 봅니다 (참고용).</span></div>
+          <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>시뮬레이터</strong> — 네트워크·금액으로 수수료·수령액을 미리 봅니다 (참고용).</span></div>
           <div class="flow-row"><span class="flow-num">7</span><span class="flow-desc"><strong>인증패스 후</strong> 크립토 매입 또는 무역 에스크로를 신청합니다. 개인 기본 결제수단은 <strong>송금거래</strong>입니다.</span></div>
         </div>
         <div class="warn-box">인증패스·승인 지갑·본사 승인이 없으면 매입·에스크로가 진행되지 않습니다. 시뮬레이터는 확정 금액이 아닙니다.</div>`,
@@ -82,7 +82,7 @@ export const CUSTOMER_INDIVIDUAL_MANUAL: ManualDoc = {
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc"><strong>Wait for HQ approval</strong> — purchase/escrow may stay blocked until approved.</span></div>
           <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc"><strong>Verification</strong> — upload the 6-month forecast (templates in Usage manuals).</span></div>
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc"><strong>My wallets</strong> — up to 5. Register / change / delete-request need OTP and two confirms. New addresses need HQ approval.</span></div>
-          <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>Crypto simulator</strong> — preview fees (reference only).</span></div>
+          <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>Simulator</strong> — preview fees (reference only).</span></div>
           <div class="flow-row"><span class="flow-num">7</span><span class="flow-desc">After a <strong>verification pass</strong>, apply for Crypto purchase or escrow. Default method for individuals is <strong>remittance</strong>.</span></div>
         </div>
         <div class="warn-box">Without a pass, an approved wallet, and HQ approval, purchase/escrow stay blocked. The simulator is not a binding amount.</div>`,
@@ -92,7 +92,7 @@ export const CUSTOMER_INDIVIDUAL_MANUAL: ManualDoc = {
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc"><strong>本社承認待ち</strong> — 承認前は購入・エスクローが止まることがあります。</span></div>
           <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc"><strong>認証センター</strong> — 6か月取引予定報告書など。様式は利用マニュアルから。</span></div>
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc"><strong>マイウォレット</strong> — 最大5。登録・変更・削除依頼はOTP+2回確認。新アドレスは本社承認後。</span></div>
-          <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>クリプトシミュレーター</strong> — 手数料の試算(参考)。</span></div>
+          <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>シミュレーター</strong> — 手数料の試算(参考)。</span></div>
           <div class="flow-row"><span class="flow-num">7</span><span class="flow-desc"><strong>認証パス後</strong>に購入またはエスクロー。個人の既定決済は<strong>送金</strong>です。</span></div>
         </div>
         <div class="warn-box">認証パス・承認ウォレット・本社承認がないと進めません。シミュレーターは確定金額ではありません。</div>`,
@@ -102,7 +102,7 @@ export const CUSTOMER_INDIVIDUAL_MANUAL: ManualDoc = {
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc"><strong>等待总部批准</strong> — 批准前可能无法执行采购/托管。</span></div>
           <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc"><strong>认证中心</strong> — 上传 6 个月交易预估等。模板在使用手册。</span></div>
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc"><strong>我的钱包</strong> — 最多 5 个。登记/改址/删请需 OTP+两次确认。新地址需总部批准。</span></div>
-          <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>加密货币模拟器</strong> — 预览手续费（仅供参考）。</span></div>
+          <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>模拟器</strong> — 预览手续费（仅供参考）。</span></div>
           <div class="flow-row"><span class="flow-num">7</span><span class="flow-desc"><strong>认证通过后</strong>申请采购或托管。个人默认支付方式为<strong>汇款</strong>。</span></div>
         </div>
         <div class="warn-box">无认证通过、已批钱包、总部批准则无法继续。模拟器不是确定金额。</div>`,
@@ -112,7 +112,7 @@ export const CUSTOMER_INDIVIDUAL_MANUAL: ManualDoc = {
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc"><strong>รอ HQ อนุมัติ</strong> — ก่อนอนุมัติอาจซื้อ/เอสโครว์ไม่ได้</span></div>
           <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc"><strong>ศูนย์ยืนยัน</strong> — อัปโหลดรายงาน 6 เดือน ฯลฯ แบบฟอร์มจากคู่มือใช้งาน</span></div>
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc"><strong>กระเป๋าของฉัน</strong> — สูงสุด 5 ใบ ลงทะเบียน/เปลี่ยน/ขอลบ ต้อง OTP+ยืนยันสองครั้ง ที่อยู่ใหม่ต้อง HQ อนุมัติ</span></div>
-          <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>ตัวจำลองคริปโต</strong> — ดูค่าธรรมเนียม (อ้างอิง)</span></div>
+          <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>ตัวจำลอง</strong> — ดูค่าธรรมเนียม (อ้างอิง)</span></div>
           <div class="flow-row"><span class="flow-num">7</span><span class="flow-desc">หลัง<strong>ผ่านยืนยัน</strong> สมัครซื้อหรือเอสโครว์ ช่องทางเริ่มต้นของบุคคลคือ<strong>ธุรกรรมโอน</strong></span></div>
         </div>
         <div class="warn-box">ไม่มีผ่านยืนยัน กระเป๋าที่อนุมัติ และอนุมัติ HQ จะทำต่อไม่ได้ ตัวจำลองไม่ใช่ยอดผูกพัน</div>`,
@@ -220,7 +220,7 @@ export const CUSTOMER_INDIVIDUAL_MANUAL: ManualDoc = {
       id: 'i-wallet-sim',
       title: L('내 지갑 · 시뮬레이터', 'Wallets · simulator', 'マイウォレット・シミュレーター', '我的钱包·模拟器', 'กระเป๋า · ตัวจำลอง'),
       bodyHtml: L(
-        `<span class="menu-path">내 지갑 / 크립토 시뮬레이터</span>
+        `<span class="menu-path">내 지갑 / 시뮬레이터</span>
         <ul>
           <li>지갑은 <strong>최대 5개</strong>. 관리자만 등록·변경·삭제 요청. 운영자는 신청 화면에서 승인된 지갑만 고릅니다.</li>
           <li>등록·주소 변경·삭제 요청 = OTP + 두 번 확인. 삭제는 본사 승인 후에만 실행됩니다.</li>
@@ -363,9 +363,9 @@ export const CUSTOMER_INDIVIDUAL_MANUAL: ManualDoc = {
     },
     {
       id: 'i-membership',
-      title: L('유료회원 (멤버십)', 'Paid membership', '有料会員', '付费会员', 'สมาชิกเสียเงิน'),
+      title: L('유료회원가입 (멤버십)', 'Paid membership signup', '有料会員登録', '付费会员注册', 'สมัครสมาชิกเสียเงิน'),
       bodyHtml: L(
-        `<span class="menu-path">유료회원</span>
+        `<span class="menu-path">유료회원가입</span>
         <p>본인이 가입한 유형(개인)에 열린 유료 등급을 구매할 수 있습니다.</p>
         <ul>
           <li>판매가는 <strong>USD 기준</strong>으로 표시되며, USDT·USDC는 1:1, EURC는 시세 환산됩니다.</li>

@@ -1,9 +1,9 @@
-# tinpass.com · www · api — HTTPS (CERT_NAME 치환 후 사용)
+# tinpass.com · www · admin · api — HTTPS (CERT_NAME 치환 후 사용)
 # setup-ssl-tinpass.sh 가 생성합니다.
 
 server {
     listen 80;
-    server_name tinpass.com www.tinpass.com api.tinpass.com;
+    server_name tinpass.com www.tinpass.com admin.tinpass.com api.tinpass.com;
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -17,7 +17,7 @@ server {
 
 server {
     listen 443 ssl http2;
-    server_name tinpass.com www.tinpass.com api.tinpass.com;
+    server_name tinpass.com www.tinpass.com admin.tinpass.com api.tinpass.com;
 
     ssl_certificate     /etc/letsencrypt/live/CERT_NAME/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/CERT_NAME/privkey.pem;

@@ -13,6 +13,7 @@ import {
 } from '../services/membership-purchase.service';
 import {
   formatMemberGradeDisplayCode,
+  parseQuotaJson,
   resolvePaidMembershipStatus,
 } from '../services/paid-membership.service';
 
@@ -34,6 +35,8 @@ router.get(
         memberGrade: true,
         paidMemberUntil: true,
         paidMemberSource: true,
+        expressQuotaGranted: true,
+        expressQuotaRemaining: true,
       },
     });
     if (!profile) throw new AppError(404, 'Profile not found', 'PROFILE_NOT_FOUND');
@@ -41,7 +44,11 @@ router.get(
     const status = resolvePaidMembershipStatus(profile);
     res.json({
       customerType: profile.customerType,
-      status,
+      status: {
+        ...status,
+        expressQuotaGranted: parseQuotaJson(profile.expressQuotaGranted),
+        expressQuotaRemaining: parseQuotaJson(profile.expressQuotaRemaining),
+      },
       products: products.map((p) => ({
         ...p,
         displayCode: p.name || formatMemberGradeDisplayCode(p.grade, profile.customerType),
@@ -64,10 +71,16 @@ router.get(
         memberGrade: true,
         paidMemberUntil: true,
         paidMemberSource: true,
+        expressQuotaGranted: true,
+        expressQuotaRemaining: true,
       },
     });
     if (!profile) throw new AppError(404, 'Profile not found', 'PROFILE_NOT_FOUND');
-    res.json(resolvePaidMembershipStatus(profile));
+    res.json({
+      ...resolvePaidMembershipStatus(profile),
+      expressQuotaGranted: parseQuotaJson(profile.expressQuotaGranted),
+      expressQuotaRemaining: parseQuotaJson(profile.expressQuotaRemaining),
+    });
   }),
 );
 

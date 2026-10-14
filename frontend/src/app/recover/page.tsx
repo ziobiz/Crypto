@@ -9,6 +9,7 @@ import { AuthChrome } from '@/components/layout/AuthChrome';
 import { AuthConfirmDialog } from '@/components/AuthConfirmDialog';
 import { TurnstileWidget } from '@/components/TurnstileWidget';
 import { useBranding } from '@/hooks/useBranding';
+import { getMemberWebOrigin, isAdminWebHost } from '@/lib/site-host';
 
 type Mode = 'password' | 'otp';
 
@@ -31,6 +32,10 @@ export default function RecoverPage() {
   const [confirmSendOpen, setConfirmSendOpen] = useState(false);
 
   useEffect(() => {
+    if (isAdminWebHost()) {
+      window.location.replace(`${getMemberWebOrigin()}/recover`);
+      return;
+    }
     if (branding?.accountRecoveryEnabled === false) {
       router.replace('/login');
     }
