@@ -914,7 +914,9 @@ export const CH: Record<string, string> = {
   'paidMembership.limits.copyDoneType': '已将普通限额复制到本类型全部等级。请点击保存生效。',
   'paidMembership.saveLimits': '保存付费限额',
   'paidMembership.shopTitle': '付费会员注册',
-  'paidMembership.shopDesc': '像购买商品一样购买会员等级。支持卡支付，加密支付即将上线。',
+  'paidMembership.menuBoard': '会员菜单',
+  'paidMembership.shopDesc':
+    '像购买商品一样购买会员等级。支持卡与加密（USDT/USDC/EURC）支付。',
   'paidMembership.currentStatus': '当前等级',
   'paidMembership.until': '付费到期',
   'paidMembership.notPaid': '未开通付费',
@@ -923,27 +925,41 @@ export const CH: Record<string, string> = {
   'paidMembership.buyCard': '卡支付购买',
   'paidMembership.buyCrypto': '加密支付购买',
   'paidMembership.cryptoNotReady':
-    '加密支付尚在验证管理对接中，请先使用卡支付。',
+    '未配置 ICOPAY，无法开始加密支付。请检查总部对接。',
+  'paidMembership.cryptoDepositHint':
+    '加密支付将打开 ICOPAY 入金页。入金确认后付费会员生效。',
+  'paidMembership.cryptoReadyNote':
+    '加密在 ICOPAY 收银台完成，经 Status 与 Webhook 自动确认。',
   'paidMembership.purchaseCreated': '订单已创建。',
+  'paidMembership.purchaseCreatedWithOrder': '订单已创建。订单号：{orderNo}',
+  'paidMembership.redirectingWithOrder': '订单号 {orderNo} — 正在前往 ICOPAY 支付页。',
+  'paidMembership.redirectingCrypto':
+    '订单号 {orderNo} — 正在前往 ICOPAY 入金指引。入金确认可能需要一些时间。',
   'paidMembership.resultTitle': '付费会员支付结果',
+  'paidMembership.resultOrderNo': '订单号：{orderNo}',
   'paidMembership.resultMissingOrder': '缺少订单号。',
   'paidMembership.resultPaid': '支付已确认，付费会员已生效。',
   'paidMembership.resultPending': '确认中，请稍后刷新。',
+  'paidMembership.resultPendingCard':
+    '正在确认卡支付审批。请稍候——本页会自动检查状态。',
+  'paidMembership.resultPendingCrypto':
+    '正在确认入金。链上确认可能需要时间。这不是失败——本页会自动检查状态。',
+  'paidMembership.resultAutoChecking': '正在自动检查状态…',
   'paidMembership.backToShop': '返回付费会员注册',
   'paidMembership.refreshStatus': '刷新状态',
   'paidMembership.ops.tab': '付费·加密',
-  'paidMembership.ops.cryptoTitle': '付费会员加密支付对接(准备)',
+  'paidMembership.ops.cryptoTitle': '付费会员加密支付对接',
   'paidMembership.ops.cryptoDesc':
-    '与卡 prepare 同一接口，仅增加 payMeans=CRYPTO。无需新 API 密钥。',
+    '与卡 prepare 同一接口，仅增加 payMeans=CRYPTO。Callback/Result 与卡相同。',
   'paidMembership.ops.cryptoStep1':
     'ICOPAY 总部：开启加密 + CRYPTO/BOTH、允许资产/网络/托管地址',
   'paidMembership.ops.cryptoStep2':
     'prepare：payMeans CRYPTO，amount=币数量，currency=USDT|USDC|EURC',
   'paidMembership.ops.cryptoStep3': '仅打开 ICOPAY payUrl（禁止商户自建钱包 UI）',
   'paidMembership.ops.cryptoStep4':
-    '仅以 Status API(CONFIRMED) 确认 — 不用卡 Webhook 确认加密',
+    '确认：Status API(CONFIRMED) + CRYPTO Webhook（资产/网络/txHash），幂等',
   'paidMembership.ops.cryptoNote':
-    '一期线上仅接卡。总部加密商户开通后按此页启用。',
+    'TINPASS MID 6000000064。商户加密开通后，商店「加密支付购买」将跳转 payUrl。',
   'hq.hub.risk': '风险管理',
   'hq.hub.platform': '平台域名·SSL',
   'hq.hub.accounts': '账户·钱包管理',

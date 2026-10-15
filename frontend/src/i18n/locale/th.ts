@@ -921,7 +921,9 @@ export const TH: Record<string, string> = {
   'paidMembership.limits.copyDoneType': 'คัดลอกวงเงินทั่วไปไปยังทุกระดับในประเภทนี้แล้ว กดบันทึกเพื่อใช้',
   'paidMembership.saveLimits': 'บันทึกวงเงินเสียเงิน',
   'paidMembership.shopTitle': 'สมัครสมาชิกเสียเงิน',
-  'paidMembership.shopDesc': 'ซื้อระดับสมาชิกเหมือนสินค้า รองรับบัตร คริปโตกำลังเตรียม',
+  'paidMembership.menuBoard': 'เมนูสมาชิก',
+  'paidMembership.shopDesc':
+    'ซื้อระดับสมาชิกเหมือนสินค้า รองรับบัตรและคริปโต (USDT/USDC/EURC)',
   'paidMembership.currentStatus': 'ระดับปัจจุบัน',
   'paidMembership.until': 'หมดอายุเสียเงิน',
   'paidMembership.notPaid': 'ยังไม่เสียเงิน',
@@ -930,27 +932,42 @@ export const TH: Record<string, string> = {
   'paidMembership.buyCard': 'ซื้อด้วยบัตร',
   'paidMembership.buyCrypto': 'ซื้อด้วยคริปโต',
   'paidMembership.cryptoNotReady':
-    'การชำระคริปโตยังเชื่อมต่อในจัดการตรวจสอบ โปรดใช้บัตรก่อน',
+    'ยังไม่ตั้งค่า ICOPAY จึงเริ่มชำระคริปโตไม่ได้ ตรวจสอบการเชื่อม HQ',
+  'paidMembership.cryptoDepositHint':
+    'คริปโตจะเปิดหน้าฝากของ ICOPAY สมาชิกเสียเงินมีผลหลังยืนยันฝาก',
+  'paidMembership.cryptoReadyNote':
+    'คริปโตทำในหน้าชำระ ICOPAY ยืนยันอัตโนมัติผ่าน Status และ webhook',
   'paidMembership.purchaseCreated': 'สร้างคำสั่งแล้ว',
+  'paidMembership.purchaseCreatedWithOrder': 'สร้างคำสั่งแล้ว เลขคำสั่ง: {orderNo}',
+  'paidMembership.redirectingWithOrder':
+    'เลขคำสั่ง {orderNo} — กำลังไปหน้าชำระ ICOPAY',
+  'paidMembership.redirectingCrypto':
+    'เลขคำสั่ง {orderNo} — กำลังไปหน้าฝาก ICOPAY การยืนยันอาจใช้เวลาหลังโอน',
   'paidMembership.resultTitle': 'ผลการชำระสมาชิกเสียเงิน',
+  'paidMembership.resultOrderNo': 'เลขคำสั่ง: {orderNo}',
   'paidMembership.resultMissingOrder': 'ไม่มีเลขคำสั่ง',
   'paidMembership.resultPaid': 'ยืนยันการชำระแล้ว สมาชิกเสียเงินมีผล',
   'paidMembership.resultPending': 'รอการยืนยัน รีเฟรชภายหลัง',
+  'paidMembership.resultPendingCard':
+    'กำลังยืนยันการอนุมัติบัตร กรุณารอ — หน้านี้ตรวจสถานะอัตโนมัติ',
+  'paidMembership.resultPendingCrypto':
+    'กำลังยืนยันการฝาก อาจใช้เวลาหลังโอนบนเชน ไม่ใช่ความล้มเหลว — หน้านี้ตรวจสถานะอัตโนมัติ',
+  'paidMembership.resultAutoChecking': 'กำลังตรวจสถานะอัตโนมัติ…',
   'paidMembership.backToShop': 'กลับไปสมัครสมาชิกเสียเงิน',
   'paidMembership.refreshStatus': 'รีเฟรชสถานะ',
   'paidMembership.ops.tab': 'เสียเงิน·คริปโต',
-  'paidMembership.ops.cryptoTitle': 'เชื่อมคริปโตสมาชิกเสียเงิน (เตรียม)',
+  'paidMembership.ops.cryptoTitle': 'เชื่อมคริปโตสมาชิกเสียเงิน',
   'paidMembership.ops.cryptoDesc':
-    'ใช้ prepare เดียวกับบัตร เพิ่มแค่ payMeans=CRYPTO ไม่ต้องมีคีย์ใหม่',
+    'ใช้ prepare เดียวกับบัตร เพิ่มแค่ payMeans=CRYPTO Callback/Result เหมือนบัตร',
   'paidMembership.ops.cryptoStep1':
     'HQ ICOPAY: เปิดคริปโต + CRYPTO/BOTH สินทรัพย์/เครือข่าย/ที่อยู่คัสโตดี',
   'paidMembership.ops.cryptoStep2':
     'prepare: payMeans CRYPTO amount=จำนวนเหรียญ currency=USDT|USDC|EURC',
   'paidMembership.ops.cryptoStep3': 'เปิดเฉพาะ payUrl ของ ICOPAY (ห้าม UI กระเป๋าของร้าน)',
   'paidMembership.ops.cryptoStep4':
-    'ยืนยันด้วย Status API (CONFIRMED) เท่านั้น — ไม่ใช้ webhook บัตร',
+    'ยืนยัน: Status API (CONFIRMED) + webhook CRYPTO (asset/network/txHash) แบบ idempotent',
   'paidMembership.ops.cryptoNote':
-    'เฟส 1 ใช้บัตรเท่านั้น เปิดคริปโตที่แท็บนี้หลัง HQ เปิดร้านคริปโต',
+    'TINPASS MID 6000000064 หลังเปิดคริปโตร้าน ปุ่มซื้อคริปโตจะเปิด payUrl',
   'hq.hub.risk': 'จัดการความเสี่ยง',
   'hq.hub.platform': 'โดเมนแพลตฟอร์ม·SSL',
   'hq.hub.accounts': 'จัดการบัญชี·กระเป๋า',

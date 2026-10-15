@@ -157,17 +157,22 @@ export async function validateCardChargeAmount(
   }
 }
 
+export async function assertIcopayConfigured(): Promise<HqIcopayConfig> {
+  const icopay = await getIcopayConfig();
+  const compId = String(icopay.compId || icopay.mid || '').trim();
+  if (!icopay.enabled || !compId || !icopay.bracketSecret) {
+    throw new AppError(503, 'ICOPAY is not configured', 'ICOPAY_NOT_CONFIGURED');
+  }
+  return icopay;
+}
+
 export async function assertCardPaymentAvailable(): Promise<{
   card: HqCardPaymentConfig;
   icopay: HqIcopayConfig;
 }> {
-  const [card, icopay] = await Promise.all([getCardPaymentConfig(), getIcopayConfig()]);
+  const [card, icopay] = await Promise.all([getCardPaymentConfig(), assertIcopayConfigured()]);
   if (!card.enabled) {
     throw new AppError(503, 'Card payment is disabled', 'CARD_DISABLED');
-  }
-  const compId = String(icopay.compId || icopay.mid || '').trim();
-  if (!icopay.enabled || !compId || !icopay.bracketSecret) {
-    throw new AppError(503, 'ICOPAY is not configured', 'ICOPAY_NOT_CONFIGURED');
   }
   return { card, icopay };
 }

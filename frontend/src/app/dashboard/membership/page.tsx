@@ -6,8 +6,10 @@ import {
   membershipApi,
   type PaidMemberGrade,
   type PaidMembershipProduct,
+  formatMemberGradeDisplayCode,
 } from '@/lib/api';
 import { ContentCard } from '@/components/layout/ContentCard';
+import { MEMBER_GRADE_STYLE, normalizeMemberGradeUi } from '@/components/MemberGradeCard';
 import { periodDaysToMode } from '@/lib/membership-period';
 
 type ProductRow = PaidMembershipProduct & {
@@ -20,6 +22,17 @@ type ProductRow = PaidMembershipProduct & {
   chargeAmount?: number;
   equivalents?: { USD: number; USDT: number; USDC: number; EURC: number };
 };
+
+/** 등급 메뉴명: PREMIUM / VIP / VVIP / PRESTIGE / BLACK (법인 …B) */
+function menuGradeTitle(p: ProductRow): string {
+  const fromGrade = formatMemberGradeDisplayCode(p.grade);
+  const raw = String(p.displayCode || p.name || fromGrade).trim();
+  const upper = raw.toUpperCase().replace(/\s+/g, '');
+  if (/^(PREMIUM|VIP|VVIP|PRESTIGE|BLACK)B?$/i.test(raw.replace(/\s+/g, ''))) {
+    return upper;
+  }
+  return upper || fromGrade;
+}
 
 export default function MembershipShopPage() {
   const t = useT();
@@ -70,6 +83,11 @@ export default function MembershipShopPage() {
 
   if (loading) return <p className="pg-hint">{t('hq.loading')}</p>;
 
+  const anyCrypto = products.some(
+    (p) => p.payMeans === 'CRYPTO' || p.payMeans === 'BOTH',
+  );
+  const cryptoReady = products.some((p) => p.cryptoCheckoutReady);
+
   return (
     <div className="pg-stack">
       <h1 className="text-lg font-semibold text-slate-900">{t('paidMembership.shopTitle')}</h1>
@@ -78,13 +96,18 @@ export default function MembershipShopPage() {
         {t('paidMembership.noRefund')}
       </p>
       <p className="pg-hint text-xs text-slate-700">{t('paidMembership.icopayRedirectHint')}</p>
+      {anyCrypto && (
+        <p className="pg-hint text-xs text-slate-700">{t('paidMembership.cryptoDepositHint')}</p>
+      )}
       <p className="pg-hint text-xs">{t('paidMembership.priceUsdBasis')}</p>
 
       {status && (
         <ContentCard>
           <p className="text-sm">
             {t('paidMembership.currentStatus')}:{' '}
-            <span className="font-semibold">{status.displayCode}</span>
+            <span className="font-semibold tracking-wide uppercase">
+              {String(status.displayCode || '').toUpperCase()}
+            </span>
             {status.active && status.paidMemberUntil
               ? ` · ${t('paidMembership.until')} ${new Date(status.paidMemberUntil).toLocaleString()}`
               : ` · ${t('paidMembership.notPaid')}`}
@@ -110,11 +133,25 @@ export default function MembershipShopPage() {
             period.mode === 'months'
               ? t('paidMembership.periodMonthsOption', { n: String(period.months) })
               : t('paidMembership.periodDaysOption', { n: String(period.days) });
-          const title = p.name || p.displayCode || p.grade;
+          const title = menuGradeTitle(p);
+          const g = normalizeMemberGradeUi(p.grade);
+          const style = MEMBER_GRADE_STYLE[g];
           return (
             <ContentCard key={p.id}>
               <div className="space-y-3">
-                <p className="text-base font-semibold text-slate-900">{title}</p>
+                <div className="space-y-2 border-b border-slate-100 pb-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                    {t('paidMembership.menuBoard')}
+                  </p>
+                  <span
+                    className={`inline-flex rounded px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.18em] ${style.chip}`}
+                  >
+                    {title}
+                  </span>
+                  <p className="text-2xl font-bold uppercase tracking-[0.16em] text-slate-900">
+                    {title}
+                  </p>
+                </div>
                 <p className="text-2xl font-bold tabular-nums text-sky-800">
                   {usd.toLocaleString()} <span className="text-lg tracking-wide">USD</span>
                 </p>
@@ -147,19 +184,31 @@ export default function MembershipShopPage() {
                     <button
                       type="button"
                       className="pg-btn pg-btn-secondary text-xs"
-                      disabled={buying != null}
+                      disabled={buying != null || !p.cryptoCheckoutReady}
                       onClick={() => void buy(p.id, 'CRYPTO')}
-                      title={t('paidMembership.cryptoNotReady')}
+                      title={
+                        p.cryptoCheckoutReady
+                          ? t('paidMembership.buyCrypto')
+                          : t('paidMembership.cryptoNotReady')
+                      }
                     >
-                      {t('paidMembership.buyCrypto')}
+                      {buying === `${p.id}-CRYPTO`
+                        ? t('hq.saving')
+                        : t('paidMembership.buyCrypto')}
                     </button>
                   )}
                 </div>
+                {cryptoOk && !p.cryptoCheckoutReady && (
+                  <p className="text-[11px] text-amber-700">{t('paidMembership.cryptoNotReady')}</p>
+                )}
               </div>
             </ContentCard>
           );
         })}
       </div>
+      {anyCrypto && cryptoReady && (
+        <p className="pg-hint text-[11px]">{t('paidMembership.cryptoReadyNote')}</p>
+      )}
     </div>
   );
 }

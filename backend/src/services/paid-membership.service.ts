@@ -63,8 +63,7 @@ export function defaultPaidMembershipProduct(grade: PaidMemberGrade): PaidMember
 }
 
 function defaultCatalogName(grade: PaidMemberGrade, customerType: CustomerTypeLimitKey): string {
-  const title = grade.charAt(0) + grade.slice(1).toLowerCase();
-  return customerType === 'CORPORATE' ? `${title}B` : title;
+  return formatMemberGradeDisplayCode(grade, customerType);
 }
 
 export function createDefaultCatalogItem(
@@ -297,9 +296,8 @@ export function formatMemberGradeDisplayCode(
   customerType?: CustomerType | string | null,
 ): string {
   const g = normalizeMemberGrade(grade);
-  const title = g.charAt(0) + g.slice(1).toLowerCase();
   const corp = String(customerType).toUpperCase() === 'CORPORATE';
-  return corp ? `${title}B` : title;
+  return corp ? `${g}B` : g;
 }
 
 export function isPaidMembershipActive(input: {

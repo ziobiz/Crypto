@@ -30,7 +30,10 @@ export type IcopayPrepareInput = {
   payMeans?: 'CARD' | 'CRYPTO';
   /** CRYPTO일 때 자산 코드(USDT|USDC|EURC). currency와 동일하게 맞출 것 */
   assetCode?: string;
-  /** CRYPTO일 때 네트워크 TRC20|ERC20 — 생략 시 본사 기본 */
+  /**
+   * CRYPTO일 때 네트워크(BEP20|BASE|TRC20|ERC20 …).
+   * 생략 시 ICOPAY 수탁이 있는 기본망(BEP20)을 넣는다 — CSV 첫망(BASE)만 고르면 CUSTODY_MISSING 난다.
+   */
   networkCode?: string;
 };
 
@@ -60,6 +63,11 @@ export type IcopayStatusResult = {
   amount?: number;
   currency?: string;
   last4?: string;
+  assetCode?: string;
+  networkCode?: string;
+  depositTxHash?: string;
+  pgKind?: string;
+  payMeans?: string;
   raw?: unknown;
 };
 
@@ -334,6 +342,17 @@ function simulatePrepare(input: IcopayPrepareInput): IcopayPrepareResult {
   };
 }
 
+/**
+ * ICOPAY CRYPTO prepare 기본 네트워크.
+ * TINPASS 가맹(6000000064) 본사 수탁은 USDT/USDC × BEP20 사용Y.
+ * Crypto 앱 기본망(USDC→SOL, USDT→TRC20)을 그대로내면 수탁 불일치로 CUSTODY_MISSING.
+ */
+export function defaultIcopayCryptoNetwork(asset: string): string {
+  const a = String(asset || 'USDT').toUpperCase();
+  if (a === 'EURC') return 'BASE';
+  return 'BEP20';
+}
+
 /** Unified Checkout prepare — returns hosted payUrl (INLINE / REDIRECT). */
 export async function prepareIcopayCheckout(
   config: HqIcopayConfig,
@@ -394,8 +413,21 @@ export async function prepareIcopayCheckout(
   };
   if (payMeans) {
     payload.payMeans = payMeans;
-    if (input.assetCode) payload.assetCode = String(input.assetCode).toUpperCase();
-    if (input.networkCode) payload.networkCode = String(input.networkCode).toUpperCase();
+    const cur = String(input.currency || '').toUpperCase();
+    let asset = String(input.assetCode || '').trim().toUpperCase();
+    if (!asset && ['USDT', 'USDC', 'EURC'].includes(cur)) {
+      asset = cur;
+    }
+    if (!asset) {
+      /* 표시통화가 USD 등이면 자산 미지정 → ICOPAY가 assetsCsv 첫값(USDC)+첫망(BASE)을 잡아 수탁 없음 오류 */
+      asset = 'USDT';
+    }
+    let network = String(input.networkCode || '').trim().toUpperCase();
+    if (!network) {
+      network = defaultIcopayCryptoNetwork(asset);
+    }
+    payload.assetCode = asset;
+    payload.networkCode = network;
   }
 
   const res = await fetch(`${apiBase(config)}/api/middleware/v1/merchant/checkout/prepare`, {
@@ -500,8 +532,39 @@ export async function getIcopayCheckoutStatus(
   const paymentStatus = String(
     data.paymentStatus ?? data.status ?? data.resultCode ?? 'UNKNOWN',
   ).toUpperCase();
+  const assetCode = data.assetCode
+    ? String(data.assetCode)
+    : data.asset
+      ? String(data.asset)
+      : data.cryptoAsset
+        ? String(data.cryptoAsset)
+        : undefined;
+  const networkCode = data.networkCode
+    ? String(data.networkCode)
+    : data.network
+      ? String(data.network)
+      : data.cryptoNetwork
+        ? String(data.cryptoNetwork)
+        : undefined;
+  const depositTxHash = data.depositTxHash
+    ? String(data.depositTxHash)
+    : data.txHash
+      ? String(data.txHash)
+      : data.txid
+        ? String(data.txid)
+        : undefined;
   return {
-    found: data.found === true || ['APPROVED', 'PAID', 'SUCCESS', '0000', 'COMPLETED'].includes(paymentStatus),
+    found:
+      data.found === true ||
+      [
+        'APPROVED',
+        'PAID',
+        'SUCCESS',
+        '0000',
+        'COMPLETED',
+        'CONFIRMED',
+        'CAPTURED',
+      ].includes(paymentStatus),
     paymentStatus,
     orderNo: String(data.orderNo ?? orderNo),
     transactionId: data.transactionId
@@ -514,6 +577,15 @@ export async function getIcopayCheckoutStatus(
     amount: data.amount != null ? Number(data.amount) : undefined,
     currency: data.currency ? String(data.currency) : undefined,
     last4: data.last4 ? String(data.last4) : data.cardLast4 ? String(data.cardLast4) : undefined,
+    assetCode: assetCode || undefined,
+    networkCode: networkCode || undefined,
+    depositTxHash: depositTxHash || undefined,
+    pgKind: data.pgKind ? String(data.pgKind) : undefined,
+    payMeans: data.payMeans
+      ? String(data.payMeans)
+      : data.checkoutMeans
+        ? String(data.checkoutMeans)
+        : undefined,
     raw,
   };
 }
@@ -550,7 +622,20 @@ export function isIcopayPaidStatus(status: string): boolean {
     .trim()
     .toUpperCase();
   if (!s) return false;
-  if (['APPROVED', 'PAID', 'SUCCESS', 'SUCCEEDED', 'SUCCEED', 'COMPLETED', 'CAPTURED', 'OK', 'Y'].includes(s)) {
+  if (
+    [
+      'APPROVED',
+      'PAID',
+      'SUCCESS',
+      'SUCCEEDED',
+      'SUCCEED',
+      'COMPLETED',
+      'CONFIRMED',
+      'CAPTURED',
+      'OK',
+      'Y',
+    ].includes(s)
+  ) {
     return true;
   }
   if (['0000', '00', '0'].includes(s)) return true;
@@ -590,6 +675,13 @@ export function parseIcopayWebhookBody(body: unknown): {
   last4?: string;
   amount?: number;
   currency?: string;
+  /** CRYPTO NOTI 확장 필드 */
+  assetCode?: string;
+  networkCode?: string;
+  depositTxHash?: string;
+  pgKind?: string;
+  payMeans?: string;
+  rawKeys?: string[];
 } {
   const map = flattenIcopayFields(body);
   const orderRaw = firstString(map, [
@@ -620,6 +712,24 @@ export function parseIcopayWebhookBody(body: unknown): {
   const last4 = firstString(map, ['last4', 'cardLast4']);
   const amountRaw = map.amount ?? map.payamount ?? map.payAmount;
   const currency = firstString(map, ['currency', 'payCurrency', 'paycurrency']);
+  const assetCode = firstString(map, ['assetCode', 'asset', 'cryptoAsset', 'coin', 'symbol']);
+  const networkCode = firstString(map, [
+    'networkCode',
+    'network',
+    'cryptoNetwork',
+    'chain',
+    'chainCode',
+  ]);
+  const depositTxHash = firstString(map, [
+    'depositTxHash',
+    'txHash',
+    'txid',
+    'txId',
+    'transactionHash',
+    'hash',
+  ]);
+  const pgKind = firstString(map, ['pgKind', 'van', 'pgVendor', 'vendor']);
+  const payMeans = firstString(map, ['payMeans', 'checkoutMeans', 'paymentMeans', 'payMethod']);
   return {
     orderNo,
     paymentStatus,
@@ -627,6 +737,12 @@ export function parseIcopayWebhookBody(body: unknown): {
     last4: last4 || undefined,
     amount: amountRaw != null && Number.isFinite(Number(amountRaw)) ? Number(amountRaw) : undefined,
     currency: currency || undefined,
+    assetCode: assetCode || undefined,
+    networkCode: networkCode || undefined,
+    depositTxHash: depositTxHash || undefined,
+    pgKind: pgKind || undefined,
+    payMeans: payMeans || undefined,
+    rawKeys: Object.keys(map),
   };
 }
 

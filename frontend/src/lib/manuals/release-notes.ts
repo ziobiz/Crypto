@@ -3,6 +3,28 @@ import type { PlatformReleaseNote } from './version';
 /** 본사정책 → 검증관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
 export const PLATFORM_RELEASE_NOTES: PlatformReleaseNote[] = [
   {
+    version: '2.6.245',
+    kind: 'minor',
+    date: '2026-10-15',
+    items: {
+      KR: [
+        '유료회원 결제: 이동 전 주문번호 안내, Result 입금·승인 대기 문구 강화, 상태 자동 확인(폴링). KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'Paid membership: show order No before redirect; stronger Result pending copy; auto status poll. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        '有料会員決済: 遷移前に注文番号案内、Resultの入金・承認待ち文言強化、状態自動確認。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        '付费会员支付：跳转前显示订单号；加强 Result 待确认文案；自动轮询状态。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'สมาชิกเสียเงิน: แสดงเลขคำสั่งก่อนไปชำระ ข้อความรอที่ Result ชัดขึ้น ตรวจสถานะอัตโนมัติ KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
     version: '2.6.244',
     kind: 'minor',
     date: '2026-10-12',

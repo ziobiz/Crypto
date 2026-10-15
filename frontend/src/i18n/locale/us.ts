@@ -927,7 +927,9 @@ export const US: Record<string, string> = {
     'Copied general limits into all grades for this type. Click Save to apply.',
   'paidMembership.saveLimits': 'Save paid limits',
   'paidMembership.shopTitle': 'Paid membership signup',
-  'paidMembership.shopDesc': 'Buy a membership grade like a product. Card is available; crypto is coming soon.',
+  'paidMembership.menuBoard': 'Membership menu',
+  'paidMembership.shopDesc':
+    'Buy a membership grade like a product. Card and crypto (USDT/USDC/EURC) are supported.',
   'paidMembership.currentStatus': 'Current grade',
   'paidMembership.until': 'Paid until',
   'paidMembership.notPaid': 'Not on paid plan',
@@ -936,27 +938,42 @@ export const US: Record<string, string> = {
   'paidMembership.buyCard': 'Buy with card',
   'paidMembership.buyCrypto': 'Buy with crypto',
   'paidMembership.cryptoNotReady':
-    'Crypto checkout is not ready yet (HQ ops). Please use card for now.',
+    'Crypto checkout cannot start because ICOPAY is not configured. Check HQ setup.',
+  'paidMembership.cryptoDepositHint':
+    'Crypto opens the ICOPAY deposit page. Paid membership applies after deposit confirmation.',
+  'paidMembership.cryptoReadyNote':
+    'Crypto runs in the ICOPAY checkout. Confirmation comes via Status and webhook.',
   'paidMembership.purchaseCreated': 'Order created.',
+  'paidMembership.purchaseCreatedWithOrder': 'Order created. Order No: {orderNo}',
+  'paidMembership.redirectingWithOrder':
+    'Order {orderNo} — opening the ICOPAY checkout page.',
+  'paidMembership.redirectingCrypto':
+    'Order {orderNo} — opening ICOPAY deposit guidance. Confirmation may take time after you send funds.',
   'paidMembership.resultTitle': 'Membership payment result',
+  'paidMembership.resultOrderNo': 'Order No: {orderNo}',
   'paidMembership.resultMissingOrder': 'Missing order number.',
   'paidMembership.resultPaid': 'Payment confirmed. Paid membership is active.',
   'paidMembership.resultPending': 'Awaiting confirmation. Refresh shortly.',
+  'paidMembership.resultPendingCard':
+    'Confirming card approval. Please wait — this page checks status automatically.',
+  'paidMembership.resultPendingCrypto':
+    'Confirming deposit. On-chain confirmation can take time. This is not a failure — this page checks status automatically.',
+  'paidMembership.resultAutoChecking': 'Checking status automatically…',
   'paidMembership.backToShop': 'Back to membership signup',
   'paidMembership.refreshStatus': 'Refresh status',
   'paidMembership.ops.tab': 'Paid · Crypto',
-  'paidMembership.ops.cryptoTitle': 'Paid membership crypto checkout (prep)',
+  'paidMembership.ops.cryptoTitle': 'Paid membership crypto checkout',
   'paidMembership.ops.cryptoDesc':
-    'Same ICOPAY prepare endpoint; add payMeans=CRYPTO only. No new API keys.',
+    'Same ICOPAY prepare endpoint; add payMeans=CRYPTO only. Callback/Result URLs match card.',
   'paidMembership.ops.cryptoStep1':
     'ICOPAY HQ: enable crypto + CRYPTO/BOTH, allowed assets/networks/custody',
   'paidMembership.ops.cryptoStep2':
     'prepare: payMeans CRYPTO, amount=coin qty, currency=USDT|USDC|EURC',
   'paidMembership.ops.cryptoStep3': 'Use ICOPAY payUrl only (no merchant wallet UI)',
   'paidMembership.ops.cryptoStep4':
-    'Confirm via Status API (CONFIRMED) only — not card webhook',
+    'Confirm via Status API (CONFIRMED) + CRYPTO webhook (asset/network/txHash), idempotent',
   'paidMembership.ops.cryptoNote':
-    'Phase 1 live uses card only. Enable crypto here after HQ merchant crypto is open.',
+    'TINPASS MID 6000000064. After merchant crypto is open, shop “Buy with crypto” opens payUrl.',
   'hq.hub.risk': 'Risk management',
   'hq.hub.platform': 'Platform domain & SSL',
   'hq.hub.accounts': 'Accounts & wallets',

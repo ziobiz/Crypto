@@ -926,7 +926,9 @@ export const JP: Record<string, string> = {
     'この類型の全等級に一般限度をコピーしました。保存で反映してください。',
   'paidMembership.saveLimits': '有料限度を保存',
   'paidMembership.shopTitle': '有料会員登録',
-  'paidMembership.shopDesc': '会員等級を商品として購入。カード対応、クリプトは準備中。',
+  'paidMembership.menuBoard': 'メンバーシップメニュー',
+  'paidMembership.shopDesc':
+    '会員等級を商品として購入。カード・クリプト(USDT/USDC/EURC)に対応。',
   'paidMembership.currentStatus': '現在の等級',
   'paidMembership.until': '有料期限',
   'paidMembership.notPaid': '有料未適用',
@@ -935,27 +937,42 @@ export const JP: Record<string, string> = {
   'paidMembership.buyCard': 'カードで購入',
   'paidMembership.buyCrypto': 'クリプトで購入',
   'paidMembership.cryptoNotReady':
-    'クリプト決済は検証管理の連携準備中です。当面はカードをご利用ください。',
+    'ICOPAY未設定のためクリプト決済を開始できません。本社連携を確認してください。',
+  'paidMembership.cryptoDepositHint':
+    'クリプト決済はICOPAY入金案内へ移動します。入金確定後に有料会員が適用されます。',
+  'paidMembership.cryptoReadyNote':
+    'クリプトはICOPAY決済画面で進行。Status・Webhookで自動確定します。',
   'paidMembership.purchaseCreated': '注文を作成しました。',
+  'paidMembership.purchaseCreatedWithOrder': '注文を作成しました。注文番号: {orderNo}',
+  'paidMembership.redirectingWithOrder':
+    '注文番号 {orderNo} — ICOPAY決済ページへ移動します。',
+  'paidMembership.redirectingCrypto':
+    '注文番号 {orderNo} — ICOPAY入金案内へ移動します。入金確認まで時間がかかる場合があります。',
   'paidMembership.resultTitle': '有料会員の決済結果',
+  'paidMembership.resultOrderNo': '注文番号: {orderNo}',
   'paidMembership.resultMissingOrder': '注文番号がありません。',
   'paidMembership.resultPaid': '決済が確認され、有料会員が適用されました。',
   'paidMembership.resultPending': '確認待ちです。しばらくして更新してください。',
+  'paidMembership.resultPendingCard':
+    'カード承認を確認中です。しばらくお待ちください。このページで自動確認します。',
+  'paidMembership.resultPendingCrypto':
+    '入金確認中です。送金後のチェーン確認に時間がかかることがあります。失敗ではありません。このページで自動確認します。',
+  'paidMembership.resultAutoChecking': '状態を自動確認中…',
   'paidMembership.backToShop': '有料会員登録へ戻る',
   'paidMembership.refreshStatus': '状態を更新',
   'paidMembership.ops.tab': '有料・クリプト',
-  'paidMembership.ops.cryptoTitle': '有料会員クリプト決済連携(準備)',
+  'paidMembership.ops.cryptoTitle': '有料会員クリプト決済連携',
   'paidMembership.ops.cryptoDesc':
-    'ICOPAYカードprepareと同じURLにpayMeans=CRYPTOを追加。新しいAPIキーは不要。',
+    'ICOPAYカードprepareと同じURLにpayMeans=CRYPTOを追加。Callback/Resultはカードと同じ。',
   'paidMembership.ops.cryptoStep1':
     'ICOPAY本社: クリプト設定ON + CRYPTO/BOTH、許可資産・ネットワーク・カストディ',
   'paidMembership.ops.cryptoStep2':
     'prepare: payMeans CRYPTO、amount=コイン数量、currency=USDT|USDC|EURC',
   'paidMembership.ops.cryptoStep3': '決済画面はICOPAY payUrlのみ(加盟店ウォレットUI禁止)',
   'paidMembership.ops.cryptoStep4':
-    '確定はStatus API(CONFIRMED)のみ — カードWebhookでは確定しない',
+    '確定: Status API(CONFIRMED) + CRYPTO Webhook(asset/network/txHash)、冪等',
   'paidMembership.ops.cryptoNote':
-    '1次ライブはカードのみ。本社クリプト加盟オープン後にこのタブ基準で有効化。',
+    'TINPASS MID 6000000064。加盟クリプトオープン後、店舗の「クリプトで購入」がpayUrlへ遷移。',
   'hq.hub.risk': 'リスク管理',
   'hq.hub.platform': 'プラットフォームドメイン・SSL',
   'hq.hub.accounts': '口座・ウォレット管理',

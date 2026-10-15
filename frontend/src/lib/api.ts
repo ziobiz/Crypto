@@ -1175,8 +1175,7 @@ export function formatMemberGradeDisplayCode(
   customerType?: string | null,
 ): string {
   const g = String(grade ?? 'STANDARD').toUpperCase();
-  const title = g.charAt(0) + g.slice(1).toLowerCase();
-  return String(customerType).toUpperCase() === 'CORPORATE' ? `${title}B` : title;
+  return String(customerType).toUpperCase() === 'CORPORATE' ? `${g}B` : g;
 }
 
 export function newMembershipProductId(): string {
@@ -1211,10 +1210,10 @@ export function createDefaultCatalogItem(
   const customerType: 'INDIVIDUAL' | 'CORPORATE' =
     String(partial?.customerType).toUpperCase() === 'CORPORATE' ? 'CORPORATE' : 'INDIVIDUAL';
   const base = defaultPaidMembershipProduct(grade);
-  const title = grade.charAt(0) + grade.slice(1).toLowerCase();
+  const title = formatMemberGradeDisplayCode(grade, customerType);
   return {
     id: partial?.id?.trim() || newMembershipProductId(),
-    name: partial?.name?.trim() || (customerType === 'CORPORATE' ? `${title}B` : title),
+    name: partial?.name?.trim() || title,
     customerType,
     grade,
     enabled: partial?.enabled === true,
@@ -3000,10 +2999,17 @@ export const membershipApi = {
       body: JSON.stringify(body),
     }),
   syncOrder: (orderNo: string) =>
-    request<{ order: unknown; synced: boolean; paid: boolean }>(
-      `/api/membership/orders/${encodeURIComponent(orderNo)}/sync`,
-      { method: 'POST' },
-    ),
+    request<{
+      order: {
+        orderNo?: string;
+        payMeans?: 'CARD' | 'CRYPTO' | string | null;
+        status?: string;
+      } | null;
+      synced: boolean;
+      paid: boolean;
+    }>(`/api/membership/orders/${encodeURIComponent(orderNo)}/sync`, {
+      method: 'POST',
+    }),
   getOrder: (orderNo: string) =>
     request<{ order: unknown }>(`/api/membership/orders/${encodeURIComponent(orderNo)}`),
 };

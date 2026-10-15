@@ -763,7 +763,7 @@ export async function handleIcopayWebhook(body: unknown) {
     return { success: false, error: 'orderNo missing' };
   }
 
-  /** 유료회원 주문 — USDT 카드 티켓과 동일 웹훅 */
+  /** 유료회원 주문 — 카드·크립토 동일 Callback URL (EP NOTI 재사용) */
   const membershipOrder = await prisma.membershipOrder.findFirst({
     where: {
       OR: [{ orderNo: parsed.orderNo }, { icopayOrderId: parsed.orderNo }],
@@ -774,16 +774,41 @@ export async function handleIcopayWebhook(body: unknown) {
     const { applyMembershipOrderPaymentOutcome } = await import(
       './membership-purchase.service'
     );
+    const cryptoPayload = {
+      transactionId: parsed.transactionId,
+      assetCode: parsed.assetCode,
+      networkCode: parsed.networkCode,
+      depositTxHash: parsed.depositTxHash,
+      amount: parsed.amount,
+      currency: parsed.currency,
+      pgKind: parsed.pgKind,
+      payMeans: parsed.payMeans,
+      webhookExtra: {
+        rawKeys: parsed.rawKeys || [],
+        last4: parsed.last4 || null,
+      },
+    };
+    console.info('[icopay-webhook][membership]', {
+      orderNo: parsed.orderNo,
+      payMeans: membershipOrder.payMeans,
+      status,
+      assetCode: parsed.assetCode || null,
+      networkCode: parsed.networkCode || null,
+      depositTxHash: parsed.depositTxHash || null,
+      transactionId: parsed.transactionId || null,
+    });
     if (isIcopayPaidStatus(status) || String(status).toUpperCase() === 'Y') {
       const result = await applyMembershipOrderPaymentOutcome({
         orderNo: parsed.orderNo,
         paid: true,
+        ...cryptoPayload,
       });
       return {
         success: true,
         membership: true,
         orderNo: parsed.orderNo,
         paid: result.found && result.order.status === 'PAID',
+        alreadyPaid: result.found ? result.alreadyPaid : false,
       };
     }
     if (isIcopayTerminalFailedStatus(status)) {
@@ -791,6 +816,7 @@ export async function handleIcopayWebhook(body: unknown) {
         orderNo: parsed.orderNo,
         paid: false,
         reason: status,
+        ...cryptoPayload,
       });
       return { success: true, membership: true, orderNo: parsed.orderNo, paid: false };
     }

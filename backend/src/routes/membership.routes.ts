@@ -51,7 +51,9 @@ router.get(
       },
       products: products.map((p) => ({
         ...p,
-        displayCode: p.name || formatMemberGradeDisplayCode(p.grade, profile.customerType),
+        /** 상점 메뉴: 등급 코드 대문자 (PREMIUM / PREMIUMB) */
+        displayCode: formatMemberGradeDisplayCode(p.grade, profile.customerType),
+        menuName: formatMemberGradeDisplayCode(p.grade, profile.customerType),
       })),
       refundPolicy: 'NO_REFUND',
     });

@@ -920,7 +920,9 @@ export const KR = {
   'paidMembership.limits.copyDoneType': '이 유형 전체 등급에 일반 한도를 복사했습니다. 저장을 눌러 반영하세요.',
   'paidMembership.saveLimits': '유료회원 한도 저장',
   'paidMembership.shopTitle': '유료회원가입',
-  'paidMembership.shopDesc': '회원등급을 상품처럼 구매합니다. 카드 결제를 지원하며, 크립토는 준비 중입니다.',
+  'paidMembership.menuBoard': '멤버십 메뉴',
+  'paidMembership.shopDesc':
+    '회원등급을 상품처럼 구매합니다. 카드·크립토(USDT/USDC/EURC) 결제를 지원합니다.',
   'paidMembership.currentStatus': '현재 등급',
   'paidMembership.until': '유료 만료',
   'paidMembership.notPaid': '유료 미적용',
@@ -929,27 +931,42 @@ export const KR = {
   'paidMembership.buyCard': '카드로 구매',
   'paidMembership.buyCrypto': '크립토로 구매',
   'paidMembership.cryptoNotReady':
-    '크립토 결제는 검증관리 연동 준비 중입니다. 지금은 카드로 구매해 주세요.',
+    'ICOPAY 설정이 없어 크립토 결제를 시작할 수 없습니다. 본사 연동을 확인해 주세요.',
+  'paidMembership.cryptoDepositHint':
+    '크립토 결제 시 ICOPAY 입금 안내 페이지로 이동합니다. 입금 확정 후 유료회원이 적용됩니다.',
+  'paidMembership.cryptoReadyNote':
+    '크립토는 ICOPAY 결제창에서 진행됩니다. 입금 후 Status·웹훅으로 자동 확정됩니다.',
   'paidMembership.purchaseCreated': '주문이 생성되었습니다.',
+  'paidMembership.purchaseCreatedWithOrder': '주문이 생성되었습니다. 주문번호: {orderNo}',
+  'paidMembership.redirectingWithOrder':
+    '주문번호 {orderNo} — ICOPAY 결제 페이지로 이동합니다.',
+  'paidMembership.redirectingCrypto':
+    '주문번호 {orderNo} — ICOPAY 입금 안내로 이동합니다. 입금 확인까지 시간이 걸릴 수 있습니다.',
   'paidMembership.resultTitle': '유료회원 결제 결과',
+  'paidMembership.resultOrderNo': '주문번호: {orderNo}',
   'paidMembership.resultMissingOrder': '주문번호가 없습니다.',
   'paidMembership.resultPaid': '결제가 확인되어 유료회원이 적용되었습니다.',
   'paidMembership.resultPending': '입금·승인 확인 중입니다. 잠시 후 새로고침해 주세요.',
+  'paidMembership.resultPendingCard':
+    '카드 승인 확인 중입니다. 잠시만 기다려 주세요. 이 페이지에서 자동으로 상태를 확인합니다.',
+  'paidMembership.resultPendingCrypto':
+    '입금 확인 중입니다. 송금 후 체인 확인까지 시간이 걸릴 수 있습니다. 실패가 아니며, 이 페이지에서 자동으로 상태를 확인합니다.',
+  'paidMembership.resultAutoChecking': '상태 자동 확인 중…',
   'paidMembership.backToShop': '유료회원가입으로 돌아가기',
   'paidMembership.refreshStatus': '상태 새로고침',
   'paidMembership.ops.tab': '유료·크립토',
-  'paidMembership.ops.cryptoTitle': '유료회원 크립토 결제 연동 (준비)',
+  'paidMembership.ops.cryptoTitle': '유료회원 크립토 결제 연동',
   'paidMembership.ops.cryptoDesc':
-    'ICOPAY 카드 prepare와 동일 엔드포인트에 payMeans=CRYPTO만 추가합니다. 새 API 키는 필요 없습니다.',
+    'ICOPAY 카드 prepare와 동일 엔드포인트에 payMeans=CRYPTO만 추가합니다. Callback/Result URL은 카드와 동일합니다.',
   'paidMembership.ops.cryptoStep1':
     '본사 ICOPAY: 크립토설정 사용 + CRYPTO/BOTH, 허용 자산·네트워크·수탁 주소',
   'paidMembership.ops.cryptoStep2':
     'prepare: payMeans CRYPTO, amount=코인 수량, currency=USDT|USDC|EURC',
   'paidMembership.ops.cryptoStep3': '결제창은 ICOPAY payUrl만 사용 (가맹 지갑 UI 금지)',
   'paidMembership.ops.cryptoStep4':
-    '확정은 Status API(CONFIRMED)만 — 카드 웹훅으로 크립토 확정하지 않음',
+    '확정: Status API(CONFIRMED) + CRYPTO 웹훅(assetCode·networkCode·depositTxHash) 멱등 처리',
   'paidMembership.ops.cryptoNote':
-    '1차 라이브는 카드만 연결됩니다. 크립토는 본사 가맹 오픈 후 이 탭 기준으로 활성화합니다.',
+    'TINPASS MID 6000000064 기준. 가맹 크립토 오픈 후 상점 「크립토로 구매」가 payUrl로 이동합니다.',
   'hq.hub.platform': '플랫폼 도메인·SSL',
   'hq.hub.accounts': '계좌·지갑 관리',
   'hq.page.accounts': '계좌·지갑 관리',

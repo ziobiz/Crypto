@@ -16,6 +16,7 @@ import {
 } from './icopay.service';
 import {
   assertCardPaymentAvailable,
+  assertIcopayConfigured,
   getIcopayConfig,
 } from './card-payment-policy.service';
 import type { PaidMemberGrade } from '../constants/hq-policy';
@@ -55,6 +56,13 @@ export async function listSellableMembershipProducts(customerType: CustomerType)
   const items = listCatalogItems(policy, customerType).filter(
     (it) => it.enabled && it.price > 0,
   );
+  let cryptoCheckoutReady = false;
+  try {
+    await assertIcopayConfigured();
+    cryptoCheckoutReady = true;
+  } catch {
+    cryptoCheckoutReady = false;
+  }
   return Promise.all(
     items.map(async (p) => {
       const quote = await quoteMembershipPrice(p.price, p.currency);
@@ -72,7 +80,7 @@ export async function listSellableMembershipProducts(customerType: CustomerType)
         chargeAmount: quote.chargeAmount,
         equivalents: quote.equivalents,
         usdToEurcRate: quote.usdToEurcRate,
-        cryptoCheckoutReady: false,
+        cryptoCheckoutReady,
       };
     }),
   );
@@ -142,56 +150,18 @@ export async function createMembershipPurchase(input: {
   const chargeAmount = quote.chargeAmount;
   const chargeCurrency = product.currency;
 
-  if (payMeans === 'CRYPTO') {
-    if (product.payMeans === 'CARD') {
-      throw new AppError(400, 'This product is card-only', 'PAY_MEANS_CARD_ONLY');
-    }
-    /** 1차: ICOPAY 크립토 가맹 연동 전 — 주문만 만들고 결제창 미오픈 */
-    const orderNo = generateMembershipOrderNo();
-    const cryptoAsset = resolveCryptoAssetFromCurrency(chargeCurrency);
-    const order = await prisma.membershipOrder.create({
-      data: {
-        orderNo,
-        customerProfileId: profile.id,
-        customerType: profile.customerType,
-        grade: grade as MemberGrade,
-        periodDays: product.periodDays,
-        amount: chargeAmount,
-        currency: chargeCurrency,
-        payMeans: MembershipPayMeans.CRYPTO,
-        cryptoAsset,
-        status: MembershipOrderStatus.PENDING,
-        failReason: 'CRYPTO_CHECKOUT_NOT_READY',
-        meta: {
-          note: 'Awaiting HQ ops crypto membership integration',
-          productId: product.id,
-          productName: product.name,
-          priceUsd: quote.priceUsd,
-          equivalents: quote.equivalents,
-        },
-      },
-    });
-    return {
-      order: {
-        id: order.id,
-        orderNo: order.orderNo,
-        grade: order.grade,
-        amount: order.amount,
-        currency: order.currency,
-        periodDays: order.periodDays,
-        payMeans: order.payMeans,
-        status: order.status,
-      },
-      icopayCheckout: null,
-      cryptoPending: true,
-    };
+  if (payMeans === 'CRYPTO' && product.payMeans === 'CARD') {
+    throw new AppError(400, 'This product is card-only', 'PAY_MEANS_CARD_ONLY');
   }
-
-  if (product.payMeans === 'CRYPTO') {
+  if (payMeans === 'CARD' && product.payMeans === 'CRYPTO') {
     throw new AppError(400, 'This product is crypto-only', 'PAY_MEANS_CRYPTO_ONLY');
   }
 
-  await assertCardPaymentAvailable();
+  if (payMeans === 'CARD') {
+    await assertCardPaymentAvailable();
+  } else {
+    await assertIcopayConfigured();
+  }
 
   const user = await prisma.user.findUnique({
     where: { id: input.user.id },
@@ -216,6 +186,12 @@ export async function createMembershipPurchase(input: {
 
   const orderNo = generateMembershipOrderNo();
   const resultUrl = `${MEMBERSHIP_RESULT_URL}?orderNo=${encodeURIComponent(orderNo)}`;
+  const cryptoAsset =
+    payMeans === 'CRYPTO'
+      ? resolveCryptoAssetFromCurrency(chargeCurrency) || 'USDT'
+      : null;
+  /** ICOPAY 본사 수탁(USDT/USDC×BEP20)과 맞춤 — BASE만 허용 CSV 앞에 있으면 CUSTODY_MISSING */
+  const cryptoNetwork = payMeans === 'CRYPTO' ? 'BEP20' : null;
 
   const order = await prisma.membershipOrder.create({
     data: {
@@ -226,7 +202,10 @@ export async function createMembershipPurchase(input: {
       periodDays: product.periodDays,
       amount: chargeAmount,
       currency: chargeCurrency,
-      payMeans: MembershipPayMeans.CARD,
+      payMeans:
+        payMeans === 'CRYPTO' ? MembershipPayMeans.CRYPTO : MembershipPayMeans.CARD,
+      cryptoAsset,
+      cryptoNetwork,
       status: MembershipOrderStatus.PENDING,
       icopayOrderId: orderNo,
       meta: {
@@ -248,6 +227,9 @@ export async function createMembershipPurchase(input: {
       productName: `TINPASS Membership ${grade} ${product.periodDays}d`,
       lang: input.lang,
       resultUrl,
+      payMeans: payMeans === 'CRYPTO' ? 'CRYPTO' : undefined,
+      assetCode: cryptoAsset || undefined,
+      networkCode: cryptoNetwork || undefined,
       buyer: {
         email: buyerContact.email,
         phone: buyerContact.phone,
@@ -352,6 +334,15 @@ export async function applyMembershipOrderPaymentOutcome(input: {
   orderNo: string;
   paid: boolean;
   reason?: string;
+  transactionId?: string;
+  assetCode?: string;
+  networkCode?: string;
+  depositTxHash?: string;
+  amount?: number;
+  currency?: string;
+  pgKind?: string;
+  payMeans?: string;
+  webhookExtra?: Record<string, unknown>;
 }) {
   const order = await prisma.membershipOrder.findFirst({
     where: {
@@ -362,16 +353,46 @@ export async function applyMembershipOrderPaymentOutcome(input: {
   if (order.status === MembershipOrderStatus.PAID) {
     return { found: true as const, order, alreadyPaid: true };
   }
+
+  const prevMeta =
+    order.meta && typeof order.meta === 'object' && !Array.isArray(order.meta)
+      ? (order.meta as Record<string, unknown>)
+      : {};
+  const cryptoMeta = {
+    ...prevMeta,
+    icopayTransactionId: input.transactionId || prevMeta.icopayTransactionId || null,
+    depositTxHash: input.depositTxHash || prevMeta.depositTxHash || null,
+    webhookPgKind: input.pgKind || prevMeta.webhookPgKind || null,
+    webhookPayMeans: input.payMeans || prevMeta.webhookPayMeans || null,
+    webhookAmount: input.amount ?? prevMeta.webhookAmount ?? null,
+    webhookCurrency: input.currency || prevMeta.webhookCurrency || null,
+    ...(input.webhookExtra
+      ? { webhookExtra: input.webhookExtra as Record<string, string | number | boolean | null> }
+      : {}),
+  } as object;
+
   if (!input.paid) {
     const updated = await prisma.membershipOrder.update({
       where: { id: order.id },
       data: {
         status: MembershipOrderStatus.FAILED,
         failReason: input.reason || 'PAYMENT_FAILED',
+        cryptoAsset: input.assetCode || order.cryptoAsset,
+        cryptoNetwork: input.networkCode || order.cryptoNetwork,
+        meta: cryptoMeta,
       },
     });
     return { found: true as const, order: updated, alreadyPaid: false };
   }
+
+  await prisma.membershipOrder.update({
+    where: { id: order.id },
+    data: {
+      cryptoAsset: input.assetCode || order.cryptoAsset,
+      cryptoNetwork: input.networkCode || order.cryptoNetwork,
+      meta: cryptoMeta,
+    },
+  });
   const activated = await activatePaidMembershipFromOrder(order.id);
   return { found: true as const, order: activated, alreadyPaid: false };
 }
@@ -388,13 +409,6 @@ export async function syncMembershipOrderPayment(orderNo: string) {
   if (order.status === MembershipOrderStatus.PAID) {
     return { order, synced: false, paid: true };
   }
-  if (order.payMeans === MembershipPayMeans.CRYPTO) {
-    throw new AppError(
-      503,
-      'Crypto membership checkout is not ready (HQ ops integration)',
-      'CRYPTO_CHECKOUT_NOT_READY',
-    );
-  }
 
   const icopay = await getIcopayConfig();
   const status = await getIcopayCheckoutStatus(
@@ -403,8 +417,23 @@ export async function syncMembershipOrderPayment(orderNo: string) {
     order.icopaySessionId || undefined,
   );
   if (status.found && isIcopayPaidStatus(status.paymentStatus)) {
-    const activated = await activatePaidMembershipFromOrder(order.id);
-    return { order: activated, synced: true, paid: true };
+    const activated = await applyMembershipOrderPaymentOutcome({
+      orderNo: order.orderNo,
+      paid: true,
+      transactionId: status.transactionId,
+      assetCode: status.assetCode,
+      networkCode: status.networkCode,
+      depositTxHash: status.depositTxHash,
+      amount: status.amount,
+      currency: status.currency,
+      pgKind: status.pgKind,
+      payMeans: status.payMeans,
+    });
+    return {
+      order: activated.found ? activated.order : order,
+      synced: true,
+      paid: activated.found && activated.order.status === MembershipOrderStatus.PAID,
+    };
   }
   return { order, synced: true, paid: false, paymentStatus: status.paymentStatus };
 }
