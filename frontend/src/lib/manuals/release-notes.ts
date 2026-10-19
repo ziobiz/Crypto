@@ -3,6 +3,28 @@ import type { PlatformReleaseNote } from './version';
 /** 본사정책 → 검증관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
 export const PLATFORM_RELEASE_NOTES: PlatformReleaseNote[] = [
   {
+    version: '2.6.246',
+    kind: 'minor',
+    date: '2026-10-19',
+    items: {
+      KR: [
+        '개인·기업 고객 이용 메뉴얼: 유료회원이 무엇인지, 일반회원과의 차이, 구매 순서, EXPRESS 등급·무료 횟수·할인 안내를 추가. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'Individual and corporate customer manuals: what paid membership is, how it differs from standard, how to buy, and EXPRESS tiers, free counts, and discounts. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        '個人・法人顧客マニュアル: 有料会員とは何か、一般会員との違い、購入手順、EXPRESS等級・無料回数・割引を追加。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        '个人与企业客户手册：补充什么是付费会员、与普通会员的区别、购买步骤，以及 EXPRESS 等级、免费次数与折扣。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'คู่มือลูกค้าบุคคลและนิติ: สมาชิกเสียเงินคืออะไร ต่างจากทั่วไปอย่างไร วิธีซื้อ และ EXPRESS ระดับ จำนวนฟรี ส่วนลด KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
     version: '2.6.245',
     kind: 'minor',
     date: '2026-10-15',

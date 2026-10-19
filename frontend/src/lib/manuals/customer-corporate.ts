@@ -389,50 +389,256 @@ export const CUSTOMER_CORPORATE_MANUAL: ManualDoc = {
     },
     {
       id: 'co-membership',
-      title: L('유료회원가입 (멤버십)', 'Paid membership signup', '有料会員登録', '付费会员注册', 'สมัครสมาชิกเสียเงิน'),
+      title: L(
+        '유료회원이란 · 가입 방법',
+        'What paid membership is · how to join',
+        '有料会員とは · 加入方法',
+        '什么是付费会员 · 如何开通',
+        'สมาชิกเสียเงินคืออะไร · วิธีสมัคร',
+      ),
       bodyHtml: L(
         `<span class="menu-path">유료회원가입</span>
-        <p>법인 계정은 법인용 상품(표시명 <strong>PremiumB</strong> 등)만 보입니다.</p>
+        <div class="check-box"><strong>유료회원</strong>은 기업 계정이 있다는 뜻이 아닙니다. <strong>법인 등급을 결제했고, 유료 만료가 아직 남지 않은 상태</strong>입니다. 관리자가 만든 기업 계정은 처음에 <strong>일반회원(STANDARD)</strong>입니다. 일반 기업도 인증패스·승인 지갑이 있으면 매입·에스크로를 합니다. 유료는 그 위에 한도와 EXPRESS 혜택을 더하는 선택입니다. 혜택은 <strong>회사 계정</strong>에 붙으므로 대표와 운영자가 같은 만료·횟수를 씁니다.</div>
+        <p><strong>화면에서 확인하는 법</strong></p>
         <ul>
-          <li>판매가 <strong>USD 기준</strong>, USDT·USDC 1:1, EURC 시세 환산.</li>
-          <li>기간: 일간(1–30일) 또는 월간(2–12개월).</li>
-          <li>카드 결제(ICOPAY) 우선, 크립토는 준비 중일 수 있음.</li>
-          <li><strong>결제 후 취소·환불 불가</strong>.</li>
-          <li>유료 활성 시 EXPRESS·유료 한도가 법인 한도보다 우선할 수 있습니다.</li>
-        </ul>`,
+          <li>현재 등급이 <strong>PREMIUMB · VIPB · VVIPB · PRESTIGEB · BLACKB</strong> 이고 유료 만료가 미래이면 유료 기업입니다. 끝의 B는 법인 상품입니다. 개인용 PREMIUM 등은 보이지 않습니다.</li>
+          <li>「유료 미적용」이거나 만료가 지났으면 일반 기업입니다. 무료 EXPRESS 횟수와 유료 한도는 꺼집니다.</li>
+          <li>본사가 판매를 켠 법인 등급만 카드로 나옵니다.</li>
+        </ul>
+        <p><strong>유료인 동안 달라지는 것</strong> (본사가 그 등급에 넣어 둔 값, 만료 전)</p>
+        <ul>
+          <li><strong>거래 한도</strong> — 법인 일반 한도보다 유료 한도가 우선할 수 있습니다.</li>
+          <li><strong>EXPRESS 무료 횟수</strong> — 빠른 완료 등급마다 기간 전체의 0원 횟수. 매달 리셋되지 않습니다. 회사 전체가 같은 횟수를 씁니다.</li>
+          <li><strong>횟수 소진 후 할인</strong> — 만료 전까지 일반 EXPRESS보다 낮은 유료 할인이 적용될 수 있습니다.</li>
+        </ul>
+        <p>판매가는 <strong>USD</strong>입니다. USDT·USDC는 1:1, EURC는 EUR 시세입니다. 기간은 일(1–30) 또는 월(2–12)이며 많은 상품은 12개월입니다.</p>
+        <p><strong>구매 순서</strong> (대표 관리자가 진행)</p>
+        <div class="flow">
+          <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc"><strong>유료회원가입</strong>을 엽니다.</span></div>
+          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">법인 등급 카드의 가격·기간·청구 통화를 확인합니다.</span></div>
+          <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc"><strong>카드로 구매</strong> 또는 <strong>크립토로 구매</strong>. 허용된 버튼만 나옵니다.</span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">ICOPAY로 이동합니다. 카드는 계정 이메일·전화(국가번호)가 필요합니다. 크립토는 입금 안내를 따릅니다.</span></div>
+          <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc">결과 화면에서 확정합니다. 확인 중이면 <strong>상태 새로고침</strong>. 확정되면 등급과 만료가 회사 계정에 적용됩니다.</span></div>
+        </div>
+        <div class="warn-box"><strong>결제 후 취소·환불은 불가</strong>합니다. 기간은 구매 시점부터 새로 시작하며 남은 일수를 더하지 않습니다. 다시 사면 EXPRESS 무료 횟수도 그 시점부터 다시 받습니다.</div>
+        <div class="info-box">크립토가 꺼지거나 수탁 주소 오류가 나면 본사 ICOPAY 크립토 설정입니다. 카드가 있으면 카드로 구매하세요. 기업 공개 가입은 없지만, 로그인 후 유료 등급 구매는 이 메뉴에서 합니다.</div>`,
         `<span class="menu-path">Paid membership</span>
-        <p>Corporate accounts see corporate products only (display names like <strong>PremiumB</strong>).</p>
+        <div class="check-box"><strong>Paid member</strong> does not mean “we have a corporate login.” It means <strong>a corporate grade was paid and has not expired</strong>. An account created by an admin starts as a <strong>standard member (STANDARD)</strong>. A standard company can still purchase and use escrow after verification and an approved wallet. Paid adds limits and EXPRESS benefits. Benefits sit on the <strong>company account</strong>, so the admin and operators share one expiry and one set of free counts.</div>
+        <p><strong>How to tell on screen</strong></p>
         <ul>
-          <li><strong>USD</strong> list price; USDT/USDC 1:1; EURC via EUR rate.</li>
-          <li>Period: days (1–30) or months (2–12).</li>
-          <li>Card (ICOPAY) first; crypto may be preparing.</li>
-          <li><strong>No cancel/refund after payment</strong>.</li>
-          <li>Active paid benefits (EXPRESS / paid limits) can override standard corporate limits.</li>
-        </ul>`,
+          <li>Current grade is <strong>PREMIUMB · VIPB · VVIPB · PRESTIGEB · BLACKB</strong> and paid-until is still ahead. The B marks a corporate product. Individual names such as PREMIUM are not shown.</li>
+          <li>If it says not on a paid plan, or the date has passed, you are a standard company. Free EXPRESS counts and paid limits turn off.</li>
+          <li>Only corporate grades HQ put on sale appear as cards.</li>
+        </ul>
+        <p><strong>What changes while paid</strong> (HQ values for that grade, before expiry)</p>
+        <ul>
+          <li><strong>Limits</strong> — paid limits can override the company’s standard caps.</li>
+          <li><strong>Free EXPRESS counts</strong> — each faster tier has a 0-fee count for the whole period. It does not reset monthly. The whole company shares the counts.</li>
+          <li><strong>Discount after the free count</strong> — until expiry, EXPRESS can bill below the standard fee.</li>
+        </ul>
+        <p>Price is <strong>USD</strong>. USDT/USDC are 1:1; EURC uses the EUR rate. Period is days (1–30) or months (2–12); many products are 12 months.</p>
+        <p><strong>How to buy</strong> (company admin)</p>
+        <div class="flow">
+          <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">Open <strong>Paid membership</strong>.</span></div>
+          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">Read price, period, and charge currency on the corporate card.</span></div>
+          <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc"><strong>Buy with card</strong> or <strong>Buy with crypto</strong>. Only allowed buttons show.</span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">ICOPAY opens. Card needs the account email and phone with country code. Crypto follows the deposit page.</span></div>
+          <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc">Confirm on the result page. If pending, use <strong>Refresh status</strong>. Grade and expiry then apply to the company.</span></div>
+        </div>
+        <div class="warn-box"><strong>No cancel or refund after payment.</strong> The period starts at purchase and does not add leftover days. Buying again grants EXPRESS free counts again from that date.</div>
+        <div class="info-box">If crypto is off or shows a custody-address error, that is HQ ICOPAY crypto setup. Use card when allowed. Corporates have no public signup, but after login they buy a paid grade in this menu.</div>`,
         `<span class="menu-path">有料会員</span>
-        <p>法人は法人商品のみ（表示 <strong>PremiumB</strong> など）。</p>
+        <div class="check-box"><strong>有料会員</strong>は「法人アカウントがある」ことではありません。<strong>法人等級を支払い、有料期限が残っている</strong>状態です。管理者が作った法人は最初<strong>一般会員(STANDARD)</strong>です。一般の法人も認証パスと承認ウォレットがあれば購入・エスクローができます。有料はその上に限度とEXPRESS特典を足します。特典は<strong>会社アカウント</strong>に付くので、代表と運営者は同じ期限・回数を使います。</div>
+        <p><strong>画面での見分け方</strong></p>
         <ul>
-          <li>販売価格は<strong>USD</strong>。USDT/USDC=1:1、EURCは相場換算。</li>
-          <li>期間: 日(1–30)または月(2–12)。</li>
-          <li>カード優先。クリプトは準備中の場合あり。</li>
-          <li><strong>決済後の取消・返金不可</strong>。</li>
-        </ul>`,
+          <li>現在の等級が <strong>PREMIUMB · VIPB · VVIPB · PRESTIGEB · BLACKB</strong> で期限が未来なら有料の法人です。末尾Bは法人商品です。個人のPREMIUMなどは出ません。</li>
+          <li>「有料未適用」または期限切れなら一般の法人です。無料回数と有料限度はオフです。</li>
+          <li>本社が販売中の法人等級だけカードになります。</li>
+        </ul>
+        <p><strong>有料のあいだ変わること</strong>（本社がその等級に設定した値、期限前）</p>
+        <ul>
+          <li><strong>取引限度</strong> — 法人の通常限度より有料限度が優先されることがあります。</li>
+          <li><strong>EXPRESS無料回数</strong> — 早い等級ごとに期間全体の0円回数。毎月リセットしません。会社全体で同じ回数を使います。</li>
+          <li><strong>回数後の割引</strong> — 期限まで通常より安い有料割引になり得ます。</li>
+        </ul>
+        <p>価格は<strong>USD</strong>。USDT/USDCは1:1、EURCはEUR相場。期間は日(1–30)または月(2–12)。多くの商品は12か月です。</p>
+        <p><strong>購入手順</strong>（代表管理者が実施）</p>
+        <div class="flow">
+          <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc"><strong>有料会員登録</strong>を開きます。</span></div>
+          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">法人カードの価格・期間・請求通貨を確認します。</span></div>
+          <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc"><strong>カードで購入</strong>または<strong>クリプトで購入</strong>。</span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">ICOPAYへ。カードはアカウントのメール・電話(国番号)が必要。クリプトは入金案内に従います。</span></div>
+          <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc">結果画面で確定。確認待ちなら<strong>状態を更新</strong>。確定すると等級と期限が会社に付きます。</span></div>
+        </div>
+        <div class="warn-box"><strong>決済後の取消・返金は不可</strong>です。期間は購入時点から再開し残日数は足しません。再購入でEXPRESS無料回数もその日から再付与されます。</div>
+        <div class="info-box">クリプトが無効またはカストディ住所エラーなら本社のICOPAYクリプト設定です。カードがあればカードで。法人の公開登録はありませんが、ログイン後の有料購入はこのメニューです。</div>`,
         `<span class="menu-path">付费会员</span>
-        <p>企业账户仅见企业商品（显示如 <strong>PremiumB</strong>）。</p>
+        <div class="check-box"><strong>付费会员</strong>不是“已有企业账号”。它是<strong>已购买企业等级且尚未到期</strong>。管理员创建的企业一开始是<strong>普通会员（STANDARD）</strong>。普通企业在认证通过且钱包已批准后仍可采购和托管。付费是在此之上增加限额与 EXPRESS 权益。权益挂在<strong>公司账户</strong>上，代表与操作员共用同一个到期日和同一组免费次数。</div>
+        <p><strong>如何在画面上判断</strong></p>
         <ul>
-          <li>售价以<strong>USD</strong>计；USDT/USDC 1:1；EURC 按汇率换算。</li>
-          <li>期限：天(1–30)或月(2–12)。</li>
-          <li>卡支付优先；加密可能仍在准备。</li>
-          <li><strong>付款后不可取消/退款</strong>。</li>
-        </ul>`,
+          <li>当前等级为 <strong>PREMIUMB · VIPB · VVIPB · PRESTIGEB · BLACKB</strong> 且到期日未到。末尾 B 表示企业商品。不会出现个人的 PREMIUM 等名称。</li>
+          <li>显示未付费或已过期，即为普通企业。免费次数与付费限额关闭。</li>
+          <li>仅总部在售的企业等级会显示为卡片。</li>
+        </ul>
+        <p><strong>付费期间会变化的内容</strong>（总部为该等级设置的值，到期前）</p>
+        <ul>
+          <li><strong>交易限额</strong> — 付费限额可优先于企业普通限额。</li>
+          <li><strong>EXPRESS 免费次数</strong> — 每个更快等级在整个期限内有若干次 0 费，不按月重置。全公司共用次数。</li>
+          <li><strong>次数用完后的折扣</strong> — 到期前可能低于普通 EXPRESS 费率。</li>
+        </ul>
+        <p>价格为 <strong>USD</strong>。USDT/USDC 为 1:1；EURC 按 EUR 汇率。期限为天(1–30)或月(2–12)，许多商品为 12 个月。</p>
+        <p><strong>购买步骤</strong>（由代表管理员操作）</p>
+        <div class="flow">
+          <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">打开<strong>付费会员注册</strong>。</span></div>
+          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">查看企业卡片的价格、期限与收费币种。</span></div>
+          <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc"><strong>卡支付购买</strong>或<strong>加密支付购买</strong>。</span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">进入 ICOPAY。卡支付需要账户邮箱与电话(含国家号)。加密按入金说明操作。</span></div>
+          <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc">在结果页确认。确认中请<strong>刷新状态</strong>。确认后等级与到期日记在公司账户上。</span></div>
+        </div>
+        <div class="warn-box"><strong>付款后不可取消或退款。</strong>期限从购买时重新开始，不叠加剩余天数。再次购买会重新发放 EXPRESS 免费次数。</div>
+        <div class="info-box">加密关闭或出现托管地址错误，是总部 ICOPAY 加密设置。允许卡支付时请用卡。企业没有公开注册，但登录后在此菜单购买付费等级。</div>`,
         `<span class="menu-path">สมาชิกเสียเงิน</span>
-        <p>บัญชีนิติเห็นเฉพาะสินค้านิติ (แสดงเช่น <strong>PremiumB</strong>)</p>
+        <div class="check-box"><strong>สมาชิกเสียเงิน</strong>ไม่ได้แปลว่ามีบัญชีนิติบุคคล แต่คือ<strong>ซื้อระดับนิติแล้วและยังไม่หมดอายุ</strong> บัญชีที่ผู้ดูแลสร้างเริ่มเป็น<strong>สมาชิกทั่วไป (STANDARD)</strong> นิติทั่วไปก็ซื้อและเอสโครว์ได้หลังผ่านยืนยันและมีกระเป๋าที่อนุมัติ สมาชิกเสียเงินเพิ่มวงเงินและสิทธิ EXPRESS สิทธิอยู่ที่<strong>บัญชีบริษัท</strong> แอดมินและผู้ปฏิบัติงานใช้วันหมดอายุและจำนวนฟรีชุดเดียวกัน</div>
+        <p><strong>ดูบนหน้าจออย่างไร</strong></p>
         <ul>
-          <li>ราคา <strong>USD</strong> USDT/USDC = 1:1 EURC ตามเรท</li>
-          <li>ระยะ: วัน (1–30) หรือเดือน (2–12)</li>
-          <li>บัตรก่อน คริปโตอาจยังเตรียม</li>
-          <li><strong>ชำระแล้วคืนเงินไม่ได้</strong></li>
-        </ul>`,
+          <li>ระดับปัจจุบันเป็น <strong>PREMIUMB · VIPB · VVIPB · PRESTIGEB · BLACKB</strong> และวันหมดอายุยังไม่ถึง ตัว B ท้ายคือสินค้านิติ จะไม่เห็นชื่อบุคคลเช่น PREMIUM</li>
+          <li>ถ้าขึ้นว่ายังไม่เสียเงินหรือเลยวันแล้ว คือนิติทั่วไป จำนวนฟรีและวงเงินเสียเงินจะปิด</li>
+          <li>โชว์เฉพาะระดับนิติที่ HQ เปิดขาย</li>
+        </ul>
+        <p><strong>อะไรเปลี่ยนเมื่อยังเสียเงิน</strong> (ค่าที่ HQ ตั้ง ก่อนหมดอายุ)</p>
+        <ul>
+          <li><strong>วงเงิน</strong> — วงเงินเสียเงินอาจมาก่อนวงเงินทั่วไปของนิติ</li>
+          <li><strong>จำนวน EXPRESS ฟรี</strong> — แต่ละระดับที่เร็วขึ้นมีจำนวน 0 บาทตลอดระยะ ไม่รีเซ็ตรายเดือน ทั้งบริษัทใช้จำนวนเดียวกัน</li>
+          <li><strong>ส่วนลดหลังหมดจำนวน</strong> — จนหมดอายุอาจถูกกว่าอัตรา EXPRESS ทั่วไป</li>
+        </ul>
+        <p>ราคาเป็น <strong>USD</strong> USDT/USDC = 1:1 EURC ตามเรท EUR ระยะเป็นวัน (1–30) หรือเดือน (2–12) ส่วนใหญ่ 12 เดือน</p>
+        <p><strong>วิธีซื้อ</strong> (แอดมินบริษัทเป็นผู้ทำ)</p>
+        <div class="flow">
+          <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">เปิด<strong>สมัครสมาชิกเสียเงิน</strong></span></div>
+          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">ดูราคา ระยะ สกุลเงินบนการ์ดนิติ</span></div>
+          <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc"><strong>ซื้อด้วยบัตร</strong>หรือ<strong>ซื้อด้วยคริปโต</strong></span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc">ไป ICOPAY บัตรต้องมีอีเมลและเบอร์ของบัญชี คริปโตทำตามหน้าฝาก</span></div>
+          <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc">ยืนยันที่หน้าผล หากรอให้กด<strong>รีเฟรชสถานะ</strong> เมื่อยืนยัน ระดับและวันหมดอายุติดที่บริษัท</span></div>
+        </div>
+        <div class="warn-box"><strong>หลังชำระแล้วยกเลิกหรือคืนเงินไม่ได้</strong> ระยะเริ่มใหม่จากวันซื้อ ไม่บวกวันที่เหลือ ซื้อซ้ำได้จำนวน EXPRESS ฟรีใหม่</div>
+        <div class="info-box">ถ้าคริปโตปิดหรือขึ้นที่อยู่คัสโตดีผิดพลาด เป็นการตั้งค่า ICOPAY ของ HQ ถ้ามีบัตรให้ใช้บัตร นิติไม่มีสมัครสาธารณะ แต่หลังเข้าสู่ระบบซื้อระดับเสียเงินที่เมนูนี้</div>`,
+      ),
+    },
+    {
+      id: 'co-express',
+      title: L(
+        'EXPRESS란 · 쓰는 방법',
+        'What EXPRESS is · how to use it',
+        'EXPRESSとは · 使い方',
+        '什么是 EXPRESS · 如何使用',
+        'EXPRESS คืออะไร · วิธีใช้',
+      ),
+      bodyHtml: L(
+        `<span class="menu-path">크립토 매입 신청 → EXPRESS (빠른 완료)</span>
+        <div class="check-box"><strong>EXPRESS</strong>는 별도 가입 상품이 아닙니다. 크립토 매입을 넣을 때 <strong>얼마나 빨리 끝내 달라고 할지</strong>를 고릅니다. 고르지 않으면 <strong>BASIC</strong>입니다. 꺼진 등급은 목록에 없습니다. 대표와 운영자 중 매입을 신청할 수 있는 사람이 고릅니다. 유료 무료 횟수는 회사 계정에서 같이 줄어듭니다.</div>
+        <p>빠른 등급일수록 수수료가 붙을 수 있습니다. 금액은 <strong>고정(크립토) + 거래 금액의 %</strong>입니다. BASIC은 보통 0입니다.</p>
+        <table>
+          <tr><th>등급</th><th>완료 약속</th></tr>
+          <tr><td>ULTRA</td><td>1시간 이내</td></tr>
+          <tr><td>PRIORITY</td><td>6시간 이내</td></tr>
+          <tr><td>HALF</td><td>12시간 이내</td></tr>
+          <tr><td>DAY</td><td>24시간 이내</td></tr>
+          <tr><td>D1</td><td>견적 확정일 기준 다음 날(D+1) 23:59까지</td></tr>
+          <tr><td>D2</td><td>견적 확정일 기준 D+2일 23:59까지</td></tr>
+          <tr><td>BASIC</td><td>견적 확정일 기준 D+3일 23:59까지 (기본)</td></tr>
+        </table>
+        <ul>
+          <li>D+N은 <strong>견적 확정일</strong>부터입니다. 약속을 넘기면 실제 완료 시각으로 다시 계산되고, 더 받은 수수료는 복원될 수 있습니다.</li>
+          <li><strong>일반 기업</strong>은 화면의 EXPRESS 요금을 냅니다.</li>
+          <li><strong>유료 기업</strong>(만료 전)은 그 등급 무료 횟수가 남아 있으면 0원입니다. 횟수는 유료 기간 전체이며 매달 다시 채워지지 않습니다. BASIC은 무료 횟수 대상이 아닙니다.</li>
+          <li>횟수를 다 쓰면 만료 전까지 유료 할인 요금입니다. 멤버십을 다시 사면 기간과 횟수가 구매 시점부터 다시 시작됩니다.</li>
+          <li>빠른 등급을 고르지 않아도 BASIC으로 매입할 수 있습니다.</li>
+        </ul>
+        <div class="info-box">신청 상세에서 신청 등급, 약속 시각, 실제 달성 등급, 정산 수수료, 복원 여부를 확인합니다.</div>`,
+        `<span class="menu-path">Crypto purchase → EXPRESS (faster completion)</span>
+        <div class="check-box"><strong>EXPRESS</strong> is not a separate signup. On a crypto purchase you choose <strong>how fast completion is promised</strong>. If you do not choose, <strong>BASIC</strong> applies. Hidden tiers are turned off. Whoever can apply (admin or operator) picks the tier. Paid free counts go down on the shared company account.</div>
+        <p>Faster tiers can cost more: a <strong>fixed crypto fee plus a percent of the trade</strong>. BASIC is usually 0.</p>
+        <table>
+          <tr><th>Tier</th><th>Promise</th></tr>
+          <tr><td>ULTRA</td><td>Within 1 hour</td></tr>
+          <tr><td>PRIORITY</td><td>Within 6 hours</td></tr>
+          <tr><td>HALF</td><td>Within 12 hours</td></tr>
+          <tr><td>DAY</td><td>Within 24 hours</td></tr>
+          <tr><td>D1</td><td>By 23:59 on D+1 from quote confirmation</td></tr>
+          <tr><td>D2</td><td>By 23:59 on D+2 from quote confirmation</td></tr>
+          <tr><td>BASIC</td><td>By 23:59 on D+3 from quote confirmation (default)</td></tr>
+        </table>
+        <ul>
+          <li>D+N counts from the <strong>quote confirmation day</strong>. If the promise is missed, the fee can be recalculated and any extra restored.</li>
+          <li>A <strong>standard company</strong> pays the EXPRESS price shown.</li>
+          <li>An <strong>active paid company</strong> pays 0 while that tier’s free count remains. Counts cover the whole paid period and do not refill monthly. BASIC has no free count.</li>
+          <li>After the count is used, the paid discount applies until expiry. Buying again restarts the period and the counts.</li>
+          <li>You can purchase on BASIC without a faster tier.</li>
+        </ul>
+        <div class="info-box">The ticket shows the requested tier, promised time, tier achieved, settled fee, and any amount restored.</div>`,
+        `<span class="menu-path">クリプト購入 → EXPRESS（早い完了）</span>
+        <div class="check-box"><strong>EXPRESS</strong>は別の加入商品ではありません。購入時に<strong>どれだけ早く完了を約束するか</strong>を選びます。未選択は<strong>BASIC</strong>です。OFFの等級は出ません。申請できる代表または運営者が選びます。有料の無料回数は会社アカウントで一緒に減ります。</div>
+        <p>速いほど手数料が付くことがあります。<strong>固定(クリプト)＋取引額の%</strong>です。BASICは通常0です。</p>
+        <table>
+          <tr><th>等級</th><th>完了の約束</th></tr>
+          <tr><td>ULTRA</td><td>1時間以内</td></tr>
+          <tr><td>PRIORITY</td><td>6時間以内</td></tr>
+          <tr><td>HALF</td><td>12時間以内</td></tr>
+          <tr><td>DAY</td><td>24時間以内</td></tr>
+          <tr><td>D1</td><td>見積確定日の翌日(D+1) 23:59まで</td></tr>
+          <tr><td>D2</td><td>見積確定日からD+2日 23:59まで</td></tr>
+          <tr><td>BASIC</td><td>見積確定日からD+3日 23:59まで（既定）</td></tr>
+        </table>
+        <ul>
+          <li>D+Nは<strong>見積確定日</strong>から。約束を過ぎると再計算され、多く受け取った分は復元され得ます。</li>
+          <li><strong>一般の法人</strong>は画面の料金を支払います。</li>
+          <li><strong>有料の法人</strong>（期限内）は無料回数が残っていれば0円です。回数は期間全体で毎月は補充されません。BASICは対象外です。</li>
+          <li>回数後は期限まで有料割引です。再購入で期間と回数が購入日から再開します。</li>
+          <li>速い等級を選ばなくてもBASICで購入できます。</li>
+        </ul>
+        <div class="info-box">申請詳細で申請等級、約束時刻、達成等級、精算手数料、復元の有無を確認します。</div>`,
+        `<span class="menu-path">加密货币采购 → EXPRESS（更快完成）</span>
+        <div class="check-box"><strong>EXPRESS</strong>不是另一项注册。申请采购时选择<strong>承诺多快完成</strong>。不选则为 <strong>BASIC</strong>。已关闭的等级不显示。能申请的代表或操作员来选择。付费免费次数在公司账户上一起减少。</div>
+        <p>越快可能越贵：<strong>固定（加密）+ 交易金额的百分比</strong>。BASIC 通常为 0。</p>
+        <table>
+          <tr><th>等级</th><th>完成承诺</th></tr>
+          <tr><td>ULTRA</td><td>1 小时内</td></tr>
+          <tr><td>PRIORITY</td><td>6 小时内</td></tr>
+          <tr><td>HALF</td><td>12 小时内</td></tr>
+          <tr><td>DAY</td><td>24 小时内</td></tr>
+          <tr><td>D1</td><td>报价确认日次日(D+1) 23:59 前</td></tr>
+          <tr><td>D2</td><td>报价确认日起 D+2 日 23:59 前</td></tr>
+          <tr><td>BASIC</td><td>报价确认日起 D+3 日 23:59 前（默认）</td></tr>
+        </table>
+        <ul>
+          <li>D+N 从<strong>报价确认日</strong>起算。未按时完成会重算，多收部分可退回。</li>
+          <li><strong>普通企业</strong>按画面价格支付。</li>
+          <li><strong>有效付费企业</strong>在该等级免费次数剩余时为 0 费。次数覆盖整个付费期，不按月补充。BASIC 没有免费次数。</li>
+          <li>次数用完后至到期按付费折扣计费。再次购买会重新开始期限与次数。</li>
+          <li>不选更快等级时仍可用 BASIC 采购。</li>
+        </ul>
+        <div class="info-box">申请详情可查看申请等级、承诺时间、实际达成、结算手续费及是否退回。</div>`,
+        `<span class="menu-path">ซื้อคริปโต → EXPRESS (เสร็จเร็วขึ้น)</span>
+        <div class="check-box"><strong>EXPRESS</strong>ไม่ใช่การสมัครแยก ตอนซื้อคริปโตเลือก<strong>สัญญาว่าจะเสร็จเร็วแค่ไหน</strong> ถ้าไม่เลือกเป็น <strong>BASIC</strong> ระดับที่ปิดจะไม่โชว์ คนที่สมัครได้ (แอดมินหรือผู้ปฏิบัติงาน) เป็นผู้เลือก จำนวนฟรีของสมาชิกเสียเงินลดที่บัญชีบริษัทเดียวกัน</div>
+        <p>ยิ่งเร็วอาจยิ่งมีค่าธรรมเนียม: <strong>คงที่ (คริปโต) + % ของยอด</strong> BASIC มักเป็น 0</p>
+        <table>
+          <tr><th>ระดับ</th><th>คำสัญญา</th></tr>
+          <tr><td>ULTRA</td><td>ภายใน 1 ชั่วโมง</td></tr>
+          <tr><td>PRIORITY</td><td>ภายใน 6 ชั่วโมง</td></tr>
+          <tr><td>HALF</td><td>ภายใน 12 ชั่วโมง</td></tr>
+          <tr><td>DAY</td><td>ภายใน 24 ชั่วโมง</td></tr>
+          <tr><td>D1</td><td>ถึง 23:59 ของ D+1 จากวันยืนยันใบเสนอราคา</td></tr>
+          <tr><td>D2</td><td>ถึง 23:59 ของ D+2 จากวันยืนยันใบเสนอราคา</td></tr>
+          <tr><td>BASIC</td><td>ถึง 23:59 ของ D+3 จากวันยืนยันใบเสนอราคา (ค่าเริ่มต้น)</td></tr>
+        </table>
+        <ul>
+          <li>D+N นับจาก<strong>วันยืนยันใบเสนอราคา</strong> ถ้าเลยสัญญาอาจคำนวณใหม่และคืนส่วนเกิน</li>
+          <li><strong>นิติทั่วไป</strong>จ่ายตามราคาที่โชว์</li>
+          <li><strong>นิติที่เสียเงินและยังมีผล</strong> เป็น 0 จนกว่าจำนวนฟรีของระดับนั้นจะหมด จำนวนครอบทั้งระยะ ไม่เติมรายเดือน BASIC ไม่มีจำนวนฟรี</li>
+          <li>หมดจำนวนแล้วจนหมดอายุคิดส่วนลดสมาชิก ซื้อใหม่จะเริ่มระยะและจำนวนใหม่</li>
+          <li>ไม่เลือกเร็วขึ้นก็ซื้อด้วย BASIC ได้</li>
+        </ul>
+        <div class="info-box">ในรายละเอียดดูระดับที่ขอ เวลาที่สัญญา ระดับที่ทำได้จริง ค่าธรรมเนียม และส่วนที่คืน</div>`,
       ),
     },
     {
@@ -444,31 +650,46 @@ export const CUSTOMER_CORPORATE_MANUAL: ManualDoc = {
         <div class="faq-item"><div class="faq-q">송금만 보이고 이체가 없습니다.</div><div class="faq-a">본사 또는 고객 상세에서 계좌이체가 꺼져 있을 수 있습니다. 지원팀에 문의하세요.</div></div>
         <div class="faq-item"><div class="faq-q">운영자를 더 만들 수 없습니다.</div><div class="faq-a">활성 운영자 최대 2명입니다. 중지된 계정도 상한에 포함될 수 있습니다. 삭제는 없고 중지만 가능합니다.</div></div>
         <div class="faq-item"><div class="faq-q">인보이스 삭제가 두 번 물어봅니다.</div><div class="faq-a">의도된 동작입니다. PDF 미리보기로 확인한 뒤 2단계 확인으로 삭제하세요.</div></div>
-        <div class="faq-item"><div class="faq-q">지갑을 직접 삭제할 수 없습니다.</div><div class="faq-a">삭제 요청 후 본사 승인이 필요합니다. 진행 중 거래가 있으면 해당 지갑 주소를 바꿀 수 없습니다.</div></div>`,
+        <div class="faq-item"><div class="faq-q">지갑을 직접 삭제할 수 없습니다.</div><div class="faq-a">삭제 요청 후 본사 승인이 필요합니다. 진행 중 거래가 있으면 해당 지갑 주소를 바꿀 수 없습니다.</div></div>
+        <div class="faq-item"><div class="faq-q">기업 계정이면 유료회원인가요?</div><div class="faq-a">아닙니다. 기업 계정은 처음에 일반회원입니다. 유료회원가입에서 PREMIUMB 등 법인 등급을 결제하고 만료가 남아 있을 때만 유료입니다. 혜택은 회사 계정에 붙어 운영자와 같이 씁니다.</div></div>
+        <div class="faq-item"><div class="faq-q">유료를 환불할 수 있나요?</div><div class="faq-a">결제 후 취소·환불은 불가입니다. 기간은 구매 시점부터 새로 시작합니다.</div></div>
+        <div class="faq-item"><div class="faq-q">EXPRESS가 안 보이거나 회사인데도 유료가 아닙니다.</div><div class="faq-a">목록에 없으면 그 등급이 꺼져 있습니다. 선택하지 않으면 BASIC입니다. 유료인데 0원이 아니면 회사의 그 등급 무료 횟수를 다 쓴 것이거나 BASIC입니다.</div></div>`,
         `<div class="faq-item"><div class="faq-q">I do not see the individual manual.</div><div class="faq-a">Corporate accounts open corporate only. Individual logins see individual only. HQ/org see both.</div></div>
         <div class="faq-item"><div class="faq-q">There is no public signup.</div><div class="faq-a">Expected — corporates are registered by an admin or typed as Corporate on customer detail.</div></div>
         <div class="faq-item"><div class="faq-q">I only see remittance, not bank transfer.</div><div class="faq-a">HQ or your customer toggle may have disabled transfer. Contact support.</div></div>
         <div class="faq-item"><div class="faq-q">I cannot add another operator.</div><div class="faq-a">Max 2 active operators. Suspended ones may still count. No delete — suspend only.</div></div>
         <div class="faq-item"><div class="faq-q">Invoice delete asks twice.</div><div class="faq-a">Intended. Preview the PDF, then complete the two-step confirm.</div></div>
-        <div class="faq-item"><div class="faq-q">I cannot delete a wallet myself.</div><div class="faq-a">Request deletion and wait for HQ. In-progress trades lock that wallet address.</div></div>`,
+        <div class="faq-item"><div class="faq-q">I cannot delete a wallet myself.</div><div class="faq-a">Request deletion and wait for HQ. In-progress trades lock that wallet address.</div></div>
+        <div class="faq-item"><div class="faq-q">Is a corporate account automatically paid?</div><div class="faq-a">No. A new company is a standard member. You are paid only after buying a corporate grade such as PREMIUMB and while paid-until is still ahead. Benefits sit on the company account and are shared with operators.</div></div>
+        <div class="faq-item"><div class="faq-q">Can we refund paid membership?</div><div class="faq-a">No cancel or refund after payment. The period starts again at purchase.</div></div>
+        <div class="faq-item"><div class="faq-q">EXPRESS is missing, or we are a company but it is not free.</div><div class="faq-a">A missing tier is turned off. If you do not choose, BASIC applies. If you are paid but still charged, the company’s free count for that tier is used up, or you chose BASIC.</div></div>`,
         `<div class="faq-item"><div class="faq-q">個人マニュアルが見えません。</div><div class="faq-a">法人は法人用のみ。個人ログインは個人用のみ。総本社・組織は両方。</div></div>
         <div class="faq-item"><div class="faq-q">公開登録がありません。</div><div class="faq-a">正常です。法人は管理者登録または顧客詳細でタイプ指定します。</div></div>
         <div class="faq-item"><div class="faq-q">送金だけで振替がありません。</div><div class="faq-a">本社または顧客設定で振替OFFの可能性があります。サポートへ。</div></div>
         <div class="faq-item"><div class="faq-q">運営者をこれ以上作れません。</div><div class="faq-a">有効最大2名。停止済みも上限に含まれることがあります。削除はなく停止のみ。</div></div>
         <div class="faq-item"><div class="faq-q">インボイス削除が2回確認されます。</div><div class="faq-a">仕様です。PDFプレビュー後に2段階確認で削除してください。</div></div>
-        <div class="faq-item"><div class="faq-q">ウォレットを自分で削除できません。</div><div class="faq-a">削除依頼後に本社承認が必要です。進行中取引があるとアドレス変更不可です。</div></div>`,
+        <div class="faq-item"><div class="faq-q">ウォレットを自分で削除できません。</div><div class="faq-a">削除依頼後に本社承認が必要です。進行中取引があるとアドレス変更不可です。</div></div>
+        <div class="faq-item"><div class="faq-q">法人アカウントなら有料会員ですか?</div><div class="faq-a">いいえ。最初は一般会員です。有料会員登録でPREMIUMBなど法人等級を支払い、期限が残っているときだけ有料です。特典は会社アカウントに付き、運営者と共有します。</div></div>
+        <div class="faq-item"><div class="faq-q">有料を返金できますか?</div><div class="faq-a">決済後の取消・返金は不可です。期間は購入時点から再開します。</div></div>
+        <div class="faq-item"><div class="faq-q">EXPRESSが出ない、または法人なのに無料ではありません。</div><div class="faq-a">一覧にない等級はOFFです。未選択はBASICです。有料なのに0円でないなら、会社のその無料回数を使い切ったかBASICです。</div></div>`,
         `<div class="faq-item"><div class="faq-q">看不到个人手册。</div><div class="faq-a">企业账号只打开企业手册；个人登录只看个人手册。总部/组织可看两者。</div></div>
         <div class="faq-item"><div class="faq-q">没有公开注册。</div><div class="faq-a">正常。企业由管理员登记或在客户详情指定类型。</div></div>
         <div class="faq-item"><div class="faq-q">只有汇款没有转账。</div><div class="faq-a">总部或客户设置可能关闭了转账。请联系支持。</div></div>
         <div class="faq-item"><div class="faq-q">无法再添加操作员。</div><div class="faq-a">启用最多 2 名。已停用也可能计入上限。不可删除，仅可停用。</div></div>
         <div class="faq-item"><div class="faq-q">删除发票要确认两次。</div><div class="faq-a">设计如此。先预览 PDF，再完成两步确认。</div></div>
-        <div class="faq-item"><div class="faq-q">不能自行删除钱包。</div><div class="faq-a">需申请删除并等待总部批准。有进行中交易时不能改该地址。</div></div>`,
+        <div class="faq-item"><div class="faq-q">不能自行删除钱包。</div><div class="faq-a">需申请删除并等待总部批准。有进行中交易时不能改该地址。</div></div>
+        <div class="faq-item"><div class="faq-q">有企业账号就是付费会员吗？</div><div class="faq-a">不是。新企业一开始是普通会员。在付费会员中购买 PREMIUMB 等企业等级，且到期日未到，才是付费。权益在公司账户上，与操作员共用。</div></div>
+        <div class="faq-item"><div class="faq-q">可以退付费吗？</div><div class="faq-a">付款后不可取消或退款。期限从购买时重新开始。</div></div>
+        <div class="faq-item"><div class="faq-q">看不到 EXPRESS，或已是企业却不免费。</div><div class="faq-a">列表中没有表示该等级已关闭。不选则为 BASIC。已付费仍收费，表示公司该等级免费次数已用完，或选了 BASIC。</div></div>`,
         `<div class="faq-item"><div class="faq-q">ไม่เห็นคู่มือบุคคล</div><div class="faq-a">บัญชีนิติเปิดได้เฉพาะคู่มือนิติ บุคคลเห็นเฉพาะคู่มือบุคคล HQ/องค์กรเห็นทั้งสอง</div></div>
         <div class="faq-item"><div class="faq-q">ไม่มีสมัครสาธารณะ</div><div class="faq-a">ถูกต้อง นิติลงทะเบียนโดยผู้ดูแลหรือตั้งประเภทที่หน้ารายละเอียด</div></div>
         <div class="faq-item"><div class="faq-q">เห็นแค่ธุรกรรมโอน ไม่มีโอนบัญชี</div><div class="faq-a">HQ หรือตั้งค่าลูกค้าอาจปิดโอนบัญชี ติดต่อซัพพอร์ต</div></div>
         <div class="faq-item"><div class="faq-q">เพิ่มผู้ปฏิบัติงานอีกไม่ได้</div><div class="faq-a">สูงสุด 2 คนที่เปิดใช้ บัญชีที่หยุดอาจนับรวม ลบไม่ได้ หยุดได้อย่างเดียว</div></div>
         <div class="faq-item"><div class="faq-q">ลบใบแจ้งหนี้ถามสองครั้ง</div><div class="faq-a">ตั้งใจเช่นนั้น ดูตัวอย่าง PDF แล้วยืนยัน 2 ขั้น</div></div>
-        <div class="faq-item"><div class="faq-q">ลบกระเป๋าเองไม่ได้</div><div class="faq-a">ขอลบแล้วรอ HQ อนุมัติ รายการกำลังทำจะเปลี่ยนที่อยู่ไม่ได้</div></div>`,
+        <div class="faq-item"><div class="faq-q">ลบกระเป๋าเองไม่ได้</div><div class="faq-a">ขอลบแล้วรอ HQ อนุมัติ รายการกำลังทำจะเปลี่ยนที่อยู่ไม่ได้</div></div>
+        <div class="faq-item"><div class="faq-q">มีบัญชีนิติแล้วเป็นสมาชิกเสียเงินไหม</div><div class="faq-a">ไม่ เริ่มต้นเป็นสมาชิกทั่วไป จะเสียเงินเมื่อซื้อระดับนิติเช่น PREMIUMB และวันหมดอายุยังไม่ถึง สิทธิอยู่ที่บัญชีบริษัท ใช้ร่วมกับผู้ปฏิบัติงาน</div></div>
+        <div class="faq-item"><div class="faq-q">คืนเงินสมาชิกเสียเงินได้ไหม</div><div class="faq-a">หลังชำระแล้วยกเลิกหรือคืนเงินไม่ได้ ระยะเริ่มใหม่จากวันซื้อ</div></div>
+        <div class="faq-item"><div class="faq-q">ไม่เห็น EXPRESS หรือเป็นนิติแล้วแต่ไม่ฟรี</div><div class="faq-a">ถ้าไม่อยู่ในรายการ ระดับนั้นปิด ถ้าไม่เลือกเป็น BASIC ถ้าเสียเงินแล้วยังถูกคิด แปลว่าจำนวนฟรีของบริษัทหมด หรือเลือก BASIC</div></div>`,
       ),
     },
   ],
