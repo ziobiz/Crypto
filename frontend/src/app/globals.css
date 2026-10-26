@@ -230,6 +230,26 @@
     color: var(--shell-content-text);
   }
 
+  /* 제출 서류: 심사 전 빨강 파스텔, 승인 후 하늘색 파스텔 */
+  .pg-card-docs-pending {
+    background-color: #fdecee;
+    border-color: #f3c4c9;
+  }
+  .pg-card-docs-pending .pg-card-head {
+    background-color: #f8d7dc;
+    border-color: #f3c4c9;
+    color: #7f1d1d;
+  }
+  .pg-card-docs-approved {
+    background-color: #e7f6fd;
+    border-color: #b7e3f5;
+  }
+  .pg-card-docs-approved .pg-card-head {
+    background-color: #d3eefb;
+    border-color: #b7e3f5;
+    color: #0c4a6e;
+  }
+
   .pg-section {
     @apply overflow-hidden rounded;
     background-color: var(--shell-card-bg);
@@ -293,6 +313,70 @@
   .pg-field-chip-orange {
     background-color: #ffedd5;
     color: #9a3412;
+  }
+
+  .pg-qual-menu {
+    @apply flex flex-wrap gap-2;
+  }
+  .pg-qual-tab {
+    @apply rounded border px-3 py-1.5 text-xs font-semibold;
+  }
+  .pg-qual-all {
+    background-color: #e2e8f0;
+    border-color: #cbd5e1;
+    color: #334155;
+  }
+  .pg-qual-all.is-on {
+    background-color: #cbd5e1;
+  }
+  .pg-qual-individual {
+    background-color: #e0f2fe;
+    border-color: #7dd3fc;
+    color: #075985;
+  }
+  .pg-qual-individual.is-on {
+    background-color: #bae6fd;
+  }
+  .pg-qual-corporate {
+    background-color: #fef3c7;
+    border-color: #fcd34d;
+    color: #92400e;
+  }
+  .pg-qual-corporate.is-on {
+    background-color: #fde68a;
+  }
+  .pg-qual-synth {
+    background-color: #ede9fe;
+    border-color: #c4b5fd;
+    color: #5b21b6;
+  }
+  .pg-qual-synth.is-on {
+    background-color: #ddd6fe;
+  }
+
+  .pg-agg-bar {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    width: max-content;
+    max-width: 100%;
+    vertical-align: top;
+    border: 1px solid #e0f2fe;
+    background-color: #f0f9ff;
+    border-radius: 0.25rem;
+    padding: 1px 8px;
+    font-size: 11px;
+    line-height: 1.35;
+    color: #1e1b4b;
+  }
+
+  /* 크립토 매입 목록: 상단 기준시간(11px)과 같은 글자 크기 */
+  .pg-table.pg-table-usdt,
+  .pg-table.pg-table-usdt th,
+  .pg-table.pg-table-usdt th button,
+  .pg-table.pg-table-usdt td,
+  .pg-table.pg-table-usdt .pg-qual-tab {
+    font-size: 11px;
   }
   .pg-field-value {
     @apply mt-1 break-all text-xs leading-relaxed;

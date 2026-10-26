@@ -6,6 +6,13 @@ import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
 import type { AuthUser } from '../types/auth';
 import { isMerchantAdmin, isMerchantSide, merchantScopeUserId } from '../lib/merchant-role';
+import { decodeMulterFilename } from './attachment.service';
+import { getKycIdentityOtpHoldMinutes } from './otp.service';
+import {
+  decryptIdentityDocument,
+  encryptIdentityDocument,
+  isEncryptedIdentityDocument,
+} from '../lib/kyc-id-crypto';
 
 const UPLOAD_DIR = path.resolve(process.env.UPLOAD_DIR ?? './uploads');
 
@@ -103,16 +110,81 @@ async function getOrCreateKyc(userId: string) {
   });
 }
 
+const IDENTITY_EXTS = new Set(['.pdf', '.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.heic', '.heif']);
+
+function safeIdentityFileName(original: string): string {
+  const decoded = decodeMulterFilename(original).replace(/[\u0000-\u001f]/g, '').trim();
+  const ext = path.extname(decoded).toLowerCase();
+  const safeExt = IDENTITY_EXTS.has(ext) ? ext : '.pdf';
+  const readable =
+    decoded.length > 0 &&
+    !decoded.includes('\uFFFD') &&
+    !(/[ÃÂìíëêåä]/.test(decoded) && !/[\uAC00-\uD7A3\u3040-\u30ff\u4e00-\u9fff]/.test(decoded));
+  if (!readable) return `identity-document${safeExt}`;
+  return decoded.slice(0, 180);
+}
+
+async function sealIdentityAttachments(
+  rows: { id: string; purpose: AttachmentPurpose; storageKey: string; fileName: string }[],
+): Promise<void> {
+  for (const att of rows) {
+    if (att.purpose !== AttachmentPurpose.IDENTITY_VERIFICATION_DOC) continue;
+    const fullPath = path.join(UPLOAD_DIR, att.storageKey);
+    if (fs.existsSync(fullPath)) {
+      const blob = fs.readFileSync(fullPath);
+      if (!isEncryptedIdentityDocument(blob)) {
+        try {
+          fs.writeFileSync(fullPath, encryptIdentityDocument(blob));
+        } catch (e) {
+          if (!(e instanceof AppError) || e.code !== 'KYC_ID_KEY_MISSING') throw e;
+        }
+      }
+    }
+    const nextName = safeIdentityFileName(att.fileName);
+    if (nextName !== att.fileName) {
+      att.fileName = nextName;
+      await prisma.customerKycAttachment.update({ where: { id: att.id }, data: { fileName: nextName } });
+    }
+  }
+}
+
+async function withIdentityOtpHold<T extends object>(row: T) {
+  return { ...row, identityOtpHoldMinutes: await getKycIdentityOtpHoldMinutes() };
+}
+
+function hideIdentityFromMerchant<T extends { attachments: { purpose: AttachmentPurpose }[] }>(row: T): T {
+  return {
+    ...row,
+    attachments: row.attachments.filter((a) => a.purpose !== AttachmentPurpose.IDENTITY_VERIFICATION_DOC),
+  };
+}
+
 export async function getMyKyc(user: AuthUser) {
   if (!isMerchantSide(user)) {
     throw new AppError(403, 'Customers only', 'FORBIDDEN');
   }
-  return serializeKyc(await getOrCreateKyc(merchantScopeUserId(user)));
+  const row = await getOrCreateKyc(merchantScopeUserId(user));
+  await sealIdentityAttachments(row.attachments);
+  return hideIdentityFromMerchant(serializeKyc(row));
+}
+
+function assertIdentityFile(file: Express.Multer.File): void {
+  const name = file.originalname.toLowerCase();
+  const ext = name.includes('.') ? name.slice(name.lastIndexOf('.')) : '';
+  const mime = (file.mimetype || '').toLowerCase();
+  const okMime =
+    mime === 'application/pdf' ||
+    mime.startsWith('image/') ||
+    mime === 'application/octet-stream' ||
+    mime === '';
+  if (!IDENTITY_EXTS.has(ext) || !okMime) {
+    throw new AppError(400, 'Identity document must be an image or PDF', 'KYC_IDENTITY_TYPE');
+  }
 }
 
 export async function submitMyKyc(
   user: AuthUser,
-  files: { forecast: Express.Multer.File[]; taxSupport: Express.Multer.File[] },
+  files: { forecast: Express.Multer.File[]; taxSupport: Express.Multer.File[]; identity: Express.Multer.File[] },
 ) {
   if (!isMerchantAdmin(user) || !user.customerProfileId) {
     throw new AppError(403, 'Customers only', 'FORBIDDEN');
@@ -130,20 +202,32 @@ export async function submitMyKyc(
   if (current.status === KycStatus.PENDING) {
     throw new AppError(400, 'KYC already submitted', 'KYC_PENDING');
   }
-  if (files.forecast.length === 0) {
+  const corporate = profile.customerType === CustomerType.CORPORATE;
+  if (corporate && files.forecast.length === 0) {
     throw new AppError(400, '6-month forecast report is required', 'VALIDATION_ERROR');
   }
-  if (profile.customerType === CustomerType.CORPORATE && files.taxSupport.length === 0) {
+  if (corporate && files.taxSupport.length === 0) {
     throw new AppError(400, 'Corporate tax documents are required', 'VALIDATION_ERROR');
   }
+  if (!corporate && files.identity.length === 0) {
+    throw new AppError(400, 'Identity document is required', 'KYC_IDENTITY_REQUIRED');
+  }
+  for (const file of files.identity) assertIdentityFile(file);
 
   ensureUploadDir();
   await prisma.customerKycAttachment.deleteMany({ where: { kycId: current.id } });
-  for (const file of files.forecast) {
-    await saveKycFile(current.id, user.id, file, AttachmentPurpose.FUNDING_FORECAST_REPORT);
+  if (corporate) {
+    for (const file of files.forecast) {
+      await saveKycFile(current.id, user.id, file, AttachmentPurpose.FUNDING_FORECAST_REPORT);
+    }
+    for (const file of files.taxSupport) {
+      await saveKycFile(current.id, user.id, file, AttachmentPurpose.JP_TAX_SUPPORT_DOC);
+    }
   }
-  for (const file of files.taxSupport) {
-    await saveKycFile(current.id, user.id, file, AttachmentPurpose.JP_TAX_SUPPORT_DOC);
+  if (!corporate) {
+    for (const file of files.identity) {
+      await saveKycFile(current.id, user.id, file, AttachmentPurpose.IDENTITY_VERIFICATION_DOC);
+    }
   }
   const updated = await prisma.customerKyc.update({
     where: { id: current.id },
@@ -156,7 +240,8 @@ export async function submitMyKyc(
     },
     include: KYC_INCLUDE,
   });
-  return serializeKyc(updated);
+  await sealIdentityAttachments(updated.attachments);
+  return hideIdentityFromMerchant(serializeKyc(updated));
 }
 
 export async function listKycCases(status?: KycStatus) {
@@ -188,7 +273,7 @@ export async function getKycByUserId(userId: string) {
     include: KYC_INCLUDE,
   });
   if (!row) {
-    return serializeKyc({
+    return withIdentityOtpHold(serializeKyc({
       id: '',
       userId: user.id,
       status: KycStatus.NOT_SUBMITTED,
@@ -201,15 +286,43 @@ export async function getKycByUserId(userId: string) {
       attachments: [],
       user,
       reviewedBy: null,
-    });
+    }));
   }
-  return serializeKyc(row);
+  await sealIdentityAttachments(row.attachments);
+  return withIdentityOtpHold(serializeKyc(row));
+}
+
+type KycReviewAction = 'APPROVE' | 'REJECT' | 'SUSPEND' | 'REVOKE';
+
+function kycStatusFor(action: KycReviewAction): KycStatus {
+  if (action === 'APPROVE') return KycStatus.APPROVED;
+  if (action === 'SUSPEND') return KycStatus.SUSPENDED;
+  if (action === 'REVOKE') return KycStatus.REVOKED;
+  return KycStatus.REJECTED;
+}
+
+function needsReviewReason(action: KycReviewAction): boolean {
+  return action === 'REJECT' || action === 'SUSPEND' || action === 'REVOKE';
+}
+
+async function assertIndividualApprovedHold(userId: string, action: KycReviewAction, current: KycStatus | null) {
+  if (action !== 'SUSPEND' && action !== 'REVOKE') return;
+  const profile = await prisma.customerProfile.findFirst({
+    where: { userId },
+    select: { customerType: true },
+  });
+  if (profile?.customerType !== CustomerType.INDIVIDUAL) {
+    throw new AppError(400, 'Only individual verification can be held or revoked', 'KYC_INDIVIDUAL_ONLY');
+  }
+  if (current !== KycStatus.APPROVED) {
+    throw new AppError(400, 'Only an approved verification can be held or revoked', 'KYC_NOT_APPROVED');
+  }
 }
 
 export async function reviewKycByUserId(
   admin: AuthUser,
   userId: string,
-  action: 'APPROVE' | 'REJECT',
+  action: KycReviewAction,
   reason?: string,
   hqNote?: string,
 ) {
@@ -223,18 +336,19 @@ export async function reviewKycByUserId(
   if (!user || user.role !== UserRole.CUSTOMER) {
     throw new AppError(404, 'Customer not found', 'NOT_FOUND');
   }
-  if (action === 'REJECT' && !reason?.trim()) {
-    throw new AppError(400, 'Reject reason required', 'VALIDATION_ERROR');
+  if (needsReviewReason(action) && !reason?.trim()) {
+    throw new AppError(400, 'Reason required', 'VALIDATION_ERROR');
   }
   const existing = await prisma.customerKyc.findUnique({ where: { userId } });
+  await assertIndividualApprovedHold(userId, action, existing?.status ?? null);
   const updated = existing
     ? await prisma.customerKyc.update({
         where: { userId },
         data: {
-          status: action === 'APPROVE' ? KycStatus.APPROVED : KycStatus.REJECTED,
+          status: kycStatusFor(action),
           reviewedAt: new Date(),
           reviewedById: admin.id,
-          rejectReason: action === 'REJECT' ? reason!.trim() : null,
+          rejectReason: needsReviewReason(action) ? reason!.trim() : null,
           hqNote: hqNote?.trim() || null,
         },
         include: KYC_INCLUDE,
@@ -242,16 +356,16 @@ export async function reviewKycByUserId(
     : await prisma.customerKyc.create({
         data: {
           userId,
-          status: action === 'APPROVE' ? KycStatus.APPROVED : KycStatus.REJECTED,
+          status: kycStatusFor(action),
           submittedAt: null,
           reviewedAt: new Date(),
           reviewedById: admin.id,
-          rejectReason: action === 'REJECT' ? reason!.trim() : null,
+          rejectReason: needsReviewReason(action) ? reason!.trim() : null,
           hqNote: hqNote?.trim() || null,
         },
         include: KYC_INCLUDE,
       });
-  return serializeKyc(updated);
+  return withIdentityOtpHold(serializeKyc(updated));
 }
 
 export async function getKycCase(id: string) {
@@ -260,13 +374,14 @@ export async function getKycCase(id: string) {
     include: KYC_INCLUDE,
   });
   if (!row) throw new AppError(404, 'KYC case not found', 'NOT_FOUND');
-  return serializeKyc(row);
+  await sealIdentityAttachments(row.attachments);
+  return withIdentityOtpHold(serializeKyc(row));
 }
 
 export async function reviewKyc(
   admin: AuthUser,
   id: string,
-  action: 'APPROVE' | 'REJECT',
+  action: KycReviewAction,
   reason?: string,
   hqNote?: string,
 ) {
@@ -278,22 +393,42 @@ export async function reviewKyc(
   if (action === 'APPROVE' && row.status === KycStatus.APPROVED) {
     throw new AppError(400, 'KYC already approved', 'KYC_ALREADY_APPROVED');
   }
-  if (action === 'REJECT' && !reason?.trim()) {
-    throw new AppError(400, 'Reject reason required', 'VALIDATION_ERROR');
+  if (needsReviewReason(action) && !reason?.trim()) {
+    throw new AppError(400, 'Reason required', 'VALIDATION_ERROR');
   }
+  await assertIndividualApprovedHold(row.userId, action, row.status);
 
   const updated = await prisma.customerKyc.update({
     where: { id },
     data: {
-      status: action === 'APPROVE' ? KycStatus.APPROVED : KycStatus.REJECTED,
+      status: kycStatusFor(action),
       reviewedAt: new Date(),
       reviewedById: admin.id,
-      rejectReason: action === 'REJECT' ? reason!.trim() : null,
+      rejectReason: needsReviewReason(action) ? reason!.trim() : null,
       hqNote: hqNote?.trim() || null,
     },
     include: KYC_INCLUDE,
   });
-  return serializeKyc(updated);
+  return withIdentityOtpHold(serializeKyc(updated));
+}
+
+function readIdentityPlaintext(fullPath: string): Buffer {
+  const blob = fs.readFileSync(fullPath);
+  if (isEncryptedIdentityDocument(blob)) return decryptIdentityDocument(blob);
+  try {
+    fs.writeFileSync(fullPath, encryptIdentityDocument(blob));
+  } catch (e) {
+    if (!(e instanceof AppError) || e.code !== 'KYC_ID_KEY_MISSING') throw e;
+  }
+  return blob;
+}
+
+export async function getKycAttachmentPurpose(attachmentId: string): Promise<AttachmentPurpose | null> {
+  const att = await prisma.customerKycAttachment.findUnique({
+    where: { id: attachmentId },
+    select: { purpose: true },
+  });
+  return att?.purpose ?? null;
 }
 
 export async function getKycAttachmentForDownload(user: AuthUser, attachmentId: string) {
@@ -302,6 +437,9 @@ export async function getKycAttachmentForDownload(user: AuthUser, attachmentId: 
     include: { kyc: { select: { userId: true } } },
   });
   if (!att) throw new AppError(404, 'File not found', 'NOT_FOUND');
+  if (att.purpose === AttachmentPurpose.IDENTITY_VERIFICATION_DOC) {
+    throw new AppError(403, 'Identity documents open from HQ with OTP', 'KYC_IDENTITY_HQ_ONLY');
+  }
   const isOwner = att.kyc.userId === user.id;
   const isHq = user.role === UserRole.SUPER_ADMIN || user.role === UserRole.ORG_STAFF;
   if (!isOwner && !isHq) {
@@ -311,7 +449,31 @@ export async function getKycAttachmentForDownload(user: AuthUser, attachmentId: 
   if (!fs.existsSync(fullPath)) {
     throw new AppError(404, 'File not found', 'NOT_FOUND');
   }
-  return { path: fullPath, fileName: att.fileName, mimeType: att.mimeType };
+  return { path: fullPath, fileName: decodeMulterFilename(att.fileName), mimeType: att.mimeType };
+}
+
+export async function openIdentityDocumentForHq(user: AuthUser, attachmentId: string) {
+  if (user.role !== UserRole.SUPER_ADMIN) {
+    throw new AppError(403, 'Identity documents open from HQ with OTP', 'KYC_IDENTITY_HQ_ONLY');
+  }
+  const att = await prisma.customerKycAttachment.findUnique({ where: { id: attachmentId } });
+  if (!att) throw new AppError(404, 'File not found', 'NOT_FOUND');
+  if (att.purpose !== AttachmentPurpose.IDENTITY_VERIFICATION_DOC) {
+    throw new AppError(400, 'Not an identity document', 'VALIDATION_ERROR');
+  }
+  const fullPath = path.join(UPLOAD_DIR, att.storageKey);
+  if (!fs.existsSync(fullPath)) {
+    throw new AppError(404, 'File not found', 'NOT_FOUND');
+  }
+  const fileName = safeIdentityFileName(att.fileName);
+  if (fileName !== att.fileName) {
+    await prisma.customerKycAttachment.update({ where: { id: att.id }, data: { fileName } });
+  }
+  return {
+    buffer: readIdentityPlaintext(fullPath),
+    fileName,
+    mimeType: att.mimeType || 'application/pdf',
+  };
 }
 
 function ensureUploadDir(): void {
@@ -326,16 +488,27 @@ async function saveKycFile(
   file: Express.Multer.File,
   purpose: AttachmentPurpose,
 ) {
-  const ext = path.extname(file.originalname) || '';
+  const displayName =
+    purpose === AttachmentPurpose.IDENTITY_VERIFICATION_DOC
+      ? safeIdentityFileName(file.originalname)
+      : decodeMulterFilename(file.originalname).replace(/[\u0000-\u001f]/g, '').trim().slice(0, 180) || 'document';
+  const extRaw = path.extname(displayName).toLowerCase();
+  const ext = purpose === AttachmentPurpose.IDENTITY_VERIFICATION_DOC
+    ? (IDENTITY_EXTS.has(extRaw) ? extRaw : '.pdf')
+    : extRaw;
   const storageKey = `kyc/${kycId}/${randomUUID()}${ext}`;
   const destPath = path.join(UPLOAD_DIR, storageKey);
   fs.mkdirSync(path.dirname(destPath), { recursive: true });
-  fs.writeFileSync(destPath, file.buffer);
+  const body =
+    purpose === AttachmentPurpose.IDENTITY_VERIFICATION_DOC
+      ? encryptIdentityDocument(file.buffer)
+      : file.buffer;
+  fs.writeFileSync(destPath, body);
   await prisma.customerKycAttachment.create({
     data: {
       kycId,
       purpose,
-      fileName: file.originalname,
+      fileName: displayName,
       mimeType: file.mimetype,
       fileSize: file.size,
       storageKey,

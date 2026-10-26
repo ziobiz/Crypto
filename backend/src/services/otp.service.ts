@@ -23,6 +23,7 @@ export function defaultEmailOtpConfig(): HqEmailOtpConfig {
     otpForMasterDistributor: true,
     otpExpireMinutes: 5,
     sensitiveOtpExpireMinutes: 10,
+    kycIdentityOtpExpireMinutes: 60,
     otpEmailSubject: '[Crypto Trading by Tinpass.com] Login verification code {code}',
     otpEmailBody:
       'Hello {name},\n\nLogin verification code: {code}\nValid for: {minutes} minutes\n\nIf you did not request this, please ignore this email.',
@@ -46,12 +47,26 @@ function clampSensitiveOtpMinutes(value: unknown): number {
   return Math.min(60, Math.max(1, n));
 }
 
+export function clampKycIdentityOtpMinutes(value: unknown): number {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n)) return 60;
+  return Math.min(720, Math.max(1, n));
+}
+
+export async function getKycIdentityOtpHoldMinutes(): Promise<number> {
+  const cfg = await getEmailOtpConfig();
+  return clampKycIdentityOtpMinutes(cfg.kycIdentityOtpExpireMinutes);
+}
+
 export async function saveEmailOtpConfig(config: HqEmailOtpConfig): Promise<HqEmailOtpConfig> {
   const existing = await getEmailOtpConfig();
   const merged: HqEmailOtpConfig = {
     ...config,
     sensitiveOtpExpireMinutes: clampSensitiveOtpMinutes(
       config.sensitiveOtpExpireMinutes ?? existing.sensitiveOtpExpireMinutes,
+    ),
+    kycIdentityOtpExpireMinutes: clampKycIdentityOtpMinutes(
+      config.kycIdentityOtpExpireMinutes ?? existing.kycIdentityOtpExpireMinutes,
     ),
     smtpPassword:
       config.smtpPassword && config.smtpPassword !== '********'

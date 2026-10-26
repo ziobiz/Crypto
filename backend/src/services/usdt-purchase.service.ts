@@ -4,6 +4,7 @@ import { AppError, isAppError } from '../lib/errors';
 import { AuthUser } from '../types/auth';
 import { isMerchantSide, merchantScopeUserId } from '../lib/merchant-role';
 import { isUsdtPayMethodAllowed } from '../lib/usdt-pay-method-access';
+import { USDT_TRADE_LANE_SYNTH, usdtTradeLaneFromSignals } from '../lib/usdt-trade-lane';
 import {
   calculateExpectedUsdtRange,
   fetchUsdtFiatRate,
@@ -1207,6 +1208,16 @@ export async function createUsdtPurchaseTicket(
             walletId: wallet.id,
             walletAddressSnapshot: wallet.address,
             walletNetworkSnapshot: wallet.network,
+            tradeLane:
+              (resolvedProvider === 'CURFEX' &&
+                (curfexCfg.sandbox === true ||
+                  String(curfexCfg.clientSecret || '').toUpperCase() === 'SANDBOX')) ||
+              usdtTradeLaneFromSignals([
+                collectionFields.collectionAccountJson,
+                collectionFields.curfexRefNo,
+              ]) === USDT_TRADE_LANE_SYNTH
+                ? USDT_TRADE_LANE_SYNTH
+                : 'LIVE',
             ...collectionFields,
           },
         },
@@ -1415,6 +1426,12 @@ export async function confirmUsdtQuote(
               curfexRefNo: curfexIssue.curfexRefNo,
               curfexStatusCode: curfexIssue.curfexStatusCode,
               collectionAccountJson: curfexIssue.collectionAccountJson,
+              ...(usdtTradeLaneFromSignals([
+                curfexIssue.collectionAccountJson,
+                curfexIssue.curfexRefNo,
+              ]) === USDT_TRADE_LANE_SYNTH
+                ? { tradeLane: USDT_TRADE_LANE_SYNTH }
+                : {}),
             }
           : {}),
       },
@@ -2339,6 +2356,16 @@ function serializeTicket(
     brokerUsdtAmount: detail.brokerUsdtAmount != null ? Number(detail.brokerUsdtAmount) : null,
     adminNote: detail.adminNote,
     sandboxInvoice: detectUsdtSandboxTicket(detail),
+    tradeLane:
+      detail.tradeLane === USDT_TRADE_LANE_SYNTH ||
+      usdtTradeLaneFromSignals([
+        detail.adminNote,
+        detail.curfexRefNo,
+        detail.icopayTransactionId,
+        detail.collectionAccountJson,
+      ]) === USDT_TRADE_LANE_SYNTH
+        ? USDT_TRADE_LANE_SYNTH
+        : 'LIVE',
     /** Ticket wallet settlement unit (USDT|USDC) — prefer over depositCtx for labels */
     settlementAsset:
       String(detail.wallet?.assetType ?? '').toUpperCase() === 'USDC' ? 'USDC' : 'USDT',

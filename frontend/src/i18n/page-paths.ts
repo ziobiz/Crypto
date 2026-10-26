@@ -51,6 +51,7 @@ const HQ_COLUMN_KEYS: Record<string, Record<string, MessageKey>> = {
     ticketNo: 'usdt.col.ticketNo',
     status: 'usdt.col.status',
     customer: 'usdt.col.customer',
+    qualification: 'usdt.col.qualification',
     amount: 'usdt.col.amount',
     currency: 'usdt.col.currency',
     createdAt: 'usdt.col.date',

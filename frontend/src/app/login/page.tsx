@@ -24,7 +24,12 @@ type Step =
   | 'anonQr';
 
 /** 로그인 앞단 유형 — 기업은 최소 폼만, 개인은 복구·QR, 신규는 가입 (admin 호스트는 staff 고정) */
-type Audience = 'corporate' | 'individual' | 'register' | 'staff';
+type Audience = 'auto' | 'corporate' | 'individual' | 'register' | 'staff';
+
+type LoginGuide =
+  | { kind: 'switch'; actual: 'individual' | 'corporate'; continueToken: string }
+  | { kind: 'register' }
+  | null;
 
 type InactiveNoticeMessages = Partial<Record<Locale, string>> & { KR?: string };
 
@@ -32,7 +37,8 @@ export default function LoginPage() {
   const { completeLogin } = useAuth();
   const t = useT();
   const { locale } = useLocale();
-  const [audience, setAudience] = useState<Audience>('corporate');
+  const [audience, setAudience] = useState<Audience>('auto');
+  const [loginGuide, setLoginGuide] = useState<LoginGuide>(null);
   const [adminHost, setAdminHost] = useState(false);
   const [step, setStep] = useState<Step>('credentials');
   const [email, setEmail] = useState('');
@@ -180,9 +186,59 @@ export default function LoginPage() {
     setOtpCode('');
   };
 
+  const applyLoginResult = async (res: Awaited<ReturnType<typeof api.login>>) => {
+    if ('mustChangePassword' in res && res.mustChangePassword) {
+      setChangeToken(res.changeToken);
+      setStep('changePassword');
+      return;
+    }
+    if ('mustSetupOtp' in res && res.mustSetupOtp) {
+      setEnrollToken(res.enrollToken);
+      setMaskedEmail(res.maskedEmail);
+      setStep('enrollEmail');
+      await api.otpEnrollSendEmail(res.enrollToken);
+      setInfo(t('auth.otpEnrollEmailSent'));
+      return;
+    }
+    if ('otpRequired' in res && res.otpRequired) {
+      enterSecondFactor({
+        otpToken: res.otpToken,
+        maskedEmail: res.maskedEmail,
+        webauthnAvailable: res.webauthnAvailable,
+        qrLoginAvailable: res.qrLoginAvailable,
+      });
+      return;
+    }
+    if ('token' in res) {
+      await finishSession(res.token);
+    }
+  };
+
+  const confirmLoginGuide = async () => {
+    if (!loginGuide) return;
+    if (loginGuide.kind === 'register') {
+      const next = `/register?email=${encodeURIComponent(email.trim().toLowerCase())}`;
+      window.location.assign(next);
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const res = await api.loginContinue(loginGuide.continueToken);
+      setLoginGuide(null);
+      setAudience(loginGuide.actual);
+      await applyLoginResult(res);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('auth.loginFailed'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCredentials = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoginGuide(null);
     setInactiveNoticeMessages(null);
     setStaffAdminUrl(null);
     if (!turnstileToken) {
@@ -191,43 +247,21 @@ export default function LoginPage() {
     }
     setLoading(true);
     try {
-      const loginAudience: 'corporate' | 'individual' | 'staff' =
+      const loginAudience: 'corporate' | 'individual' | 'staff' | 'auto' =
         adminHost || audience === 'staff'
           ? 'staff'
           : audience === 'individual'
             ? 'individual'
-            : 'corporate';
+            : audience === 'corporate'
+              ? 'corporate'
+              : 'auto';
       const res = await api.login(
         email.trim().toLowerCase(),
         password.trim(),
         turnstileToken,
         loginAudience,
       );
-      if ('mustChangePassword' in res && res.mustChangePassword) {
-        setChangeToken(res.changeToken);
-        setStep('changePassword');
-        return;
-      }
-      if ('mustSetupOtp' in res && res.mustSetupOtp) {
-        setEnrollToken(res.enrollToken);
-        setMaskedEmail(res.maskedEmail);
-        setStep('enrollEmail');
-        await api.otpEnrollSendEmail(res.enrollToken);
-        setInfo(t('auth.otpEnrollEmailSent'));
-        return;
-      }
-      if ('otpRequired' in res && res.otpRequired) {
-        enterSecondFactor({
-          otpToken: res.otpToken,
-          maskedEmail: res.maskedEmail,
-          webauthnAvailable: res.webauthnAvailable,
-          qrLoginAvailable: res.qrLoginAvailable,
-        });
-        return;
-      }
-      if ('token' in res) {
-        await finishSession(res.token);
-      }
+      await applyLoginResult(res);
     } catch (err) {
       setTurnstileToken('');
       setTurnstileReset((n) => n + 1);
@@ -255,6 +289,21 @@ export default function LoginPage() {
         const details = err.details as { adminUrl?: string } | undefined;
         setStaffAdminUrl(details?.adminUrl || `${getAdminWebOrigin()}/login`);
         setError(t('auth.audience.staffUseAdminHost'));
+      } else if (err instanceof ApiError && err.code === 'USER_NOT_REGISTERED') {
+        setLoginGuide({ kind: 'register' });
+        setError(t('auth.login.notRegistered'));
+      } else if (err instanceof ApiError && err.code === 'LOGIN_TYPE_AMBIGUOUS') {
+        setError(t('auth.login.typeAmbiguous'));
+      } else if (
+        err instanceof ApiError &&
+        (err.code === 'LOGIN_AS_INDIVIDUAL' || err.code === 'LOGIN_AS_CORPORATE')
+      ) {
+        const details = err.details as { continueToken?: string } | undefined;
+        const actual = err.code === 'LOGIN_AS_INDIVIDUAL' ? 'individual' : 'corporate';
+        if (details?.continueToken) {
+          setLoginGuide({ kind: 'switch', actual, continueToken: details.continueToken });
+        }
+        setError(actual === 'individual' ? t('auth.login.asIndividual') : t('auth.login.asCorporate'));
       } else if (
         err instanceof ApiError &&
         (err.code === 'CORPORATE_AUDIENCE_ONLY' || err.code === 'INDIVIDUAL_AUDIENCE_ONLY')
@@ -497,19 +546,24 @@ export default function LoginPage() {
                 </span>
                 <select
                   value={
-                    audience === 'corporate' || audience === 'individual' || audience === 'register'
+                    audience === 'auto' ||
+                    audience === 'corporate' ||
+                    audience === 'individual' ||
+                    audience === 'register'
                       ? audience
-                      : 'corporate'
+                      : 'auto'
                   }
                   onChange={(e) => {
-                    const next = e.target.value as 'corporate' | 'individual' | 'register';
+                    const next = e.target.value as 'auto' | 'corporate' | 'individual' | 'register';
                     setAudience(next);
                     setError('');
+                    setLoginGuide(null);
                     setInfo('');
                   }}
                   className="auth-field w-full rounded-lg border border-gray-200 bg-sky-50 px-3 py-3 text-base text-slate-900"
                   aria-label={t('auth.audience.selectLabel')}
                 >
+                  <option value="auto">{t('auth.audience.auto')}</option>
                   <option value="corporate">{t('auth.audience.corporate')}</option>
                   <option value="individual">{t('auth.audience.individual')}</option>
                   <option value="register">{t('auth.audience.register')}</option>
@@ -542,6 +596,11 @@ export default function LoginPage() {
               </div>
             ) : (
               <>
+                {audience === 'auto' && (
+                  <p className="mt-4 whitespace-pre-line text-xs leading-relaxed text-slate-500">
+                    {t('auth.audience.autoHint')}
+                  </p>
+                )}
                 {audience === 'corporate' && (
                   <p className="mt-4 whitespace-pre-line text-xs leading-relaxed text-slate-500">
                     {t('auth.audience.corporateHint')}
@@ -549,7 +608,7 @@ export default function LoginPage() {
                 )}
                 <form
                   onSubmit={handleCredentials}
-                  className={`${audience === 'corporate' ? 'mt-4' : 'mt-6'} space-y-4`}
+                  className={`${audience === 'corporate' || audience === 'auto' ? 'mt-4' : 'mt-6'} space-y-4`}
                 >
                   <div>
                     <label className="block text-sm font-medium text-gray-700">{t('auth.email')}</label>
@@ -584,6 +643,16 @@ export default function LoginPage() {
                         >
                           {t('auth.audience.goAdminLogin')}
                         </a>
+                      )}
+                      {loginGuide && (
+                        <button
+                          type="button"
+                          disabled={loading}
+                          onClick={() => void confirmLoginGuide()}
+                          className="inline-flex w-full items-center justify-center rounded-lg bg-slate-800 px-3 py-2 font-medium text-white hover:bg-slate-900 disabled:opacity-50"
+                        >
+                          {t('auth.login.confirm')}
+                        </button>
                       )}
                     </div>
                   )}

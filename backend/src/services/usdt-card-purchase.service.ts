@@ -35,8 +35,10 @@ import {
   parseIcopayWebhookBody,
   prepareIcopayCheckout,
   assertIcopayBuyerContact,
+  isNonLiveIcopayBroker,
   type IcopayBuyerInput,
 } from './icopay.service';
+import { USDT_TRADE_LANE_SYNTH } from '../lib/usdt-trade-lane';
 import {
   breakdownFromFiat,
   resolveFeesForPurchase,
@@ -569,7 +571,16 @@ export async function createUsdtCardPurchase(
 
 
     // ICOPAY merchant sandbox: prepare has no payUrl — complete simulates approval (no EP)
-    if (checkout.sandbox || String(checkout.integrationMode || '').toUpperCase() === 'SANDBOX') {
+    const checkoutMode = String(checkout.integrationMode || '').toUpperCase();
+    if (checkout.sandbox || checkoutMode === 'SANDBOX' || checkoutMode === 'LOCAL_MOCK') {
+      await prisma.usdtPurchaseDetail.update({
+        where: { ticketId: ticket.id },
+        data: { tradeLane: USDT_TRADE_LANE_SYNTH },
+      });
+    }
+
+    // ICOPAY merchant sandbox: prepare has no payUrl — complete simulates approval (no EP)
+    if (checkout.sandbox || checkoutMode === 'SANDBOX') {
       const done = await completeIcopaySandboxCheckout(icopay, {
         orderNo: checkout.orderNo || orderId,
         sessionToken: checkout.sessionToken,

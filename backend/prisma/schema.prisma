@@ -117,6 +117,7 @@ enum AttachmentPurpose {
   FUNDING_FORECAST_REPORT // 6개월 거래 예정 보고서
   SOURCE_OF_FUNDS_DOC    // 자금 성격·원천 증빙
   JP_TAX_SUPPORT_DOC     // 일본 세무·법인 증빙
+  IDENTITY_VERIFICATION_DOC // 개인 본인인증 서류 (저장 시 암호화)
   OTHER
 }
 
@@ -648,6 +649,8 @@ enum KycStatus {
   PENDING
   APPROVED
   REJECTED
+  SUSPENDED // 개인 인증 보류 — 거래 불가, 재제출 가능
+  REVOKED // 개인 승인 취소 — 거래 불가, 재제출 가능
 }
 
 /// 고객 1회 KYC — 6개월 거래예정 보고서 + (법인) 세무·등기 증빙
@@ -929,14 +932,20 @@ model UsdtPurchaseDetail {
   actualUsdtAmount Decimal? @db.Decimal(18, 8)
   /// 중계업체로부터 실제 수령한 USDT (수익 산출)
   brokerUsdtAmount Decimal? @db.Decimal(18, 8)
+  /// 수익분석 비고
+  profitNote String?
 
   adminNote String?
+
+  /// LIVE = 실거래. SYNTH = 테스트·샌드박스·실결제가 아닌 결제
+  tradeLane String @default("LIVE")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([status])
   @@index([quoteDueAt])
+  @@index([tradeLane])
   @@map("usdt_purchase_details")
 }
 

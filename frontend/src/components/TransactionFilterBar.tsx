@@ -65,6 +65,7 @@ export function TransactionFilterBar({
   searchFieldOptions,
   statusOptions,
   afterKeyword,
+  qualification,
   hqCountry,
   onHqCountryChange,
   summary,
@@ -82,6 +83,13 @@ export function TransactionFilterBar({
   statusOptions: FilterOption[];
   /** 검색어와 상태구분 사이 슬롯 (결제수단·크립토자산 등) */
   afterKeyword?: ReactNode;
+  /** 검색어·상태구분 앞 자격 드롭다운. 기본 표시값은 호출부가 정한다. */
+  qualification?: {
+    labelKey: MessageKey;
+    value: string;
+    onChange: (next: string) => void;
+    options: { value: string; label: string }[];
+  };
   /** PG 「본사설정」— 국가 선택 시 서비스기준시간 변경 */
   hqCountry?: string;
   onHqCountryChange?: (country: string) => void;
@@ -89,6 +97,7 @@ export function TransactionFilterBar({
   summary?: ReactNode;
 }) {
   const t = useT();
+  const datesOff = value.dateField === 'all';
 
   function setQuick(key: DateQuickKey) {
     const r = rangeForQuick(key);
@@ -121,6 +130,7 @@ export function TransactionFilterBar({
                 lang="en"
                 className="pg-input pg-tx-field mt-0.5 w-[9.5rem]"
                 value={value.dateFrom}
+                disabled={datesOff}
                 onChange={(e) => onChange({ ...value, dateFrom: e.target.value, quick: '' })}
               />
             </label>
@@ -132,6 +142,7 @@ export function TransactionFilterBar({
                 lang="en"
                 className="pg-input pg-tx-field mt-0.5 w-[9.5rem]"
                 value={value.dateTo}
+                disabled={datesOff}
                 onChange={(e) => onChange({ ...value, dateTo: e.target.value, quick: '' })}
               />
             </label>
@@ -144,7 +155,8 @@ export function TransactionFilterBar({
                     value.quick === q.key
                       ? 'border-amber-400 bg-amber-200 font-semibold text-amber-950'
                       : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
-                  }`}
+                  } ${datesOff ? 'cursor-not-allowed opacity-50' : ''}`}
+                  disabled={datesOff}
                   onClick={() => setQuick(q.key)}
                 >
                   {t(q.labelKey)}
@@ -154,6 +166,22 @@ export function TransactionFilterBar({
           </div>
 
           <div className="pg-tx-filter-row flex flex-wrap items-end gap-3">
+            {qualification && (
+              <label className="min-w-[8rem]">
+                <span className="pg-label">{t(qualification.labelKey)}</span>
+                <select
+                  className="pg-select pg-tx-field mt-0.5"
+                  value={qualification.value}
+                  onChange={(e) => qualification.onChange(e.target.value)}
+                >
+                  {qualification.options.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label className="min-w-[8rem]">
               <span className="pg-label">{t('filter.searchField')}</span>
               <select
@@ -277,28 +305,26 @@ export function AggregateSummaryBar({ data }: { data: ListAggregateSummary }) {
   const t = useT();
   const sep = <span className="mx-2 text-sky-300">|</span>;
   return (
-    <div className="rounded-lg border border-sky-200 bg-sky-50/80 px-3 py-2 leading-relaxed text-indigo-950">
-      <div className="flex flex-wrap items-center gap-y-1">
-        <span>
-          {t('filter.countLabel')}: <strong>{data.count}</strong>
-        </span>
-        {sep}
-        <span>
-          {t('filter.totalTrade')}: [{joinParts(data.totalTrade)}]
-        </span>
-        {sep}
-        <span>
-          {t('filter.failed')}: [{joinParts(data.failed)}]
-        </span>
-        {sep}
-        <span>
-          {t('filter.fees')}: [{joinParts(data.fees)}]
-        </span>
-        {sep}
-        <span>
-          {t('filter.settlement')}: [{joinParts(data.settlement)}]
-        </span>
-      </div>
+    <div className="pg-agg-bar">
+      <span>
+        {t('filter.countLabel')}: <strong>{data.count}</strong>
+      </span>
+      {sep}
+      <span>
+        {t('filter.totalTrade')}: [{joinParts(data.totalTrade)}]
+      </span>
+      {sep}
+      <span>
+        {t('filter.failed')}: [{joinParts(data.failed)}]
+      </span>
+      {sep}
+      <span>
+        {t('filter.fees')}: [{joinParts(data.fees)}]
+      </span>
+      {sep}
+      <span>
+        {t('filter.settlement')}: [{joinParts(data.settlement)}]
+      </span>
     </div>
   );
 }

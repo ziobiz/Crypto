@@ -3,6 +3,224 @@ import type { PlatformReleaseNote } from './version';
 /** 본사정책 → 검증관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
 export const PLATFORM_RELEASE_NOTES: PlatformReleaseNote[] = [
   {
+    version: '2.6.260',
+    kind: 'minor',
+    date: '2026-10-26',
+    items: {
+      KR: ['건수·총거래·실패·수수료·추정결산 파란 카드가 한 줄 전체가 아니라 추정결산 끝까지만 차지함. 같은 집계를 쓰는 목록(크립토 매입·에스크로)도 동일. KR·US·JP·CH·TH.'],
+      US: ['The count, total, failed, fee, and settlement card is only as wide as its text, ending at the settlement figure. Lists that share this summary, including crypto purchase and escrow, match. KR/US/JP/CH/TH.'],
+      JP: ['件数・総取引・失敗・手数料・推定決算の青カードは行全体ではなく推定決算の末尾まで。同じ集計の一覧（クリプト購入・エスクロー）も同じ。KR/US/JP/CH/TH。'],
+      CH: ['笔数、总交易、失败、手续费、预计结算的蓝色卡片不再占满整行，只到预计结算末尾。使用相同汇总的列表（加密货币采购、托管）一致。KR/US/JP/CH/TH。'],
+      TH: ['การ์ดจำนวน ยอดรวม ล้มเหลว ค่าธรรมเนียม และประมาณการยาวเท่าข้อความจนจบประมาณการ หน้ารายการที่ใช้สรุปนี้รวมซื้อคริปโตและเอสโครว์เหมือนกัน KR/US/JP/CH/TH'],
+    },
+  },
+  {
+    version: '2.6.259',
+    kind: 'minor',
+    date: '2026-10-26',
+    items: {
+      KR: ['수익분석에 크립토 매입과 같은 검색을 추가. 일자구분 기본값은 전체라 날짜 없이 매입 건이 나옴. 신청일·자격·상태·검색어로 좁힐 수 있음. 불러오기 실패 시 안내. KR·US·JP·CH·TH.'],
+      US: ['Profit analysis uses the same search as crypto purchase. Date field defaults to All, so tickets are listed with no date limit. Narrow by applied date, qualification, status, or keyword. A load failure is shown. KR/US/JP/CH/TH.'],
+      JP: ['収益分析にクリプト購入と同じ検索を追加。日付区分の既定はすべてで日付なし表示。申請日・資格・状態・検索語で絞れる。読込失敗は表示。KR/US/JP/CH/TH。'],
+      CH: ['收益分析增加与加密货币采购相同的搜索。日期区分默认全部，不按日期列出。可按申请日、资格、状态、搜索词缩小。加载失败会提示。KR/US/JP/CH/TH。'],
+      TH: ['วิเคราะห์กำไรมีค้นหาแบบเดียวกับซื้อคริปโต วันที่เริ่มที่ทั้งหมดจึงแสดงโดยไม่จำกัดวัน กรองวันสมัคร คุณสมบัติ สถานะ คำค้นได้ และแสดงเมื่อโหลดไม่สำเร็จ KR/US/JP/CH/TH'],
+    },
+  },
+  {
+    version: '2.6.258',
+    kind: 'minor',
+    date: '2026-10-26',
+    items: {
+      KR: ['크립토 매입 일자구분에 전체를 추가해 날짜 없이 검색. 한 번에 보기는 50을 빼고 100부터, 200 추가. 수익분석은 수익 크립토 옆 비고에 수정·삭제·저장, 하단에 100·200·300·400·500·1000·모두. KR·US·JP·CH·TH.'],
+      US: ['Crypto purchase date field adds All so search ignores dates. View-at-once drops 50, starts at 100, and adds 200. Profit analysis Note beside profit CRYPTO has Edit, Delete, and Save, with 100–1000 and All below. KR/US/JP/CH/TH.'],
+      JP: ['クリプト購入の日付区分にすべてを追加し日付なし検索。一度に表示は50を外し100開始、200追加。収益分析は利益クリプト隣の備考に編集・削除・保存、下に100〜1000・すべて。KR/US/JP/CH/TH。'],
+      CH: ['加密货币采购日期区分增加全部，可不按日期搜索。一次查看去掉 50、从 100 起并加入 200。收益分析在收益旁增加备注，含编辑、删除、保存，底部 100 至 1000 及全部。KR/US/JP/CH/TH。'],
+      TH: ['วันที่ซื้อคริปโตเพิ่มทั้งหมดเพื่อค้นโดยไม่จำกัดวัน ดูทีละก้อนตัด 50 เริ่ม 100 เพิ่ม 200 วิเคราะห์กำไรมีหมายเหตุข้างกำไร พร้อมแก้ไข ลบ บันทึก และ 100–1000 ทั้งหมด KR/US/JP/CH/TH'],
+    },
+  },
+  {
+    version: '2.6.257',
+    kind: 'minor',
+    date: '2026-10-26',
+    items: {
+      KR: ['크립토 매입 집계 바(건수·총거래·실패·수수료·추정결산)의 파스텔 배경을 한 줄로 낮춤. 자격은 검색어·상태구분 앞 드롭다운이며 기본값은 전체. KR·US·JP·CH·TH.'],
+      US: ['Crypto purchase summary bar pastel background is a shorter single line. Qualification is a dropdown before keyword and status, default All. KR/US/JP/CH/TH.'],
+      JP: ['クリプト購入の集計バーのパステル背景を1行に低くした。資格は検索語・状態区分の前のドロップダウンで既定はすべて。KR/US/JP/CH/TH。'],
+      CH: ['加密货币采购汇总条浅色背景压成一行。资格改为搜索词和状态前的下拉，默认全部。KR/US/JP/CH/TH。'],
+      TH: ['แถบสรุปซื้อคริปโตพื้นพาสเทลเตี้ยลงเป็นแถวเดียว คุณสมบัติเป็นดรอปดาวน์หน้าคำค้นและสถานะ ค่าเริ่มต้นทั้งหมด KR/US/JP/CH/TH'],
+    },
+  },
+  {
+    version: '2.6.256',
+    kind: 'minor',
+    date: '2026-10-26',
+    items: {
+      KR: ['크립토 매입 자격 메뉴를 개인·기업·SINTH로 표시. 자격 열은 PE·CO·ST. 목록 글자 크기를 상단 기준시간과 같게 11px로 축소. KR·US·JP·CH·TH.'],
+      US: ['Crypto purchase qualification menu reads Individual, Corporate, and SINTH. The column shows PE, CO, and ST. List text is 11px, matching the reference clock. KR/US/JP/CH/TH.'],
+      JP: ['クリプト購入の資格メニューを個人・法人・SINTHに変更。資格列はPE・CO・ST。一覧の文字を上部基準時刻と同じ11pxに縮小。KR/US/JP/CH/TH。'],
+      CH: ['加密货币采购资格菜单改为个人、企业、SINTH。资格列显示 PE、CO、ST。列表字号与顶部基准时间同为 11px。KR/US/JP/CH/TH。'],
+      TH: ['เมนูคุณสมบัติซื้อคริปโตเป็น บุคคล นิติ SINTH คอลัมน์แสดง PE CO ST ตัวอักษรตาราง 11px เท่านาฬิกาอ้างอิง KR/US/JP/CH/TH'],
+    },
+  },
+  {
+    version: '2.6.255',
+    kind: 'minor',
+    date: '2026-10-26',
+    items: {
+      KR: ['크립토 매입 자격에 SYNTH를 추가. 전체·개인용·기업용은 실거래만 표시하고, 테스트·샌드박스·실결제가 아닌 결제는 SYNTH로 옮김. 기존 해당 거래도 SYNTH로 재분류. KR·US·JP·CH·TH.'],
+      US: ['Crypto purchase qualification adds SYNTH. All, Individual, and Corporate show live trades only. Test, sandbox, and non-live payments move to SYNTH, including existing rows. KR/US/JP/CH/TH.'],
+      JP: ['クリプト購入の資格にSYNTHを追加。すべて・個人用・法人用は実取引のみ。テスト・サンドボックス・実決済でない支払いはSYNTHへ移動し、既存分も再分類。KR/US/JP/CH/TH。'],
+      CH: ['加密货币采购资格增加 SYNTH。全部、个人、企业只显示实盘交易。测试、沙箱和非实付支付归入 SYNTH，既有记录一并重分类。KR/US/JP/CH/TH。'],
+      TH: ['คุณสมบัติการซื้อคริปโตเพิ่ม SYNTH ทั้งหมด บุคคล นิติ แสดงเฉพาะรายการจริง ทดสอบ แซนด์บ็อกซ์ และรายการที่ไม่ใช่ชำระจริงไปที่ SYNTH รวมรายการเดิม KR/US/JP/CH/TH'],
+    },
+  },
+  {
+    version: '2.6.254',
+    kind: 'minor',
+    date: '2026-10-26',
+    items: {
+      KR: ['크립토 매입 목록에 자격 메뉴(전체·개인·기업)와 자격 열을 추가. 개인은 하늘색, 기업은 황색. 검색 항목에서도 자격으로 나눔. KR·US·JP·CH·TH.'],
+      US: ['Crypto purchase list adds a Qualification menu (All, Individual, Corporate) and column. Individual is sky blue, Corporate is amber. Search can filter by qualification. KR/US/JP/CH/TH.'],
+      JP: ['クリプト購入一覧に資格メニュー（すべて・個人・法人）と資格列を追加。個人は水色、法人は黄色。検索項目でも資格で分けられる。KR/US/JP/CH/TH。'],
+      CH: ['加密货币采购列表增加资格菜单（全部、个人、企业）和资格列。个人为天蓝，企业为黄色。搜索也可按资格筛选。KR/US/JP/CH/TH。'],
+      TH: ['รายการซื้อคริปโตเพิ่มเมนูคุณสมบัติ (ทั้งหมด บุคคล นิติ) และคอลัมน์ บุคคลพื้นฟ้า นิติพื้นเหลือง ค้นหาตามคุณสมบัติได้ KR/US/JP/CH/TH'],
+    },
+  },
+  {
+    version: '2.6.253',
+    kind: 'minor',
+    date: '2026-10-26',
+    items: {
+      KR: ['본인인증 서류 열람 OTP는 한 번 확인하면 기본 60분 동안 다시 묻지 않음. 유지 시간은 본사정책 → 플랫폼 → 이메일·OTP에서 1~720분으로 설정. KR·US·JP·CH·TH.'],
+      US: ['Identity-document OTP is kept after one check (default 60 minutes). Set the hold from 1 to 720 minutes under HQ Policy → Platform → Email and OTP. KR/US/JP/CH/TH.'],
+      JP: ['本人確認書類のOTPは一度確認すると既定60分は再入力しない。維持時間は本社ポリシー → プラットフォーム → メール・OTPで1〜720分。KR/US/JP/CH/TH。'],
+      CH: ['本人认证文件 OTP 确认一次后默认 60 分钟内不再询问。保持时间在总部政策 → 平台 → 邮件与 OTP 中设为 1–720 分钟。KR/US/JP/CH/TH。'],
+      TH: ['OTP เปิดเอกสารยืนยันตัวตนยืนยันครั้งหนึ่งแล้วไม่ถามซ้ำ ค่าเริ่มต้น 60 นาที ตั้งได้ 1–720 นาทีที่นโยบาย HQ → แพลตฟอร์ม → อีเมลและ OTP KR/US/JP/CH/TH'],
+    },
+  },
+  {
+    version: '2.6.252',
+    kind: 'minor',
+    date: '2026-10-26',
+    items: {
+      KR: ['제출 서류 카드는 빨강 파스텔, 인증패스 후에는 하늘색 파스텔 배경. KR·US·JP·CH·TH.'],
+      US: ['The documents card uses a pastel red background, and a pastel sky blue background after the verification pass. KR/US/JP/CH/TH.'],
+      JP: ['提出書類カードは赤のパステル、認証パス後は水色のパステル背景。KR/US/JP/CH/TH。'],
+      CH: ['提交文件卡片为红色粉彩背景，认证通过后为天蓝色粉彩背景。KR/US/JP/CH/TH。'],
+      TH: ['การ์ดเอกสารที่ส่งเป็นพื้นแดงพาสเทล และหลังผ่านการยืนยันเป็นฟ้าพาสเทล KR/US/JP/CH/TH'],
+    },
+  },
+  {
+    version: '2.6.251',
+    kind: 'minor',
+    date: '2026-10-26',
+    items: {
+      KR: [
+        '개인 본인인증 서류는 암호화 저장. 가맹점은 파일을 다시 열 수 없고, 인증패스 후 인증패스 성공만 표시. 총본사는 OTP를 한 번 더 입력한 뒤에 연다. 깨진 파일명은 정리. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'Individual identity documents are stored encrypted. Merchants cannot reopen the file; a pass shows Verification pass successful only. HQ enters OTP again to open it. Broken file names are cleaned up. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        '個人の本人確認書類は暗号化して保存。加盟店はファイルを再表示できず、認証パス後は認証パス成功のみ。総本社はOTPをもう一度入力して開く。壊れたファイル名は整理。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        '个人本人认证文件加密保存。加盟商不能再次打开文件，通过后只显示认证通过成功。总部需再输入 OTP 后打开。乱码文件名已整理。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'เอกสารยืนยันตัวตนบุคคลถูกเข้ารหัส ร้านค้าเปิดซ้ำไม่ได้ หลังผ่านแสดงเฉพาะผ่านการยืนยันสำเร็จ HQ ใส่ OTP อีกครั้งแล้วจึงเปิด ชื่อไฟล์ที่เพี้ยนถูกจัดให้เรียบร้อย KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.250',
+    kind: 'minor',
+    date: '2026-10-26',
+    items: {
+      KR: [
+        '회원 로그인: 유형을 자동 인식. 개인이 기업으로 시도하면 확인 후 개인으로 재시도. 미등록이면 확인 후 개인 가입으로 이동. 개인 본인인증은 가입이 아니라 로그인 후 인증센터. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'Member login detects individual vs corporate. A wrong type asks you to confirm and retries as the real type. An unknown ID confirms into individual signup. Individual identity upload is in Verification after login, not during signup. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        '会員ログインは個人・法人を自動認識。種類が違う場合は確認後に正しい種類で再試行。未登録は確認後に個人登録へ。個人の本人確認は登録時ではなくログイン後の認証センター。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        '会员登录自动识别个人或企业。类型不符时确认后按实际类型重试。未注册时确认后进入个人注册。个人本人认证在登录后的认证中心，不在注册页。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'เข้าสู่ระบบสมาชิกแยกบุคคลกับนิติอัตโนมัติ เลือกประเภทผิดให้กดยืนยันแล้วลองใหม่ตามประเภทจริง ยังไม่สมัครให้กดยืนยันแล้วไปสมัครบุคคล การยืนยันตัวตนบุคคลอยู่ที่ศูนย์ยืนยันหลังเข้าสู่ระบบ ไม่ใช่ตอนสมัคร KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.249',
+    kind: 'minor',
+    date: '2026-10-26',
+    items: {
+      KR: [
+        '개인 인증패스 후 본사가 인증 보류 또는 승인 취소를 할 수 있음. 사유 필수. 거래는 막히고, 고객은 본인인증 서류를 다시 제출할 수 있음. 법인은 해당 없음. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'After an individual verification pass, HQ can hold verification or cancel the approval. A reason is required. Trades stay blocked, and the customer can submit the identity document again. Not available for corporations. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        '個人の認証パス後、本社は認証保留または承認取消ができる。理由必須。取引は止まり、お客さまは本人確認書類を再提出できる。法人は対象外。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        '个人认证通过后，总部可以暂缓认证或取消批准。必须填写原因。交易暂停，客户可以重新提交本人认证文件。法人不适用。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'หลังบุคคลผ่านการยืนยัน HQ ระงับการยืนยันหรือยกเลิกการอนุมัติได้ ต้องมีเหตุผล ธุรกรรมถูกปิด และลูกค้าส่งเอกสารยืนยันตัวตนใหม่ได้ ไม่ใช้กับนิติบุคคล KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.248',
+    kind: 'minor',
+    date: '2026-10-26',
+    items: {
+      KR: [
+        '개인 인증·개인 거래에서 6개월 거래 예정 보고서를 제외. 개인 인증센터는 본인인증 서류만 제출. 법인은 보고서·세무 증빙 유지. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'Individual verification and individual trades no longer collect the 6-month forecast. Individuals submit only an identity document. Corporate forecast and tax files stay. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        '個人の認証と個人取引から6か月取引予定報告書を除外。個人の認証センターは本人確認書類のみ。法人の報告書・税務書類は維持。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        '个人认证与个人交易不再收取6个月交易预估。个人认证中心只提交本人认证文件。法人报告与税务材料保留。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'การยืนยันและธุรกรรมบุคคลไม่รับรายงาน 6 เดือนอีกต่อไป บุคคลส่งเฉพาะเอกสารยืนยันตัวตน นิติบุคคลยังใช้รายงานและเอกสารภาษี KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.247',
+    kind: 'minor',
+    date: '2026-10-26',
+    items: {
+      KR: [
+        '개인 인증센터: 본인인증 서류(이미지·PDF) 필수 업로드. 해당 파일만 서버 저장 시 암호화. 보고서·법인 서류는 그대로. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'Individual verification: identity document (image or PDF) is required. Only that file is encrypted at rest. Forecast and corporate files stay as they are. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        '個人の認証センター: 本人確認書類（画像・PDF）の提出を必須化。そのファイルのみ保存時に暗号化。報告書・法人書類はそのまま。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        '个人认证中心：必须上传本人认证文件（图片或 PDF）。仅该文件在保存时加密。预估报告与法人文件不变。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'ศูนย์ยืนยันบุคคล: ต้องอัปโหลดเอกสารยืนยันตัวตน (รูปหรือ PDF) เข้ารหัสเฉพาะไฟล์นั้น รายงานและเอกสารนิติเหมือนเดิม KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
     version: '2.6.246',
     kind: 'minor',
     date: '2026-10-19',

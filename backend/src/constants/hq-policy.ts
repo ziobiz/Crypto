@@ -2144,6 +2144,8 @@ export type HqEmailOtpConfig = {
   otpExpireMinutes: number;
   /** 민감작업(step-up) Google OTP 유지 시간. 기본 10분, 1~60 */
   sensitiveOtpExpireMinutes: number;
+  /** 본인인증 서류 열람 OTP 유지 시간. 기본 60분, 1~720 */
+  kycIdentityOtpExpireMinutes?: number;
   otpEmailSubject: string;
   otpEmailBody: string;
   smtpHost: string;

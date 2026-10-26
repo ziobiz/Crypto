@@ -117,13 +117,15 @@ export default function ManualsPage() {
         <div className="pg-card-body space-y-3">
           <p className="pg-hint">{t('manual.docs.hint')}</p>
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-            <a
-              href={`/templates/${templateLocale}/TINPASS_JP_6month_funding_forecast.xlsx`}
-              className="pg-btn pg-btn-secondary text-sm"
-              download
-            >
-              {t('manual.docs.forecast')}
-            </a>
+            {customerType !== 'INDIVIDUAL' && (
+              <a
+                href={`/templates/${templateLocale}/TINPASS_JP_6month_funding_forecast.xlsx`}
+                className="pg-btn pg-btn-secondary text-sm"
+                download
+              >
+                {t('manual.docs.forecast')}
+              </a>
+            )}
             <a
               href={`/templates/${templateLocale}/TINPASS_JP_USDT_application_checklist.xlsx`}
               className="pg-btn pg-btn-secondary text-sm"

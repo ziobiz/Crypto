@@ -209,7 +209,11 @@ export default function AccountPage() {
         ? t('kyc.status.PENDING')
         : profile.kycStatus === 'REJECTED'
           ? t('kyc.status.REJECTED')
-          : t('kyc.status.NOT_SUBMITTED');
+          : profile.kycStatus === 'SUSPENDED'
+            ? t('kyc.status.SUSPENDED')
+            : profile.kycStatus === 'REVOKED'
+              ? t('kyc.status.REVOKED')
+              : t('kyc.status.NOT_SUBMITTED');
   const approvalLabel =
     profile.approvalStatus === 'APPROVED'
       ? t('customers.approval.APPROVED')

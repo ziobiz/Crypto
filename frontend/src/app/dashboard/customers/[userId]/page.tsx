@@ -20,7 +20,7 @@ import {
   type UsdtQuoteResponseMode,
   type UsdtRiskLimitCode,
 } from '@/lib/api';
-import { KycFileLink } from '@/components/KycFileLink';
+import { IdentityDocOpen, KycFileLink } from '@/components/KycFileLink';
 import { formatDate } from '@/lib/format';
 import { useDoubleConfirm } from '@/hooks/useDoubleConfirm';
 import { InactiveReasonPresetPicker } from '@/components/InactiveReasonPresetPicker';
@@ -48,18 +48,21 @@ function statusKey(status: string): MessageKey {
   if (status === 'PENDING') return 'kyc.status.PENDING';
   if (status === 'APPROVED') return 'kyc.status.APPROVED';
   if (status === 'REJECTED') return 'kyc.status.REJECTED';
+  if (status === 'SUSPENDED') return 'kyc.status.SUSPENDED';
+  if (status === 'REVOKED') return 'kyc.status.REVOKED';
   return 'kyc.status.NOT_SUBMITTED';
 }
 
 function kycBadgeClass(status?: string | null): string {
   if (status === 'APPROVED') return 'pg-badge-kyc-pass';
-  if (status === 'PENDING') return 'pg-badge-warn';
-  if (status === 'REJECTED') return 'pg-badge-muted';
+  if (status === 'PENDING' || status === 'SUSPENDED') return 'pg-badge-warn';
+  if (status === 'REJECTED' || status === 'REVOKED') return 'pg-badge-muted';
   return 'pg-badge-info';
 }
 
 function purposeKey(purpose: string): MessageKey {
   if (purpose === 'JP_TAX_SUPPORT_DOC') return 'attachment.JP_TAX_SUPPORT_DOC';
+  if (purpose === 'IDENTITY_VERIFICATION_DOC') return 'attachment.IDENTITY_VERIFICATION_DOC';
   return 'attachment.FUNDING_FORECAST_REPORT';
 }
 
@@ -73,7 +76,7 @@ export default function CustomerKycDetailPage() {
   const [profile, setProfile] = useState<ManagedUser | null>(null);
   const [reason, setReason] = useState('');
   const [hqNote, setHqNote] = useState('');
-  const [draftAction, setDraftAction] = useState<'APPROVE' | 'REJECT' | null>(null);
+  const [draftAction, setDraftAction] = useState<'APPROVE' | 'REJECT' | 'SUSPEND' | 'REVOKE' | null>(null);
   const [statusReason, setStatusReason] = useState('');
   const [statusLoginNotice, setStatusLoginNotice] = useState('');
   const [statusNoticePresetId, setStatusNoticePresetId] = useState<InactiveNoticePresetId | null>(
@@ -525,11 +528,19 @@ export default function CustomerKycDetailPage() {
       setMsg(t('kyc.selectActionFirst'));
       return;
     }
-    if (draftAction === 'REJECT' && !reason.trim()) {
+    if ((draftAction === 'REJECT' || draftAction === 'SUSPEND' || draftAction === 'REVOKE') && !reason.trim()) {
       setMsg(t('kyc.rejectReasonRequired'));
       return;
     }
-    const actionLabel = t(draftAction === 'APPROVE' ? 'kyc.approve' : 'kyc.reject');
+    const actionLabel = t(
+      draftAction === 'APPROVE'
+        ? 'kyc.approve'
+        : draftAction === 'SUSPEND'
+          ? 'kyc.suspend'
+          : draftAction === 'REVOKE'
+            ? 'kyc.revoke'
+            : 'kyc.reject',
+    );
     if (!window.confirm(t('kyc.confirmSave', { action: actionLabel }))) return;
     setLoading(true);
     setMsg('');
@@ -1517,7 +1528,7 @@ export default function CustomerKycDetailPage() {
           </div>
         </div>
       )}
-      <div className="pg-card">
+      <div className={`pg-card ${kyc.status === 'APPROVED' ? 'pg-card-docs-approved' : 'pg-card-docs-pending'}`}>
         <div className="pg-card-head">{t('kyc.documents')}</div>
         <div className="pg-card-body space-y-2">
           {kyc.attachments.length === 0 ? (
@@ -1525,7 +1536,19 @@ export default function CustomerKycDetailPage() {
           ) : (
             kyc.attachments.map((a) => (
               <div key={a.id}>
-                <KycFileLink id={a.id} fileName={a.fileName} purposeLabel={t(purposeKey(a.purpose))} />
+                {a.purpose === 'IDENTITY_VERIFICATION_DOC' ? (
+                  isHq ? (
+                    <IdentityDocOpen
+                      id={a.id}
+                      holdMinutes={kyc.identityOtpHoldMinutes ?? 60}
+                      label={`${t(purposeKey(a.purpose))} · ${a.fileName}`}
+                    />
+                  ) : (
+                    <p className="text-sm text-slate-700">{t('kyc.identityHqOnly')}</p>
+                  )
+                ) : (
+                  <KycFileLink id={a.id} fileName={a.fileName} purposeLabel={t(purposeKey(a.purpose))} />
+                )}
               </div>
             ))
           )}
@@ -1567,6 +1590,26 @@ export default function CustomerKycDetailPage() {
               >
                 {t('kyc.reject')}
               </button>
+              {profile?.customerProfile?.customerType !== 'CORPORATE' && kyc.status === 'APPROVED' && (
+                <>
+                  <button
+                    type="button"
+                    className={`pg-btn ${draftAction === 'SUSPEND' ? 'pg-btn-primary' : 'pg-btn-secondary'}`}
+                    disabled={loading}
+                    onClick={() => setDraftAction('SUSPEND')}
+                  >
+                    {t('kyc.suspend')}
+                  </button>
+                  <button
+                    type="button"
+                    className={`pg-btn ${draftAction === 'REVOKE' ? 'pg-btn-primary bg-red-600 text-white' : 'pg-btn-secondary text-red-600'}`}
+                    disabled={loading}
+                    onClick={() => setDraftAction('REVOKE')}
+                  >
+                    {t('kyc.revoke')}
+                  </button>
+                </>
+              )}
               <button
                 type="button"
                 className="pg-btn pg-btn-primary"

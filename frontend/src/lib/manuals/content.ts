@@ -155,10 +155,10 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         </ul>
         <div class="flow">
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">고객관리에서 해당 고객을 연다</span></div>
-          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">업로드 서류(6개월 거래 예정 보고서, 법인은 세무·등기 증빙)를 확인한다</span></div>
-          <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">총본사만 <strong>인증패스</strong> 또는 <strong>반려</strong>를 처리한다</span></div>
+          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">업로드 서류를 확인한다. 개인 본인인증 서류는 암호화되어 있으며 총본사가 OTP를 입력해 연다. 한 번 확인하면 본사정책의 유지 시간(기본 60분, 플랫폼 이메일·OTP) 동안 다시 묻지 않는다. 법인은 6개월 거래 예정 보고서와 세무·등기 증빙</span></div>
+          <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">총본사만 <strong>인증패스</strong> 또는 <strong>반려</strong>를 처리한다. 인증패스된 개인은 <strong>인증 보류</strong> 또는 <strong>승인 취소</strong> 후 고객이 다시 신청할 수 있다.</span></div>
         </div>
-        <div class="warn-box">인증패스는 총본사(SUPER_ADMIN)만 가능합니다. 조직 스태프는 목록·서류를 볼 수 있으나 승인 버튼은 총본사 전용입니다.</div>
+        <div class="warn-box">인증패스는 총본사(SUPER_ADMIN)만 가능합니다. 개인 본인인증 서류는 총본사만 OTP 확인 후 엽니다. 조직 스태프는 목록과 법인 서류는 볼 수 있으나 본인인증 파일은 열 수 없습니다.</div>
         <div class="check-box">인증패스가 없으면 해당 고객은 크립토 매입·무역 에스크로를 신청할 수 없습니다. 양식은 <strong>이용메뉴얼</strong>에서 내려받습니다.</div>`,
         `<span class="menu-path">Customers</span>
         <p>End members are managed under <strong>Customers, not Users</strong>. HQ verification review is merged into this screen.</p>
@@ -186,8 +186,8 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         </ul>
         <div class="flow">
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">Open the customer in Customers</span></div>
-          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">Review uploaded files (6-month forecast; corporates also tax/registry docs)</span></div>
-          <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">HQ only: grant <strong>verification pass</strong> or <strong>reject</strong></span></div>
+          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">Review files. An individual identity document is encrypted. HQ enters OTP to open it, then is not asked again for the policy hold time (default 60 minutes, Platform email and OTP). Corporations: 6-month forecast plus tax/registry docs</span></div>
+          <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">HQ only: grant <strong>verification pass</strong> or <strong>reject</strong>. An approved individual can be <strong>held</strong> or have approval <strong>cancelled</strong>, then apply again.</span></div>
         </div>
         <div class="warn-box">Only SUPER_ADMIN can grant a pass. Org staff can view the list and files.</div>
         <div class="check-box">Without a pass the customer cannot apply for Crypto purchase or escrow.</div>`,
@@ -210,10 +210,10 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         </ul>
         <div class="flow">
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">顧客管理で対象顧客を開く</span></div>
-          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">アップロード書類を確認する</span></div>
-          <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">総本社のみ認証パスまたは差戻し</span></div>
+          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">提出書類を確認する。個人の本人確認書類は暗号化され、総本社がOTPを入力して開く。一度確認するとポリシーの維持時間（既定60分、プラットフォームのメール・OTP）は再入力しない。法人は6か月報告書と税務・登記</span></div>
+          <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">総本社のみ認証パスまたは差戻し。認証パス済みの個人は認証保留または承認取消のあと再申請できる。</span></div>
         </div>
-        <div class="warn-box">認証パスは総本社(SUPER_ADMIN)のみです。組織スタッフは一覧・書類の閲覧が可能です。</div>
+        <div class="warn-box">認証パスは総本社(SUPER_ADMIN)のみです。個人の本人確認書類は総本社だけがOTP確認後に開きます。組織スタッフは一覧と法人書類は見られますが本人確認ファイルは開けません。</div>
         <div class="check-box">認証パスがなければクリプト購入・エスクローを申請できません。</div>`,
         `<span class="menu-path">客户管理</span>
         <p>终端客户在<strong>客户管理</strong>中处理，不在用户管理。总部认证审核已并入此页。</p>
@@ -234,8 +234,8 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         </ul>
         <div class="flow">
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">在客户管理中打开该客户</span></div>
-          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">核对上传文件（6个月预估；法人另含税务/登记）</span></div>
-          <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">仅总部可认证通过或退回</span></div>
+          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">核对上传文件。个人本人认证文件已加密，总部输入 OTP 后打开。确认一次后，在政策保持时间（默认 60 分钟，平台邮件与 OTP）内不再询问。法人为6个月预估及税务/登记</span></div>
+          <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">仅总部可认证通过或退回。已通过的个人可认证暂缓或取消批准，之后可重新申请。</span></div>
         </div>
         <div class="warn-box">认证通过仅总部 SUPER_ADMIN。组织员工可查看名单与文件。</div>
         <div class="check-box">未通过认证则无法申请 加密货币采购或托管。</div>`,
@@ -258,8 +258,8 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         </ul>
         <div class="flow">
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">เปิดลูกค้าในจัดการลูกค้า</span></div>
-          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">ตรวจเอกสารที่อัปโหลด</span></div>
-          <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">เฉพาะ HQ ให้ผ่านการยืนยันหรือปฏิเสธ</span></div>
+          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">ตรวจเอกสาร เอกสารยืนยันตัวตนของบุคคลถูกเข้ารหัส สำนักงานใหญ่ใส่ OTP แล้วเปิด ยืนยันครั้งหนึ่งแล้วไม่ถามซ้ำตามเวลาที่ตั้ง (ค่าเริ่มต้น 60 นาที ที่แพลตฟอร์ม) นิติมีรายงาน 6 เดือนและภาษี/ทะเบียน</span></div>
+          <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc">เฉพาะ HQ ให้ผ่านหรือปฏิเสธ บุคคลที่ผ่านแล้วระงับหรือยกเลิกการอนุมัติได้ แล้วสมัครใหม่ได้</span></div>
         </div>
         <div class="warn-box">ให้ผ่านได้เฉพาะ SUPER_ADMIN พนักงานองค์กรดูรายการและเอกสารได้</div>
         <div class="check-box">ยังไม่ผ่านจะสมัครซื้อคริปโต หรือเอสโครว์ไม่ได้</div>`,
@@ -978,7 +978,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
       title: L('크립토 매입 운영', 'Crypto purchase ops', 'クリプト購入運用', '加密货币采购运营', 'ปฏิบัติการซื้อคริปโต'),
       bodyHtml: L(
         `<span class="menu-path">크립토 매입</span>
-        <p>목록의 <strong>수취방식</strong> 열에는 <strong>전용계좌</strong>(고정 수취) 또는 <strong>가상계좌</strong>(건별 발급)로만 표시됩니다. 「TINPASS」 접두어는 쓰지 않습니다. 목록 필터의 시작일은 <strong>1주 전</strong>, 종료일은 <strong>오늘</strong>이 기본입니다(본사·가맹점 동일). 「본사설정」 드롭다운 높이는 새로고침·내림차순과 같습니다.</p>
+        <p>목록의 <strong>수취방식</strong> 열에는 <strong>전용계좌</strong>(고정 수취) 또는 <strong>가상계좌</strong>(건별 발급)로만 표시됩니다. 「TINPASS」 접두어는 쓰지 않습니다. 목록 필터의 시작일은 <strong>1주 전</strong>, 종료일은 <strong>오늘</strong>이 기본입니다(본사·가맹점 동일). 일자구분의 <strong>전체</strong>를 고르면 날짜 없이 검색합니다. 한 번에 보기는 100부터이며 200이 추가되고 50은 없습니다. 「본사설정」 드롭다운 높이는 새로고침·내림차순과 같습니다. <strong>자격</strong>은 검색어·상태구분 앞 드롭다운이며 기본값은 전체입니다. 항목은 전체·개인·기업·SINTH입니다. 건수·총거래·실패·수수료·추정결산 집계 카드는 추정결산 끝까지만 파란 배경이 있고, 같은 집계가 있는 목록도 같습니다. 전체·개인·기업은 실거래만 보여 주며, 테스트·샌드박스·실결제가 아닌 결제는 보라색 SINTH에만 나옵니다. 표의 자격 칸은 개인 PE, 기업 CO, SINTH ST입니다. 목록 글자 크기는 상단 기준시간과 같습니다.</p>
         <div class="flow">
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">고객 신청 (계좌 이체 또는 카드)</span></div>
           <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">전용계좌: 입금 증빙 / 가상계좌: 자동 입금감지 / 카드: 결제 완료</span></div>
@@ -1001,11 +1001,11 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <p class="mt-2"><strong>증빙 파일 (상세 화면)</strong></p>
         <ul>
           <li>계좌 이체 건은 첨부가 없어도 <strong>증빙 파일</strong> 섹션이 항상 표시됩니다.</li>
-          <li>확인 대상: 자금 원천 증빙, 6개월 거래 예정 보고서, (전용계좌) 입금 영수증</li>
+          <li>확인 대상: 자금 원천 증빙, (전용계좌) 입금 영수증. 개인 거래는 6개월 거래 예정 보고서를 받지 않습니다. 법인의 보고서는 인증센터에서 확인합니다.</li>
           <li>파일이 없으면 안내 문구가 표시됩니다. 실제 신청·입금 없이 상태만 설정된 테스트 데이터는 별도로 표시됩니다.</li>
         </ul>`,
         `<span class="menu-path">Crypto purchase</span>
-        <p>The list filter defaults to start <strong>1 week ago</strong> and end <strong>today</strong> (same for HQ and merchants). The HQ settings dropdown height matches Refresh and Sort.</p>
+        <p>The list filter defaults to start <strong>1 week ago</strong> and end <strong>today</strong> (same for HQ and merchants). Date field <strong>All</strong> searches with no date limit. View-at-once starts at 100, adds 200, and drops 50. The HQ settings dropdown height matches Refresh and Sort. <strong>Qualification</strong> is a dropdown in front of the keyword and status, defaulting to All. Choices are All, Individual, Corporate, and SINTH. The count, total, failed, fee, and settlement card is only as wide as the text, ending at the settlement figure. Lists that share this summary use the same card. All, Individual, and Corporate show live trades only. Test, sandbox, and non-live payments appear only under violet SINTH. The qualification column shows PE, CO, and ST. List text matches the reference-clock size.</p>
         <div class="flow">
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">Customer applies (bank or card)</span></div>
           <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">Fixed account: deposit proof / Virtual Account Service (CURFEX): auto detect / Card: charged</span></div>
@@ -1028,11 +1028,11 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <p class="mt-2"><strong>Proof files (detail screen)</strong></p>
         <ul>
           <li>Bank-transfer tickets always show the <strong>Attachments</strong> section, even when empty.</li>
-          <li>Expected: source of funds, 6-month forecast, (fixed account) deposit receipt</li>
+          <li>Expected: source of funds and (fixed account) deposit receipt. Individual trades do not include a 6-month forecast. Corporate forecasts are reviewed in Verification.</li>
           <li>Empty state shows guidance. Test-seed tickets without real uploads are labeled separately.</li>
         </ul>`,
         `<span class="menu-path">クリプト購入</span>
-        <p>一覧フィルタの開始日は<strong>1週間前</strong>、終了日は<strong>今日</strong>が既定です（本社・加盟店共通）。「本社設定」ドロップダウンの高さは更新・降順と同じです。</p>
+        <p>一覧フィルタの開始日は<strong>1週間前</strong>、終了日は<strong>今日</strong>が既定です（本社・加盟店共通）。日付区分の<strong>すべて</strong>は日付なしで検索します。一度に表示は100からで200を追加し、50はありません。「本社設定」ドロップダウンの高さは更新・降順と同じです。<strong>資格</strong>は検索語・状態区分の前にあるドロップダウンで、既定はすべてです。項目はすべて・個人・法人・SINTHです。件数・総取引・失敗・手数料・推定決算カードの青背景は推定決算の末尾までで、同じ集計がある一覧も同じです。すべて・個人・法人は実取引のみです。テスト・サンドボックス・実決済でない支払いは紫色のSINTHにだけ出ます。資格列は個人 PE、法人 CO、SINTH STです。一覧の文字サイズは上部の基準時刻と同じです。</p>
         <div class="flow">
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">顧客申請（口座振込またはカード）</span></div>
           <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">固定口座: 入金証憑 / バーチャル口座サービス(CURFEX): 入金自動検知 / カード: 決済完了</span></div>
@@ -1055,11 +1055,11 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <p class="mt-2"><strong>証憑ファイル（詳細画面）</strong></p>
         <ul>
           <li>口座振込件は添付がなくても<strong>証憑ファイル</strong>欄が常に表示されます。</li>
-          <li>確認対象: 資金源証憑、6か月取引予定報告書、（固定口座）入金領収書</li>
+          <li>確認対象: 資金源証憑、（固定口座）入金領収書。個人取引は6か月報告書を受け取りません。法人の報告書は認証センターで確認します。</li>
           <li>ファイルがない場合は案内文を表示。実際の申請・入金なしのテストデータは別途表示されます。</li>
         </ul>`,
         `<span class="menu-path">加密货币采购</span>
-        <p>列表筛选默认开始日为<strong>一周前</strong>、结束日为<strong>今天</strong>（总部与加盟商相同）。「总部设置」下拉高度与刷新、降序相同。</p>
+        <p>列表筛选默认开始日为<strong>一周前</strong>、结束日为<strong>今天</strong>（总部与加盟商相同）。日期区分选<strong>全部</strong>则不按日期搜索。一次查看从 100 起并加入 200，不再有 50。「总部设置」下拉高度与刷新、降序相同。<strong>资格</strong>是搜索词和状态前面的下拉菜单，默认全部。选项为全部、个人、企业、SINTH。笔数、总交易、失败、手续费、预计结算卡片的蓝色背景只到预计结算末尾，有相同汇总的列表也一样。全部、个人、企业只显示实盘交易。测试、沙箱和非实付支付只出现在紫色 SINTH。资格列显示个人 PE、企业 CO、SINTH ST。列表字号与顶部基准时间相同。</p>
         <div class="flow">
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">客户申请（银行转账或卡）</span></div>
           <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">固定账户: 入金凭证 / 虚拟账户服务(CURFEX): 自动检测入金 / 卡: 支付完成</span></div>
@@ -1082,11 +1082,11 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <p class="mt-2"><strong>凭证文件（详情页）</strong></p>
         <ul>
           <li>银行转账单即使无附件也始终显示<strong>凭证文件</strong>区域。</li>
-          <li>待确认：资金来源证明、6 个月预估报告、（固定账户）入金回单</li>
+          <li>待确认：资金来源证明、（固定账户）入金回单。个人交易不收 6 个月预估。法人报告在认证中心查看。</li>
           <li>无文件时显示说明。未实际上传仅设状态的测试数据会单独标注。</li>
         </ul>`,
         `<span class="menu-path">ซื้อคริปโต</span>
-        <p>ตัวกรองรายการเริ่มต้นวันเริ่มเป็น<strong>1 สัปดาห์ก่อน</strong> วันสิ้นสุดเป็น<strong>วันนี้</strong> (HQ และร้านเหมือนกัน) รายการ「ตั้งค่า HQ」สูงเท่าปุ่มรีเฟรช/เรียง</p>
+        <p>ตัวกรองรายการเริ่มต้นวันเริ่มเป็น<strong>1 สัปดาห์ก่อน</strong> วันสิ้นสุดเป็น<strong>วันนี้</strong> (HQ และร้านเหมือนกัน) เลือกวันที่เป็น<strong>ทั้งหมด</strong>จะค้นโดยไม่จำกัดวัน ดูทีละก้อนเริ่มที่ 100 เพิ่ม 200 และไม่มี 50 รายการ「ตั้งค่า HQ」สูงเท่าปุ่มรีเฟรช/เรียง <strong>คุณสมบัติ</strong>เป็นดรอปดาวน์หน้าคำค้นและสถานะ ค่าเริ่มต้นคือทั้งหมด ตัวเลือกคือทั้งหมด บุคคล นิติบุคคล และ SINTH การ์ดจำนวน ยอดรวม ล้มเหลว ค่าธรรมเนียม และประมาณการพื้นน้ำเงินยาวเท่าข้อความจนจบประมาณการ หน้ารายการที่ใช้สรุปนี้เหมือนกัน ทั้งหมด บุคคล นิติบุคคลแสดงเฉพาะรายการจริง ทดสอบ แซนด์บ็อกซ์ และรายการที่ไม่ใช่ชำระจริงอยู่ที่ SINTH พื้นม่วง คอลัมน์คุณสมบัติแสดง PE CO ST ขนาดตัวอักษรตารางเท่ากับนาฬิกาอ้างอิงด้านบน</p>
         <div class="flow">
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc">ลูกค้าสมัคร (โอนบัญชีหรือบัตร)</span></div>
           <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc">บัญชีคงที่: หลักฐานฝาก / บริการบัญชีเสมือน(CURFEX): ตรวจอัตโนมัติ / บัตร: ชำระแล้ว</span></div>
@@ -1109,7 +1109,7 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <p class="mt-2"><strong>ไฟล์หลักฐาน (หน้ารายละเอียด)</strong></p>
         <ul>
           <li>รายการโอนบัญชีแสดงส่วน<strong>ไฟล์หลักฐาน</strong>เสมอ แม้ไม่มีไฟล์แนบ</li>
-          <li>ที่ต้องตรวจ: แหล่งเงิน รายงาน 6 เดือน (บัญชีคงที่) สลิปฝาก</li>
+          <li>ที่ต้องตรวจ: แหล่งเงิน และ (บัญชีคงที่) สลิปฝาก ธุรกรรมบุคคลไม่รับรายงาน 6 เดือน รายงานของนิติอยู่ที่ศูนย์ยืนยัน</li>
           <li>ถ้าไม่มีไฟล์จะแสดงคำแนะนำ ข้อมูลทดสอบที่ตั้งสถานะอย่างเดียวจะระบุแยก</li>
         </ul>`
       ),
@@ -1223,35 +1223,35 @@ export const HQ_OPS_MANUAL: ManualDoc = {
         <p>두 메뉴 모두 <strong>수기 입력</strong>입니다. 원가 기록과 매입 건을 시스템이 자동 짝짓지 않습니다.</p>
         <ul>
           <li><strong>거래분석</strong> — 중계에 입금한 금액 + 지갑 수령 크립토. 본사 동일 환율 자동. 보정값·가스피 수기. 수수료 역산 후 목록 저장.</li>
-          <li><strong>수익분석</strong> — 크립토 매입 티켓의 예상 크립토와 수기 <strong>중계 크립토</strong>를 비교. 수익 = 중계 − 예상.</li>
+          <li><strong>수익분석</strong> — 크립토 매입 티켓의 예상 크립토와 수기 <strong>중계 크립토</strong>를 비교. 수익 = 중계 − 예상. 일자구분은 기본 <strong>전체</strong>라 날짜 없이 모든 건이 나오고, 신청일로 바꾸면 기간 검색이 됩니다. 자격·상태·검색어도 같습니다. 수익 크립토 옆 <strong>비고</strong>에서 수정·삭제·저장. 하단 한 번에 보기는 100·200·300·400·500·1000·모두.</li>
         </ul>
         <div class="warn-box">총본사 관리자와 Organizer만 접근합니다. 들어갈 때 Google OTP 6자리를 입력합니다. 맞으면 확인 버튼을 누르지 않아도 진행됩니다. 유지시간은 본사정책 → 플랫폼 「민감작업 OTP 유지시간」(기본 10분)입니다. Organizer 역할은 지정된 총본사 admin만 부여할 수 있습니다.</div>`,
         `<span class="menu-path">HQ Policy → Trade analysis / Profit analysis</span>
         <p>Both menus are <strong>manual entry</strong>. The system does not auto-match cost rows to purchase tickets.</p>
         <ul>
           <li><strong>Trade analysis</strong> — amount sent to the broker + CRYPTO received. Same HQ rate auto-applied. Correction and gas are typed. Fee is reverse-calculated and saved as a list.</li>
-          <li><strong>Profit analysis</strong> — compare expected CRYPTO on a purchase ticket with typed <strong>broker CRYPTO</strong>. Profit = broker − expected.</li>
+          <li><strong>Profit analysis</strong> — compare expected CRYPTO on a purchase ticket with typed <strong>broker CRYPTO</strong>. Profit = broker − expected. Date field defaults to <strong>All</strong> so every ticket is listed; switch to Applied date to search a range. Qualification, status, and keyword search work the same way. The <strong>Note</strong> column beside profit CRYPTO has Edit, Delete, and Save. View-at-once is 100, 200, 300, 400, 500, 1000, and All.</li>
         </ul>
         <div class="warn-box">HQ admin and Organizer only. Enter Google OTP 6 digits on entry; a correct code proceeds without Verify. Duration is HQ Policy → Platform Sensitive action OTP (default 10 minutes). Only the designated HQ admin can assign Organizer.</div>`,
         `<span class="menu-path">本社ポリシー → 取引分析 / 収益分析</span>
         <p>どちらも手入力です。原価記録と購入件の自動突合はしません。</p>
         <ul>
           <li><strong>取引分析</strong> — 仲介入金と受取クリプト。同一為替自動。補正・ガスは手入力。手数料を逆算して保存。</li>
-          <li><strong>収益分析</strong> — 予想クリプトと仲介クリプトを同一チケットで比較。</li>
+          <li><strong>収益分析</strong> — 予想クリプトと仲介クリプトを同一チケットで比較。日付区分の既定は<strong>すべて</strong>で全件表示。申請日にすると期間検索。資格・状態・検索語も同じ。利益クリプトの隣の<strong>備考</strong>で編集・削除・保存。一度に表示は100・200・300・400・500・1000・すべて。</li>
         </ul>
         <div class="warn-box">総本社管理者とOrganizerのみ。入場時にGoogle OTP 6桁。正しければ確認ボタンなし。維持時間は本社ポリシー→プラットフォームの機密操作OTP（既定10分）。Organizer付与は指定adminのみ。</div>`,
         `<span class="menu-path">总部策略 → 交易分析 / 收益分析</span>
         <p>两项均为手工录入，系统不会把交易分析记录自动对到采购单。</p>
         <ul>
           <li><strong>交易分析</strong> — 打给中介的金额 + 钱包收到的加密货币。自动同一汇率。校正与燃气手填。反算手续费并保存列表。</li>
-          <li><strong>收益分析</strong> — 同一采购票比较预计加密货币 与中介加密货币。</li>
+          <li><strong>收益分析</strong> — 同一采购票比较预计加密货币与中介加密货币。日期区分默认<strong>全部</strong>，列出全部；改为申请日可按期间搜索。资格、状态、搜索词相同。收益旁<strong>备注</strong>可编辑、删除、保存。一次查看为 100、200、300、400、500、1000、全部。</li>
         </ul>
         <div class="warn-box">仅总部管理员与 Organizer。进入时输入 Google OTP 6 位，正确则无需点确认。保持时间在总部策略 → 平台「敏感操作 OTP」（默认 10 分钟）。仅指定总部管理员可授予 Organizer。</div>`,
         `<span class="menu-path">HQ Policy → วิเคราะห์ธุรกรรม / วิเคราะห์กำไร</span>
         <p>ทั้งสองเมนูกรอกเอง ระบบไม่จับคู่รายการต้นทุนกับตั๋วซื้อให้อัตโนมัติ</p>
         <ul>
           <li><strong>วิเคราะห์ธุรกรรม</strong> — ยอดโอนให้ตัวกลาง + คริปโตที่วอลเล็ตได้รับ เรท HQ อัตโนมัติ ค่าปรับแก้/แก๊สกรอกเอง ค่าธรรมเนียมคำนวณย้อนแล้วบันทึกรายการ</li>
-          <li><strong>วิเคราะห์กำไร</strong> — เทียบ คริปโตที่คาดกับ คริปโตตัวกลางในตั๋วเดียวกัน</li>
+          <li><strong>วิเคราะห์กำไร</strong> — เทียบคริปโตที่คาดกับคริปโตตัวกลาง วันที่ค่าเริ่มต้นคือ<strong>ทั้งหมด</strong>จึงแสดงทุกรายการ เปลี่ยนเป็นวันสมัครเพื่อค้นตามช่วง คุณสมบัติ สถานะ และคำค้นใช้ได้ คอลัมน์<strong>หมายเหตุ</strong>มีแก้ไข ลบ บันทึก ดูทีละก้อน 100 200 300 400 500 1000 และทั้งหมด</li>
         </ul>
         <div class="warn-box">เฉพาะผู้ดูแล HQ และ Organizer กรอก Google OTP 6 หลักตอนเข้า ถูกละไม่ต้องกดยืนยัน ระยะเวลาที่ HQ Policy → แพลตฟอร์ม OTP งานสำคัญ (ค่าเริ่ม 10 นาที) มอบ Organizer ได้เฉพาะแอดมินที่กำหนด</div>`,
       ),
@@ -1543,7 +1543,7 @@ export const ORG_OPS_MANUAL: ManualDoc = {
           <li>총판 이상은 고객 등록(통장·지갑 포함)을 고객관리에서 처리합니다.</li>
         </ul>
         <div class="warn-box">인증패스(승인)는 총본사만 합니다. 조직은 서류 확인 후 총본사에 처리를 요청하세요.</div>
-        <div class="info-box">고객이 서류를 올리려면 고객 계정 왼쪽 <strong>인증센터</strong>를 안내하세요. <strong>이용메뉴얼</strong>에서 6개월 거래 예정 보고서·USDT 신청 체크리스트 양식을 내려받을 수 있습니다. 인증패스 전에는 크립토·에스크로 신청이 불가합니다.</div>`,
+        <div class="info-box">고객이 서류를 올리려면 고객 계정 왼쪽 <strong>인증센터</strong>를 안내하세요. 개인은 본인인증 서류만, 법인은 6개월 거래 예정 보고서와 체크리스트를 <strong>이용메뉴얼</strong>에서 내려받습니다. 인증패스 전에는 크립토·에스크로 신청이 불가합니다.</div>`,
         `<span class="menu-path">Customers</span>
         <p>Members live under <strong>Customers</strong>. Staff accounts live under <strong>Users</strong>.</p>
         <ul>
@@ -1553,7 +1553,7 @@ export const ORG_OPS_MANUAL: ManualDoc = {
           <li>Master distributor and above can register customers (bank + wallet) on this screen.</li>
         </ul>
         <div class="warn-box">Only HQ can grant verification pass. Org staff review files and ask HQ to process.</div>
-        <div class="info-box">Customers upload files in their own <strong>Verification</strong> menu. Download the 6-month forecast and USDT checklist from <strong>Usage manuals</strong>. Without a pass they cannot apply for USDT or escrow.</div>`,
+        <div class="info-box">Customers upload files in their own <strong>Verification</strong> menu. Individuals submit an identity document only. Corporations download the 6-month forecast and checklist from <strong>Usage manuals</strong>. Without a pass they cannot apply for crypto or escrow.</div>`,
         `<span class="menu-path">顧客管理</span>
         <p>利用会員は<strong>顧客管理</strong>、組織スタッフは<strong>ユーザー管理</strong>です。</p>
         <ul>
@@ -1563,7 +1563,7 @@ export const ORG_OPS_MANUAL: ManualDoc = {
           <li>総販以上は顧客管理から顧客登録(口座・ウォレット)が可能です。</li>
         </ul>
         <div class="warn-box">認証パスは総本社のみ。組織は書類確認後に総本社へ処理を依頼します。</div>
-        <div class="info-box">顧客の書類提出は顧客画面の<strong>認証センター</strong>です。<strong>利用マニュアル</strong>から6か月取引予定報告書・USDT申請チェックリストをダウンロードできます。パス前はクリプト・エスクロー申請不可です。</div>`,
+        <div class="info-box">顧客の書類提出は顧客画面の<strong>認証センター</strong>です。個人は本人確認書類のみ、法人は6か月報告書とチェックリストを<strong>利用マニュアル</strong>からダウンロードします。パス前はクリプト・エスクロー申請不可です。</div>`,
         `<span class="menu-path">客户管理</span>
         <p>终端会员在<strong>客户管理</strong>，组织员工在<strong>用户管理</strong>。</p>
         <ul>
@@ -1573,7 +1573,7 @@ export const ORG_OPS_MANUAL: ManualDoc = {
           <li>总经销及以上可在客户管理登记客户（账户与钱包）。</li>
         </ul>
         <div class="warn-box">认证通过仅总部可做。组织核对文件后请总部处理。</div>
-        <div class="info-box">客户在其<strong>认证中心</strong>上传文件。可在<strong>使用手册</strong>下载 6 个月预估报告与 USDT 申请清单。未通过前不可申请 USDT 或托管。</div>`,
+        <div class="info-box">客户在其<strong>认证中心</strong>上传文件。个人只交本人认证文件。法人从<strong>使用手册</strong>下载 6 个月预估与申请清单。未通过前不可申请加密货币或托管。</div>`,
         `<span class="menu-path">จัดการลูกค้า</span>
         <p>สมาชิกอยู่ที่ <strong>จัดการลูกค้า</strong> พนักงานองค์กรอยู่ที่ <strong>จัดการผู้ใช้</strong></p>
         <ul>
@@ -1583,7 +1583,7 @@ export const ORG_OPS_MANUAL: ManualDoc = {
           <li>ตัวแทนหลักขึ้นไปลงทะเบียนลูกค้าได้ที่นี่ (บัญชี+กระเป๋า)</li>
         </ul>
         <div class="warn-box">ให้ผ่านการยืนยันได้เฉพาะ HQ องค์กรตรวจเอกสารแล้วขอ HQ ดำเนินการ</div>
-        <div class="info-box">ลูกค้าอัปโหลดที่ <strong>ศูนย์ยืนยันตัวตน</strong> ของตนเอง ดาวน์โหลดแบบฟอร์มรายงาน 6 เดือนและรายการตรวจสอบ USDT ได้ที่ <strong>คู่มือใช้งาน</strong> ยังไม่ผ่านจะสมัครคริปโต/เอสโครว์ไม่ได้</div>`,
+        <div class="info-box">ลูกค้าอัปโหลดที่ <strong>ศูนย์ยืนยันตัวตน</strong> ของตนเอง บุคคลส่งเฉพาะเอกสารยืนยันตัวตน นิติบุคคลดาวน์โหลดรายงาน 6 เดือนและรายการตรวจที่ <strong>คู่มือใช้งาน</strong> ยังไม่ผ่านจะสมัครคริปโต/เอสโครว์ไม่ได้</div>`,
       ),
     },
     {

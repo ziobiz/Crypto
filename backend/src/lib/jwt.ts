@@ -21,7 +21,7 @@ export interface OtpJwtPayload {
 
 export interface FlowJwtPayload {
   sub: string;
-  purpose: 'password_change' | 'otp_enroll';
+  purpose: 'password_change' | 'otp_enroll' | 'login_continue';
 }
 
 export function signToken(payload: JwtPayload): string {
@@ -35,7 +35,7 @@ export function signOtpToken(userId: string): string {
 }
 
 export function signStepUpToken(userId: string, expiresMinutes = 10): string {
-  const minutes = Math.min(60, Math.max(1, Math.round(Number(expiresMinutes) || 10)));
+  const minutes = Math.min(720, Math.max(1, Math.round(Number(expiresMinutes) || 10)));
   return jwt.sign({ sub: userId, purpose: 'step_up', method: 'totp' }, JWT_SECRET, {
     expiresIn: `${minutes}m` as SignOptions['expiresIn'],
   });

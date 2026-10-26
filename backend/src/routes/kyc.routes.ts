@@ -1,23 +1,31 @@
 import { Router } from 'express';
 import multer from 'multer';
 import path from 'path';
-import { KycStatus, UserRole } from '@prisma/client';
+import { AttachmentPurpose, KycStatus, UserRole } from '@prisma/client';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { authenticate, requireRoles } from '../middleware/auth';
 import { MERCHANT_TRADE_ROLES } from '../lib/merchant-role';
 import { AppError } from '../lib/errors';
+import { verifyStepUpToken } from '../lib/jwt';
 import {
   getKycAttachmentForDownload,
+  getKycAttachmentPurpose,
   getKycByUserId,
   getKycCase,
   getMyKyc,
   listKycCases,
+  openIdentityDocumentForHq,
   reviewKyc,
   reviewKycByUserId,
   submitMyKyc,
 } from '../services/kyc.service';
 
 const router = Router();
+
+function parseKycReviewAction(raw: unknown): 'APPROVE' | 'REJECT' | 'SUSPEND' | 'REVOKE' | null {
+  if (raw === 'APPROVE' || raw === 'REJECT' || raw === 'SUSPEND' || raw === 'REVOKE') return raw;
+  return null;
+}
 
 const APPLICATION_DOC_EXTS = new Set(['.pdf', '.png', '.jpg', '.jpeg', '.webp', '.xlsx', '.xls']);
 
@@ -51,6 +59,7 @@ router.post(
   upload.fields([
     { name: 'forecast', maxCount: 5 },
     { name: 'taxSupport', maxCount: 10 },
+    { name: 'identity', maxCount: 5 },
   ]),
   asyncHandler(async (req, res) => {
     const files = req.files as Record<string, Express.Multer.File[]> | undefined;
@@ -58,6 +67,7 @@ router.post(
       await submitMyKyc(req.user!, {
         forecast: files?.forecast ?? [],
         taxSupport: files?.taxSupport ?? [],
+        identity: files?.identity ?? [],
       }),
     );
   }),
@@ -85,9 +95,9 @@ router.post(
   '/users/:userId/review',
   requireRoles(UserRole.SUPER_ADMIN),
   asyncHandler(async (req, res) => {
-    const action = req.body?.action === 'REJECT' ? 'REJECT' : req.body?.action === 'APPROVE' ? 'APPROVE' : null;
+    const action = parseKycReviewAction(req.body?.action);
     if (!action) {
-      throw new AppError(400, 'action APPROVE or REJECT required', 'VALIDATION_ERROR');
+      throw new AppError(400, 'action APPROVE, REJECT, SUSPEND, or REVOKE required', 'VALIDATION_ERROR');
     }
     res.json(
       await reviewKycByUserId(
@@ -113,9 +123,9 @@ router.post(
   '/cases/:id/review',
   requireRoles(UserRole.SUPER_ADMIN),
   asyncHandler(async (req, res) => {
-    const action = req.body?.action === 'REJECT' ? 'REJECT' : req.body?.action === 'APPROVE' ? 'APPROVE' : null;
+    const action = parseKycReviewAction(req.body?.action);
     if (!action) {
-      throw new AppError(400, 'action APPROVE or REJECT required', 'VALIDATION_ERROR');
+      throw new AppError(400, 'action APPROVE, REJECT, SUSPEND, or REVOKE required', 'VALIDATION_ERROR');
     }
     res.json(
       await reviewKyc(
@@ -129,14 +139,33 @@ router.post(
   }),
 );
 
+function contentDisposition(fileName: string): string {
+  const ascii = fileName.replace(/[^\x20-\x7E]/g, '_').replace(/"/g, '');
+  return `inline; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
+}
+
 router.get(
   '/attachments/:id/file',
   asyncHandler(async (req, res) => {
+    const purpose = await getKycAttachmentPurpose(req.params.id);
+    if (!purpose) throw new AppError(404, 'File not found', 'NOT_FOUND');
+    if (purpose === AttachmentPurpose.IDENTITY_VERIFICATION_DOC) {
+      const stepUp = String(req.headers['x-sensitive-token'] ?? '');
+      if (!stepUp) throw new AppError(401, 'Sensitive OTP required', 'SENSITIVE_OTP_REQUIRED');
+      verifyStepUpToken(stepUp, req.user!.id);
+      const file = await openIdentityDocumentForHq(req.user!, req.params.id);
+      res.setHeader('Content-Type', file.mimeType);
+      res.setHeader('Content-Disposition', contentDisposition(file.fileName));
+      res.setHeader('Cache-Control', 'no-store');
+      res.send(file.buffer);
+      return;
+    }
     const file = await getKycAttachmentForDownload(req.user!, req.params.id);
     res.setHeader('Content-Type', file.mimeType);
-    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(file.fileName)}"`);
-    res.sendFile(path.resolve(file.path));
+    res.setHeader('Content-Disposition', contentDisposition(file.fileName));
+    res.sendFile(path.resolve(file.path!));
   }),
 );
 
 export default router;
+

@@ -1,4 +1,4 @@
-﻿import type { ManualDoc } from './manual-types';
+import type { ManualDoc } from './manual-types';
 import { L } from './locale-text';
 
 /** 기업(법인) 고객 전용 퀵 매뉴얼 — 관리자 등록·이체+송금·인보이스 */
@@ -66,7 +66,7 @@ export const CUSTOMER_CORPORATE_MANUAL: ManualDoc = {
       title: L('빠른 시작 순서', 'Quick start order', 'かんたん開始の順番', '快速开工顺序', 'ลำดับเริ่มงานแบบเร็ว'),
       bodyHtml: L(
         `<div class="flow">
-          <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc"><strong>계정 수령</strong> — <strong>https://tinpass.com/login</strong> 에서 기업회원으로, 본사가 등록한 이메일·임시 비밀번호로 로그인. 최초 로그인 시 비밀번호 변경이 필요할 수 있습니다.</span></div>
+          <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc"><strong>계정 수령</strong> — <strong>https://tinpass.com/login</strong> 에서 본사가 등록한 이메일·임시 비밀번호로 로그인. 회원 유형은 <strong>자동 인식</strong>이어도 됩니다. 개인회원으로 넣고 기업 계정이면 「확인」 후 기업회원으로 다시 시도합니다. 최초 로그인 시 비밀번호 변경이 필요할 수 있습니다.</span></div>
           <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc"><strong>Google OTP</strong> — 켜져 있으면 앱 코드를 입력합니다.</span></div>
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc"><strong>인증센터</strong> — 6개월 거래 예정 보고서 + 법인 서류를 올립니다. 양식은 이용메뉴얼에서 내려받습니다.</span></div>
           <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc"><strong>내 지갑</strong> — 최대 5개. OTP + 두 번 확인. 새 주소는 본사 승인 후 매입에서 선택. 삭제는 본사 승인 후.</span></div>
@@ -76,7 +76,7 @@ export const CUSTOMER_CORPORATE_MANUAL: ManualDoc = {
         </div>
         <div class="warn-box">인증패스·승인 지갑 없이는 매입·에스크로가 진행되지 않습니다. 시뮬레이터는 확정 금액이 아닙니다.</div>`,
         `<div class="flow">
-          <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc"><strong>Receive credentials</strong> — sign in at <strong>https://tinpass.com/login</strong> (corporate member) with the email and temporary password from HQ. First login may require a new password.</span></div>
+          <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc"><strong>Receive credentials</strong> — sign in at <strong>https://tinpass.com/login</strong> with the email and temporary password from HQ. Member type may stay on <strong>Detect automatically</strong>. If you pick individual for a corporate account, press Confirm to retry as corporate. First login may require a new password.</span></div>
           <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc"><strong>Google OTP</strong> if enabled.</span></div>
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc"><strong>Verification</strong> — forecast + corporate documents (templates in Usage manuals).</span></div>
           <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc"><strong>My wallets</strong> — up to 5; OTP + two confirms; HQ approval for new addresses; HQ approval to delete.</span></div>
@@ -86,7 +86,7 @@ export const CUSTOMER_CORPORATE_MANUAL: ManualDoc = {
         </div>
         <div class="warn-box">Without a pass and an approved wallet, purchase/escrow stay blocked. The simulator is not binding.</div>`,
         `<div class="flow">
-          <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc"><strong>アカウント受領</strong> — 管理者が登録したメール・仮パスワードでログイン。初回はパスワード変更が必要なことがあります。</span></div>
+          <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc"><strong>アカウント受領</strong> — 管理者が登録したメール・仮パスワードでログイン。会員タイプは<strong>自動認識</strong>でも構いません。個人で入れて法人アカウントなら「確認」で法人として再試行します。初回はパスワード変更が必要なことがあります。</span></div>
           <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc"><strong>Google OTP</strong>（有効時）。</span></div>
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc"><strong>認証センター</strong> — 報告書＋法人書類。様式は利用マニュアルから。</span></div>
           <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc"><strong>マイウォレット</strong> — 最大5。OTP+2回確認。新アドレスは本社承認後。削除も本社承認後。</span></div>
@@ -96,7 +96,7 @@ export const CUSTOMER_CORPORATE_MANUAL: ManualDoc = {
         </div>
         <div class="warn-box">認証パス・承認ウォレットがないと進めません。シミュレーターは確定金額ではありません。</div>`,
         `<div class="flow">
-          <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc"><strong>领取账号</strong> — 用管理员登记的邮箱与临时密码登录。首次可能需改密。</span></div>
+          <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc"><strong>领取账号</strong> — 用管理员登记的邮箱与临时密码登录。会员类型可保持<strong>自动识别</strong>。企业账户选了个人时，按「确认」后以企业会员重试。首次可能需改密。</span></div>
           <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc"><strong>Google OTP</strong>（若开启）。</span></div>
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc"><strong>认证中心</strong> — 预估报告 + 企业文件。模板在使用手册。</span></div>
           <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc"><strong>我的钱包</strong> — 最多 5；OTP+两次确认；新地址需总部批准；删除亦需总部批准。</span></div>
@@ -106,7 +106,7 @@ export const CUSTOMER_CORPORATE_MANUAL: ManualDoc = {
         </div>
         <div class="warn-box">无认证通过与已批钱包则无法继续。模拟器不是确定金额。</div>`,
         `<div class="flow">
-          <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc"><strong>รับบัญชี</strong> — เข้าด้วยอีเมล/รหัสชั่วคราวจากผู้ดูแล อาจต้องเปลี่ยนรหัสครั้งแรก</span></div>
+          <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc"><strong>รับบัญชี</strong> — เข้าด้วยอีเมล/รหัสชั่วคราวจากผู้ดูแล ประเภทสมาชิกไว้ที่<strong>ตรวจอัตโนมัติ</strong>ได้ ถ้าเลือกบุคคลแต่เป็นบัญชีนิติ กดยืนยันเพื่อลองใหม่เป็นนิติบุคคล ครั้งแรกอาจต้องเปลี่ยนรหัส</span></div>
           <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc"><strong>Google OTP</strong> หากเปิด</span></div>
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc"><strong>ศูนย์ยืนยัน</strong> — รายงาน 6 เดือน + เอกสารนิติ แบบฟอร์มจากคู่มือใช้งาน</span></div>
           <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc"><strong>กระเป๋าของฉัน</strong> — สูงสุด 5 OTP+ยืนยันสองครั้ง ที่อยู่ใหม่/ลบต้อง HQ อนุมัติ</span></div>

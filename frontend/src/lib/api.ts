@@ -110,11 +110,17 @@ export const api = {
     email: string,
     password: string,
     turnstileToken?: string,
-    audience?: 'corporate' | 'individual' | 'staff',
+    audience?: 'corporate' | 'individual' | 'staff' | 'auto',
   ) =>
     request<LoginResponse>('/api/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password, turnstileToken, audience }),
+    }),
+
+  loginContinue: (continueToken: string) =>
+    request<LoginResponse>('/api/auth/login/continue', {
+      method: 'POST',
+      body: JSON.stringify({ continueToken }),
     }),
 
   verifyOtp: (otpToken: string, code: string) =>
@@ -213,10 +219,10 @@ export const api = {
       body: JSON.stringify({ enrollToken, code }),
     }),
 
-  stepUpOtp: (code: string) =>
-    request<{ sensitiveToken: string }>('/api/auth/step-up/otp', {
+  stepUpOtp: (code: string, scope?: 'kyc_identity') =>
+    request<{ sensitiveToken: string; expiresInMinutes?: number; scope?: string }>('/api/auth/step-up/otp', {
       method: 'POST',
-      body: JSON.stringify({ code }),
+      body: JSON.stringify(scope ? { code, scope } : { code }),
     }),
 
   registerSendCode: (
@@ -508,16 +514,17 @@ export const api = {
 
   kyc: {
     me: () => request<KycCase>('/api/kyc/me'),
-    submit: (files: { forecast: File[]; taxSupport?: File[] }) => {
+    submit: (files: { forecast: File[]; taxSupport?: File[]; identity?: File[] }) => {
       const form = new FormData();
       for (const f of files.forecast) form.append('forecast', f);
       for (const f of files.taxSupport ?? []) form.append('taxSupport', f);
+      for (const f of files.identity ?? []) form.append('identity', f);
       return request<KycCase>('/api/kyc/me', { method: 'POST', body: form });
     },
     getByUser: (userId: string) => request<KycCase>(`/api/kyc/users/${userId}`),
     reviewByUser: (
       userId: string,
-      data: { action: 'APPROVE' | 'REJECT'; reason?: string; hqNote?: string },
+      data: { action: KycReviewAction; reason?: string; hqNote?: string },
     ) =>
       request<KycCase>(`/api/kyc/users/${userId}/review`, {
         method: 'POST',
@@ -526,11 +533,23 @@ export const api = {
     list: (status?: string) =>
       request<KycCase[]>(`/api/kyc/cases${status ? `?status=${encodeURIComponent(status)}` : ''}`),
     get: (id: string) => request<KycCase>(`/api/kyc/cases/${id}`),
-    review: (id: string, data: { action: 'APPROVE' | 'REJECT'; reason?: string; hqNote?: string }) =>
+    review: (id: string, data: { action: KycReviewAction; reason?: string; hqNote?: string }) =>
       request<KycCase>(`/api/kyc/cases/${id}/review`, {
         method: 'POST',
         body: JSON.stringify(data),
       }),
+    openIdentityFile: async (id: string, sensitiveToken: string) => {
+      const token = getToken();
+      const headers: Record<string, string> = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+      if (sensitiveToken) headers['X-Sensitive-Token'] = sensitiveToken;
+      const res = await fetch(`${API_URL}/api/kyc/attachments/${id}/file`, { headers });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new ApiError(res.status, err.error ?? 'Request failed', err.code, err.details);
+      }
+      return res.blob();
+    },
   },
 
   usdt: {
@@ -932,6 +951,11 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify({ brokerUsdtAmount }),
       }),
+    setNote: (ticketId: string, profitNote: string | null) =>
+      request<ProfitAnalysisRow>(`/api/cost-analysis/profit/${ticketId}/note`, {
+        method: 'PATCH',
+        body: JSON.stringify({ profitNote }),
+      }),
   },
 };
 
@@ -954,7 +978,7 @@ export interface MeResponse extends User {
   passwordMustChange?: boolean;
   sessionPolicy?: SessionPolicy;
   pageAccess?: Record<string, string>;
-  kycStatus?: 'NOT_SUBMITTED' | 'PENDING' | 'APPROVED' | 'REJECTED';
+  kycStatus?: KycStatus;
   /** 가맹점 거래 실행 권한 — 미승인 시 VIEW_ONLY */
   tradeAccess?: TradeAccess;
   approvalStatus?: CustomerApprovalStatus | null;
@@ -1093,6 +1117,8 @@ export type ProfitAnalysisRow = {
   ticketId: string;
   ticketNo: string;
   status: string;
+  tradeLane?: 'LIVE' | 'SYNTH' | string | null;
+  customerType?: 'INDIVIDUAL' | 'CORPORATE' | string | null;
   createdAt: string;
   customerName: string;
   customerEmail: string;
@@ -1102,6 +1128,7 @@ export type ProfitAnalysisRow = {
   expectedUsdtAmount: number;
   actualUsdtAmount?: number | null;
   brokerUsdtAmount: number | null;
+  profitNote?: string | null;
   profitSource?: 'manual' | 'auto' | null;
   profitUsdt: number | null;
 };
@@ -1387,7 +1414,8 @@ export interface HqDeletionPolicy {
   orgRetentionMonths: number;
 }
 
-export type KycStatus = 'NOT_SUBMITTED' | 'PENDING' | 'APPROVED' | 'REJECTED';
+export type KycStatus = 'NOT_SUBMITTED' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED' | 'REVOKED';
+export type KycReviewAction = 'APPROVE' | 'REJECT' | 'SUSPEND' | 'REVOKE';
 
 export interface KycAttachment {
   id: string;
@@ -1418,6 +1446,7 @@ export interface KycCase {
     businessName?: string | null;
   };
   attachments: KycAttachment[];
+  identityOtpHoldMinutes?: number;
 }
 
 export type WorkflowUiLocale = 'KR' | 'US' | 'JP' | 'CH' | 'TH';
@@ -2215,6 +2244,8 @@ export interface UsdtTicket {
   brokerUsdtAmount?: number | null;
   adminNote?: string;
   sandboxInvoice?: boolean;
+  /** LIVE = 실거래. SYNTH = 테스트·샌드박스·실결제가 아닌 결제 */
+  tradeLane?: 'LIVE' | 'SYNTH' | string | null;
   commissionSettled: boolean;
   createdAt: string;
   expectedCompleteAt?: string | null;
@@ -2232,7 +2263,7 @@ export interface UsdtTicket {
   statusHistory: StatusHistory[];
   wallet?: Wallet;
   registeredBank?: BankAccountInfo | null;
-  customer?: { user: { name: string; email: string } };
+  customer?: { customerType?: string | null; user: { name: string; email: string } };
   feeDiagramDisplay?: FeeDiagramDisplayConfig;
   tradeReceipt?: { archive: boolean; email: boolean; adminUi: boolean; merchantUi: boolean };
 }
@@ -3720,6 +3751,7 @@ export interface HqEmailOtpConfig {
   otpForMasterDistributor: boolean;
   otpExpireMinutes: number;
   sensitiveOtpExpireMinutes?: number;
+  kycIdentityOtpExpireMinutes?: number;
   otpEmailSubject: string;
   otpEmailBody: string;
   smtpHost: string;

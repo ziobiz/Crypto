@@ -3,7 +3,7 @@ import { asyncHandler } from '../middleware/asyncHandler';
 import { authenticate } from '../middleware/auth';
 import { requireCostAnalysisRole, requireSensitiveOtp } from '../middleware/sensitiveOtp';
 import { createCostAnalysis, listCostAnalyses, previewCostAnalysis } from '../services/cost-analysis.service';
-import { listProfitAnalysis, setBrokerUsdt } from '../services/profit-analysis.service';
+import { listProfitAnalysis, setBrokerUsdt, setProfitNote } from '../services/profit-analysis.service';
 
 const router = Router();
 router.use(authenticate);
@@ -75,6 +75,15 @@ router.patch(
   asyncHandler(async (req, res) => {
     const amount = Number((req.body as { brokerUsdtAmount?: number }).brokerUsdtAmount);
     res.json(await setBrokerUsdt(req.user!, req.params.ticketId, amount));
+  }),
+);
+
+router.patch(
+  '/profit/:ticketId/note',
+  asyncHandler(async (req, res) => {
+    const raw = (req.body as { profitNote?: string | null }).profitNote;
+    const note = raw == null ? null : String(raw);
+    res.json(await setProfitNote(req.user!, req.params.ticketId, note));
   }),
 );
 

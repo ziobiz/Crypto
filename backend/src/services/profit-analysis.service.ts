@@ -5,9 +5,7 @@ import { isCostAnalysisRole } from '../constants/hq-admin';
 
 export async function listProfitAnalysis() {
   const rows = await prisma.usdtPurchaseDetail.findMany({
-    where: { status: { not: 'CANCELLED' } },
     orderBy: { createdAt: 'desc' },
-    take: 500,
     include: {
       ticket: {
         include: {
@@ -16,7 +14,8 @@ export async function listProfitAnalysis() {
       },
     },
   });
-  return rows.map((d) => {
+  return rows.flatMap((d) => {
+    if (!d.ticket?.customer?.user) return [];
     const expected = Number(d.expectedUsdtAmount);
     const actual = d.actualUsdtAmount != null ? Number(d.actualUsdtAmount) : null;
     const broker = d.brokerUsdtAmount != null ? Number(d.brokerUsdtAmount) : null;
@@ -24,10 +23,12 @@ export async function listProfitAnalysis() {
     const settledForProfit = broker != null ? broker : actual != null ? actual : null;
     const profitSource: 'manual' | 'auto' | null =
       broker != null ? 'manual' : actual != null ? 'auto' : null;
-    return {
+    return [{
       ticketId: d.ticketId,
       ticketNo: d.ticket.ticketNo,
       status: d.status,
+      tradeLane: d.tradeLane === 'SYNTH' ? 'SYNTH' : 'LIVE',
+      customerType: d.ticket.customer.customerType === 'CORPORATE' ? 'CORPORATE' : 'INDIVIDUAL',
       createdAt: d.createdAt.toISOString(),
       customerName: d.ticket.customer.user.name,
       customerEmail: d.ticket.customer.user.email,
@@ -37,12 +38,13 @@ export async function listProfitAnalysis() {
       expectedUsdtAmount: expected,
       actualUsdtAmount: actual,
       brokerUsdtAmount: broker,
+      profitNote: d.profitNote ?? null,
       profitSource,
       profitUsdt:
         settledForProfit == null
           ? null
           : Number((settledForProfit - expected).toFixed(8)),
-    };
+    }];
   });
 }
 
@@ -58,6 +60,20 @@ export async function setBrokerUsdt(user: AuthUser, ticketId: string, brokerUsdt
   await prisma.usdtPurchaseDetail.update({
     where: { ticketId },
     data: { brokerUsdtAmount },
+  });
+  return listProfitAnalysis().then((items) => items.find((i) => i.ticketId === ticketId));
+}
+
+export async function setProfitNote(user: AuthUser, ticketId: string, profitNote: string | null) {
+  if (!isCostAnalysisRole(user.role)) {
+    throw new AppError(403, 'Forbidden', 'FORBIDDEN');
+  }
+  const detail = await prisma.usdtPurchaseDetail.findUnique({ where: { ticketId } });
+  if (!detail) throw new AppError(404, 'Ticket not found', 'NOT_FOUND');
+  const note = profitNote?.trim() ? profitNote.trim() : null;
+  await prisma.usdtPurchaseDetail.update({
+    where: { ticketId },
+    data: { profitNote: note },
   });
   return listProfitAnalysis().then((items) => items.find((i) => i.ticketId === ticketId));
 }

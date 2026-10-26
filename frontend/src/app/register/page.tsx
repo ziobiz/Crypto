@@ -98,7 +98,7 @@ function RegisterForm() {
   const settlementAsset: SettlementWalletAsset =
     branding?.settlementAsset === 'USDC' ? 'USDC' : 'USDT';
   const [form, setForm] = useState({
-    email: '',
+    email: (searchParams.get('email') || '').trim().toLowerCase(),
     name: '',
     legalFirstName: '',
     legalLastName: '',

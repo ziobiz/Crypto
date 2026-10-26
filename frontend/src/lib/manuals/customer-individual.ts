@@ -1,4 +1,4 @@
-﻿import type { ManualDoc } from './manual-types';
+import type { ManualDoc } from './manual-types';
 import { L } from './locale-text';
 
 /** 개인 고객 전용 퀵 매뉴얼 — 공개 가입·송금 중심·국가 한도 */
@@ -68,9 +68,9 @@ export const CUSTOMER_INDIVIDUAL_MANUAL: ManualDoc = {
         `<p>아래 순서를 지키면 막히는 일이 줄어듭니다.</p>
         <div class="flow">
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc"><strong>개인 회원가입</strong> — 이메일·휴대폰(국가번호)·비밀번호. 추천인이 있으면 이메일·이름·전화로 검색해 확인합니다. 없으면 본사 직속으로 연결됩니다.</span></div>
-          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc"><strong>로그인</strong> — <strong>https://tinpass.com/login</strong> 개인회원. Google OTP가 켜져 있으면 앱 코드를 입력합니다. (본사·조직 직원은 admin.tinpass.com)</span></div>
+          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc"><strong>로그인</strong> — <strong>https://tinpass.com/login</strong>. 회원 유형은 <strong>자동 인식</strong>으로 두어도 됩니다. 기업회원으로 넣고 개인 계정이면 「확인」 후 개인회원으로 다시 시도합니다. 아직 없으면 「확인」으로 개인 가입 화면으로 이동합니다. Google OTP가 켜져 있으면 앱 코드를 입력합니다.</span></div>
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc"><strong>본사 승인 대기</strong> — 승인 전에는 매입·에스크로 실행이 막힐 수 있습니다. 승인되면 거래 실행이 열립니다.</span></div>
-          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc"><strong>인증센터</strong> — 6개월 거래 예정 보고서 등 서류를 올립니다. 양식은 이용메뉴얼에서 내려받습니다.</span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc"><strong>인증센터</strong> — <strong>본인인증 서류</strong>(이미지 또는 PDF)만 올립니다. 개인은 6개월 거래 예정 보고서가 없습니다.</span></div>
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc"><strong>내 지갑</strong> — 최대 5개. 등록·주소 변경·삭제 요청은 OTP + 두 번 확인. 새 주소는 본사 승인 후 매입에서 선택합니다.</span></div>
           <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>시뮬레이터</strong> — 네트워크·금액으로 수수료·수령액을 미리 봅니다 (참고용).</span></div>
           <div class="flow-row"><span class="flow-num">7</span><span class="flow-desc"><strong>인증패스 후</strong> 크립토 매입 또는 무역 에스크로를 신청합니다. 개인 기본 결제수단은 <strong>송금거래</strong>입니다.</span></div>
@@ -78,9 +78,9 @@ export const CUSTOMER_INDIVIDUAL_MANUAL: ManualDoc = {
         <div class="warn-box">인증패스·승인 지갑·본사 승인이 없으면 매입·에스크로가 진행되지 않습니다. 시뮬레이터는 확정 금액이 아닙니다.</div>`,
         `<div class="flow">
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc"><strong>Individual signup</strong> — email, phone (country code), password. Search and confirm a referrer by email, name, or phone if you have one; otherwise you link to HQ.</span></div>
-          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc"><strong>Sign in</strong> — enter Google OTP if enabled.</span></div>
+          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc"><strong>Sign in</strong> at <strong>https://tinpass.com/login</strong>. Leave member type on <strong>Detect automatically</strong>. If you pick corporate for an individual account, press Confirm to retry as an individual. If the ID is not registered, Confirm opens individual signup. Enter Google OTP if enabled.</span></div>
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc"><strong>Wait for HQ approval</strong> — purchase/escrow may stay blocked until approved.</span></div>
-          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc"><strong>Verification</strong> — upload the 6-month forecast (templates in Usage manuals).</span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc"><strong>Verification</strong> — upload only an <strong>identity document</strong> (image or PDF). Individuals do not submit a 6-month forecast.</span></div>
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc"><strong>My wallets</strong> — up to 5. Register / change / delete-request need OTP and two confirms. New addresses need HQ approval.</span></div>
           <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>Simulator</strong> — preview fees (reference only).</span></div>
           <div class="flow-row"><span class="flow-num">7</span><span class="flow-desc">After a <strong>verification pass</strong>, apply for Crypto purchase or escrow. Default method for individuals is <strong>remittance</strong>.</span></div>
@@ -88,9 +88,9 @@ export const CUSTOMER_INDIVIDUAL_MANUAL: ManualDoc = {
         <div class="warn-box">Without a pass, an approved wallet, and HQ approval, purchase/escrow stay blocked. The simulator is not a binding amount.</div>`,
         `<div class="flow">
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc"><strong>個人会員登録</strong> — メール・電話(国番号)・パスワード。紹介者がいればメール・氏名・電話で検索確認。なければ本社直結。</span></div>
-          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc"><strong>ログイン</strong> — Google OTPがあれば入力。</span></div>
+          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc"><strong>ログイン</strong> — <strong>https://tinpass.com/login</strong>。会員タイプは<strong>自動認識</strong>のままでも構いません。法人で入れて個人アカウントなら「確認」で個人として再試行します。未登録なら「確認」で個人登録へ進みます。Google OTPがあれば入力します。</span></div>
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc"><strong>本社承認待ち</strong> — 承認前は購入・エスクローが止まることがあります。</span></div>
-          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc"><strong>認証センター</strong> — 6か月取引予定報告書など。様式は利用マニュアルから。</span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc"><strong>認証センター</strong> — <strong>本人確認書類</strong>（画像またはPDF）のみ。個人に6か月取引予定報告書はありません。</span></div>
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc"><strong>マイウォレット</strong> — 最大5。登録・変更・削除依頼はOTP+2回確認。新アドレスは本社承認後。</span></div>
           <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>シミュレーター</strong> — 手数料の試算(参考)。</span></div>
           <div class="flow-row"><span class="flow-num">7</span><span class="flow-desc"><strong>認証パス後</strong>に購入またはエスクロー。個人の既定決済は<strong>送金</strong>です。</span></div>
@@ -98,9 +98,9 @@ export const CUSTOMER_INDIVIDUAL_MANUAL: ManualDoc = {
         <div class="warn-box">認証パス・承認ウォレット・本社承認がないと進めません。シミュレーターは確定金額ではありません。</div>`,
         `<div class="flow">
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc"><strong>个人注册</strong> — 邮箱、手机(国家号)、密码。有推荐人时用邮箱/姓名/电话搜索确认；否则直连总部。</span></div>
-          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc"><strong>登录</strong> — 如开启 Google OTP 请输入。</span></div>
+          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc"><strong>登录</strong> — <strong>https://tinpass.com/login</strong>。会员类型可保持<strong>自动识别</strong>。个人账户选了企业时，按「确认」后以个人会员重试。尚未注册时，按「确认」进入个人注册。如开启 Google OTP 请输入。</span></div>
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc"><strong>等待总部批准</strong> — 批准前可能无法执行采购/托管。</span></div>
-          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc"><strong>认证中心</strong> — 上传 6 个月交易预估等。模板在使用手册。</span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc"><strong>认证中心</strong> — 只上传<strong>本人认证文件</strong>（图片或 PDF）。个人不提交 6 个月交易预估。</span></div>
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc"><strong>我的钱包</strong> — 最多 5 个。登记/改址/删请需 OTP+两次确认。新地址需总部批准。</span></div>
           <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>模拟器</strong> — 预览手续费（仅供参考）。</span></div>
           <div class="flow-row"><span class="flow-num">7</span><span class="flow-desc"><strong>认证通过后</strong>申请采购或托管。个人默认支付方式为<strong>汇款</strong>。</span></div>
@@ -108,9 +108,9 @@ export const CUSTOMER_INDIVIDUAL_MANUAL: ManualDoc = {
         <div class="warn-box">无认证通过、已批钱包、总部批准则无法继续。模拟器不是确定金额。</div>`,
         `<div class="flow">
           <div class="flow-row"><span class="flow-num">1</span><span class="flow-desc"><strong>สมัครบุคคล</strong> — อีเมล โทร (รหัสประเทศ) รหัสผ่าน มีผู้แนะนำให้ค้นด้วยอีเมล/ชื่อ/เบอร์ ถ้าไม่มีจะผูกกับ HQ</span></div>
-          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc"><strong>เข้าสู่ระบบ</strong> — ใส่ Google OTP หากเปิด</span></div>
+          <div class="flow-row"><span class="flow-num">2</span><span class="flow-desc"><strong>เข้าสู่ระบบ</strong> ที่ <strong>https://tinpass.com/login</strong> ประเภทสมาชิกไว้ที่<strong>ตรวจอัตโนมัติ</strong>ได้ ถ้าเลือกนิติบุคคลแต่เป็นบัญชีบุคคล กดยืนยันเพื่อลองใหม่เป็นบุคคล ถ้ายังไม่สมัคร กดยืนยันเพื่อไปสมัครบุคคล ใส่ Google OTP หากเปิด</span></div>
           <div class="flow-row"><span class="flow-num">3</span><span class="flow-desc"><strong>รอ HQ อนุมัติ</strong> — ก่อนอนุมัติอาจซื้อ/เอสโครว์ไม่ได้</span></div>
-          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc"><strong>ศูนย์ยืนยัน</strong> — อัปโหลดรายงาน 6 เดือน ฯลฯ แบบฟอร์มจากคู่มือใช้งาน</span></div>
+          <div class="flow-row"><span class="flow-num">4</span><span class="flow-desc"><strong>ศูนย์ยืนยัน</strong> — อัปโหลดเฉพาะ<strong>เอกสารยืนยันตัวตน</strong> (รูปหรือ PDF) บุคคลไม่ส่งรายงาน 6 เดือน</span></div>
           <div class="flow-row"><span class="flow-num">5</span><span class="flow-desc"><strong>กระเป๋าของฉัน</strong> — สูงสุด 5 ใบ ลงทะเบียน/เปลี่ยน/ขอลบ ต้อง OTP+ยืนยันสองครั้ง ที่อยู่ใหม่ต้อง HQ อนุมัติ</span></div>
           <div class="flow-row"><span class="flow-num">6</span><span class="flow-desc"><strong>ตัวจำลอง</strong> — ดูค่าธรรมเนียม (อ้างอิง)</span></div>
           <div class="flow-row"><span class="flow-num">7</span><span class="flow-desc">หลัง<strong>ผ่านยืนยัน</strong> สมัครซื้อหรือเอสโครว์ ช่องทางเริ่มต้นของบุคคลคือ<strong>ธุรกรรมโอน</strong></span></div>
@@ -168,50 +168,95 @@ export const CUSTOMER_INDIVIDUAL_MANUAL: ManualDoc = {
       id: 'i-kyc',
       title: L('인증센터 · 승인', 'Verification · approval', '認証センター・承認', '认证中心·批准', 'ศูนย์ยืนยัน · อนุมัติ'),
       bodyHtml: L(
-        `<span class="menu-path">인증센터</span>
-        <p>개인은 주로 <strong>6개월 거래 예정 보고서</strong>를 올립니다. 상태가 <strong>심사중</strong>이면 총본사 인증패스를 기다립니다. <strong>반려</strong>이면 사유를 보고 다시 제출합니다.</p>
+        `<span class="menu-path">로그인 후 왼쪽 메뉴 · 인증센터</span>
+        <p>본인인증은 <strong>가입 화면에서 하지 않습니다.</strong> 순서는 다음과 같습니다.</p>
+        <ol>
+          <li><strong>https://tinpass.com/login</strong> 에서 회원 유형을 <strong>개인 신규가입</strong>으로 두거나, 미등록 안내의 「확인」으로 <strong>/register</strong> 개인 가입을 마칩니다. 가입 항목은 이메일·휴대폰·비밀번호 등이며, 신분증은 여기 올리지 않습니다.</li>
+          <li>가입한 아이디로 로그인합니다. 회원 유형은 <strong>자동 인식</strong>이어도 됩니다.</li>
+          <li>로그인 후 왼쪽 <strong>인증센터</strong>를 엽니다. 주소는 <strong>/dashboard/kyc</strong> 입니다.</li>
+          <li>상태가 비인증 또는 반려·인증 보류·승인 취소일 때 <strong>본인인증 서류</strong>(이미지 또는 PDF)를 올리고 <strong>심사 요청</strong>을 누릅니다.</li>
+          <li>상태가 <strong>심사중</strong>이면 총본사 인증패스를 기다립니다. 인증패스 전에는 크립토 매입·에스크로가 열리지 않습니다.</li>
+        </ol>
+        <p>개인은 <strong>본인인증 서류</strong>만 올립니다. 6개월 거래 예정 보고서는 개인 인증과 개인 거래에서 받지 않습니다. 본인인증은 주민등록·여권을 따로 고르지 않고, 이미지 또는 PDF로 제출합니다. 이 파일만 서버에 암호화되어 저장됩니다. 가맹점 화면에는 파일명과 내용이 나오지 않습니다. 인증패스가 되면 <strong>인증패스 성공</strong>만 표시됩니다. 총본사가 서류를 열 때는 OTP를 입력하며, 한 번 확인하면 본사정책의 유지 시간(기본 60분) 동안 다시 묻지 않습니다. 시간은 본사정책 → 플랫폼 → 이메일·OTP에서 바꿉니다. 상태가 <strong>심사중</strong>이면 총본사 인증패스를 기다립니다. <strong>반려</strong>이면 사유를 보고 다시 제출합니다.</p>
         <ul>
           <li><strong>비인증</strong> → 서류 제출</li>
           <li><strong>심사중</strong> → 본사 확인 중</li>
           <li><strong>인증패스</strong> → 크립토·에스크로 신청 가능 (본사 거래 승인·지갑 승인 포함)</li>
           <li><strong>반려</strong> → 사유 확인 후 재제출</li>
+          <li><strong>인증 보류</strong> · <strong>승인 취소</strong> → 이미 인증패스된 개인을 본사가 멈추는 상태. 매입·에스크로는 막히고, 사유를 본 뒤 본인인증 서류를 다시 제출할 수 있습니다.</li>
         </ul>
         <div class="warn-box">「심사중」은 인증센터(KYC)용입니다. 크립토 티켓의 「입금확인중」「결제확인중」과는 다릅니다.</div>
         <div class="info-box">양식은 왼쪽 <strong>이용메뉴얼</strong>에서 내려받으세요.</div>`,
-        `<span class="menu-path">Verification</span>
-        <p>Individuals mainly upload the <strong>6-month forecast</strong>. Wait for HQ pass when status is under review; if rejected, resubmit after reading the reason.</p>
+        `<span class="menu-path">After login · left menu · Verification</span>
+        <p>Identity verification is <strong>not part of signup</strong>.</p>
+        <ol>
+          <li>On <strong>https://tinpass.com/login</strong> choose <strong>New individual</strong>, or press Confirm on the unregistered notice to open <strong>/register</strong>. Signup asks for email, phone, and password. Do not upload an ID there.</li>
+          <li>Sign in with that ID. Member type may stay on <strong>Detect automatically</strong>.</li>
+          <li>After login open <strong>Verification</strong> in the left menu. The address is <strong>/dashboard/kyc</strong>.</li>
+          <li>When status is unverified, rejected, on hold, or approval cancelled, upload an <strong>identity document</strong> (image or PDF) and press <strong>Submit for review</strong>.</li>
+          <li>While status is <strong>under review</strong>, wait for the HQ pass. Crypto purchase and escrow stay closed until the pass.</li>
+        </ol>
+        <p>Individuals upload only an <strong>identity document</strong> (image or PDF — one upload, not separate ID vs passport). A 6-month forecast is not collected for individual verification or individual trades. Only that file is encrypted on the server. The merchant screen does not show the file name or contents. After a pass it shows <strong>Verification pass successful</strong> only. HQ enters OTP to open the document. One check lasts for the HQ policy hold time (default 60 minutes), set under HQ Policy → Platform → Email and OTP. Wait for HQ pass when status is under review; if rejected, resubmit after reading the reason.</p>
         <ul>
           <li><strong>Unverified</strong> → submit files</li>
           <li><strong>Under review</strong> → HQ checking</li>
           <li><strong>Verified pass</strong> → crypto / escrow (also need trade approval + approved wallet)</li>
           <li><strong>Rejected</strong> → fix and resubmit</li>
+          <li><strong>On hold</strong> or <strong>approval cancelled</strong> → HQ stops an individual who already passed. Purchase and escrow stay blocked. Read the reason and submit the identity document again.</li>
         </ul>
         <div class="warn-box">“Under review” is for KYC only — not the same as crypto purchase "Deposit verifying" / “Payment verifying”.</div>`,
-        `<span class="menu-path">認証センター</span>
-        <p>個人は主に<strong>6か月取引予定報告書</strong>を提出します。審査中なら総本社の認証パスを待ち、差戻しなら理由を見て再提出します。</p>
+        `<span class="menu-path">ログイン後 左メニュー · 認証センター</span>
+        <p>本人確認は<strong>登録画面では行いません。</strong></p>
+        <ol>
+          <li><strong>https://tinpass.com/login</strong> で会員タイプを<strong>個人新規登録</strong>にするか、未登録案内の「確認」で <strong>/register</strong> の個人登録を終えます。登録項目はメール・電話・パスワードなどで、身分証はここでは上げません。</li>
+          <li>そのIDでログインします。会員タイプは<strong>自動認識</strong>のままでも構いません。</li>
+          <li>ログイン後、左の<strong>認証センター</strong>を開きます。アドレスは <strong>/dashboard/kyc</strong> です。</li>
+          <li>未認証、差戻し、認証保留、承認取消のとき<strong>本人確認書類</strong>（画像またはPDF）を上げて<strong>審査を依頼</strong>します。</li>
+          <li><strong>審査中</strong>なら総本社の認証パスを待ちます。パス前はクリプト購入・エスクローは開きません。</li>
+        </ol>
+        <p>個人は<strong>本人確認書類</strong>のみ提出します。6か月取引予定報告書は個人の認証と個人取引では受け取りません。住民票とパスポートを分けず、画像またはPDFをアップロードします。このファイルだけサーバーで暗号化して保存します。加盟店画面にはファイル名も内容も出ません。認証パス後は<strong>認証パス成功</strong>だけ表示します。総本社が開くときはOTPを入力します。一度確認すると本社ポリシーの維持時間（既定60分）は再入力しません。時間は本社ポリシー → プラットフォーム → メール・OTPで変更します。審査中なら総本社の認証パスを待ち、差戻しなら理由を見て再提出します。</p>
         <ul>
           <li><strong>未認証</strong> → 提出</li>
           <li><strong>審査中</strong> → 本社確認</li>
           <li><strong>認証パス</strong> → クリプト・エスクロー可（取引承認・ウォレット承認も必要）</li>
           <li><strong>差戻し</strong> → 再提出</li>
+          <li><strong>認証保留</strong>・<strong>承認取消</strong> → 認証パス済みの個人を本社が止める状態。購入・エスクローは止まり、理由を見て本人確認書類を再提出できます。</li>
         </ul>
         <div class="warn-box">「審査中」はKYC用です。クリプトの「入金確認中」「決済確認中」とは別です。</div>`,
-        `<span class="menu-path">认证中心</span>
-        <p>个人主要上传<strong>6 个月交易预估报告</strong>。审核中请等待总部通过；退回则按原因重交。</p>
+        `<span class="menu-path">登录后左侧菜单 · 认证中心</span>
+        <p>本人认证<strong>不在注册页面进行。</strong></p>
+        <ol>
+          <li>在 <strong>https://tinpass.com/login</strong> 将会员类型设为<strong>个人新注册</strong>，或在未注册提示中按「确认」进入 <strong>/register</strong> 完成个人注册。注册填写邮箱、手机和密码，不在这里上传证件。</li>
+          <li>用该账号登录。会员类型可以保持<strong>自动识别</strong>。</li>
+          <li>登录后打开左侧<strong>认证中心</strong>。地址是 <strong>/dashboard/kyc</strong>。</li>
+          <li>状态为未认证、已退回、认证暂缓或取消批准时，上传<strong>本人认证文件</strong>（图片或 PDF）并按<strong>提交审核</strong>。</li>
+          <li>状态为<strong>审核中</strong>时等待总部认证通过。通过前不能申请加密货币采购和托管。</li>
+        </ol>
+        <p>个人只上传<strong>本人认证文件</strong>。个人认证和个人交易不收取 6 个月交易预估。不区分居民登记与护照，仅允许图片或 PDF。只有该文件在服务器加密保存。加盟商画面不显示文件名和内容。认证通过后只显示<strong>认证通过成功</strong>。总部打开时输入 OTP。确认一次后，在总部政策的保持时间（默认 60 分钟）内不再询问。时间在总部政策 → 平台 → 邮件与 OTP 中修改。审核中请等待总部通过；退回则按原因重交。</p>
         <ul>
           <li><strong>未认证</strong> → 提交</li>
           <li><strong>审核中</strong> → 总部核对</li>
           <li><strong>认证通过</strong> → 可申请加密货币/托管（还需交易批准与已批钱包）</li>
           <li><strong>已退回</strong> → 重交</li>
+          <li><strong>认证暂缓</strong>、<strong>取消批准</strong> → 总部停止已通过的个人。采购和托管暂停。查看原因后可重新提交本人认证文件。</li>
         </ul>
         <div class="warn-box">「审核中」仅用于 KYC，与加密货币「入金确认中」「支付确认中」不同。</div>`,
-        `<span class="menu-path">ศูนย์ยืนยัน</span>
-        <p>บุคคลอัปโหลดหลักคือ<strong>รายงานคาดการณ์ 6 เดือน</strong> รอผ่านเมื่อกำลังตรวจ หากถูกปฏิเสธอ่านเหตุผลแล้วส่งใหม่</p>
+        `<span class="menu-path">หลังเข้าสู่ระบบ · เมนูซ้าย · ศูนย์ยืนยัน</span>
+        <p>การยืนยันตัวตน<strong>ไม่ทำในหน้าสมัคร</strong></p>
+        <ol>
+          <li>ที่ <strong>https://tinpass.com/login</strong> เลือก<strong>สมัครบุคคลใหม่</strong> หรือกดยืนยันในข้อความยังไม่สมัครเพื่อไป <strong>/register</strong> สมัครกรอกอีเมล โทร รหัสผ่าน ไม่ได้อัปโหลดบัตรที่นี่</li>
+          <li>เข้าสู่ระบบด้วยไอดีนั้น ประเภทสมาชิกไว้ที่<strong>ตรวจอัตโนมัติ</strong>ได้</li>
+          <li>หลังเข้าสู่ระบบ เปิด<strong>ศูนย์ยืนยัน</strong>ที่เมนูซ้าย ที่อยู่คือ <strong>/dashboard/kyc</strong></li>
+          <li>เมื่อสถานะยังไม่ยืนยัน ถูกปฏิเสธ ระงับ หรือยกเลิกการอนุมัติ ให้อัปโหลด<strong>เอกสารยืนยันตัวตน</strong> (รูปหรือ PDF) แล้วกด<strong>ส่งให้ตรวจสอบ</strong></li>
+          <li>สถานะ<strong>กำลังตรวจสอบ</strong> ให้รอ HQ ผ่าน ก่อนผ่านจะซื้อคริปโตหรือเอสโครว์ไม่ได้</li>
+        </ol>
+        <p>บุคคลอัปโหลดเฉพาะ<strong>เอกสารยืนยันตัวตน</strong> ไม่รับรายงาน 6 เดือนในการยืนยันหรือธุรกรรมบุคคล ไม่แยกบัตรประชาชนกับหนังสือเดินทาง อนุญาตเฉพาะรูปหรือ PDF ไฟล์นี้เท่านั้นถูกเข้ารหัสบนเซิร์ฟเวอร์ หน้าจอร้านค้าไม่แสดงชื่อไฟล์หรือเนื้อหา หลังผ่านจะแสดงเฉพาะ<strong>ผ่านการยืนยันสำเร็จ</strong> สำนักงานใหญ่เปิดไฟล์ต้องใส่ OTP ยืนยันครั้งหนึ่งแล้วไม่ถามซ้ำตามเวลาที่ตั้งในนโยบาย HQ (ค่าเริ่มต้น 60 นาที) ตั้งที่นโยบาย HQ → แพลตฟอร์ม → อีเมลและ OTP รอผ่านเมื่อกำลังตรวจ หากถูกปฏิเสธอ่านเหตุผลแล้วส่งใหม่</p>
         <ul>
           <li><strong>ยังไม่ยืนยัน</strong> → ส่งเอกสาร</li>
           <li><strong>กำลังตรวจสอบ</strong> → HQ ตรวจ</li>
           <li><strong>ผ่านยืนยัน</strong> → สมัครคริปโต/เอสโครว์ได้ (ต้องอนุมัติธุรกรรม+กระเป๋าด้วย)</li>
           <li><strong>ถูกปฏิเสธ</strong> → ส่งใหม่</li>
+          <li><strong>ระงับการยืนยัน</strong> หรือ <strong>ยกเลิกการอนุมัติ</strong> → HQ หยุดบุคคลที่ผ่านแล้ว ซื้อและเอสโครว์ถูกปิด อ่านเหตุผลแล้วส่งเอกสารยืนยันตัวตนใหม่ได้</li>
         </ul>
         <div class="warn-box">「กำลังตรวจสอบ」เป็นของ KYC ไม่ใช่สถานะฝาก/ชำระของตั๋วคริปโต</div>`,
       ),

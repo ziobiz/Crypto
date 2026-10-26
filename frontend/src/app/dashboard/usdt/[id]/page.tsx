@@ -454,9 +454,12 @@ export default function UsdtDetailPage() {
     scheduleDelays: ticket.scheduleDelays,
     showHqDelayMeta: showAdmin,
   });
-  const expectedProofKeys = isCurfexAccount
-    ? (['SOURCE_OF_FUNDS_DOC', 'FUNDING_FORECAST_REPORT'] as const)
-    : (['SOURCE_OF_FUNDS_DOC', 'FUNDING_FORECAST_REPORT', 'FIAT_DEPOSIT_RECEIPT'] as const);
+  const corporateTrade = ticket.customer?.customerType === 'CORPORATE';
+  const expectedProofKeys = [
+    'SOURCE_OF_FUNDS_DOC',
+    ...(corporateTrade ? (['FUNDING_FORECAST_REPORT'] as const) : []),
+    ...(!isCurfexAccount ? (['FIAT_DEPOSIT_RECEIPT'] as const) : []),
+  ];
   const attachedPurposes = new Set(ticket.attachments.map((a) => a.purpose));
 
   return (

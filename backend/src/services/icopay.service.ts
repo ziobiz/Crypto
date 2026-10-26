@@ -311,6 +311,12 @@ function isLocalIcopayMock(config: HqIcopayConfig): boolean {
   );
 }
 
+/** 카드 결제가 실승인(LIVE 브로커)이 아니면 SYNTH. */
+export function isNonLiveIcopayBroker(config: HqIcopayConfig): boolean {
+  const env = String(config.activeBrokerEnv || 'LIVE').toUpperCase();
+  return isLocalIcopayMock(config) || env === 'SANDBOX' || env === 'LOCAL_MOCK' || config.sandbox === true;
+}
+
 function simulatePrepare(input: IcopayPrepareInput): IcopayPrepareResult {
   const sessionId = `LOCAL-MOCK-${Date.now()}`;
   const rawResult = String(input.resultUrl || ICOPAY_BROWSER_RESULT_URL).trim();

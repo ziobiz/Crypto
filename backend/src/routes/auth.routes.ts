@@ -20,6 +20,7 @@ import { prisma } from '../lib/prisma';
 import {
   activateTotp,
   clearUserTotp,
+  clampKycIdentityOtpMinutes,
   getEmailOtpConfig,
   isSmtpConfigured,
   issuePendingTotpSecret,
@@ -46,7 +47,7 @@ import { authenticate } from '../middleware/auth';
 import { hqPolicyService } from '../services/hq-policy.service';
 import {
   findUserByLoginEmail,
-  findUserByLoginEmailAndPassword,
+  findUsersByLoginEmail,
   findUsersMatchingLoginPassword,
   isMerchantLoginRole,
   isOrgStaffLoginRole,
@@ -154,87 +155,16 @@ async function issueSession(userId: string) {
   return { token, user: userResponse(user) };
 }
 
-router.post(
-  '/login',
-  asyncHandler(async (req, res) => {
-    const { email, password, turnstileToken, audience } = loginSchema.parse(req.body);
-    await assertTurnstile(turnstileToken, clientIp(req));
-
-    const preferredType =
-      audience === 'corporate'
-        ? CustomerType.CORPORATE
-        : audience === 'individual'
-          ? CustomerType.INDIVIDUAL
-          : null;
-    const matched = await findUsersMatchingLoginPassword(email, password);
-    if (matched.length === 0) {
-      throw new AppError(401, 'Invalid email or password', 'INVALID_CREDENTIALS');
-    }
-
-    let user =
-      preferredType != null
-        ? matched.find((u) => u.customerProfile?.customerType === preferredType) ?? null
-        : null;
-    if (!user && audience === 'staff') {
-      user = matched.find((u) => isOrgStaffLoginRole(u.role)) ?? null;
-    }
-    if (!user) {
-      user = await findUserByLoginEmailAndPassword(email, password, preferredType);
-    }
-    if (!user) {
-      throw new AppError(401, 'Invalid email or password', 'INVALID_CREDENTIALS');
-    }
-
-    /** 기업/개인 회원 로그인: 관리자·조직 직원은 OTP 전에 차단하고 admin 호스트로 안내 */
-    if (audience === 'corporate' || audience === 'individual') {
-      if (isOrgStaffLoginRole(user.role)) {
-        throw new AppError(
-          403,
-          'Staff accounts must sign in on the admin site',
-          'STAFF_USE_ADMIN_HOST',
-          { adminUrl: adminWebLoginUrl() },
-        );
-      }
-      if (!isMerchantLoginRole(user.role)) {
-        throw new AppError(403, 'Invalid account type for member login', 'AUDIENCE_MISMATCH');
-      }
-      const customerType = await resolveLoginCustomerType(user);
-      const expected =
-        audience === 'corporate' ? CustomerType.CORPORATE : CustomerType.INDIVIDUAL;
-      if (customerType !== expected) {
-        // 같은 이메일로 다른 유형이 있으면 그쪽으로 재선택
-        const alt = matched.find(
-          (u) =>
-            isMerchantLoginRole(u.role) &&
-            u.customerProfile?.customerType === expected,
-        );
-        if (alt) {
-          user = alt;
-        } else {
-          throw new AppError(
-            403,
-            audience === 'corporate'
-              ? 'Corporate member login only'
-              : 'Individual member login only',
-            audience === 'corporate' ? 'CORPORATE_AUDIENCE_ONLY' : 'INDIVIDUAL_AUDIENCE_ONLY',
-          );
-        }
-      }
-    }
-
-    /** 관리자 호스트(staff): 가맹 회원은 회원 사이트로 */
-    if (audience === 'staff') {
-      if (isMerchantLoginRole(user.role)) {
-        throw new AppError(
-          403,
-          'Merchant accounts must sign in on the member site',
-          'MERCHANT_USE_MEMBER_HOST',
-          { memberUrl: memberWebLoginUrl() },
-        );
-      }
-    }
-
-    if (!user.isActive) {
+async function finishAuthenticatedLogin(
+  userId: string,
+  req: { headers: Record<string, unknown> },
+  res: { json: (body: unknown) => void },
+) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) {
+    throw new AppError(401, 'Invalid email or password', 'INVALID_CREDENTIALS');
+  }
+  if (!user.isActive) {
       const { resolveInactiveLoginPayload } = await import('../services/inactive-login.service');
       const localeHint =
         String(req.headers['x-locale'] ?? '').toUpperCase() ||
@@ -283,6 +213,96 @@ router.post(
     }
 
     res.json(await issueSession(user.id));
+}
+
+router.post(
+  '/login',
+  asyncHandler(async (req, res) => {
+    const { email, password, turnstileToken, audience } = loginSchema.parse(req.body);
+    await assertTurnstile(turnstileToken, clientIp(req));
+
+    const known = await findUsersByLoginEmail(email);
+    if (known.length === 0) {
+      throw new AppError(404, 'Member is not registered', 'USER_NOT_REGISTERED');
+    }
+
+    const matched = await findUsersMatchingLoginPassword(email, password);
+    if (matched.length === 0) {
+      throw new AppError(401, 'Invalid email or password', 'INVALID_CREDENTIALS');
+    }
+
+    if (audience === 'staff') {
+      const staff = matched.find((u) => isOrgStaffLoginRole(u.role));
+      if (!staff || isMerchantLoginRole(staff.role)) {
+        const merchant = matched.find((u) => isMerchantLoginRole(u.role));
+        if (merchant) {
+          throw new AppError(403, 'Merchant accounts must sign in on the member site', 'MERCHANT_USE_MEMBER_HOST', {
+            memberUrl: memberWebLoginUrl(),
+          });
+        }
+        throw new AppError(401, 'Invalid email or password', 'INVALID_CREDENTIALS');
+      }
+      await finishAuthenticatedLogin(staff.id, req, res);
+      return;
+    }
+
+    const merchants: { id: string; customerType: CustomerType }[] = [];
+    for (const row of matched) {
+      if (!isMerchantLoginRole(row.role)) continue;
+      const customerType = await resolveLoginCustomerType(row);
+      if (!customerType) continue;
+      merchants.push({ id: row.id, customerType });
+    }
+
+    if (merchants.length === 0) {
+      if (matched.some((u) => isOrgStaffLoginRole(u.role))) {
+        throw new AppError(403, 'Staff accounts must sign in on the admin site', 'STAFF_USE_ADMIN_HOST', {
+          adminUrl: adminWebLoginUrl(),
+        });
+      }
+      throw new AppError(401, 'Invalid email or password', 'INVALID_CREDENTIALS');
+    }
+
+    const selected =
+      audience === 'corporate'
+        ? CustomerType.CORPORATE
+        : audience === 'individual'
+          ? CustomerType.INDIVIDUAL
+          : null;
+    if (selected) {
+      const exact = merchants.find((m) => m.customerType === selected);
+      if (!exact) {
+        const actual = merchants[0]!.customerType;
+        throw new AppError(
+          409,
+          actual === CustomerType.INDIVIDUAL
+            ? 'This account is an individual member'
+            : 'This account is a corporate member',
+          actual === CustomerType.INDIVIDUAL ? 'LOGIN_AS_INDIVIDUAL' : 'LOGIN_AS_CORPORATE',
+          {
+            continueToken: signFlowToken(merchants[0]!.id, 'login_continue'),
+            actualAudience: actual === CustomerType.INDIVIDUAL ? 'individual' : 'corporate',
+          },
+        );
+      }
+      await finishAuthenticatedLogin(exact.id, req, res);
+      return;
+    }
+
+    const types = new Set(merchants.map((m) => m.customerType));
+    if (types.size > 1) {
+      throw new AppError(409, 'Choose individual or corporate login', 'LOGIN_TYPE_AMBIGUOUS');
+    }
+    await finishAuthenticatedLogin(merchants[0]!.id, req, res);
+  }),
+);
+
+router.post(
+  '/login/continue',
+  asyncHandler(async (req, res) => {
+    const { continueToken } = z.object({ continueToken: z.string().min(1) }).parse(req.body);
+    const payload = verifyFlowToken(continueToken, 'login_continue');
+    await finishAuthenticatedLogin(payload.sub, req, res);
   }),
 );
 
@@ -724,8 +744,15 @@ router.post(
       throw new AppError(401, 'Invalid OTP code', 'INVALID_OTP');
     }
     const cfg = await getEmailOtpConfig();
+    const scope = (req.body as { scope?: string }).scope === 'kyc_identity' ? 'kyc_identity' : 'sensitive';
+    const expiresInMinutes =
+      scope === 'kyc_identity'
+        ? clampKycIdentityOtpMinutes(cfg.kycIdentityOtpExpireMinutes)
+        : (cfg.sensitiveOtpExpireMinutes ?? 10);
     res.json({
-      sensitiveToken: signStepUpToken(user.id, cfg.sensitiveOtpExpireMinutes ?? 10),
+      sensitiveToken: signStepUpToken(user.id, expiresInMinutes),
+      expiresInMinutes,
+      scope,
     });
   }),
 );

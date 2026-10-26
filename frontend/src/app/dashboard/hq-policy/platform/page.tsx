@@ -63,6 +63,7 @@ export default function HqPlatformPage() {
     otpExpireMinutes: 5,
     smtpPort: 587,
     sensitiveOtpExpireMinutes: 10,
+    kycIdentityOtpExpireMinutes: 60,
   });
   const [error, setError] = useState('');
 
@@ -912,7 +913,7 @@ export default function HqPlatformPage() {
                         <PolicyCellValue>{email.otpExpireMinutes}</PolicyCellValue>
                       )}
                     </td>
-                    <td rowSpan={3}>
+                    <td rowSpan={4}>
                       <PolicyTableActions>
                         {editingEmailNumeric ? (
                           <>
@@ -924,6 +925,7 @@ export default function HqPlatformPage() {
                                   otpExpireMinutes: emailNumericDraft.otpExpireMinutes,
                                   smtpPort: emailNumericDraft.smtpPort,
                                   sensitiveOtpExpireMinutes: emailNumericDraft.sensitiveOtpExpireMinutes,
+                                  kycIdentityOtpExpireMinutes: emailNumericDraft.kycIdentityOtpExpireMinutes,
                                 });
                                 setEditingEmailNumeric(false);
                                 setEmailMsg('');
@@ -951,6 +953,7 @@ export default function HqPlatformPage() {
                                 otpExpireMinutes: email.otpExpireMinutes,
                                 smtpPort: email.smtpPort,
                                 sensitiveOtpExpireMinutes: email.sensitiveOtpExpireMinutes ?? 10,
+                                kycIdentityOtpExpireMinutes: email.kycIdentityOtpExpireMinutes ?? 60,
                               });
                               setEditingEmailNumeric(true);
                               setEmailMsg('');
@@ -979,6 +982,25 @@ export default function HqPlatformPage() {
                         />
                       ) : (
                         <PolicyCellValue>{email.sensitiveOtpExpireMinutes ?? 10}</PolicyCellValue>
+                      )}
+                    </td>
+                  </tr>
+                  <tr className={editingEmailNumeric ? 'bg-amber-50/60' : undefined}>
+                    <td>{t('hq.platform.kycIdentityOtpExpire')}</td>
+                    <td>
+                      {editingEmailNumeric ? (
+                        <PolicyNumberInput
+                          min={1}
+                          max={720}
+                          step="1"
+                          value={emailNumericDraft.kycIdentityOtpExpireMinutes}
+                          onChange={(kycIdentityOtpExpireMinutes) =>
+                            setEmailNumericDraft((prev) => ({ ...prev, kycIdentityOtpExpireMinutes }))
+                          }
+                          className="pg-input w-24"
+                        />
+                      ) : (
+                        <PolicyCellValue>{email.kycIdentityOtpExpireMinutes ?? 60}</PolicyCellValue>
                       )}
                     </td>
                   </tr>

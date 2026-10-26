@@ -51,6 +51,8 @@ const USDT_STATUSES = [
   'CANCELLED',
 ] as const;
 
+const USDT_PAGE_SIZES = [100, 200, 300, 400, 500, 1000] as const;
+
 function isOperator(role?: string) {
   return (
     role === 'SUPER_ADMIN' ||
@@ -58,6 +60,51 @@ function isOperator(role?: string) {
     role === 'SETTLEMENT_ADMIN' ||
     role === 'ORG_STAFF'
   );
+}
+
+type QualKind = 'INDIVIDUAL' | 'CORPORATE' | 'SYNTH';
+
+function qualOf(row: UsdtTicket): QualKind {
+  const blob = `${row.tradeLane ?? ''} ${row.adminNote ?? ''} ${row.curfexRefNo ?? ''} ${row.icopayTransactionId ?? ''}`;
+  if (
+    row.tradeLane === 'SYNTH' ||
+    row.sandboxInvoice ||
+    /sandbox|local[-_ ]?mock|simulator|no live acquirer/i.test(blob)
+  ) {
+    return 'SYNTH';
+  }
+  return row.customer?.customerType === 'CORPORATE' ? 'CORPORATE' : 'INDIVIDUAL';
+}
+
+const QUAL_WORDS: Record<QualKind, string[]> = {
+  INDIVIDUAL: ['individual', '개인', '개인용', 'pe', '個人', '个人', 'บุคคล'],
+  CORPORATE: ['corporate', 'company', '기업', '기업용', 'co', '법인', '法人', '企业', '公司', 'นิติ'],
+  SYNTH: ['sinth', 'synth', 'st', '신스', '테스트', 'test', 'sandbox', '샌드박스', 'mock', '목업', '沙箱', '模拟', 'テスト', 'แซนด์บ็อกซ์', 'ทดสอบ'],
+};
+
+function qualLabelKey(kind: QualKind): MessageKey {
+  if (kind === 'SYNTH') return 'usdt.qual.synth';
+  if (kind === 'CORPORATE') return 'usdt.qual.corporate';
+  return 'usdt.qual.individual';
+}
+
+function qualCodeKey(kind: QualKind): MessageKey {
+  if (kind === 'SYNTH') return 'usdt.qual.code.synth';
+  if (kind === 'CORPORATE') return 'usdt.qual.code.corporate';
+  return 'usdt.qual.code.individual';
+}
+
+function qualTone(kind: QualKind): string {
+  if (kind === 'SYNTH') return 'pg-qual-synth';
+  if (kind === 'CORPORATE') return 'pg-qual-corporate';
+  return 'pg-qual-individual';
+}
+
+function qualMatches(row: UsdtTicket, keyword: string, label: string): boolean {
+  const q = keyword.trim().toLowerCase();
+  if (!q) return true;
+  const kind = qualOf(row);
+  return [label, kind, ...QUAL_WORDS[kind]].some((word) => word.toLowerCase().includes(q));
 }
 
 function ticketDate(row: UsdtTicket, field: string): string | null {
@@ -105,8 +152,9 @@ export default function UsdtListPage() {
   const [sortKey, setSortKey] = useState('createdAt');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState<number | 'all'>(50);
+  const [pageSize, setPageSize] = useState<number | 'all'>(100);
   const [depositCtx, setDepositCtx] = useState<UsdtDepositContext | null>(null);
+  const [qual, setQual] = useState<'ALL' | QualKind>('ALL');
   const dailyBlocked = !!depositCtx?.dailyTicketLimitReached;
 
   const load = useCallback(() => {
@@ -154,15 +202,24 @@ export default function UsdtListPage() {
 
   const filtered = useMemo(() => {
     return tickets.filter((row) => {
+      const kind = qualOf(row);
+      if (qual === 'ALL' && kind === 'SYNTH') return false;
+      if (qual !== 'ALL' && kind !== qual) return false;
       if (applied.status && row.status !== applied.status) return false;
-      if (applied.dateFrom || applied.dateTo) {
+      if (applied.dateField !== 'all' && (applied.dateFrom || applied.dateTo)) {
         if (!inYmdRange(ticketDate(row, applied.dateField), applied.dateFrom, applied.dateTo)) {
           return false;
         }
       }
-      return matchKeyword(row, applied.searchField, applied.keyword);
+      const qualLabel = `${t(qualLabelKey(kind))} ${t(qualCodeKey(kind))}`;
+      if (applied.searchField === 'qualification') return qualMatches(row, applied.keyword, qualLabel);
+      const keywordOk = matchKeyword(row, applied.searchField, applied.keyword);
+      if (applied.searchField === 'all' && applied.keyword.trim()) {
+        return keywordOk || qualMatches(row, applied.keyword, qualLabel);
+      }
+      return keywordOk;
     });
-  }, [tickets, applied]);
+  }, [tickets, applied, qual, t]);
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -172,6 +229,8 @@ export default function UsdtListPage() {
             return row.ticketNo;
           case 'customer':
             return row.customer?.user?.name ?? row.customer?.user?.email ?? '';
+          case 'qualification':
+            return qualOf(row);
           case 'amount':
             return row.fiatAmount;
           case 'currency':
@@ -251,6 +310,7 @@ export default function UsdtListPage() {
       [
         t('usdt.col.ticketNo'),
         t('usdt.col.customer'),
+        t('usdt.col.qualification'),
         t('usdt.col.currency'),
         t('usdt.col.amount'),
         t('usdt.col.expected'),
@@ -266,6 +326,7 @@ export default function UsdtListPage() {
       sorted.map((row) => [
         row.ticketNo,
         formatPerson(row.customer?.user?.name, row.customer?.user?.email),
+        t(qualCodeKey(qualOf(row))),
         row.fiatCurrency,
         row.fiatAmount,
         row.expectedUsdtAmount,
@@ -330,6 +391,7 @@ export default function UsdtListPage() {
           const next = defaultTxFilter();
           setDraft(next);
           setApplied(next);
+          setQual('ALL');
           setPage(1);
         }}
         onRefresh={load}
@@ -343,6 +405,7 @@ export default function UsdtListPage() {
         hqCountry={country}
         onHqCountryChange={(c) => setServiceCountry(c as ServiceCountryKey)}
         dateFieldOptions={[
+          { value: 'all', labelKey: 'filter.date.all' },
           { value: 'createdAt', labelKey: 'filter.date.applied' },
           { value: 'expectedCompleteAt', labelKey: 'filter.date.expected' },
         ]}
@@ -350,6 +413,7 @@ export default function UsdtListPage() {
           { value: 'all', labelKey: 'filter.all' },
           { value: 'ticketNo', labelKey: 'usdt.col.ticketNo' },
           { value: 'customer', labelKey: 'usdt.col.customer' },
+          { value: 'qualification', labelKey: 'usdt.col.qualification' },
           { value: 'currency', labelKey: 'usdt.col.currency' },
           { value: 'payment', labelKey: 'usdt.paymentMethod' },
           { value: 'collection', labelKey: 'usdt.col.collection' },
@@ -358,6 +422,20 @@ export default function UsdtListPage() {
           value: s,
           labelKey: `status.${s}` as MessageKey,
         }))}
+        qualification={{
+          labelKey: 'usdt.col.qualification',
+          value: qual,
+          onChange: (next) => {
+            setQual(next as 'ALL' | QualKind);
+            setPage(1);
+          },
+          options: [
+            { value: 'ALL', label: t('filter.all') },
+            { value: 'INDIVIDUAL', label: t('usdt.qual.individual') },
+            { value: 'CORPORATE', label: t('usdt.qual.corporate') },
+            { value: 'SYNTH', label: t('usdt.qual.synth') },
+          ],
+        }}
         summary={<AggregateSummaryBar data={aggregate} />}
       />
 
@@ -374,6 +452,11 @@ export default function UsdtListPage() {
                   {formatPerson(ticket.customer?.user?.name, ticket.customer?.user?.email)}
                 </MobileStackField>
               )}
+              <MobileStackField label={t('usdt.col.qualification')}>
+                <span className={`pg-qual-tab ${qualTone(qualOf(ticket))}`}>
+                  {t(qualCodeKey(qualOf(ticket)))}
+                </span>
+              </MobileStackField>
               <MobileStackField label={t('usdt.col.amount')}>
                 {formatCurrency(ticket.fiatAmount, ticket.fiatCurrency)}
               </MobileStackField>
@@ -406,13 +489,14 @@ export default function UsdtListPage() {
       </MobileStackList>
 
       <div className="pg-card pg-table-wrap hidden md:block">
-        <table className="pg-table">
+        <table className="pg-table pg-table-usdt">
           <thead>
             <tr>
               <SortableTh label={t('usdt.col.ticketNo')} sortKey="ticketNo" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
               {admin && (
                 <SortableTh label={t('usdt.col.customer')} sortKey="customer" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
               )}
+              <SortableTh label={t('usdt.col.qualification')} sortKey="qualification" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
               <SortableTh label={t('usdt.col.currency')} sortKey="currency" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
               <SortableTh label={t('usdt.col.amount')} sortKey="amount" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
               <SortableTh label={t('usdt.col.expected')} sortKey="expected" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
@@ -442,6 +526,11 @@ export default function UsdtListPage() {
                     {formatPerson(ticket.customer?.user?.name, ticket.customer?.user?.email)}
                   </td>
                 )}
+                <td>
+                  <span className={`pg-qual-tab ${qualTone(qualOf(ticket))}`}>
+                    {t(qualCodeKey(qualOf(ticket)))}
+                  </span>
+                </td>
                 <td>{ticket.fiatCurrency}</td>
                 <td>{formatCurrency(ticket.fiatAmount, ticket.fiatCurrency)}</td>
                 <td>{ticket.expectedUsdtAmount.toFixed(4)}</td>
@@ -499,7 +588,7 @@ export default function UsdtListPage() {
             ))}
             {pageRows.length === 0 && (
               <tr>
-                <td colSpan={admin ? 13 : 12} className="pg-empty">
+                <td colSpan={admin ? 14 : 13} className="pg-empty">
                   {t('usdt.empty')}
                 </td>
               </tr>
@@ -507,12 +596,12 @@ export default function UsdtListPage() {
           </tbody>
         </table>
         <div className="px-3 pb-3">
-          <PageSizeBar total={total} page={page} pageSize={pageSize} onPageSize={setPageSize} onPage={setPage} />
+          <PageSizeBar total={total} page={page} pageSize={pageSize} sizes={USDT_PAGE_SIZES} onPageSize={setPageSize} onPage={setPage} />
         </div>
       </div>
 
       <div className="md:hidden">
-        <PageSizeBar total={total} page={page} pageSize={pageSize} onPageSize={setPageSize} onPage={setPage} />
+        <PageSizeBar total={total} page={page} pageSize={pageSize} sizes={USDT_PAGE_SIZES} onPageSize={setPageSize} onPage={setPage} />
       </div>
     </div>
   );

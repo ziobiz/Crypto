@@ -111,8 +111,8 @@ function listLimitDisplay(code: string | undefined | null): string {
 
 function kycBadgeClass(status?: string | null): string {
   if (status === 'APPROVED') return 'pg-badge-kyc-pass';
-  if (status === 'PENDING') return 'pg-badge-warn';
-  if (status === 'REJECTED') return 'pg-badge-muted';
+  if (status === 'PENDING' || status === 'SUSPENDED') return 'pg-badge-warn';
+  if (status === 'REJECTED' || status === 'REVOKED') return 'pg-badge-muted';
   return 'pg-badge-info';
 }
 
@@ -120,6 +120,8 @@ function kycStatusKey(status?: string | null): MessageKey {
   if (status === 'PENDING') return 'kyc.status.PENDING';
   if (status === 'APPROVED') return 'kyc.status.APPROVED';
   if (status === 'REJECTED') return 'kyc.status.REJECTED';
+  if (status === 'SUSPENDED') return 'kyc.status.SUSPENDED';
+  if (status === 'REVOKED') return 'kyc.status.REVOKED';
   return 'kyc.status.NOT_SUBMITTED';
 }
 

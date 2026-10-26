@@ -3,7 +3,7 @@
 import { useT } from '@/context/LocaleProvider';
 
 /** PG payment-history style page sizes */
-const SIZES = [50, 100, 300, 400, 500, 1000] as const;
+const DEFAULT_SIZES = [50, 100, 300, 400, 500, 1000] as const;
 
 export function PageSizeBar({
   total,
@@ -11,12 +11,14 @@ export function PageSizeBar({
   pageSize,
   onPageSize,
   onPage,
+  sizes = DEFAULT_SIZES,
 }: {
   total: number;
   page: number;
   pageSize: number | 'all';
   onPageSize: (size: number | 'all') => void;
   onPage: (page: number) => void;
+  sizes?: readonly number[];
 }) {
   const t = useT();
   const numeric = pageSize === 'all' ? Math.max(total, 1) : pageSize;
@@ -72,7 +74,7 @@ export function PageSizeBar({
     <div className="mt-3 grid grid-cols-1 items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs sm:grid-cols-[1fr_auto_1fr]">
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="mr-1 text-slate-600">{t('pager.viewAtOnce')}</span>
-        {SIZES.map((s) => (
+        {sizes.map((s) => (
           <button
             key={s}
             type="button"
