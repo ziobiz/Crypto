@@ -2802,6 +2802,18 @@ export const hqPolicyApi = {
       '/api/hq-policy/payment/curfex/webhook-secret',
       { method: 'POST' },
     ),
+  testCurfexConnection: () =>
+    request<{
+      ok: boolean;
+      mode: 'LOCAL_MOCK' | 'UAT_OR_TEST' | 'LIVE_API';
+      apiBaseUrl: string;
+      walletName: string;
+      tokenOk: boolean;
+      walletOk: boolean | null;
+      walletStatus?: string;
+      walletCurrency?: string;
+      message: string;
+    }>('/api/hq-policy/payment/curfex/test-connection', { method: 'POST' }),
   getDeletion: () => request<HqDeletionPayload>('/api/hq-policy/deletion'),
   getWorkflowDisplay: () => request<HqWorkflowDisplayConfig>('/api/hq-policy/workflow-display'),
   saveWorkflowDisplay: (config: HqWorkflowDisplayConfig) =>

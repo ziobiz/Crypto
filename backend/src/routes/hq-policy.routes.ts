@@ -706,6 +706,14 @@ router.post(
   }),
 );
 
+router.post(
+  '/payment/curfex/test-connection',
+  asyncHandler(async (_req, res) => {
+    const { testCurfexConnection } = await import('../services/curfex.service');
+    res.json(await testCurfexConnection());
+  }),
+);
+
 router.get(
   '/accounts/pg-settlement-wallets',
   asyncHandler(async (_req, res) => {

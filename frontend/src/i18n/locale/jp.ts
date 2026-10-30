@@ -1272,8 +1272,14 @@ export const JP: Record<string, string> = {
   'hq.curfex.clientSecret': 'Client Secret',
   'hq.curfex.apiBaseUrl': 'API Base URL',
   'hq.curfex.walletName': 'Wallet Name（任意）',
-  'hq.curfex.sandbox': 'サンドボックス（テスト口座）',
-  'hq.curfex.sandboxHint': 'ONの場合は実APIの代わりにテスト口座を生成します。本番はOFFにしてClient ID/Secretを入力してください。',
+  'hq.curfex.sandbox': 'ローカルモック（API未呼出）',
+  'hq.curfex.sandboxHint':
+    'ONの場合はCURFEX APIを呼ばずローカルのテスト口座のみ作成します。UAT/本番はOFFにしてClient ID・Secret・Walletを入力してください。',
+  'hq.curfex.uatHint':
+    'UAT（例: fcol-dashboard-uat1.curfex.com）はモックOFFで実APIを呼びます。UAT取引はSINTH（非実取引）に分類されます。',
+  'hq.curfex.testConnection': '接続テスト',
+  'hq.curfex.testOk': '接続成功: {detail}',
+  'hq.curfex.testFail': '接続失敗: {detail}',
   'hq.curfex.autoDetectTitle': '入金自動検知（Webhook）',
   'hq.curfex.autoDetectDesc': 'バーチャル口座サービス(CURFEX)有効時のみ。入金検知で証憑アップロードなしに管理者確認へ進みます。固定口座は従来どおり手動です。',
   'hq.curfex.autoApprove': '入金検知時にCURFEX decision APPROVEを自動呼出',

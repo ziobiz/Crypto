@@ -92,6 +92,23 @@ export function CurfexConfigPanel() {
     }
   }
 
+  async function testConnection() {
+    setSaving(true);
+    setMsg('');
+    try {
+      const result = await hqPolicyApi.testCurfexConnection();
+      setMsg(
+        result.ok
+          ? t('hq.curfex.testOk', { detail: result.message })
+          : t('hq.curfex.testFail', { detail: result.message }),
+      );
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : t('hq.curfex.testFail', { detail: '' }));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const selected = new Set(config.currencies?.length ? config.currencies : ['JPY']);
 
   return (
@@ -186,6 +203,15 @@ export function CurfexConfigPanel() {
           {t('hq.curfex.sandbox')}
         </label>
         <p className="text-[11px] text-gray-500">{t('hq.curfex.sandboxHint')}</p>
+        <p className="text-[11px] text-amber-800">{t('hq.curfex.uatHint')}</p>
+        <button
+          type="button"
+          onClick={testConnection}
+          disabled={saving}
+          className="pg-btn pg-btn-secondary text-xs"
+        >
+          {t('hq.curfex.testConnection')}
+        </button>
 
         <div className="rounded border border-emerald-200 bg-emerald-50/60 px-3 py-2 space-y-2">
           <p className="text-xs font-semibold text-emerald-900">{t('hq.curfex.autoDetectTitle')}</p>

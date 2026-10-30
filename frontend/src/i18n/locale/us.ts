@@ -1305,8 +1305,14 @@ export const US: Record<string, string> = {
   'hq.curfex.clientSecret': 'Client Secret',
   'hq.curfex.apiBaseUrl': 'API Base URL',
   'hq.curfex.walletName': 'Wallet Name (optional)',
-  'hq.curfex.sandbox': 'Sandbox mode (test accounts)',
-  'hq.curfex.sandboxHint': 'Sandbox ON generates test accounts without calling the live API. Turn OFF and enter Client ID/Secret for production.',
+  'hq.curfex.sandbox': 'Local mock (no API call)',
+  'hq.curfex.sandboxHint':
+    'ON creates a local test account and does not call CURFEX. For UAT/production, turn OFF and enter Client ID, Secret, and Wallet.',
+  'hq.curfex.uatHint':
+    'UAT (e.g. fcol-dashboard-uat1.curfex.com) calls the real API with mock OFF. UAT tickets are tagged SINTH (non-live).',
+  'hq.curfex.testConnection': 'Test connection',
+  'hq.curfex.testOk': 'Connected: {detail}',
+  'hq.curfex.testFail': 'Connection failed: {detail}',
   'hq.curfex.autoDetectTitle': 'Auto deposit detection (webhook)',
   'hq.curfex.autoDetectDesc': 'Applies only to selected Virtual Account Service (CURFEX) currencies. When a deposit is detected, the ticket moves to admin review without a deposit receipt. Unselected currencies and fixed accounts still require manual proof.',
   'hq.curfex.autoApprove': 'On deposit, auto-call CURFEX decision APPROVE',

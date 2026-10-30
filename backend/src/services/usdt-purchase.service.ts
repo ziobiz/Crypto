@@ -67,6 +67,7 @@ import {
   createCurfexCollection,
   getCurfexConfig,
   hqDefaultCollectionModeForCustomer,
+  isCurfexNonLiveEnvironment,
   resolveUsdtCollectionProvider,
 } from './curfex.service';
 import {
@@ -1209,9 +1210,7 @@ export async function createUsdtPurchaseTicket(
             walletAddressSnapshot: wallet.address,
             walletNetworkSnapshot: wallet.network,
             tradeLane:
-              (resolvedProvider === 'CURFEX' &&
-                (curfexCfg.sandbox === true ||
-                  String(curfexCfg.clientSecret || '').toUpperCase() === 'SANDBOX')) ||
+              (resolvedProvider === 'CURFEX' && isCurfexNonLiveEnvironment(curfexCfg)) ||
               usdtTradeLaneFromSignals([
                 collectionFields.collectionAccountJson,
                 collectionFields.curfexRefNo,
@@ -1374,6 +1373,7 @@ export async function confirmUsdtQuote(
 
   const needsCurfexIssue =
     detail.collectionProvider === 'CURFEX' && !detail.curfexRefNo;
+  const curfexCfgForLane = needsCurfexIssue ? await getCurfexConfig() : null;
   if (needsCurfexIssue) {
     const currency = detail.fiatCurrency as FiatCurrency;
     const customerUser = ticket.customer?.user;
@@ -1426,7 +1426,8 @@ export async function confirmUsdtQuote(
               curfexRefNo: curfexIssue.curfexRefNo,
               curfexStatusCode: curfexIssue.curfexStatusCode,
               collectionAccountJson: curfexIssue.collectionAccountJson,
-              ...(usdtTradeLaneFromSignals([
+              ...((curfexCfgForLane && isCurfexNonLiveEnvironment(curfexCfgForLane)) ||
+              usdtTradeLaneFromSignals([
                 curfexIssue.collectionAccountJson,
                 curfexIssue.curfexRefNo,
               ]) === USDT_TRADE_LANE_SYNTH

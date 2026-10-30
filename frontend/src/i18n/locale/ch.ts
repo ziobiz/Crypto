@@ -1194,8 +1194,14 @@ export const CH: Record<string, string> = {
   'hq.curfex.clientSecret': 'Client Secret',
   'hq.curfex.apiBaseUrl': 'API Base URL',
   'hq.curfex.walletName': 'Wallet Name（可选）',
-  'hq.curfex.sandbox': '沙盒模式（测试账户）',
-  'hq.curfex.sandboxHint': '开启沙盒时生成测试账户，不调用正式 API。正式环境请关闭并填写 Client ID/Secret。',
+  'hq.curfex.sandbox': '本地模拟（不调用 API）',
+  'hq.curfex.sandboxHint':
+    '开启时不调用 CURFEX，仅生成本地测试账户。UAT/正式请关闭并填写 Client ID、Secret、Wallet。',
+  'hq.curfex.uatHint':
+    'UAT（如 fcol-dashboard-uat1.curfex.com）在关闭本地模拟后调用真实 API。UAT 交易归类为 SINTH（非实交易）。',
+  'hq.curfex.testConnection': '连接测试',
+  'hq.curfex.testOk': '连接成功：{detail}',
+  'hq.curfex.testFail': '连接失败：{detail}',
   'hq.curfex.autoDetectTitle': '入金自动检测（Webhook）',
   'hq.curfex.autoDetectDesc': '仅在启用虚拟账户服务(CURFEX) 时生效。检测到入金后无需上传凭证，自动进入管理员确认。固定账户仍需手动凭证。',
   'hq.curfex.autoApprove': '入金检测后自动调用 CURFEX decision APPROVE',

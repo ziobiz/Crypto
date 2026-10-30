@@ -1206,8 +1206,14 @@ export const TH: Record<string, string> = {
   'hq.curfex.clientSecret': 'Client Secret',
   'hq.curfex.apiBaseUrl': 'API Base URL',
   'hq.curfex.walletName': 'Wallet Name (ไม่บังคับ)',
-  'hq.curfex.sandbox': 'โหมดแซนด์บ็อกซ์ (บัญชีทดสอบ)',
-  'hq.curfex.sandboxHint': 'เปิดแซนด์บ็อกซ์แล้วจะสร้างบัญชีทดสอบโดยไม่เรียก API จริง ปิดแล้วใส่ Client ID/Secret สำหรับใช้งานจริง',
+  'hq.curfex.sandbox': 'โหมดจำลองในเครื่อง (ไม่เรียก API)',
+  'hq.curfex.sandboxHint':
+    'เปิดแล้วจะไม่เรียก CURFEX สร้างบัญชีทดสอบในเครื่องเท่านั้น สำหรับ UAT/จริง ให้ปิดแล้วใส่ Client ID, Secret และ Wallet',
+  'hq.curfex.uatHint':
+    'UAT (เช่น fcol-dashboard-uat1.curfex.com) จะเรียก API จริงเมื่อปิดโหมดจำลอง รายการ UAT จัดเป็น SINTH (ไม่ใช่ธุรกรรมจริง)',
+  'hq.curfex.testConnection': 'ทดสอบการเชื่อมต่อ',
+  'hq.curfex.testOk': 'เชื่อมต่อสำเร็จ: {detail}',
+  'hq.curfex.testFail': 'เชื่อมต่อล้มเหลว: {detail}',
   'hq.curfex.autoDetectTitle': 'ตรวจจับเงินเข้าอัตโนมัติ (Webhook)',
   'hq.curfex.autoDetectDesc': 'ใช้เฉพาะเมื่อเปิดบริการบัญชีเสมือน(CURFEX) เมื่อตรวจพบเงินเข้าจะข้ามอัปโหลดหลักฐานไปขั้นตรวจของผู้ดูแล บัญชีคงที่ยังต้องยืนยันด้วยมือ',
   'hq.curfex.autoApprove': 'เมื่อตรวจพบเงินเข้า ให้เรียก CURFEX decision APPROVE อัตโนมัติ',

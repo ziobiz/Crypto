@@ -3,6 +3,28 @@ import type { PlatformReleaseNote } from './version';
 /** 본사정책 → 검증관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
 export const PLATFORM_RELEASE_NOTES: PlatformReleaseNote[] = [
   {
+    version: '2.6.261',
+    kind: 'minor',
+    date: '2026-10-30',
+    items: {
+      KR: [
+        'CURFEX UAT 연동: 로컬 목과 UAT 실API를 분리. UAT 거래는 SINTH. 결제관리에 연결 테스트 추가. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'CURFEX UAT integration: local mock vs real UAT API. UAT tickets are SINTH. Connection test added in Payment. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        'CURFEX UAT連携: ローカルモックとUAT実APIを分離。UAT取引はSINTH。決済管理に接続テスト追加。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        'CURFEX UAT 对接：区分本地模拟与 UAT 真实 API。UAT 交易为 SINTH。支付管理增加连接测试。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'เชื่อม CURFEX UAT แยกจำลองในเครื่องกับ API จริง UAT เป็น SINTH เพิ่มทดสอบการเชื่อมต่อใน Payment KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
     version: '2.6.260',
     kind: 'minor',
     date: '2026-10-26',

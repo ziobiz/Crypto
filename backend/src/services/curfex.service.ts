@@ -137,6 +137,20 @@ export function isCurfexCurrencyEnabled(config: HqCurfexConfig, currency: string
   return list.includes(currency as NonNullable<HqCurfexConfig['currencies']>[number]);
 }
 
+/** 로컬 목 계좌만 발급 — 실 UAT/PROD API 미호출 */
+export function isCurfexLocalMock(config: HqCurfexConfig): boolean {
+  return (
+    config.sandbox === true || String(config.clientSecret || '').toUpperCase() === 'SANDBOX'
+  );
+}
+
+/** UAT·테스트·로컬 목 — 실거래(LIVE)로 취급하지 않음 */
+export function isCurfexNonLiveEnvironment(config: HqCurfexConfig): boolean {
+  if (isCurfexLocalMock(config)) return true;
+  const base = String(config.apiBaseUrl || '').toLowerCase();
+  return /uat|sandbox|\.test\.|\/test\b|-test\b/.test(base);
+}
+
 export type UsdtCollectionModeSetting = 'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL' | 'DIRECT';
 
 /**
@@ -311,7 +325,7 @@ export async function createCurfexCollection(
     throw new AppError(400, 'CURFEX is not enabled for this currency', 'CURFEX_DISABLED');
   }
 
-  if (config.sandbox === true || config.clientSecret.toUpperCase() === 'SANDBOX') {
+  if (isCurfexLocalMock(config)) {
     return sandboxCollection(input);
   }
 
@@ -422,7 +436,7 @@ export function isCurfexDepositStatus(statusCode: string | undefined | null): bo
 
 export async function getCurfexPaymentStatus(refNo: string): Promise<CurfexPaymentStatus> {
   const config = await getCurfexConfig();
-  if (config.sandbox === true || config.clientSecret.toUpperCase() === 'SANDBOX') {
+  if (isCurfexLocalMock(config)) {
     throw new AppError(400, 'Sandbox mode has no live payment status', 'CURFEX_SANDBOX');
   }
   const token = await requestAccessToken(config);
@@ -457,7 +471,7 @@ export async function getCurfexPaymentStatus(refNo: string): Promise<CurfexPayme
 
 export async function getCurfexPaymentDetail(refNo: string): Promise<CurfexPaymentStatus> {
   const config = await getCurfexConfig();
-  if (config.sandbox === true || config.clientSecret.toUpperCase() === 'SANDBOX') {
+  if (isCurfexLocalMock(config)) {
     throw new AppError(400, 'Sandbox mode has no live payment detail', 'CURFEX_SANDBOX');
   }
   const token = await requestAccessToken(config);
@@ -497,7 +511,7 @@ export async function approveCurfexPayment(input: {
   description?: string;
 }): Promise<{ statusCode: string; detail?: string }> {
   const config = await getCurfexConfig();
-  if (config.sandbox === true || config.clientSecret.toUpperCase() === 'SANDBOX') {
+  if (isCurfexLocalMock(config)) {
     return { statusCode: 'APPROVED', detail: 'Sandbox auto-approve' };
   }
   const token = await requestAccessToken(config);
@@ -552,4 +566,72 @@ export function publicCurfexWebhookUrl(): string {
     'https://api.tinpass.com'
   ).replace(/\/$/, '');
   return `${base}/api/webhooks/curfex`;
+}
+
+/** HQ 연결 점검: 토큰 발급 + (있으면) wallet/get */
+export async function testCurfexConnection(): Promise<{
+  ok: boolean;
+  mode: 'LOCAL_MOCK' | 'UAT_OR_TEST' | 'LIVE_API';
+  apiBaseUrl: string;
+  walletName: string;
+  tokenOk: boolean;
+  walletOk: boolean | null;
+  walletStatus?: string;
+  walletCurrency?: string;
+  message: string;
+}> {
+  const config = await getCurfexConfig();
+  const mode = isCurfexLocalMock(config)
+    ? 'LOCAL_MOCK'
+    : isCurfexNonLiveEnvironment(config)
+      ? 'UAT_OR_TEST'
+      : 'LIVE_API';
+
+  if (isCurfexLocalMock(config)) {
+    return {
+      ok: true,
+      mode,
+      apiBaseUrl: baseUrl(config),
+      walletName: config.walletName || '',
+      tokenOk: false,
+      walletOk: null,
+      message: 'Local mock mode — API is not called',
+    };
+  }
+  if (!config.clientId || !config.clientSecret) {
+    throw new AppError(400, 'CURFEX credentials are not configured', 'CURFEX_NOT_CONFIGURED');
+  }
+
+  await requestAccessToken(config);
+  let walletOk: boolean | null = null;
+  let walletStatus: string | undefined;
+  let walletCurrency: string | undefined;
+  if (config.walletName) {
+    const token = await requestAccessToken(config);
+    const wallet = await curfexFetch<{
+      walletName?: string;
+      statusCode?: string;
+      currency?: string;
+    }>(config, '/api/wallet/get', { payload: { walletName: config.walletName } }, token);
+    walletOk = String(wallet.statusCode || '').toUpperCase() === 'ACTIVE';
+    walletStatus = wallet.statusCode;
+    walletCurrency = wallet.currency;
+  }
+
+  return {
+    ok: walletOk !== false,
+    mode,
+    apiBaseUrl: baseUrl(config),
+    walletName: config.walletName || '',
+    tokenOk: true,
+    walletOk,
+    walletStatus,
+    walletCurrency,
+    message:
+      walletOk === false
+        ? `Wallet not ACTIVE (${walletStatus || 'unknown'})`
+        : walletOk
+          ? `Token OK · wallet ${config.walletName} ACTIVE (${walletCurrency || ''})`
+          : 'Token OK',
+  };
 }

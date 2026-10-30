@@ -1295,8 +1295,14 @@ export const KR = {
   'hq.curfex.clientSecret': 'Client Secret',
   'hq.curfex.apiBaseUrl': 'API Base URL',
   'hq.curfex.walletName': 'Wallet Name (선택)',
-  'hq.curfex.sandbox': '샌드박스 모드 (테스트 계좌)',
-  'hq.curfex.sandboxHint': '샌드박스 ON이면 실 API 대신 테스트용 계좌를 생성합니다. 실연동 시 OFF하고 Client ID/Secret을 입력하세요.',
+  'hq.curfex.sandbox': '로컬 목 모드 (API 미호출)',
+  'hq.curfex.sandboxHint':
+    'ON이면 CURFEX API를 호출하지 않고 로컬 테스트 계좌만 만듭니다. CURFEX UAT/실연동은 OFF로 두고 Client ID·Secret·Wallet을 입력하세요.',
+  'hq.curfex.uatHint':
+    'UAT(예: fcol-dashboard-uat1.curfex.com)는 로컬 목을 OFF한 뒤 실 API를 호출합니다. UAT 거래는 SINTH(비실거래)로 분류됩니다.',
+  'hq.curfex.testConnection': '연결 테스트',
+  'hq.curfex.testOk': '연결 성공: {detail}',
+  'hq.curfex.testFail': '연결 실패: {detail}',
   'hq.curfex.autoDetectTitle': '입금 자동 감지 (웹훅)',
   'hq.curfex.autoDetectDesc': '선택한 가상계좌서비스 적용 통화에만 적용됩니다. 입금이 감지되면 입금 영수증 없이 「관리자 확인」으로 전환됩니다. 미선택 통화·고정 수취계좌는 수동 증빙이 필요합니다.',
   'hq.curfex.autoApprove': '입금 감지 시 CURFEX decision APPROVE 자동 호출',
