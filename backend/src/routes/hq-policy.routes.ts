@@ -715,6 +715,36 @@ router.post(
 );
 
 router.get(
+  '/payment/curfex/admin-overview',
+  asyncHandler(async (_req, res) => {
+    const { getCurfexAdminOverview } = await import('../services/curfex-admin.service');
+    res.json(await getCurfexAdminOverview());
+  }),
+);
+
+router.get(
+  '/payment/curfex/issuances',
+  asyncHandler(async (req, res) => {
+    const { listCurfexIssuances } = await import('../services/curfex-admin.service');
+    res.json(
+      await listCurfexIssuances({
+        q: typeof req.query.q === 'string' ? req.query.q : undefined,
+        status: typeof req.query.status === 'string' ? req.query.status : undefined,
+        take: req.query.take != null ? Number(req.query.take) : undefined,
+      }),
+    );
+  }),
+);
+
+router.post(
+  '/payment/curfex/issuances/:ticketId/refresh',
+  asyncHandler(async (req, res) => {
+    const { refreshCurfexIssuance } = await import('../services/curfex-admin.service');
+    res.json(await refreshCurfexIssuance(req.params.ticketId));
+  }),
+);
+
+router.get(
   '/accounts/pg-settlement-wallets',
   asyncHandler(async (_req, res) => {
     res.json(await hqPolicyService.getPgSettlementWallets());

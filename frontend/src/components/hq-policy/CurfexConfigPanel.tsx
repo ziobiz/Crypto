@@ -124,6 +124,13 @@ export function CurfexConfigPanel() {
           >
             {t('hq.hub.accounts')}
           </Link>
+          <p className="mt-2">{t('hq.curfex.issuanceAdminHint')}</p>
+          <Link
+            href="/dashboard/hq-policy/ops/curfex"
+            className="mt-1 inline-block font-semibold text-sky-800 underline"
+          >
+            {t('hq.ops.curfexIssuance')}
+          </Link>
         </div>
 
         <label className="flex items-center gap-2 text-sm">

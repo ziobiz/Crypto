@@ -3,6 +3,50 @@ import type { PlatformReleaseNote } from './version';
 /** 본사정책 → 검증관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
 export const PLATFORM_RELEASE_NOTES: PlatformReleaseNote[] = [
   {
+    version: '2.6.263',
+    kind: 'minor',
+    date: '2026-10-30',
+    items: {
+      KR: [
+        '본사정책 → 검증관리에 CURFEX 발급관리 추가: 연동상태·지갑요약·발급목록·상태동기화. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'HQ Ops adds CURFEX issuances: connection status, wallet summary, issuance list, status sync. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        '本社ポリシー→検証管理にCURFEX発行管理を追加: 接続状態・ウォレット要約・発行一覧・状態同期。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        '总部策略→验证管理新增 CURFEX 开户管理：对接状态、钱包摘要、开户列表、状态同步。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'นโยบาย HQ→Ops เพิ่มจัดการออกบัญชี CURFEX: สถานะเชื่อมต่อ สรุปวอลเล็ต รายการออกบัญชี ซิงก์สถานะ KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.262',
+    kind: 'minor',
+    date: '2026-10-30',
+    items: {
+      KR: [
+        'CURFEX UAT 계좌발급 수정: customerType C/I, 언어 ja, 만료시각은 입금기한 이후. UAT에서 가상계좌 발급 확인. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'CURFEX UAT collection fix: customerType C/I, language ja, expiry after due. Virtual account issuance verified on UAT. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        'CURFEX UAT口座発行修正: customerTypeはC/I、言語ja、有効期限は期限後。UATで仮想口座発行を確認。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        'CURFEX UAT 开户修正：customerType 为 C/I，语言 ja，过期晚于到期。已在 UAT 验证虚拟账户签发。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'แก้ CURFEX UAT ออกบัญชี: customerType เป็น C/I ภาษา ja หมดอายุหลังกำหนด ตรวจออกบัญชีเสมือนบน UAT แล้ว KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
     version: '2.6.261',
     kind: 'minor',
     date: '2026-10-30',

@@ -330,12 +330,29 @@ export async function createCurfexCollection(
   }
 
   const token = await requestAccessToken(config);
-  const due =
-    input.paymentDueDateTime ||
-    new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
-  const expiry =
-    input.requestExpiryDateTime ||
-    new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+  /** CURFEX UAT/API: customerType is C|I (not CORPORATE|INDIVIDUAL), language is ja|en */
+  const customerTypeRaw = String(input.customerType || 'INDIVIDUAL').toUpperCase();
+  const customerType =
+    customerTypeRaw === 'C' ||
+    customerTypeRaw === 'CORPORATE' ||
+    customerTypeRaw === 'COMPANY' ||
+    customerTypeRaw === 'BUSINESS'
+      ? 'C'
+      : 'I';
+  const dueMs = input.paymentDueDateTime
+    ? Date.parse(input.paymentDueDateTime)
+    : Date.now() + 2 * 60 * 60 * 1000;
+  const dueDate = Number.isFinite(dueMs) ? new Date(dueMs) : new Date(Date.now() + 2 * 60 * 60 * 1000);
+  const expiryMs = input.requestExpiryDateTime
+    ? Date.parse(input.requestExpiryDateTime)
+    : NaN;
+  let expiryDate = Number.isFinite(expiryMs) ? new Date(expiryMs) : new Date(dueDate.getTime());
+  /** expiry must be after due — same timestamp is rejected by CURFEX */
+  if (expiryDate.getTime() <= dueDate.getTime()) {
+    expiryDate = new Date(dueDate.getTime() + 24 * 60 * 60 * 1000);
+  }
+  const due = dueDate.toISOString();
+  const expiry = expiryDate.toISOString();
 
   const payload = await curfexFetch<{
     refNo: string;
@@ -357,10 +374,10 @@ export async function createCurfexCollection(
         requestExpiryDateTime: expiry,
         walletName: config.walletName || undefined,
         merchantReference: input.merchantReference,
-        customerType: input.customerType || 'INDIVIDUAL',
+        customerType,
         customerName: input.customerName,
         customerEmail: input.customerEmail,
-        customerPreferredLanguage: 'JP',
+        customerPreferredLanguage: 'ja',
       },
     },
     token,

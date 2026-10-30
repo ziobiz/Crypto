@@ -32,6 +32,8 @@ export const HQ_PAGE_PATH_KEYS: Record<string, MessageKey> = {
   '/dashboard/hq-policy/platform': 'hq.page.platform',
   '/dashboard/hq-policy/ops': 'hq.page.ops',
   '/dashboard/hq-policy/ops/workflow': 'hq.page.workflow',
+  '/dashboard/hq-policy/ops/curfex': 'hq.page.curfexIssuance',
+  '/dashboard/hq-policy/ops/payment': 'hq.ops.paymentManagement',
   '/dashboard/kyc': 'nav.kyc',
   '/dashboard/hq-policy/deletion': 'hq.page.deletion',
   '/dashboard/hq-policy/cost-analysis': 'nav.costAnalysis',

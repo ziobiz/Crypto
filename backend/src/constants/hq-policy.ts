@@ -53,6 +53,7 @@ export const HQ_PAGE_CATALOG = [
   { path: '/dashboard/hq-policy/services', label: '서비스관리', group: 'hqPolicy' },
   { path: '/dashboard/hq-policy/platform', label: '플랫폼', group: 'hqPolicy' },
   { path: '/dashboard/hq-policy/ops', label: '운영관리', group: 'hqPolicy' },
+  { path: '/dashboard/hq-policy/ops/curfex', label: 'CURFEX 발급관리', group: 'hqPolicy' },
   { path: '/dashboard/hq-policy/ops/workflow', label: '진행상태·처리시한', group: 'hqPolicy' },
   { path: '/dashboard/hq-policy/deletion', label: '삭제관리', group: 'hqPolicy' },
   { path: '/dashboard/simulator', label: '시뮬레이터', group: 'hqPolicy' },

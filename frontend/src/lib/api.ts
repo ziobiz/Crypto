@@ -2814,6 +2814,79 @@ export const hqPolicyApi = {
       walletCurrency?: string;
       message: string;
     }>('/api/hq-policy/payment/curfex/test-connection', { method: 'POST' }),
+  getCurfexAdminOverview: () =>
+    request<{
+      config: {
+        enabled: boolean;
+        apiBaseUrl?: string;
+        walletName?: string;
+        currencies?: string[];
+        localMock: boolean;
+        nonLive: boolean;
+        hasCredentials: boolean;
+        hasWebhookSecret: boolean;
+        autoApproveOnDeposit: boolean;
+        defaultCollectionModeCorporate?: string;
+        defaultCollectionModeIndividual?: string;
+      };
+      webhookUrl: string;
+      wallet: {
+        walletName: string;
+        statusCode: string;
+        currency: string;
+        paymentsCollected: number | null;
+        paymentsPending: number | null;
+        fundsAvailableForSettlement: number | null;
+        settlementInterval: string | null;
+        localMock: boolean;
+      } | null;
+      walletError: string | null;
+    }>('/api/hq-policy/payment/curfex/admin-overview'),
+  listCurfexIssuances: (query?: { q?: string; status?: string; take?: number }) => {
+    const params = new URLSearchParams();
+    if (query?.q) params.set('q', query.q);
+    if (query?.status) params.set('status', query.status);
+    if (query?.take != null) params.set('take', String(query.take));
+    const qs = params.toString();
+    return request<{
+      items: Array<{
+        ticketId: string;
+        ticketNo: string;
+        ticketStatus: string;
+        purchaseStatus: string;
+        tradeLane: string;
+        fiatCurrency: string;
+        fiatAmount: number | null;
+        confirmedFiatAmount: number | null;
+        curfexRefNo: string | null;
+        curfexStatusCode: string | null;
+        curfexDepositDetectedAt: string | null;
+        collectionAccount: {
+          bankName: string;
+          branchCode?: string;
+          branchName?: string;
+          accountType?: string;
+          accountNo: string;
+          accountName: string;
+        } | null;
+        customerName: string | null;
+        customerEmail: string | null;
+        customerType: string | null;
+        createdAt: string;
+        depositDeadlineAt: string | null;
+      }>;
+      total: number;
+    }>(`/api/hq-policy/payment/curfex/issuances${qs ? `?${qs}` : ''}`);
+  },
+  refreshCurfexIssuance: (ticketId: string) =>
+    request<{
+      synced: boolean;
+      applied: boolean;
+      statusCode?: string;
+      localMock?: boolean;
+    }>(`/api/hq-policy/payment/curfex/issuances/${encodeURIComponent(ticketId)}/refresh`, {
+      method: 'POST',
+    }),
   getDeletion: () => request<HqDeletionPayload>('/api/hq-policy/deletion'),
   getWorkflowDisplay: () => request<HqWorkflowDisplayConfig>('/api/hq-policy/workflow-display'),
   saveWorkflowDisplay: (config: HqWorkflowDisplayConfig) =>
