@@ -2825,6 +2825,7 @@ export const hqPolicyApi = {
         nonLive: boolean;
         hasCredentials: boolean;
         hasWebhookSecret: boolean;
+        webhookPublicBaseUrl?: string;
         autoApproveOnDeposit: boolean;
         defaultCollectionModeCorporate?: string;
         defaultCollectionModeIndividual?: string;
@@ -3898,6 +3899,8 @@ export interface HqCurfexConfig {
   currencies?: Array<'JPY' | 'KRW' | 'THB' | 'CNY'>;
   sandbox?: boolean;
   webhookSecret?: string;
+  /** Public webhook base for CURFEX registration (e.g. https://hooks.dealmai.com) */
+  webhookPublicBaseUrl?: string;
   autoApproveOnDeposit?: boolean;
   /** @deprecated use defaultCollectionModeCorporate */
   defaultCollectionMode?: 'FIXED' | 'VIRTUAL' | 'DIRECT';

@@ -26,7 +26,7 @@ import {
   getCurfexConfigMasked,
   saveCurfexConfig,
   generateCurfexWebhookSecret,
-  publicCurfexWebhookUrl,
+  resolvePublicCurfexWebhookUrl,
 } from '../services/curfex.service';
 
 const router = Router();
@@ -658,7 +658,7 @@ router.get(
   asyncHandler(async (_req, res) => {
     res.json({
       config: await getCurfexConfigMasked(),
-      webhookUrl: publicCurfexWebhookUrl(),
+      webhookUrl: await resolvePublicCurfexWebhookUrl(),
     });
   }),
 );
@@ -673,7 +673,7 @@ router.put(
     }
     const audit = auditFromRequest(req.user!, req);
     const result = await hqPolicyService.saveCurfex(audit, body.config);
-    res.json({ ...result, webhookUrl: publicCurfexWebhookUrl() });
+    res.json({ ...result, webhookUrl: await resolvePublicCurfexWebhookUrl() });
   }),
 );
 
@@ -700,7 +700,7 @@ router.post(
     const full = await getCurfexConfig();
     res.json({
       config: after,
-      webhookUrl: publicCurfexWebhookUrl(),
+      webhookUrl: await resolvePublicCurfexWebhookUrl(),
       webhookSecretOnce: full.webhookSecret,
     });
   }),

@@ -48,6 +48,11 @@ export function normalizeCurfexConfig(raw: Partial<HqCurfexConfig>): HqCurfexCon
     currencies: currencies?.length ? currencies : ['JPY'],
     sandbox: raw.sandbox !== false,
     webhookSecret: String(raw.webhookSecret ?? '').trim(),
+    webhookPublicBaseUrl: String(
+      raw.webhookPublicBaseUrl ?? base.webhookPublicBaseUrl ?? '',
+    )
+      .trim()
+      .replace(/\/$/, ''),
     autoApproveOnDeposit: raw.autoApproveOnDeposit !== false,
     defaultCollectionMode,
     defaultCollectionModeCorporate,
@@ -576,13 +581,24 @@ export function verifyCurfexWebhookHmac(
   }
 }
 
-export function publicCurfexWebhookUrl(): string {
-  const base = (
+function defaultWebhookPublicBase(): string {
+  return (
     process.env.PUBLIC_API_URL ||
     process.env.API_PUBLIC_URL ||
     'https://api.tinpass.com'
   ).replace(/\/$/, '');
+}
+
+/** 환경변수 기준(동기). 가능하면 resolvePublicCurfexWebhookUrl 사용 */
+export function publicCurfexWebhookUrl(baseOverride?: string | null): string {
+  const base = String(baseOverride || '').trim().replace(/\/$/, '') || defaultWebhookPublicBase();
   return `${base}/api/webhooks/curfex`;
+}
+
+/** HQ 설정 webhookPublicBaseUrl 반영 (Dealmai hooks 도메인 등) */
+export async function resolvePublicCurfexWebhookUrl(): Promise<string> {
+  const config = await getCurfexConfig();
+  return publicCurfexWebhookUrl(config.webhookPublicBaseUrl || null);
 }
 
 /** HQ 연결 점검: 토큰 발급 + (있으면) wallet/get */

@@ -3,6 +3,50 @@ import type { PlatformReleaseNote } from './version';
 /** 본사정책 → 검증관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
 export const PLATFORM_RELEASE_NOTES: PlatformReleaseNote[] = [
   {
+    version: '2.6.265',
+    kind: 'minor',
+    date: '2026-11-13',
+    items: {
+      KR: [
+        'hooks.dealmai.com HTTPS 연결 완료. 본사 결제관리에 CURFEX 웹훅 도메인·등록 URL·복사·발급관리 링크 강화. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'hooks.dealmai.com HTTPS live. HQ Payment strengthens CURFEX webhook domain, register URL, copy, and issuances link. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        'hooks.dealmai.com HTTPS接続完了。本社決済管理でCURFEX Webhookドメイン・登録URL・コピー・発行管理リンクを強化。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        'hooks.dealmai.com HTTPS 已接通。总部支付管理强化 CURFEX Webhook 域名、注册 URL、复制与开户管理入口。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'hooks.dealmai.com HTTPS พร้อมใช้ เสริมโดเมน Webhook CURFEX, URL ลงทะเบียน, คัดลอก และลิงก์จัดการออกบัญชีใน Payment KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.264',
+    kind: 'minor',
+    date: '2026-11-13',
+    items: {
+      KR: [
+        'CURFEX 웹훅 공개 도메인을 Dealmai(hooks.dealmai.com)로 설정·표시. 결제관리에 등록용 URL 안내 추가. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'CURFEX webhook public domain is configurable as Dealmai (hooks.dealmai.com), with registration URL guidance in Payment. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        'CURFEX Webhook公開ドメインをDealmai(hooks.dealmai.com)で設定・表示。決済管理に登録用URL案内を追加。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        'CURFEX Webhook 公开域名可设为 Dealmai（hooks.dealmai.com），支付管理增加注册用 URL 说明。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'ตั้งโดเมนสาธารณะ Webhook CURFEX เป็น Dealmai (hooks.dealmai.com) และเพิ่มคำแนะนำ URL ใน Payment KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
     version: '2.6.263',
     kind: 'minor',
     date: '2026-10-30',

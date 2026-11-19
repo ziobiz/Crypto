@@ -7,7 +7,7 @@ import {
   getCurfexPaymentDetail,
   isCurfexLocalMock,
   isCurfexNonLiveEnvironment,
-  publicCurfexWebhookUrl,
+  resolvePublicCurfexWebhookUrl,
 } from './curfex.service';
 import { syncCurfexDepositForTicket } from './curfex-webhook.service';
 
@@ -145,11 +145,12 @@ export async function getCurfexAdminOverview() {
       nonLive: isCurfexNonLiveEnvironment(config),
       hasCredentials: Boolean(config.clientId && config.clientSecret),
       hasWebhookSecret: Boolean(config.webhookSecret),
+      webhookPublicBaseUrl: config.webhookPublicBaseUrl || '',
       autoApproveOnDeposit: config.autoApproveOnDeposit !== false,
       defaultCollectionModeCorporate: config.defaultCollectionModeCorporate,
       defaultCollectionModeIndividual: config.defaultCollectionModeIndividual,
     },
-    webhookUrl: publicCurfexWebhookUrl(),
+    webhookUrl: await resolvePublicCurfexWebhookUrl(),
     wallet,
     walletError,
   };

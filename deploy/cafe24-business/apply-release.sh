@@ -103,6 +103,25 @@ if [ -f deploy/cafe24-business/setup-ssl-tinpass.sh ]; then
   fi
 fi
 
+# CURFEX webhook hostname (Dealmai) — keep after tinpass SSL so conf is not dropped
+if [ -f deploy/cafe24-business/setup-ssl-hooks-dealmai.sh ]; then
+  echo "==> Nginx / SSL (hooks.dealmai.com)"
+  if [ "$(id -u)" -eq 0 ]; then
+    bash deploy/cafe24-business/setup-ssl-hooks-dealmai.sh || {
+      echo "WARN: hooks.dealmai.com SSL failed — run manually:"
+      echo "  sudo bash deploy/cafe24-business/setup-ssl-hooks-dealmai.sh"
+    }
+  elif command -v sudo >/dev/null 2>&1; then
+    sudo bash deploy/cafe24-business/setup-ssl-hooks-dealmai.sh || {
+      echo "WARN: hooks.dealmai.com SSL failed — run manually:"
+      echo "  sudo bash deploy/cafe24-business/setup-ssl-hooks-dealmai.sh"
+    }
+  else
+    echo "WARN: run hooks SSL as root:"
+    echo "  sudo bash deploy/cafe24-business/setup-ssl-hooks-dealmai.sh"
+  fi
+fi
+
 STAMP=$(date +%Y%m%d-%H%M%S)
 BACKUP="$ROOT/incoming/crypto-release.applied-${STAMP}.zip"
 mv "$ZIP" "$BACKUP"

@@ -2092,6 +2092,11 @@ export type HqCurfexConfig = {
   /** 웹훅 HMAC 검증용 공유 비밀 (Partner/Merchant 생성) */
   webhookSecret?: string;
   /**
+   * CURFEX에 등록할 공개 웹훅 Base URL (예: https://hooks.dealmai.com).
+   * 비우면 PUBLIC_API_URL / api.tinpass.com 사용.
+   */
+  webhookPublicBaseUrl?: string;
+  /**
    * 입금 감지 시 CURFEX /api/payment/decision APPROVE 자동 호출.
    * 금액이 신청액과 일치할 때만 수행 (기본 true).
    */
@@ -2120,6 +2125,7 @@ export const DEFAULT_CURFEX_CONFIG = (): HqCurfexConfig => ({
   currencies: ['JPY'],
   sandbox: true,
   webhookSecret: '',
+  webhookPublicBaseUrl: 'https://hooks.dealmai.com',
   autoApproveOnDeposit: true,
   defaultCollectionMode: 'FIXED',
   defaultCollectionModeCorporate: 'FIXED',

@@ -143,6 +143,16 @@ export default function HqCurfexIssuanceAdminPage() {
                 individual: cfg?.defaultCollectionModeIndividual || 'DIRECT',
               })}
             </p>
+            <div className="mt-2 rounded border border-amber-200 bg-amber-50/70 px-2 py-1.5 text-[11px] text-amber-950 space-y-1">
+              <p className="font-semibold">{t('hq.curfex.webhookSettingsTitle')}</p>
+              <p>{t('hq.curfex.webhookRegisterTitle')}</p>
+              <p>{t('hq.curfex.webhookRegisterDesc')}</p>
+              <p className="font-mono break-all">{overview?.webhookUrl}</p>
+              <p className="text-slate-600">
+                {t('hq.curfex.webhookPublicBaseUrl')}:{' '}
+                <span className="font-mono">{cfg?.webhookPublicBaseUrl || '—'}</span>
+              </p>
+            </div>
           </div>
         </div>
 

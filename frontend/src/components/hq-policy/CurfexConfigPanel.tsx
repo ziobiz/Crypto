@@ -18,12 +18,18 @@ const EMPTY: HqCurfexConfig = {
   currencies: ['JPY'],
   sandbox: true,
   webhookSecret: '',
+  webhookPublicBaseUrl: 'https://hooks.dealmai.com',
   autoApproveOnDeposit: true,
   defaultCollectionMode: 'FIXED',
   defaultCollectionModeCorporate: 'FIXED',
   defaultCollectionModeIndividual: 'DIRECT',
   directRemitCurrencies: ['USD', 'EUR'],
 };
+
+function buildWebhookUrl(base?: string) {
+  const b = String(base || 'https://hooks.dealmai.com').trim().replace(/\/$/, '');
+  return `${b}/api/webhooks/curfex`;
+}
 
 export function CurfexConfigPanel() {
   const t = useT();
@@ -40,7 +46,7 @@ export function CurfexConfigPanel() {
         const merged = { ...EMPTY, ...r.config };
         if (!merged.currencies?.length) merged.currencies = ['JPY'];
         setConfig(merged);
-        if (r.webhookUrl) setWebhookUrl(r.webhookUrl);
+        setWebhookUrl(r.webhookUrl || buildWebhookUrl(merged.webhookPublicBaseUrl));
       })
       .catch(console.error);
   }, []);
@@ -89,6 +95,15 @@ export function CurfexConfigPanel() {
       setMsg(e instanceof Error ? e.message : t('hq.saveFailed'));
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function copyWebhookUrl() {
+    try {
+      await navigator.clipboard.writeText(webhookUrl);
+      setMsg(t('hq.curfex.webhookUrlCopied'));
+    } catch {
+      setMsg(t('hq.curfex.webhookUrlCopyFail'));
     }
   }
 
@@ -221,7 +236,16 @@ export function CurfexConfigPanel() {
         </button>
 
         <div className="rounded border border-emerald-200 bg-emerald-50/60 px-3 py-2 space-y-2">
-          <p className="text-xs font-semibold text-emerald-900">{t('hq.curfex.autoDetectTitle')}</p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-semibold text-emerald-900">{t('hq.curfex.webhookSettingsTitle')}</p>
+            <Link
+              href="/dashboard/hq-policy/ops/curfex"
+              className="text-[11px] font-medium text-emerald-800 underline"
+            >
+              {t('hq.curfex.openIssuanceAdmin')}
+            </Link>
+          </div>
+          <p className="text-[11px] text-emerald-800">{t('hq.curfex.autoDetectTitle')}</p>
           <p className="text-[11px] text-emerald-800">{t('hq.curfex.autoDetectDesc')}</p>
           <label className="flex items-center gap-2 text-sm">
             <input
@@ -231,11 +255,35 @@ export function CurfexConfigPanel() {
             />
             {t('hq.curfex.autoApprove')}
           </label>
+          <label className="block max-w-xl">
+            <span className="pg-label">{t('hq.curfex.webhookPublicBaseUrl')}</span>
+            <input
+              className="pg-input mt-1 w-full font-mono text-[11px]"
+              value={config.webhookPublicBaseUrl ?? ''}
+              onChange={(e) => {
+                const nextBase = e.target.value;
+                setConfig({ ...config, webhookPublicBaseUrl: nextBase });
+                setWebhookUrl(buildWebhookUrl(nextBase));
+              }}
+              placeholder="https://hooks.dealmai.com"
+            />
+          </label>
+          <p className="text-[11px] text-gray-600">{t('hq.curfex.webhookPublicBaseUrlHint')}</p>
           <label className="block">
             <span className="pg-label">{t('hq.curfex.webhookUrl')}</span>
-            <input className="pg-input mt-1 w-full font-mono text-[11px]" readOnly value={webhookUrl} />
+            <div className="mt-1 flex flex-wrap gap-2">
+              <input className="pg-input min-w-0 flex-1 font-mono text-[11px]" readOnly value={webhookUrl} />
+              <button type="button" onClick={copyWebhookUrl} className="pg-btn pg-btn-secondary text-xs shrink-0">
+                {t('hq.curfex.copyWebhookUrl')}
+              </button>
+            </div>
           </label>
           <p className="text-[11px] text-gray-600">{t('hq.curfex.webhookUrlHint')}</p>
+          <div className="rounded border border-amber-200 bg-amber-50/70 px-2 py-1.5 text-[11px] text-amber-950 space-y-1">
+            <p className="font-semibold">{t('hq.curfex.webhookRegisterTitle')}</p>
+            <p>{t('hq.curfex.webhookRegisterDesc')}</p>
+            <p className="font-mono break-all">{webhookUrl}</p>
+          </div>
           <label className="block max-w-md">
             <span className="pg-label">{t('hq.curfex.webhookSecret')}</span>
             <input
