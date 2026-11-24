@@ -3,24 +3,73 @@ import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
 import {
   DEFAULT_CURFEX_CONFIG,
+  DEFAULT_CURFEX_LIVE_PROFILE,
+  DEFAULT_CURFEX_SANDBOX_PROFILE,
   HQ_CONFIG_KEYS,
   normalizeDirectRemitCurrencies,
   normalizeHqCollectionMode,
   type CurfexCollectionAccount,
+  type CurfexEnvCredentials,
+  type CurfexEnvironment,
   type HqCurfexConfig,
   type HqDefaultCollectionMode,
 } from '../constants/hq-policy';
 
 const DEFAULT_API = 'https://fcol-dashboard-uat1.curfex.com';
+const DEFAULT_LIVE_API = 'https://api-collection.fukugu.co.jp';
+/** CURFEX↔Dealmai 계약: 웹훅 공개 도메인은 항상 Dealmai (TINPASS 도메인 사용 금지) */
+const DEALMAI_CURFEX_WEBHOOK_BASE = 'https://hooks.dealmai.com';
 
-type TokenCache = { accessToken: string; expiresAt: number };
+function normalizeCurfexWebhookBase(raw?: string | null): string {
+  const base = String(raw || '').trim().replace(/\/$/, '');
+  if (!base) return DEALMAI_CURFEX_WEBHOOK_BASE;
+  if (/tinpass\.com|localhost|127\.0\.0\.1/i.test(base)) {
+    return DEALMAI_CURFEX_WEBHOOK_BASE;
+  }
+  return base;
+}
 
-let tokenCache: TokenCache | null = null;
+type TokenCache = { accessToken: string; expiresAt: number; key: string };
+
+const tokenCacheByKey = new Map<string, TokenCache>();
 
 async function getConfigRow<T>(key: string, fallback: T): Promise<T> {
   const row = await prisma.systemConfig.findUnique({ where: { key } });
   if (!row?.value) return fallback;
   return { ...fallback, ...(row.value as object) } as T;
+}
+
+/** host 또는 …/api 모두 허용 → 경로 `/api/...` 와 합칠 때 중복 제거 */
+export function normalizeCurfexApiBase(raw?: string | null, fallback = DEFAULT_API): string {
+  let base = String(raw || '').trim().replace(/\/+$/, '');
+  if (!base) base = fallback;
+  if (/\/api$/i.test(base)) base = base.replace(/\/api$/i, '');
+  return base.replace(/\/+$/, '') || fallback;
+}
+
+function normalizeEnvCredentials(
+  raw: Partial<CurfexEnvCredentials> | undefined,
+  fallback: CurfexEnvCredentials,
+  opts?: { allowLocalMock?: boolean },
+): CurfexEnvCredentials {
+  return {
+    clientId: String(raw?.clientId ?? fallback.clientId ?? '').trim(),
+    clientSecret: String(raw?.clientSecret ?? fallback.clientSecret ?? '').trim(),
+    apiBaseUrl: normalizeCurfexApiBase(
+      raw?.apiBaseUrl ?? fallback.apiBaseUrl,
+      fallback.apiBaseUrl || DEFAULT_API,
+    ),
+    walletName: String(raw?.walletName ?? fallback.walletName ?? '').trim(),
+    localMock: opts?.allowLocalMock === true ? raw?.localMock === true : false,
+  };
+}
+
+function pickActiveProfile(
+  active: CurfexEnvironment,
+  sandboxProfile: CurfexEnvCredentials,
+  liveProfile: CurfexEnvCredentials,
+): CurfexEnvCredentials {
+  return active === 'live' ? liveProfile : sandboxProfile;
 }
 
 export function normalizeCurfexConfig(raw: Partial<HqCurfexConfig>): HqCurfexConfig {
@@ -39,20 +88,55 @@ export function normalizeCurfexConfig(raw: Partial<HqCurfexConfig>): HqCurfexCon
   );
   /** 하위호환: legacy 단일 필드는 기업 기본과 동기화 */
   const defaultCollectionMode = defaultCollectionModeCorporate;
-  return {
-    enabled: raw.enabled === true,
+
+  const hasSandboxProfile = Boolean(raw.sandboxProfile && typeof raw.sandboxProfile === 'object');
+  const hasLiveProfile = Boolean(raw.liveProfile && typeof raw.liveProfile === 'object');
+
+  /** 레거시 flat → sandbox 프로필로 이전 (프로필 없을 때) */
+  const legacyAsSandbox: CurfexEnvCredentials = {
     clientId: String(raw.clientId ?? '').trim(),
     clientSecret: String(raw.clientSecret ?? '').trim(),
-    apiBaseUrl: String(raw.apiBaseUrl ?? base.apiBaseUrl ?? DEFAULT_API).trim() || DEFAULT_API,
+    apiBaseUrl: normalizeCurfexApiBase(raw.apiBaseUrl, DEFAULT_API),
     walletName: String(raw.walletName ?? '').trim(),
+    localMock: raw.sandbox === true,
+  };
+
+  const sandboxProfile = normalizeEnvCredentials(
+    hasSandboxProfile ? raw.sandboxProfile : legacyAsSandbox,
+    DEFAULT_CURFEX_SANDBOX_PROFILE(),
+    { allowLocalMock: true },
+  );
+  const liveProfile = normalizeEnvCredentials(
+    hasLiveProfile ? raw.liveProfile : undefined,
+    DEFAULT_CURFEX_LIVE_PROFILE(),
+    { allowLocalMock: false },
+  );
+
+  const activeEnvironment: CurfexEnvironment =
+    raw.activeEnvironment === 'live' || raw.activeEnvironment === 'sandbox'
+      ? raw.activeEnvironment
+      : /fukugu\.co\.jp|api-collection/i.test(String(raw.apiBaseUrl || ''))
+        ? 'live'
+        : 'sandbox';
+
+  const active = pickActiveProfile(activeEnvironment, sandboxProfile, liveProfile);
+  const sandboxMirror = activeEnvironment === 'sandbox' && active.localMock === true;
+
+  return {
+    enabled: raw.enabled === true,
+    clientId: active.clientId,
+    clientSecret: active.clientSecret,
+    apiBaseUrl: active.apiBaseUrl,
+    walletName: active.walletName,
     currencies: currencies?.length ? currencies : ['JPY'],
-    sandbox: raw.sandbox !== false,
+    sandbox: sandboxMirror,
+    activeEnvironment,
+    sandboxProfile,
+    liveProfile,
     webhookSecret: String(raw.webhookSecret ?? '').trim(),
-    webhookPublicBaseUrl: String(
-      raw.webhookPublicBaseUrl ?? base.webhookPublicBaseUrl ?? '',
-    )
-      .trim()
-      .replace(/\/$/, ''),
+    webhookPublicBaseUrl: normalizeCurfexWebhookBase(
+      raw.webhookPublicBaseUrl ?? base.webhookPublicBaseUrl ?? DEALMAI_CURFEX_WEBHOOK_BASE,
+    ),
     autoApproveOnDeposit: raw.autoApproveOnDeposit !== false,
     defaultCollectionMode,
     defaultCollectionModeCorporate,
@@ -74,11 +158,21 @@ export function hqDefaultCollectionModeForCustomer(
   );
 }
 
+function maskCredSecret(profile?: CurfexEnvCredentials): CurfexEnvCredentials | undefined {
+  if (!profile) return profile;
+  return {
+    ...profile,
+    clientSecret: profile.clientSecret ? '********' : '',
+  };
+}
+
 export function maskCurfexSecret(config: HqCurfexConfig): HqCurfexConfig {
   return {
     ...config,
     clientSecret: config.clientSecret ? '********' : '',
     webhookSecret: config.webhookSecret ? '********' : '',
+    sandboxProfile: maskCredSecret(config.sandboxProfile),
+    liveProfile: maskCredSecret(config.liveProfile),
   };
 }
 
@@ -92,24 +186,69 @@ export async function getCurfexConfigMasked(): Promise<HqCurfexConfig> {
   return maskCurfexSecret(await getCurfexConfig());
 }
 
+function resolveSecret(incoming: string | undefined, existing: string | undefined): string {
+  if (incoming && incoming !== '********') return incoming;
+  return existing || '';
+}
+
 export async function saveCurfexConfig(
   incoming: Partial<HqCurfexConfig>,
   existingSecret?: string,
   existingWebhookSecret?: string,
 ): Promise<HqCurfexConfig> {
   const current = await getCurfexConfig();
-  const clientSecret =
-    incoming.clientSecret && incoming.clientSecret !== '********'
-      ? incoming.clientSecret
-      : existingSecret ?? current.clientSecret;
-  const webhookSecret =
-    incoming.webhookSecret && incoming.webhookSecret !== '********'
-      ? incoming.webhookSecret
-      : existingWebhookSecret ?? current.webhookSecret;
+
+  const sandboxProfile: CurfexEnvCredentials = {
+    ...(current.sandboxProfile || DEFAULT_CURFEX_SANDBOX_PROFILE()),
+    ...(incoming.sandboxProfile || {}),
+    clientSecret: resolveSecret(
+      incoming.sandboxProfile?.clientSecret ??
+        (incoming.activeEnvironment !== 'live' ? incoming.clientSecret : undefined),
+      current.sandboxProfile?.clientSecret ||
+        (current.activeEnvironment !== 'live' ? current.clientSecret : '') ||
+        existingSecret,
+    ),
+  };
+  if (incoming.sandboxProfile == null && incoming.activeEnvironment !== 'live') {
+    if (incoming.clientId != null) sandboxProfile.clientId = String(incoming.clientId).trim();
+    if (incoming.apiBaseUrl != null) {
+      sandboxProfile.apiBaseUrl = normalizeCurfexApiBase(incoming.apiBaseUrl, DEFAULT_API);
+    }
+    if (incoming.walletName != null) sandboxProfile.walletName = String(incoming.walletName).trim();
+    if (incoming.sandbox != null) sandboxProfile.localMock = incoming.sandbox === true;
+  } else if (incoming.sandboxProfile) {
+    sandboxProfile.localMock = incoming.sandboxProfile.localMock === true;
+  }
+
+  const liveProfile: CurfexEnvCredentials = {
+    ...(current.liveProfile || DEFAULT_CURFEX_LIVE_PROFILE()),
+    ...(incoming.liveProfile || {}),
+    clientSecret: resolveSecret(
+      incoming.liveProfile?.clientSecret ??
+        (incoming.activeEnvironment === 'live' ? incoming.clientSecret : undefined),
+      current.liveProfile?.clientSecret ||
+        (current.activeEnvironment === 'live' ? current.clientSecret : ''),
+    ),
+    localMock: false,
+  };
+  if (incoming.liveProfile == null && incoming.activeEnvironment === 'live') {
+    if (incoming.clientId != null) liveProfile.clientId = String(incoming.clientId).trim();
+    if (incoming.apiBaseUrl != null) {
+      liveProfile.apiBaseUrl = normalizeCurfexApiBase(incoming.apiBaseUrl, DEFAULT_LIVE_API);
+    }
+    if (incoming.walletName != null) liveProfile.walletName = String(incoming.walletName).trim();
+  }
+
+  const webhookSecret = resolveSecret(
+    incoming.webhookSecret,
+    existingWebhookSecret ?? current.webhookSecret,
+  );
+
   const normalized = normalizeCurfexConfig({
     ...current,
     ...incoming,
-    clientSecret,
+    sandboxProfile,
+    liveProfile,
     webhookSecret,
   });
   await prisma.systemConfig.upsert({
@@ -121,7 +260,7 @@ export async function saveCurfexConfig(
     },
     update: { value: normalized as object },
   });
-  tokenCache = null;
+  tokenCacheByKey.clear();
   return maskCurfexSecret(normalized);
 }
 
@@ -144,6 +283,8 @@ export function isCurfexCurrencyEnabled(config: HqCurfexConfig, currency: string
 
 /** 로컬 목 계좌만 발급 — 실 UAT/PROD API 미호출 */
 export function isCurfexLocalMock(config: HqCurfexConfig): boolean {
+  if (config.activeEnvironment === 'live') return false;
+  if (config.sandboxProfile?.localMock === true) return true;
   return (
     config.sandbox === true || String(config.clientSecret || '').toUpperCase() === 'SANDBOX'
   );
@@ -151,9 +292,10 @@ export function isCurfexLocalMock(config: HqCurfexConfig): boolean {
 
 /** UAT·테스트·로컬 목 — 실거래(LIVE)로 취급하지 않음 */
 export function isCurfexNonLiveEnvironment(config: HqCurfexConfig): boolean {
+  if (config.activeEnvironment === 'live') return false;
   if (isCurfexLocalMock(config)) return true;
   const base = String(config.apiBaseUrl || '').toLowerCase();
-  return /uat|sandbox|\.test\.|\/test\b|-test\b/.test(base);
+  return /uat|sandbox|\.test\.|\/test\b|-test\b|curfex\.com/.test(base);
 }
 
 export type UsdtCollectionModeSetting = 'FOLLOW_HQ' | 'FIXED' | 'VIRTUAL' | 'DIRECT';
@@ -217,7 +359,14 @@ export type CurfexPaymentRequestResult = {
 };
 
 function baseUrl(config: HqCurfexConfig): string {
-  return (config.apiBaseUrl || DEFAULT_API).replace(/\/$/, '');
+  return normalizeCurfexApiBase(
+    config.apiBaseUrl,
+    config.activeEnvironment === 'live' ? DEFAULT_LIVE_API : DEFAULT_API,
+  );
+}
+
+function tokenCacheKey(config: HqCurfexConfig): string {
+  return `${baseUrl(config)}|${config.clientId}`;
 }
 
 async function curfexFetch<T>(
@@ -257,8 +406,10 @@ async function curfexFetch<T>(
 }
 
 async function requestAccessToken(config: HqCurfexConfig): Promise<string> {
-  if (tokenCache && tokenCache.expiresAt > Date.now() + 60_000) {
-    return tokenCache.accessToken;
+  const key = tokenCacheKey(config);
+  const cached = tokenCacheByKey.get(key);
+  if (cached && cached.expiresAt > Date.now() + 60_000) {
+    return cached.accessToken;
   }
   if (!config.clientId || !config.clientSecret) {
     throw new AppError(503, 'CURFEX credentials are not configured', 'CURFEX_NOT_CONFIGURED');
@@ -274,10 +425,11 @@ async function requestAccessToken(config: HqCurfexConfig): Promise<string> {
     },
   });
   const expiresIn = Number(payload.expiresIn ?? 3600);
-  tokenCache = {
+  tokenCacheByKey.set(key, {
+    key,
     accessToken: payload.accessToken,
     expiresAt: Date.now() + Math.max(60, expiresIn - 30) * 1000,
-  };
+  });
   return payload.accessToken;
 }
 
@@ -347,7 +499,15 @@ export async function createCurfexCollection(
   const dueMs = input.paymentDueDateTime
     ? Date.parse(input.paymentDueDateTime)
     : Date.now() + 2 * 60 * 60 * 1000;
-  const dueDate = Number.isFinite(dueMs) ? new Date(dueMs) : new Date(Date.now() + 2 * 60 * 60 * 1000);
+  let dueDate = Number.isFinite(dueMs) ? new Date(dueMs) : new Date(Date.now() + 2 * 60 * 60 * 1000);
+  /**
+   * Live Fukugu rejects near-term due (invalid.value paymentDueDateTime).
+   * Keep at least ~24h ahead and send UTC ISO without milliseconds.
+   */
+  const minDueMs = Date.now() + 24 * 60 * 60 * 1000;
+  if (dueDate.getTime() < minDueMs) {
+    dueDate = new Date(minDueMs);
+  }
   const expiryMs = input.requestExpiryDateTime
     ? Date.parse(input.requestExpiryDateTime)
     : NaN;
@@ -356,8 +516,10 @@ export async function createCurfexCollection(
   if (expiryDate.getTime() <= dueDate.getTime()) {
     expiryDate = new Date(dueDate.getTime() + 24 * 60 * 60 * 1000);
   }
-  const due = dueDate.toISOString();
-  const expiry = expiryDate.toISOString();
+  const due = dueDate.toISOString().replace(/\.\d{3}Z$/, 'Z');
+  const expiry = expiryDate.toISOString().replace(/\.\d{3}Z$/, 'Z');
+  /** Live API: merchantReference max length 40 */
+  const merchantReference = String(input.merchantReference || '').trim().slice(0, 40);
 
   const payload = await curfexFetch<{
     refNo: string;
@@ -372,13 +534,13 @@ export async function createCurfexCollection(
     '/api/payment/request',
     {
       payload: {
-        description: input.description || `USDT purchase ${input.merchantReference}`,
+        description: input.description || `USDT purchase ${merchantReference}`,
         sendAmount: input.sendAmount,
         currency: input.currency,
         paymentDueDateTime: due,
         requestExpiryDateTime: expiry,
         walletName: config.walletName || undefined,
-        merchantReference: input.merchantReference,
+        merchantReference,
         customerType,
         customerName: input.customerName,
         customerEmail: input.customerEmail,
@@ -581,21 +743,13 @@ export function verifyCurfexWebhookHmac(
   }
 }
 
-function defaultWebhookPublicBase(): string {
-  return (
-    process.env.PUBLIC_API_URL ||
-    process.env.API_PUBLIC_URL ||
-    'https://api.tinpass.com'
-  ).replace(/\/$/, '');
-}
-
 /** 환경변수 기준(동기). 가능하면 resolvePublicCurfexWebhookUrl 사용 */
 export function publicCurfexWebhookUrl(baseOverride?: string | null): string {
-  const base = String(baseOverride || '').trim().replace(/\/$/, '') || defaultWebhookPublicBase();
+  const base = normalizeCurfexWebhookBase(baseOverride);
   return `${base}/api/webhooks/curfex`;
 }
 
-/** HQ 설정 webhookPublicBaseUrl 반영 (Dealmai hooks 도메인 등) */
+/** HQ 설정 webhookPublicBaseUrl 반영 — CURFEX에는 Dealmai hooks만 노출 */
 export async function resolvePublicCurfexWebhookUrl(): Promise<string> {
   const config = await getCurfexConfig();
   return publicCurfexWebhookUrl(config.webhookPublicBaseUrl || null);

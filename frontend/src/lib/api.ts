@@ -2818,12 +2818,15 @@ export const hqPolicyApi = {
     request<{
       config: {
         enabled: boolean;
+        activeEnvironment?: 'sandbox' | 'live';
         apiBaseUrl?: string;
         walletName?: string;
         currencies?: string[];
         localMock: boolean;
         nonLive: boolean;
         hasCredentials: boolean;
+        hasSandboxCredentials?: boolean;
+        hasLiveCredentials?: boolean;
         hasWebhookSecret: boolean;
         webhookPublicBaseUrl?: string;
         autoApproveOnDeposit: boolean;
@@ -3889,6 +3892,17 @@ export interface HqIcopayConfig {
   channel?: 'IN' | 'RE';
 }
 
+export type CurfexEnvironment = 'sandbox' | 'live';
+
+export interface CurfexEnvCredentials {
+  clientId: string;
+  clientSecret: string;
+  apiBaseUrl: string;
+  walletName: string;
+  /** sandbox only: local mock without API */
+  localMock?: boolean;
+}
+
 export interface HqCurfexConfig {
   enabled: boolean;
   clientId: string;
@@ -3897,7 +3911,11 @@ export interface HqCurfexConfig {
   walletName?: string;
   /** Currencies that use CURFEX (default JPY). Others stay on fixed accounts. */
   currencies?: Array<'JPY' | 'KRW' | 'THB' | 'CNY'>;
+  /** Mirror of active sandbox localMock */
   sandbox?: boolean;
+  activeEnvironment?: CurfexEnvironment;
+  sandboxProfile?: CurfexEnvCredentials;
+  liveProfile?: CurfexEnvCredentials;
   webhookSecret?: string;
   /** Public webhook base for CURFEX registration (e.g. https://hooks.dealmai.com) */
   webhookPublicBaseUrl?: string;

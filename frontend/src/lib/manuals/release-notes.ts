@@ -3,6 +3,72 @@ import type { PlatformReleaseNote } from './version';
 /** 본사정책 → 검증관리 → 업데이트 내용 (PG 플랫폼 업데이트와 동일 형식) */
 export const PLATFORM_RELEASE_NOTES: PlatformReleaseNote[] = [
   {
+    version: '2.6.268',
+    kind: 'minor',
+    date: '2026-11-24',
+    items: {
+      KR: [
+        'CURFEX 웹훅 공개 주소를 Dealmai(hooks.dealmai.com)로 고정. tinpass.com 폴백 제거. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'CURFEX webhook public URL is locked to Dealmai (hooks.dealmai.com); tinpass.com fallback removed. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        'CURFEX Webhook公開URLをDealmai(hooks.dealmai.com)に固定。tinpass.comフォールバック削除。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        'CURFEX Webhook 公开地址固定为 Dealmai（hooks.dealmai.com），移除 tinpass.com 回退。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'ล็อก URL สาธารณะ Webhook CURFEX เป็น Dealmai (hooks.dealmai.com) และเลิกใช้ tinpass.com เป็นค่าสำรอง KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.267',
+    kind: 'minor',
+    date: '2026-11-24',
+    items: {
+      KR: [
+        'CURFEX 라이브 발급 실검증 반영: due 최소 24시간·UTC(Z)·merchantReference 40자 제한 대응. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'CURFEX live issuance hardening from prod probe: min 24h due, UTC Z timestamps, merchantReference max 40. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        'CURFEXライブ発行の実検証反映: due最低24時間・UTC(Z)・merchantReference 40文字制限対応。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        'CURFEX 正式开户实测调整：due 至少 24 小时、UTC(Z)、merchantReference 最长 40。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'ปรับจากทดสอบออกบัญชี CURFEX Live: due อย่างน้อย 24 ชม. ใช้ UTC(Z) และจำกัด merchantReference 40 ตัวอักษร KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
+    version: '2.6.266',
+    kind: 'minor',
+    date: '2026-11-24',
+    items: {
+      KR: [
+        'CURFEX 샌드박스(UAT)와 라이브(Fukugu Production) 자격증명을 분리 저장. 활성 환경 전환·연결 테스트. KR·US·JP·CH·TH.',
+      ],
+      US: [
+        'CURFEX keeps Sandbox(UAT) and Live(Fukugu Production) credentials separately, with active-environment switch and connection test. KR/US/JP/CH/TH.',
+      ],
+      JP: [
+        'CURFEXのサンドボックス(UAT)とライブ(Fukugu Production)資格情報を分離保存。有効環境切替・接続テスト。KR/US/JP/CH/TH。',
+      ],
+      CH: [
+        'CURFEX 沙箱(UAT)与正式(Fukugu Production)凭证分开保存，支持生效环境切换与连接测试。KR/US/JP/CH/TH。',
+      ],
+      TH: [
+        'แยกเก็บข้อมูลรับรอง CURFEX Sandbox(UAT) และ Live(Fukugu Production) สลับสภาพแวดล้อมที่ใช้งานและทดสอบเชื่อมต่อ KR/US/JP/CH/TH',
+      ],
+    },
+  },
+  {
     version: '2.6.265',
     kind: 'minor',
     date: '2026-11-13',

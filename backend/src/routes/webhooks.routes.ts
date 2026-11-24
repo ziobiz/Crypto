@@ -9,7 +9,7 @@ const router = Router();
 
 /**
  * CURFEX/Fukugu Collection webhook (no JWT).
- *   https://api.tinpass.com/api/webhooks/curfex
+ *   https://hooks.dealmai.com/api/webhooks/curfex
  */
 router.post(
   '/curfex',

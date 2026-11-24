@@ -2079,6 +2079,18 @@ export function normalizeHqCollectionMode(
   return fallback;
 }
 
+export type CurfexEnvironment = 'sandbox' | 'live';
+
+/** 환경별 자격증명 (sandbox=UAT, live=운영) */
+export type CurfexEnvCredentials = {
+  clientId: string;
+  clientSecret: string;
+  apiBaseUrl: string;
+  walletName: string;
+  /** sandbox 전용: true면 API 미호출 로컬 목 */
+  localMock?: boolean;
+};
+
 export type HqCurfexConfig = {
   enabled: boolean;
   clientId: string;
@@ -2087,8 +2099,17 @@ export type HqCurfexConfig = {
   walletName?: string;
   /** CURFEX 적용 통화 (기본 JPY). 미선택 통화는 고정계좌 */
   currencies?: CurfexCurrency[];
-  /** true면 실 API 대신 샌드박스 계좌 생성 */
+  /**
+   * @deprecated 활성 환경의 localMock 미러. true면 실 API 대신 로컬 목 계좌.
+   * 신규 UI는 activeEnvironment + sandboxProfile.localMock 사용.
+   */
   sandbox?: boolean;
+  /** 발급·조회에 사용할 환경 (sandbox=UAT/목, live=운영) */
+  activeEnvironment?: CurfexEnvironment;
+  /** UAT/테스트(및 로컬 목) 자격증명 — 유지 */
+  sandboxProfile?: CurfexEnvCredentials;
+  /** Fukugu Collection 운영 자격증명 */
+  liveProfile?: CurfexEnvCredentials;
   /** 웹훅 HMAC 검증용 공유 비밀 (Partner/Merchant 생성) */
   webhookSecret?: string;
   /**
@@ -2116,6 +2137,22 @@ export type HqCurfexConfig = {
   directRemitCurrencies?: UsdtFiatCurrency[];
 };
 
+export const DEFAULT_CURFEX_SANDBOX_PROFILE = (): CurfexEnvCredentials => ({
+  clientId: '',
+  clientSecret: '',
+  apiBaseUrl: 'https://fcol-dashboard-uat1.curfex.com',
+  walletName: '',
+  localMock: false,
+});
+
+export const DEFAULT_CURFEX_LIVE_PROFILE = (): CurfexEnvCredentials => ({
+  clientId: '',
+  clientSecret: '',
+  apiBaseUrl: 'https://api-collection.fukugu.co.jp',
+  walletName: '',
+  localMock: false,
+});
+
 export const DEFAULT_CURFEX_CONFIG = (): HqCurfexConfig => ({
   enabled: false,
   clientId: '',
@@ -2123,7 +2160,10 @@ export const DEFAULT_CURFEX_CONFIG = (): HqCurfexConfig => ({
   apiBaseUrl: 'https://fcol-dashboard-uat1.curfex.com',
   walletName: '',
   currencies: ['JPY'],
-  sandbox: true,
+  sandbox: false,
+  activeEnvironment: 'sandbox',
+  sandboxProfile: DEFAULT_CURFEX_SANDBOX_PROFILE(),
+  liveProfile: DEFAULT_CURFEX_LIVE_PROFILE(),
   webhookSecret: '',
   webhookPublicBaseUrl: 'https://hooks.dealmai.com',
   autoApproveOnDeposit: true,

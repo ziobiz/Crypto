@@ -110,6 +110,14 @@ export default function HqCurfexIssuanceAdminPage() {
               <strong>{cfg?.enabled ? t('hq.services.active') : t('hq.services.inactive')}</strong>
             </p>
             <p>
+              {t('hq.curfexAdmin.activeEnvironment')}:{' '}
+              <strong>
+                {cfg?.activeEnvironment === 'live'
+                  ? t('hq.curfexAdmin.envLiveProd')
+                  : t('hq.curfexAdmin.envSandbox')}
+              </strong>
+            </p>
+            <p>
               {t('hq.curfexAdmin.env')}:{' '}
               <strong>
                 {cfg?.localMock

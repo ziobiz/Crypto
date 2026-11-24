@@ -7,6 +7,7 @@ import {
   getCurfexPaymentDetail,
   isCurfexLocalMock,
   isCurfexNonLiveEnvironment,
+  normalizeCurfexApiBase,
   resolvePublicCurfexWebhookUrl,
 } from './curfex.service';
 import { syncCurfexDepositForTicket } from './curfex-webhook.service';
@@ -32,7 +33,7 @@ async function curfexWalletGet(walletName: string) {
     throw new AppError(503, 'CURFEX credentials are not configured', 'CURFEX_NOT_CONFIGURED');
   }
 
-  const base = (config.apiBaseUrl || '').replace(/\/$/, '');
+  const base = normalizeCurfexApiBase(config.apiBaseUrl);
   const authRes = await fetch(`${base}/api/auth/request-token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -138,12 +139,19 @@ export async function getCurfexAdminOverview() {
   return {
     config: {
       enabled: config.enabled,
+      activeEnvironment: config.activeEnvironment || 'sandbox',
       apiBaseUrl: config.apiBaseUrl,
       walletName: config.walletName,
       currencies: config.currencies,
       localMock: isCurfexLocalMock(config),
       nonLive: isCurfexNonLiveEnvironment(config),
       hasCredentials: Boolean(config.clientId && config.clientSecret),
+      hasSandboxCredentials: Boolean(
+        config.sandboxProfile?.clientId && config.sandboxProfile?.clientSecret,
+      ),
+      hasLiveCredentials: Boolean(
+        config.liveProfile?.clientId && config.liveProfile?.clientSecret,
+      ),
       hasWebhookSecret: Boolean(config.webhookSecret),
       webhookPublicBaseUrl: config.webhookPublicBaseUrl || '',
       autoApproveOnDeposit: config.autoApproveOnDeposit !== false,
